@@ -1,9 +1,9 @@
 [![AppVeyor status](https://ci.appveyor.com/api/projects/status/github/omero-ms-image-region)](https://ci.appveyor.com/project/gs-jenkins/omero-ms-image-region)
 
-OMERO Thumbnail Microservice
-============================
+OMERO Tiling Microservice
+=========================
 
-OMERO thumbnail Vert.x asynchronous microservice server endpoint for OMERO.web.
+OMERO tiling  Vert.x asynchronous microservice server endpoint for OMERO.web.
 
 Requirements
 ============
