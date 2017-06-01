@@ -1,0 +1,11 @@
+{
+    "debug": true,
+    "port": 8080,
+    "omero": {
+        "host": "localhost",
+        "port": 4064
+    },
+    "redis": {
+        "uri": "redis://password@localhost:6379/1"
+    }
+}

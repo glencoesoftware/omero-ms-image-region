@@ -1,0 +1,11 @@
+build: off
+
+build_script:
+  - gradlew distZip
+
+artifacts:
+  - path: build\distributions\*
+
+cache:
+  - '%HOME%\.gradle -> build.gradle'
+
