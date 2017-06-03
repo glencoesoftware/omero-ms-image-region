@@ -4,10 +4,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo.None;
+
 import io.vertx.core.http.HttpServerRequest;
 import loci.common.Region;
 
 public class ImageRegionCtx {
+
+    private static final org.slf4j.Logger log =
+            LoggerFactory.getLogger(ImageRegionCtx.class);
 
     /** Image Id*/
     private Long imageId;
@@ -53,13 +60,42 @@ public class ImageRegionCtx {
     {
         HashMap<String, Object> channels = new HashMap<String, Object>();
         String[] channelArray = channelsFromRequest.split(",", -1);
-        ArrayList<Integer> active = new ArrayList<Integer>();
+        ArrayList<Integer> activeChannels = new ArrayList<Integer>();
         ArrayList<String> colors = new ArrayList<String>();
+        ArrayList<Integer[]> windows = new ArrayList<Integer[]>();
         for (String channel : channelArray) {
-            active.add(Integer.parseInt(channel.split("\\|",-1)[0]));
+            // chan  1|12:1386r$0000FF
+            // temp ['1', '12:1386r$0000FF']
+            String[] temp = channel.split("\\|", 2);
+            String active = temp[0];
+            String color = null;
+            Integer[] range = new Integer[2];
+            String window = null;
+            // temp = '1'
+            // Not normally used...
+            if (active.indexOf("$") >= 0) {
+                String[] split = active.split("\\$", -1);
+                active = split[0];
+                color = split[1];
+            }
+            activeChannels.add(Integer.parseInt(active));
+            if (temp.length > 1) {
+                if (temp[1].indexOf("$") >= 0) {
+                    window = temp[1].split("\\$")[0];
+                    color = temp[1].split("\\$")[1];
+                }
+                String[] rangeStr = window.split(":");
+                if (rangeStr.length > 1) {
+                    range[0] = Integer.parseInt(rangeStr[0]);
+                    range[1] = Integer.parseInt(rangeStr[1]);
+                }
+            }
+            colors.add(color);
+            windows.add(range);
         }
-        channels.put("active", active);
+        channels.put("active", activeChannels);
         channels.put("colors", colors);
+        channels.put("windows", windows);
         return channels;
     }
 
