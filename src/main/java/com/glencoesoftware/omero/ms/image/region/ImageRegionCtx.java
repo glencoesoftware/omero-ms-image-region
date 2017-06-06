@@ -7,7 +7,7 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 
 import io.vertx.core.http.HttpServerRequest;
-import loci.common.Region;
+import io.vertx.core.json.JsonArray;
 
 public class ImageRegionCtx {
 
@@ -119,13 +119,13 @@ public class ImageRegionCtx {
         data.put("t", t);
         data.put("z", z);
         String[] tileArray = tile.split(",", -1);
-        Region region = new Region(
-                Integer.parseInt(tileArray[1]),
-                Integer.parseInt(tileArray[2]),
-                Integer.parseInt(tileArray[3]),
-                Integer.parseInt(tileArray[4]));
+        JsonArray region = new JsonArray();
+        region.add(tileArray[1]);
+        region.add(tileArray[2]);
+        region.add(tileArray[3]);
+        region.add(tileArray[4]);
         data.put("tile", region);
-        data.put("magnification", Integer.parseInt(tileArray[0]));
+        data.put("resolution", Integer.parseInt(tileArray[0]));
         data.put("channelInfo", this.formatChannelInfo(c));
         data.put("m", m);
         data.put("region", null);
