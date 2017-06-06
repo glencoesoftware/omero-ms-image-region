@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.ArrayList;
+
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
@@ -86,7 +88,14 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 Integer.parseInt(tile.getString(2)),
                 Integer.parseInt(tile.getString(3)));
         String omeroSessionKey = data.getString("omeroSessionKey");
-
+        JsonObject channelInfo = data.getJsonObject("channelInfo");
+        JsonArray channelList = channelInfo.getJsonArray("active");
+        JsonArray windowList = channelInfo.getJsonArray("windows");
+        JsonArray colorList = channelInfo.getJsonArray("colors");
+        log.debug("{}", windowList);
+        ArrayList<Integer> channels = (ArrayList<Integer>) channelList.getList();
+        ArrayList<Integer> windows = (ArrayList<Integer>) windowList.getList();
+        ArrayList<String> colors = (ArrayList<String>) colorList.getList();
         log.debug(
             "Render image region request with data: {}", data);
         log.debug("Connecting to the server: {}, {}, {}",
@@ -95,7 +104,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  host, port, omeroSessionKey))
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
-                    imageId, z, t, region, resolution)::renderImageRegion);
+                    imageId, z, t, region, resolution,
+                    channels, windows, colors)::renderImageRegion);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:");
             } else {
