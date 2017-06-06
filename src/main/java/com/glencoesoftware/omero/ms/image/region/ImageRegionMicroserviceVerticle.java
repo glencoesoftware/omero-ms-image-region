@@ -79,6 +79,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
             String sessionKey = cookie.getValue();
             log.debug("OMERO.web session key: {}", sessionKey);
+            event.put("omero.session_key", sessionKey);
             event.next();
 
             /*
@@ -121,10 +122,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     }
 
     /**
-     * Render thumbnail event handler. Responds with a <code>image/jpeg</code>
-     * body on success based on the <code>longestSide</code> and
-     * <code>imageId</code> encoded in the URL or HTTP 404 if the {@link Image}
-     * does not exist or the user does not have permissions to access it.
+     * Render image region event handler.
+     * Responds with a <code>image/jpeg</code> body on success based
+     * on the <code>imageId</code>, <code>z</code> and <code>t</code>
+     * encoded in the URL or HTTP 404 if the {@link Image} does not exist
+     * or the user does not have permissions to access it.
      * @param event Current routing context.
      */
     private void renderImageRegion(RoutingContext event) {
@@ -133,15 +135,33 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         ImageRegionCtx imageRegionCtx = new ImageRegionCtx(request);
         Map<String, Object> data = imageRegionCtx.getImageRegionFormatted();
         data.put("omeroSessionKey", event.get("omero.session_key"));
-        final HttpServerResponse response = event.response();
         log.info("Received request with data: {}", data);
-        response.headers().set("Content-Type", "json");
-        String message = data.toString();
-        response.headers().set(
-                "Content-Length",
-                String.valueOf(message.length()));
-        response.write(Buffer.buffer(message));
-        response.end();
+
+        final HttpServerResponse response = event.response();
+        vertx.eventBus().send(
+                ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
+                Json.encode(data), result -> {
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    int statusCode = 404;
+                    if (t instanceof ReplyException) {
+                        statusCode = ((ReplyException) t).failureCode();
+                    }
+                    response.setStatusCode(statusCode);
+                    return;
+                }
+                byte[] imageRegion = (byte []) result.result().body();
+                response.headers().set("Content-Type", "image/jpeg");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(imageRegion.length));
+                response.write(Buffer.buffer(imageRegion));
+            } finally {
+                response.end();
+                log.debug("Reponse ended");
+            }
+        });
     }
 
 }
