@@ -6,8 +6,6 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo.None;
-
 import io.vertx.core.http.HttpServerRequest;
 import loci.common.Region;
 
@@ -53,6 +51,9 @@ public class ImageRegionCtx {
                 "-" : request.getParam("c");
         this.m = request.getParam("m") == null ?
                 "-" : request.getParam("m");
+        log.debug("imageId: {}, z: {}, t: {}, tile: {}, c: {}, m: {}",
+                this.imageId, this.z, this.t,
+                this.tile, this.c, this.m);
     }
 
     private HashMap<String, Object> formatChannelInfo(
@@ -92,6 +93,8 @@ public class ImageRegionCtx {
             }
             colors.add(color);
             windows.add(range);
+            log.debug("Adding channel: {}, color: {}, window: {}",
+                    active, color, window);
         }
         channels.put("active", activeChannels);
         channels.put("colors", colors);
