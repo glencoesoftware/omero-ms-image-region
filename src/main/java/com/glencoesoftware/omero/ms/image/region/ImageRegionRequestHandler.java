@@ -31,10 +31,14 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import loci.common.Region;
 import omero.ServerError;
+import omero.api.RenderingEnginePrx;
 import omero.api.ThumbnailStorePrx;
 import omero.model.IObject;
 import omero.model.Image;
+import omero.romio.PlaneDef;
+import omero.romio.RegionDef;
 import omero.sys.ParametersI;
 
 public class ImageRegionRequestHandler {
@@ -138,8 +142,7 @@ public class ImageRegionRequestHandler {
     private byte[] getThumbnail(
             omero.client client, Image image, int longestSide)
                     throws ServerError {
-        return getThumbnails(client, Arrays.asList(image), longestSide)
-                .get(unwrap(image.getPrimaryPixels().getId()));
+        return getThumbnails(client, Arrays.asList(image), longestSide);
     }
 
     /**
@@ -153,35 +156,43 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the
      * thumbnails.
      */
-    private Map<Long, byte[]> getThumbnails(
+    private byte[] getThumbnails(
             omero.client client, List<? extends IObject> images,
             int longestSide)
                     throws ServerError{
-        ThumbnailStorePrx thumbnailStore =
-                client.getSession().createThumbnailStore();
+        Image image = (Image) images.get(0);
+        Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put(
+            "omero.group",
+            String.valueOf(unwrap(image.getDetails().getGroup().getId()))
+        );
+        RenderingEnginePrx renderingEngine =
+                client.getSession().createRenderingEngine();
+        RegionDef region = new RegionDef(0, 0, 3000, 3000);
         try {
-            Map<String, String> ctx = new HashMap<String, String>();
-            List<Long> pixelsIds = new ArrayList<Long>();
-            for (IObject o : images) {
-                Image image = (Image) o;
-                pixelsIds.add((Long) unwrap(image.getPrimaryPixels().getId()));
-                // Assume all the groups are the same
-                ctx.put(
-                    "omero.group",
-                    String.valueOf(unwrap(
-                            image.getDetails().getGroup().getId()))
-                );
+            // Assume all the groups are the same
+
+            renderingEngine.lookupPixels(pixelsId, ctx);
+            if (!(renderingEngine.lookupRenderingDef(pixelsId, ctx))) {
+                renderingEngine.resetDefaultSettings(true, ctx);
+                renderingEngine.lookupRenderingDef(pixelsId, ctx);
             }
+            renderingEngine.load(ctx);
+            renderingEngine.setCompressionLevel(0.9f);
+            renderingEngine.setResolutionLevel(2);
+            PlaneDef pDef = new PlaneDef();
+            pDef.z = 0;
+            pDef.t = 0;
+            pDef.region = region;
             StopWatch t0 = new Slf4JStopWatch("getThumbnailByLongestSideSet");
             try {
-                return thumbnailStore.getThumbnailByLongestSideSet(
-                    rint(longestSide), pixelsIds, ctx
-                );
+                return renderingEngine.renderCompressed(pDef);
             } finally {
                 t0.stop();
             }
         } finally {
-            thumbnailStore.close();
+            renderingEngine.close();
         }
     }
 }
