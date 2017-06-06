@@ -26,7 +26,9 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import omero.romio.RegionDef;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
@@ -76,6 +78,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
         long imageId = data.getLong("imageId");
         int z = data.getInteger("z");
         int t = data.getInteger("t");
+        int resolution = data.getInteger("resolution");
+        JsonArray tile = data.getJsonArray("tile");
+        RegionDef region = new RegionDef(
+                Integer.parseInt(tile.getString(0)),
+                Integer.parseInt(tile.getString(1)),
+                Integer.parseInt(tile.getString(2)),
+                Integer.parseInt(tile.getString(3)));
         String omeroSessionKey = data.getString("omeroSessionKey");
 
         log.debug(
@@ -86,7 +95,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  host, port, omeroSessionKey))
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
-                    imageId, z, t)::renderImageRegion);
+                    imageId, z, t, region, resolution)::renderImageRegion);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:");
             } else {
