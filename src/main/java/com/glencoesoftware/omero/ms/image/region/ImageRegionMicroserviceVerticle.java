@@ -5,6 +5,9 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
+import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
+import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import io.vertx.core.AbstractVerticle;
@@ -23,10 +26,19 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import omero.model.Image;
 
+/**
+ * Main entry point for the OMERO image region Vert.x microservice server.
+ * @author Chris Allan <callan@glencoesoftware.com>
+ * @author Emil Rozbicki <emil@glencoesoftware.com>
+ *
+ */
 public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionMicroserviceVerticle.class);
+
+    /** OMERO.web session store */
+    private OmeroWebSessionStore sessionStore;
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -57,6 +69,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
         JsonObject redis = config().getJsonObject("redis");
+        //sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
 
         router.route().handler(event -> {
             Cookie cookie = event.getCookie("sessionid");
@@ -67,9 +80,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             String sessionKey = cookie.getValue();
             log.debug("OMERO.web session key: {}", sessionKey);
             event.next();
+
+            /*
+            sessionStore.getConnectorAsync(sessionKey).thenAccept(connector -> {
+                if (connector == null) {
+                    event.response().setStatusCode(403);
+                    event.response().end();
+                    return;
+                }
+                event.put(
+                    "omero.session_key", connector.getOmeroSessionKey());
+                event.next();
+            });
+            */
         });
 
-        log.info("Heyho");
         // ImageRegion request handlers
         router.get(
                 "/webgateway/render_image_region/:imageId/:z/:t*")
@@ -92,7 +117,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     @Override
     public void stop() throws Exception {
-        
+        //sessionStore.close();
     }
 
     /**
