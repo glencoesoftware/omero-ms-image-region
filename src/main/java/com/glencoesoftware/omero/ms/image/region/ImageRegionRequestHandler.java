@@ -18,10 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import static omero.rtypes.rint;
 import static omero.rtypes.unwrap;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -31,10 +29,8 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
-import loci.common.Region;
 import omero.ServerError;
 import omero.api.RenderingEnginePrx;
-import omero.api.ThumbnailStorePrx;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.romio.PlaneDef;
@@ -55,15 +51,25 @@ public class ImageRegionRequestHandler {
     /** Image identifier to request a thumbnail for. */
     private final long imageId;
 
+    /** Resolution level to read */
+    private final int resolution;
+
+    /** Region to read */
+    private final RegionDef region;
+
     /**
      * Default constructor.
      * @param z Index of the z section to render the region for.
      * @param t Index of the time point to render the region for.
      */
-    public ImageRegionRequestHandler(Long imageId, int z, int t) {
+    public ImageRegionRequestHandler(
+            Long imageId, int z, int t, RegionDef region, int resolution)
+    {
         this.imageId = imageId;
         this.z = z;
         this.t = t;
+        this.region = region;
+        this.resolution = resolution;
     }
 
     /**
@@ -169,7 +175,6 @@ public class ImageRegionRequestHandler {
         );
         RenderingEnginePrx renderingEngine =
                 client.getSession().createRenderingEngine();
-        RegionDef region = new RegionDef(0, 0, 3000, 3000);
         try {
             // Assume all the groups are the same
 
@@ -180,12 +185,12 @@ public class ImageRegionRequestHandler {
             }
             renderingEngine.load(ctx);
             renderingEngine.setCompressionLevel(0.9f);
-            renderingEngine.setResolutionLevel(2);
+            renderingEngine.setResolutionLevel(this.resolution);
             PlaneDef pDef = new PlaneDef();
             pDef.z = 0;
             pDef.t = 0;
-            pDef.region = region;
-            StopWatch t0 = new Slf4JStopWatch("getThumbnailByLongestSideSet");
+            pDef.region = this.region;
+            StopWatch t0 = new Slf4JStopWatch("renderCompressed");
             try {
                 return renderingEngine.renderCompressed(pDef);
             } finally {
@@ -195,4 +200,5 @@ public class ImageRegionRequestHandler {
             renderingEngine.close();
         }
     }
+
 }
