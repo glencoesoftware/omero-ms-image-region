@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import static omero.rtypes.unwrap;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -57,19 +58,33 @@ public class ImageRegionRequestHandler {
     /** Region to read */
     private final RegionDef region;
 
+    /** Channel settings [-1, 2] **/
+    ArrayList<Integer> channels;
+
+    /** Min-max settings for channels **/
+    ArrayList<Integer[] > windows;
+
+    /** Channel colors */
+    ArrayList<String> colors;
+
     /**
      * Default constructor.
      * @param z Index of the z section to render the region for.
      * @param t Index of the time point to render the region for.
      */
     public ImageRegionRequestHandler(
-            Long imageId, int z, int t, RegionDef region, int resolution)
+            Long imageId, int z, int t, RegionDef region, int resolution,
+            ArrayList<Integer> channels, ArrayList<Integer[] > windows,
+            ArrayList<String> colors)
     {
         this.imageId = imageId;
         this.z = z;
         this.t = t;
         this.region = region;
         this.resolution = resolution;
+        this.channels = channels;
+        this.windows = windows;
+        this.colors = colors;
     }
 
     /**
@@ -167,6 +182,7 @@ public class ImageRegionRequestHandler {
             int longestSide)
                     throws ServerError{
         Image image = (Image) images.get(0);
+        Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put(
@@ -186,6 +202,7 @@ public class ImageRegionRequestHandler {
             renderingEngine.load(ctx);
             renderingEngine.setCompressionLevel(0.9f);
             renderingEngine.setResolutionLevel(this.resolution);
+            this.setActiveChannels(renderingEngine, sizeC, ctx);
             PlaneDef pDef = new PlaneDef();
             pDef.z = 0;
             pDef.t = 0;
@@ -198,6 +215,23 @@ public class ImageRegionRequestHandler {
             }
         } finally {
             renderingEngine.close();
+        }
+    }
+
+    private void setActiveChannels(
+            RenderingEnginePrx renderingEngine, int sizeC,
+            Map<String, String> ctx) throws ServerError
+    {
+        int idx = 0; // index of windows/colors args
+        for (int c = 0; c < sizeC; c++) {
+            renderingEngine.setActive(c, this.channels.contains(c), ctx);
+            if (this.windows != null)
+            {
+                log.debug("{}", this.windows.get(idx).length);
+                renderingEngine.setChannelWindow(
+                        c, (float) this.windows.get(idx)[0],
+                        (float) this.windows.get(idx)[1], ctx);
+            }
         }
     }
 

@@ -94,7 +94,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         JsonArray colorList = channelInfo.getJsonArray("colors");
         log.debug("{}", windowList);
         ArrayList<Integer> channels = (ArrayList<Integer>) channelList.getList();
-        ArrayList<Integer> windows = (ArrayList<Integer>) windowList.getList();
+        ArrayList<Integer[] > windows = (ArrayList<Integer[] >) windowList.getList();
         ArrayList<String> colors = (ArrayList<String>) colorList.getList();
         log.debug(
             "Render image region request with data: {}", data);
