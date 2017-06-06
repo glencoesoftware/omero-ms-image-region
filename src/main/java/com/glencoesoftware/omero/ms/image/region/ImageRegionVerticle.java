@@ -73,7 +73,35 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(Message<String> message) {
         JsonObject data = new JsonObject(message.body());
+        long imageId = data.getLong("imageId");
+        int z = data.getInteger("z");
+        int t = data.getInteger("t");
+        String omeroSessionKey = data.getString("omeroSessionKey");
+
         log.debug(
             "Render image region request with data: {}", data);
+        log.debug("Connecting to the server: {}, {}, {}",
+                  host, port, omeroSessionKey);
+        try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
+                 host, port, omeroSessionKey))
+        {
+            byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
+                    imageId, z, t)::renderImageRegion);
+            if (thumbnail == null) {
+                message.fail(404, "Cannot find Image:");
+            } else {
+                message.reply(thumbnail);
+            }
+        } catch (PermissionDeniedException
+                | CannotCreateSessionException e)
+        {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while retrieving image region";
+            log.error(v, e);
+            message.fail(500, v);
+        }
     }
 }
