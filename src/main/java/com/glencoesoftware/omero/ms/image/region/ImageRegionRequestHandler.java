@@ -224,15 +224,65 @@ public class ImageRegionRequestHandler {
     {
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < sizeC; c++) {
-            renderingEngine.setActive(c, this.channels.contains(c), ctx);
+            renderingEngine.setActive(c, this.channels.contains(c + 1), ctx);
+            if (!this.channels.contains(c + 1)) {
+                if (this.channels.contains(-1 * (c + 1))) {
+                    idx += 1;
+                }
+                continue;
+            }
             if (this.windows != null)
             {
-                log.debug("{}", this.windows.get(idx).length);
-                renderingEngine.setChannelWindow(
-                        c, (float) this.windows.get(idx)[0],
-                        (float) this.windows.get(idx)[1], ctx);
+                float min = (float) this.windows.get(idx)[0];
+                float max = (float) this.windows.get(idx)[1];
+                log.debug("Channel: {}, [{}, {}]", c, min, max);
+                renderingEngine.setChannelWindow(c, min, max, ctx);
             }
+            if (this.colors != null) {
+                int[] rgba = this.splitHTMLColor(this.colors.get(idx));
+                if (rgba != null) {
+                    renderingEngine.setRGBA(
+                            c, rgba[0], rgba[1], rgba[2], rgba[3], ctx);
+                }
+            }
+            idx += 1;
         }
     }
 
+    /**
+     *  Splits an hex stream of characters into an array of bytes
+     *  in format (R,G,B,A).
+     *  - abc      -> (0xAA, 0xBB, 0xCC, 0xFF)
+     *  - abcd     -> (0xAA, 0xBB, 0xCC, 0xDD)
+     *  - abbccd   -> (0xAB, 0xBC, 0xCD, 0xFF)
+     *  - abbccdde -> (0xAB, 0xBC, 0xCD, 0xDE)
+     *  @param color:   Characters to split.
+     *  @return:        rgba - list of Ints
+     */
+    private int[] splitHTMLColor(String color) {
+        ArrayList<Integer> level1 = new ArrayList<Integer>(Arrays.asList(3, 4));
+        int[] out = new int[4];
+        try {
+            if (level1.contains(color.length())) {
+                String c = color;
+                color = "";
+                for (char ch : c.toCharArray()) {
+                    color += ch + ch;
+                }
+            }
+            if (color.length() == 6) {
+                color += "FF";
+            }
+            if (color.length() == 8) {
+                out[0] = Integer.parseInt(color.substring(0, 2), 16);
+                out[1] = Integer.parseInt(color.substring(2, 4), 16);
+                out[2] = Integer.parseInt(color.substring(4, 6), 16);
+                out[3] = Integer.parseInt(color.substring(6, 8), 16);
+                return out;
+            }
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        return null;
+    }
 }
