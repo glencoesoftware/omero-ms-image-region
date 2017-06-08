@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import omero.ServerError;
 import omero.api.RenderingEnginePrx;
+import omero.model.RenderingModel;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.romio.PlaneDef;
@@ -55,11 +56,20 @@ public class ImageRegionRequestHandler {
     /** Resolution level to read */
     private final Integer resolution;
 
+    /** Compression Quality */
+    private final Float compressionQuality;
+
     /** Tile to read */
     private final ArrayList<Integer> tile;
 
     /** Region to read */
     private final ArrayList<Integer> region;
+
+    /** Inverted axis */
+    private final Boolean invertedAxis;
+
+    /** Rendering model */
+    private final String model;
 
     /** Channel settings [-1, 2] **/
     ArrayList<Integer> channels;
@@ -77,8 +87,8 @@ public class ImageRegionRequestHandler {
      */
     public ImageRegionRequestHandler(
             Long imageId, int z, int t,
-            ArrayList<Integer> region, ArrayList<Integer> tile,
-            Integer resolution,
+            ArrayList<Integer> region, ArrayList<Integer> tile, String model,
+            Integer resolution, Float compressionQuality, Boolean invertedAxis,
             ArrayList<Integer> channels, ArrayList<Integer[] > windows,
             ArrayList<String> colors)
     {
@@ -88,7 +98,10 @@ public class ImageRegionRequestHandler {
         this.t = t;
         this.region = region;
         this.tile = tile;
+        this.model = model;
         this.resolution = resolution;
+        this.compressionQuality = compressionQuality;
+        this.invertedAxis = invertedAxis;
         this.channels = channels;
         this.windows = windows;
         this.colors = colors;
@@ -210,13 +223,16 @@ public class ImageRegionRequestHandler {
             }
             renderingEngine.load(ctx);
             PlaneDef pDef = new PlaneDef();
-            pDef.z = 0;
-            pDef.t = 0;
+            pDef.z = this.z;
+            pDef.t = this.t;
             pDef.region = this.getRegionDef(renderingEngine);
+            this.setRenderingModel(renderingEngine);
             this.setActiveChannels(renderingEngine, sizeC, ctx);
-            renderingEngine.setCompressionLevel(0.9f);
+            if (this.compressionQuality != null) {
+                renderingEngine.setCompressionLevel(this.compressionQuality);
+            }
             if (this.resolution != null) {
-                renderingEngine.setResolutionLevel(this.resolution);
+                 renderingEngine.setResolutionLevel(this.resolution);
             }
             StopWatch t0 = new Slf4JStopWatch("renderCompressed");
             try {
@@ -249,6 +265,16 @@ public class ImageRegionRequestHandler {
             throw new Exception(v);
         }
         return regionDef;
+    }
+
+    private void setRenderingModel(RenderingEnginePrx renderingEngine) throws ServerError
+    {
+        for (Object a : renderingEngine.getAvailableModels()) {
+            if (this.model.equals(((RenderingModel) a).getValue().getValue())) {
+                renderingEngine.setModel((RenderingModel) a);
+                break;
+            }
+        }
     }
 
     private void setActiveChannels(
