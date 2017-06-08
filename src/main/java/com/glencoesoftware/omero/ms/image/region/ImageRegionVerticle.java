@@ -81,6 +81,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
         int z = data.getInteger("z");
         int t = data.getInteger("t");
         Integer resolution = data.getInteger("resolution");
+        Float compressionQuality = data.getFloat("compressionQuality");
+        Boolean invertedAxis = data.getBoolean("invertedAxis");
+        String model = data.getString("m");
         ArrayList<Integer> tile = null;
         if (data.getJsonArray("tile") != null) {
             tile = (ArrayList<Integer>) data.getJsonArray("tile").getList();
@@ -115,7 +118,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  host, port, omeroSessionKey))
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
-                    imageId, z, t, region, tile, resolution,
+                    imageId, z, t, region, tile, model,
+                    resolution, compressionQuality, invertedAxis,
                     channels, windows, colors)::renderImageRegion);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:");
