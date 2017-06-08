@@ -53,10 +53,13 @@ public class ImageRegionRequestHandler {
     private final long imageId;
 
     /** Resolution level to read */
-    private final int resolution;
+    private final Integer resolution;
+
+    /** Tile to read */
+    private final ArrayList<Integer> tile;
 
     /** Region to read */
-    private final RegionDef region;
+    private final ArrayList<Integer> region;
 
     /** Channel settings [-1, 2] **/
     ArrayList<Integer> channels;
@@ -73,14 +76,18 @@ public class ImageRegionRequestHandler {
      * @param t Index of the time point to render the region for.
      */
     public ImageRegionRequestHandler(
-            Long imageId, int z, int t, RegionDef region, int resolution,
+            Long imageId, int z, int t,
+            ArrayList<Integer> region, ArrayList<Integer> tile,
+            Integer resolution,
             ArrayList<Integer> channels, ArrayList<Integer[] > windows,
             ArrayList<String> colors)
     {
+        log.info("Setting up handler");
         this.imageId = imageId;
         this.z = z;
         this.t = t;
         this.region = region;
+        this.tile = tile;
         this.resolution = resolution;
         this.channels = channels;
         this.windows = windows;
@@ -117,7 +124,8 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the image.
      */
     private Image getImage(omero.client client, Long imageId)
-            throws ServerError {
+            throws ServerError
+    {
         return (Image) getImages(client, Arrays.asList(imageId))
                 .stream()
                 .findFirst()
@@ -132,7 +140,8 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the images.
      */
     private List<IObject> getImages(omero.client client, List<Long> imageIds)
-            throws ServerError {
+            throws ServerError
+    {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
@@ -157,12 +166,12 @@ public class ImageRegionRequestHandler {
      * thumbnail to. The other side will then proportionately, based on aspect
      * ratio, be scaled accordingly.
      * @return JPEG thumbnail as a byte array.
-     * @throws ServerError If there was any sort of error retrieving the
-     * thumbnails.
+     * @throws Exception
      */
     private byte[] getThumbnail(
             omero.client client, Image image, int longestSide)
-                    throws ServerError {
+            throws Exception
+    {
         return getThumbnails(client, Arrays.asList(image), longestSide);
     }
 
@@ -174,13 +183,13 @@ public class ImageRegionRequestHandler {
      * thumbnail to. The other side will then proportionately, based on aspect
      * ratio, be scaled accordingly.
      * @return Map of primary {@link Pixels} to JPEG thumbnail byte array.
-     * @throws ServerError If there was any sort of error retrieving the
-     * thumbnails.
+     * @throws Exception
      */
     private byte[] getThumbnails(
             omero.client client, List<? extends IObject> images,
-            int longestSide)
-                    throws ServerError{
+            int longestSide) throws Exception
+    {
+        log.debug("Getting image region");
         Image image = (Image) images.get(0);
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
@@ -200,13 +209,15 @@ public class ImageRegionRequestHandler {
                 renderingEngine.lookupRenderingDef(pixelsId, ctx);
             }
             renderingEngine.load(ctx);
-            renderingEngine.setCompressionLevel(0.9f);
-            renderingEngine.setResolutionLevel(this.resolution);
-            this.setActiveChannels(renderingEngine, sizeC, ctx);
             PlaneDef pDef = new PlaneDef();
             pDef.z = 0;
             pDef.t = 0;
-            pDef.region = this.region;
+            pDef.region = this.getRegionDef(renderingEngine);
+            this.setActiveChannels(renderingEngine, sizeC, ctx);
+            renderingEngine.setCompressionLevel(0.9f);
+            if (this.resolution != null) {
+                renderingEngine.setResolutionLevel(this.resolution);
+            }
             StopWatch t0 = new Slf4JStopWatch("renderCompressed");
             try {
                 return renderingEngine.renderCompressed(pDef);
@@ -216,6 +227,28 @@ public class ImageRegionRequestHandler {
         } finally {
             renderingEngine.close();
         }
+    }
+
+    private RegionDef getRegionDef(RenderingEnginePrx renderingEngine)
+            throws Exception
+    {
+        RegionDef regionDef = new RegionDef();
+        if (tile != null) {
+            regionDef.width = renderingEngine.getTileSize()[0];
+            regionDef.height = renderingEngine.getTileSize()[1];
+            regionDef.x = tile.get(0) * regionDef.width;
+            regionDef.y = tile.get(1) * regionDef.height;
+        } else if (region != null) {
+            regionDef.x = region.get(0);
+            regionDef.y = region.get(1);
+            regionDef.width = region.get(2);
+            regionDef.height = region.get(3);
+        } else {
+            String v = "Tile or region argument required.";
+            log.error(v);
+            throw new Exception(v);
+        }
+        return regionDef;
     }
 
     private void setActiveChannels(
@@ -260,7 +293,8 @@ public class ImageRegionRequestHandler {
      *  @return:        rgba - list of Ints
      */
     private int[] splitHTMLColor(String color) {
-        ArrayList<Integer> level1 = new ArrayList<Integer>(Arrays.asList(3, 4));
+        ArrayList<Integer> level1 = new ArrayList<Integer>(
+                Arrays.asList(3, 4));
         int[] out = new int[4];
         try {
             if (level1.contains(color.length())) {
