@@ -32,27 +32,25 @@ public class ImageRegionCtx {
     /** channel settings - handled at Verticle level*/
     private String c;
 
-    /** Color mode (g == grey scale; c == colour)
-     * NOT handled at the moment
-     * */
+    /** Color mode (g == grey scale; c == rgb) */
     private String m;
 
     /** Maps
-     * NOT handled at the moment */
+     * NOT handled at the moment supported from 5.3.0 */
     private String maps;
 
-    /** Compression quality 
-     * NOT handled at the moment
-     * */
+    /** Compression quality */
     private Float compressionQuality;
 
     /** Projection 'intmax' OR 'intmax|5:25'
-     * NOT handled at the moment
+     * NOT handled at the moment - does not look like it's supported
+     * for renderImageRegion: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8758
+     * vs. renderImage: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8837
      * */
     private String projection;
 
     /** Inverted Axis
-     *  NOT handled at the moment*/
+     *  NOT handled at the moment - no use cases*/
     private Boolean invertedAxis;
 
     ImageRegionCtx(HttpServerRequest request) {
