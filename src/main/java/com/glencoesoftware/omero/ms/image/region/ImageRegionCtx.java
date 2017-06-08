@@ -167,7 +167,13 @@ public class ImageRegionCtx {
             data.put("region", regionCoor);
         }
         data.put("channelInfo", this.formatChannelInfo(c));
-        data.put("m", m);
+        String model = null;
+        if (this.m != null && this.m.equals("g")) {
+            model = "greyscale";
+        } else if (this.m != null && this.m.equals("c")) {
+            model = "rgb";
+        }
+        data.put("m", model);
         data.put("compressionQuality", this.compressionQuality);
         data.put("invertedAxis", this.invertedAxis);
         data.put("projection", this.projection);
