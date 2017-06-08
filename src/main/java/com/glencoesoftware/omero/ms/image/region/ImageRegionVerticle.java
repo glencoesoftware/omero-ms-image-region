@@ -80,13 +80,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
         long imageId = data.getLong("imageId");
         int z = data.getInteger("z");
         int t = data.getInteger("t");
-        int resolution = data.getInteger("resolution");
-        JsonArray tile = data.getJsonArray("tile");
-        RegionDef region = new RegionDef(
-                Integer.parseInt(tile.getString(0)),
-                Integer.parseInt(tile.getString(1)),
-                Integer.parseInt(tile.getString(2)),
-                Integer.parseInt(tile.getString(3)));
+        Integer resolution = data.getInteger("resolution");
+        ArrayList<Integer> tile = null;
+        if (data.getJsonArray("tile") != null) {
+            tile = (ArrayList<Integer>) data.getJsonArray("tile").getList();
+        }
+        ArrayList<Integer> region = null;
+        if (data.getJsonArray("region") != null) {
+            region = (ArrayList<Integer>) data.getJsonArray("region").getList();
+        }
         String omeroSessionKey = data.getString("omeroSessionKey");
         JsonObject channelInfo = data.getJsonObject("channelInfo");
         JsonArray channelList = channelInfo.getJsonArray("active");
@@ -113,7 +115,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  host, port, omeroSessionKey))
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
-                    imageId, z, t, region, resolution,
+                    imageId, z, t, region, tile, resolution,
                     channels, windows, colors)::renderImageRegion);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:");
