@@ -26,31 +26,55 @@ public class ImageRegionCtx {
     /** tile descriptor (Region) */
     private String tile;
 
-    /** channel settings */
+    /** tile descriptor (Region) */
+    private String region;
+
+    /** channel settings - handled at Verticle level*/
     private String c;
 
-    /** Color mode (g == grey scale; c == colour) */
+    /** Color mode (g == grey scale; c == colour)
+     * NOT handled at the moment
+     * */
     private String m;
 
-    /** Projection 'intmax' OR 'intmax|5:25' */
-    private String p;
-
-    /** Inverted axis */
-    private String ia;
-
-    /** */
+    /** Maps
+     * NOT handled at the moment */
     private String maps;
+
+    /** Compression quality 
+     * NOT handled at the moment
+     * */
+    private Float compressionQuality;
+
+    /** Projection 'intmax' OR 'intmax|5:25'
+     * NOT handled at the moment
+     * */
+    private String projection;
+
+    /** Inverted Axis
+     *  NOT handled at the moment*/
+    private Boolean invertedAxis;
 
     ImageRegionCtx(HttpServerRequest request) {
         this.imageId = Long.parseLong(request.getParam("imageId"));
         this.z = Integer.parseInt(request.getParam("z"));
         this.t = Integer.parseInt(request.getParam("t"));
         this.tile = request.getParam("tile") == null ?
-                "-" : request.getParam("tile");
+                null : request.getParam("tile");
+        this.region = request.getParam("region") == null ?
+                null : request.getParam("region");
         this.c = request.getParam("c") == null ?
-                "-" : request.getParam("c");
+                null : request.getParam("c");
         this.m = request.getParam("m") == null ?
-                "-" : request.getParam("m");
+                null : request.getParam("m");
+        this.compressionQuality = request.getParam("q") == null ?
+                null : Float.parseFloat(request.getParam("q"));
+        this.projection = request.getParam("p") == null ?
+                null : request.getParam("p");
+        this.maps = request.getParam("maps") == null ?
+                null : request.getParam("maps");
+        this.invertedAxis = request.getParam("ia") == null ?
+                null : Boolean.parseBoolean(request.getParam("ia"));
         log.debug("imageId: {}, z: {}, t: {}, tile: {}, c: {}, m: {}",
                 this.imageId, this.z, this.t,
                 this.tile, this.c, this.m);
@@ -105,11 +129,16 @@ public class ImageRegionCtx {
     public Map<String, Object> getImageRegionRaw() {
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("imageId", imageId);
-        data.put("t", t);
-        data.put("z", z);
-        data.put("tile", tile);
-        data.put("c", c);
-        data.put("m", m);
+        data.put("t", this.t);
+        data.put("z", this.z);
+        data.put("tile", this.tile);
+        data.put("region", this.region);
+        data.put("c", this.c);
+        data.put("m", this.m);
+        data.put("compressionQuality", this.compressionQuality);
+        data.put("invertedAxis", this.invertedAxis);
+        data.put("projection", this.projection);
+        data.put("maps", this.maps);
         return data;
     }
 
@@ -118,17 +147,31 @@ public class ImageRegionCtx {
         data.put("imageId", imageId);
         data.put("t", t);
         data.put("z", z);
-        String[] tileArray = tile.split(",", -1);
-        JsonArray region = new JsonArray();
-        region.add(tileArray[1]);
-        region.add(tileArray[2]);
-        region.add(tileArray[3]);
-        region.add(tileArray[4]);
-        data.put("tile", region);
-        data.put("resolution", Integer.parseInt(tileArray[0]));
+        data.put("tile", null);
+        data.put("resolution", null);
+        data.put("region", null);
+        if (this.tile != null) {
+            String[] tileArray = this.tile.split(",", -1);
+            JsonArray tileCoor = new JsonArray();
+            tileCoor.add(Integer.parseInt(tileArray[1]));
+            tileCoor.add(Integer.parseInt(tileArray[2]));
+            data.put("tile", tileCoor);
+            data.put("resolution", Integer.parseInt(tileArray[0]));
+        } else if (this.region != null) {
+            String[] regionSplit = this.region.split(",", -1);
+            JsonArray regionCoor = new JsonArray();
+            regionCoor.add(Integer.parseInt(regionSplit[0]));
+            regionCoor.add(Integer.parseInt(regionSplit[1]));
+            regionCoor.add(Integer.parseInt(regionSplit[2]));
+            regionCoor.add(Integer.parseInt(regionSplit[3]));
+            data.put("region", regionCoor);
+        }
         data.put("channelInfo", this.formatChannelInfo(c));
         data.put("m", m);
-        data.put("region", null);
+        data.put("compressionQuality", this.compressionQuality);
+        data.put("invertedAxis", this.invertedAxis);
+        data.put("projection", this.projection);
+        data.put("maps", this.maps);
         return data;
     }
 }
