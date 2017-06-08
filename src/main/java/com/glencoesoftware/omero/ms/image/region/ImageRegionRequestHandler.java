@@ -228,11 +228,9 @@ public class ImageRegionRequestHandler {
             pDef.region = this.getRegionDef(renderingEngine);
             this.setRenderingModel(renderingEngine);
             this.setActiveChannels(renderingEngine, sizeC, ctx);
+            this.setResolutionLevel(renderingEngine);
             if (this.compressionQuality != null) {
                 renderingEngine.setCompressionLevel(this.compressionQuality);
-            }
-            if (this.resolution != null) {
-                 renderingEngine.setResolutionLevel(this.resolution);
             }
             StopWatch t0 = new Slf4JStopWatch("renderCompressed");
             try {
@@ -265,6 +263,16 @@ public class ImageRegionRequestHandler {
             throw new Exception(v);
         }
         return regionDef;
+    }
+
+    private void setResolutionLevel(RenderingEnginePrx renderingEngine)
+            throws ServerError
+    {
+        if (this.resolution == null) return;
+        Integer numberOfLevels = renderingEngine.getResolutionLevels();
+        Integer level = numberOfLevels - resolution - 1;
+        log.debug("Setting resolution level to: {}", level);
+        renderingEngine.setResolutionLevel(level);
     }
 
     private void setRenderingModel(RenderingEnginePrx renderingEngine) throws ServerError
