@@ -229,9 +229,7 @@ public class ImageRegionRequestHandler {
             this.setRenderingModel(renderingEngine);
             this.setActiveChannels(renderingEngine, sizeC, ctx);
             this.setResolutionLevel(renderingEngine);
-            if (this.compressionQuality != null) {
-                renderingEngine.setCompressionLevel(this.compressionQuality);
-            }
+            this.setCompressionLevel(renderingEngine);
             StopWatch t0 = new Slf4JStopWatch("renderCompressed");
             try {
                 return renderingEngine.renderCompressed(pDef);
@@ -240,6 +238,16 @@ public class ImageRegionRequestHandler {
             }
         } finally {
             renderingEngine.close();
+        }
+    }
+
+    private void setCompressionLevel(RenderingEnginePrx renderingEngine)
+            throws ServerError
+    {
+        if (this.compressionQuality != null) {
+            renderingEngine.setCompressionLevel(this.compressionQuality);
+        } else {
+            renderingEngine.setCompressionLevel(0.9f);
         }
     }
 
@@ -275,10 +283,12 @@ public class ImageRegionRequestHandler {
         renderingEngine.setResolutionLevel(level);
     }
 
-    private void setRenderingModel(RenderingEnginePrx renderingEngine) throws ServerError
+    private void setRenderingModel(RenderingEnginePrx renderingEngine)
+            throws ServerError
     {
         for (Object a : renderingEngine.getAvailableModels()) {
-            if (this.model.equals(((RenderingModel) a).getValue().getValue())) {
+            if (this.model.equals(((RenderingModel) a).getValue().getValue()))
+            {
                 renderingEngine.setModel((RenderingModel) a);
                 break;
             }
