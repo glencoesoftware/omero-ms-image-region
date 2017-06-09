@@ -82,7 +82,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
         int t = data.getInteger("t");
         Integer resolution = data.getInteger("resolution");
         Float compressionQuality = data.getFloat("compressionQuality");
-        Boolean invertedAxis = data.getBoolean("invertedAxis");
         String model = data.getString("m");
         ArrayList<Integer> tile = null;
         if (data.getJsonArray("tile") != null) {
@@ -90,18 +89,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         ArrayList<Integer> region = null;
         if (data.getJsonArray("region") != null) {
-            region = (ArrayList<Integer>) data.getJsonArray("region").getList();
+            region = (ArrayList<Integer>) data.getJsonArray(
+                    "region").getList();
         }
         String omeroSessionKey = data.getString("omeroSessionKey");
         JsonObject channelInfo = data.getJsonObject("channelInfo");
         JsonArray channelList = channelInfo.getJsonArray("active");
         JsonArray windowList = channelInfo.getJsonArray("windows");
         JsonArray colorList = channelInfo.getJsonArray("colors");
-        log.debug("{}", windowList);
         ArrayList<Integer> channels = new ArrayList<Integer>();
         ArrayList<Integer[] > windows = new ArrayList<Integer []>();
         ArrayList<String> colors = new ArrayList<String>();
-
         for (int c = 0; c < channelList.size(); c++) {
             channels.add(channelList.getInteger(c));
             Integer[] window = new Integer[2];
@@ -119,7 +117,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
                     imageId, z, t, region, tile, model,
-                    resolution, compressionQuality, invertedAxis,
+                    resolution, compressionQuality,
                     channels, windows, colors)::renderImageRegion);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:");
