@@ -65,9 +65,6 @@ public class ImageRegionRequestHandler {
     /** Region to read */
     private final ArrayList<Integer> region;
 
-    /** Inverted axis */
-    private final Boolean invertedAxis;
-
     /** Rendering model */
     private final String model;
 
@@ -88,7 +85,7 @@ public class ImageRegionRequestHandler {
     public ImageRegionRequestHandler(
             Long imageId, int z, int t,
             ArrayList<Integer> region, ArrayList<Integer> tile, String model,
-            Integer resolution, Float compressionQuality, Boolean invertedAxis,
+            Integer resolution, Float compressionQuality,
             ArrayList<Integer> channels, ArrayList<Integer[] > windows,
             ArrayList<String> colors)
     {
@@ -101,7 +98,6 @@ public class ImageRegionRequestHandler {
         this.model = model;
         this.resolution = resolution;
         this.compressionQuality = compressionQuality;
-        this.invertedAxis = invertedAxis;
         this.channels = channels;
         this.windows = windows;
         this.colors = colors;
@@ -118,7 +114,7 @@ public class ImageRegionRequestHandler {
         try {
             Image image = getImage(client, imageId);
             if (image != null) {
-                return getThumbnail(client, image, 96);
+                return getRegion(client, image, 96);
             } else {
                 log.debug("Cannot find Image:{}", imageId);
             }
@@ -181,11 +177,11 @@ public class ImageRegionRequestHandler {
      * @return JPEG thumbnail as a byte array.
      * @throws Exception
      */
-    private byte[] getThumbnail(
+    private byte[] getRegion(
             omero.client client, Image image, int longestSide)
             throws Exception
     {
-        return getThumbnails(client, Arrays.asList(image), longestSide);
+        return getRegions(client, Arrays.asList(image), longestSide);
     }
 
     /**
@@ -198,7 +194,7 @@ public class ImageRegionRequestHandler {
      * @return Map of primary {@link Pixels} to JPEG thumbnail byte array.
      * @throws Exception
      */
-    private byte[] getThumbnails(
+    private byte[] getRegions(
             omero.client client, List<? extends IObject> images,
             int longestSide) throws Exception
     {
@@ -207,15 +203,11 @@ public class ImageRegionRequestHandler {
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
         Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put(
-            "omero.group",
-            String.valueOf(unwrap(image.getDetails().getGroup().getId()))
-        );
+        ctx.put("omero.group",
+                String.valueOf(unwrap(image.getDetails().getGroup().getId())));
         RenderingEnginePrx renderingEngine =
                 client.getSession().createRenderingEngine();
         try {
-            // Assume all the groups are the same
-
             renderingEngine.lookupPixels(pixelsId, ctx);
             if (!(renderingEngine.lookupRenderingDef(pixelsId, ctx))) {
                 renderingEngine.resetDefaultSettings(true, ctx);
@@ -244,6 +236,7 @@ public class ImageRegionRequestHandler {
     private void setCompressionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError
     {
+        log.debug("Setting compression level: {}", this.compressionQuality);
         if (this.compressionQuality != null) {
             renderingEngine.setCompressionLevel(this.compressionQuality);
         } else {
@@ -254,6 +247,7 @@ public class ImageRegionRequestHandler {
     private RegionDef getRegionDef(RenderingEnginePrx renderingEngine)
             throws Exception
     {
+        log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         if (tile != null) {
             regionDef.width = renderingEngine.getTileSize()[0];
@@ -276,6 +270,7 @@ public class ImageRegionRequestHandler {
     private void setResolutionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError
     {
+        log.debug("Setting resolution level: {}", this.resolution);
         if (this.resolution == null) return;
         Integer numberOfLevels = renderingEngine.getResolutionLevels();
         Integer level = numberOfLevels - resolution - 1;
@@ -286,6 +281,7 @@ public class ImageRegionRequestHandler {
     private void setRenderingModel(RenderingEnginePrx renderingEngine)
             throws ServerError
     {
+        log.debug("Setting rendering model: {}", this.model);
         for (Object a : renderingEngine.getAvailableModels()) {
             if (this.model.equals(((RenderingModel) a).getValue().getValue()))
             {
@@ -299,6 +295,7 @@ public class ImageRegionRequestHandler {
             RenderingEnginePrx renderingEngine, int sizeC,
             Map<String, String> ctx) throws ServerError
     {
+        log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < sizeC; c++) {
             renderingEngine.setActive(c, this.channels.contains(c + 1), ctx);
