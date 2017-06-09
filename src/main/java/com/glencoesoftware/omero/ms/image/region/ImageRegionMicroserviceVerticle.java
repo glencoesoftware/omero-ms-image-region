@@ -1,12 +1,12 @@
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -20,7 +20,6 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Cookie;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
@@ -58,7 +57,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         JsonObject omero = config().getJsonObject("omero");
         vertx.deployVerticle(new ImageRegionVerticle(
                 omero.getString("host"), omero.getInteger("port")),
-                new DeploymentOptions().setWorker(true).setMultiThreaded(true));
+                new DeploymentOptions().setWorker(
+                        true).setMultiThreaded(true));
 
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
@@ -69,32 +69,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
         JsonObject redis = config().getJsonObject("redis");
-        //sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
-
-        router.route().handler(event -> {
-            Cookie cookie = event.getCookie("sessionid");
-            if (cookie == null) {
-                event.response().setStatusCode(403);
-                event.response().end();
-            }
-            String sessionKey = cookie.getValue();
-            log.debug("OMERO.web session key: {}", sessionKey);
-            event.put("omero.session_key", sessionKey);
-            event.next();
-
-            /*
-            sessionStore.getConnectorAsync(sessionKey).thenAccept(connector -> {
-                if (connector == null) {
-                    event.response().setStatusCode(403);
-                    event.response().end();
-                    return;
-                }
-                event.put(
-                    "omero.session_key", connector.getOmeroSessionKey());
-                event.next();
-            });
-            */
-        });
+        sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
+        router.route().handler(
+                new OmeroWebSessionRequestHandler(sessionStore));
 
         // ImageRegion request handlers
         router.get(
