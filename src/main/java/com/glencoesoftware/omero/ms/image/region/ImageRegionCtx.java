@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
+import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 
@@ -53,26 +54,18 @@ public class ImageRegionCtx {
      *  NOT handled at the moment - no use cases*/
     private Boolean invertedAxis;
 
-    ImageRegionCtx(HttpServerRequest request) {
-        this.imageId = Long.parseLong(request.getParam("imageId"));
-        this.z = Integer.parseInt(request.getParam("z"));
-        this.t = Integer.parseInt(request.getParam("t"));
-        this.tile = request.getParam("tile") == null ?
-                null : request.getParam("tile");
-        this.region = request.getParam("region") == null ?
-                null : request.getParam("region");
-        this.c = request.getParam("c") == null ?
-                null : request.getParam("c");
-        this.m = request.getParam("m") == null ?
-                null : request.getParam("m");
-        this.compressionQuality = request.getParam("q") == null ?
-                null : Float.parseFloat(request.getParam("q"));
-        this.projection = request.getParam("p") == null ?
-                null : request.getParam("p");
-        this.maps = request.getParam("maps") == null ?
-                null : request.getParam("maps");
-        this.invertedAxis = request.getParam("ia") == null ?
-                null : Boolean.parseBoolean(request.getParam("ia"));
+    ImageRegionCtx(MultiMap params) {
+        this.imageId = Long.parseLong(params.get("imageId"));
+        this.z = Integer.parseInt(params.get("z"));
+        this.t = Integer.parseInt(params.get("t"));
+        this.tile = params.get("tile");
+        this.region = params.get("region");
+        this.c = params.get("c");
+        this.m = params.get("m");
+        this.compressionQuality = Float.parseFloat(params.get("q"));
+        this.projection = params.get("p");
+        this.maps = params.get("maps");
+        this.invertedAxis = Boolean.parseBoolean(params.get("ia"));
         log.debug("imageId: {}, z: {}, t: {}, tile: {}, c: {}, m: {}",
                 this.imageId, this.z, this.t,
                 this.tile, this.c, this.m);

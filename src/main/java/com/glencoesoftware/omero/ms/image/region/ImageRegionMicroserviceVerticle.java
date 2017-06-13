@@ -109,7 +109,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         HttpServerRequest request = event.request();
-        ImageRegionCtx imageRegionCtx = new ImageRegionCtx(request);
+        ImageRegionCtx imageRegionCtx = new ImageRegionCtx(request.params());
         Map<String, Object> data = imageRegionCtx.getImageRegionFormatted();
         data.put("omeroSessionKey", event.get("omero.session_key"));
         log.info("Received request with data: {}", data);
