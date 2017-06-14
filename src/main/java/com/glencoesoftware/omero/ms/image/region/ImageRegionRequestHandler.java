@@ -43,63 +43,17 @@ public class ImageRegionRequestHandler {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
-    /** z - index. */
-    private final int z;
-
-    /** t -index. */
-    private final int t;
-
-    /** Image identifier to request a thumbnail for. */
-    private final long imageId;
-
-    /** Resolution level to read */
-    private final Integer resolution;
-
-    /** Compression Quality */
-    private final Float compressionQuality;
-
-    /** Tile to read */
-    private final List<Integer> tile;
-
-    /** Region to read */
-    private final List<Integer> region;
-
-    /** Rendering model */
-    private final String model;
-
-    /** Channel settings [-1, 2] **/
-    List<Integer> channels;
-
-    /** Min-max settings for channels **/
-    List<Integer[] > windows;
-
-    /** Channel colors */
-    List<String> colors;
+    /** Image Region Context */
+    private final ImageRegionCtx imageRegionCtx;
 
     /**
      * Default constructor.
      * @param z Index of the z section to render the region for.
      * @param t Index of the time point to render the region for.
      */
-    public ImageRegionRequestHandler(
-            Long imageId, int z, int t,
-            List<Integer> region, List<Integer> tile, String model,
-            Integer resolution, Float compressionQuality,
-            List<Integer> channels, List<Integer[] > windows,
-            List<String> colors)
-    {
+    public ImageRegionRequestHandler(ImageRegionCtx imageRegionCtx) {
         log.info("Setting up handler");
-        this.imageId = imageId;
-        this.z = z;
-        this.t = t;
-        this.region = region;
-        this.tile = tile;
-        this.model = model;
-        this.resolution = resolution;
-        this.compressionQuality = compressionQuality;
-        this.channels = channels;
-        this.windows = windows;
-        this.colors = colors;
+        this.imageRegionCtx = imageRegionCtx;
     }
 
     /**
@@ -111,11 +65,11 @@ public class ImageRegionRequestHandler {
      */
     public byte[] renderImageRegion(omero.client client) {
         try {
-            Image image = getImage(client, imageId);
+            Image image = getImage(client, imageRegionCtx.imageId);
             if (image != null) {
-                return getRegion(client, image, 96);
+                return getRegion(client, image);
             } else {
-                log.debug("Cannot find Image:{}", imageId);
+                log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
             }
         } catch (Exception e) {
             log.error("Exception while retrieving thumbnail", e);
@@ -175,9 +129,9 @@ public class ImageRegionRequestHandler {
      * @throws Exception
      */
     private byte[] getRegion(
-            omero.client client, Image image, int longestSide)
+            omero.client client, Image image)
             throws Exception {
-        return getRegions(client, Arrays.asList(image), longestSide);
+        return getRegions(client, Arrays.asList(image));
     }
 
     /**
@@ -191,8 +145,8 @@ public class ImageRegionRequestHandler {
      * @throws Exception
      */
     private byte[] getRegions(
-            omero.client client, List<? extends IObject> images,
-            int longestSide) throws Exception {
+            omero.client client, List<? extends IObject> images)
+                    throws Exception {
         log.debug("Getting image region");
         Image image = (Image) images.get(0);
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
@@ -210,11 +164,11 @@ public class ImageRegionRequestHandler {
             }
             renderingEngine.load(ctx);
             PlaneDef pDef = new PlaneDef();
-            pDef.z = this.z;
-            pDef.t = this.t;
-            pDef.region = this.getRegionDef(renderingEngine);
-            this.setRenderingModel(renderingEngine);
-            this.setActiveChannels(renderingEngine, sizeC, ctx);
+            pDef.z = imageRegionCtx.z;
+            pDef.t = imageRegionCtx.t;
+            pDef.region = getRegionDef(renderingEngine);
+            setRenderingModel(renderingEngine);
+            setActiveChannels(renderingEngine, sizeC, ctx);
             this.setResolutionLevel(renderingEngine);
             this.setCompressionLevel(renderingEngine);
             StopWatch t0 = new Slf4JStopWatch("renderCompressed");
@@ -230,9 +184,11 @@ public class ImageRegionRequestHandler {
 
     private void setCompressionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError {
-        log.debug("Setting compression level: {}", this.compressionQuality);
-        if (this.compressionQuality != null) {
-            renderingEngine.setCompressionLevel(this.compressionQuality);
+        log.debug("Setting compression level: {}",
+                  imageRegionCtx.compressionQuality);
+        if (imageRegionCtx.compressionQuality != null) {
+            renderingEngine.setCompressionLevel(
+                    imageRegionCtx.compressionQuality);
         } else {
             renderingEngine.setCompressionLevel(0.9f);
         }
@@ -242,16 +198,16 @@ public class ImageRegionRequestHandler {
             throws Exception {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
-        if (tile != null) {
+        if (imageRegionCtx.tile != null) {
             regionDef.width = renderingEngine.getTileSize()[0];
             regionDef.height = renderingEngine.getTileSize()[1];
-            regionDef.x = tile.get(0) * regionDef.width;
-            regionDef.y = tile.get(1) * regionDef.height;
-        } else if (region != null) {
-            regionDef.x = region.get(0);
-            regionDef.y = region.get(1);
-            regionDef.width = region.get(2);
-            regionDef.height = region.get(3);
+            regionDef.x = imageRegionCtx.tile.get(0) * regionDef.width;
+            regionDef.y = imageRegionCtx.tile.get(1) * regionDef.height;
+        } else if (imageRegionCtx.region != null) {
+            regionDef.x = imageRegionCtx.region.get(0);
+            regionDef.y = imageRegionCtx.region.get(1);
+            regionDef.width = imageRegionCtx.region.get(2);
+            regionDef.height = imageRegionCtx.region.get(3);
         } else {
             String v = "Tile or region argument required.";
             log.error(v);
@@ -263,22 +219,23 @@ public class ImageRegionRequestHandler {
 
     private void setResolutionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError {
-        log.debug("Setting resolution level: {}", resolution);
-        if (resolution == null) {
+        log.debug("Setting resolution level: {}", imageRegionCtx.resolution);
+        if (imageRegionCtx.resolution == null) {
             return;
         }
         Integer numberOfLevels = renderingEngine.getResolutionLevels();
-        Integer level = numberOfLevels - resolution - 1;
+        Integer level = numberOfLevels - imageRegionCtx.resolution - 1;
         log.debug("Setting resolution level to: {}", level);
         renderingEngine.setResolutionLevel(level);
     }
 
     private void setRenderingModel(RenderingEnginePrx renderingEngine)
             throws ServerError {
-        log.debug("Setting rendering model: {}", model);
+        log.debug("Setting rendering model: {}", imageRegionCtx.m);
         for (IObject a : renderingEngine.getAvailableModels()) {
             RenderingModel renderingModel = (RenderingModel) a;
-            if (model.equals(renderingModel.getValue().getValue())) {
+            if (imageRegionCtx.m.equals(renderingModel.getValue().getValue()))
+            {
                 renderingEngine.setModel(renderingModel);
                 break;
             }
@@ -292,21 +249,22 @@ public class ImageRegionRequestHandler {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < sizeC; c++) {
-            renderingEngine.setActive(c, channels.contains(c + 1), ctx);
-            if (!channels.contains(c + 1)) {
-                if (channels.contains(-1 * (c + 1))) {
+            renderingEngine.setActive(
+                    c, imageRegionCtx.channels.contains(c + 1), ctx);
+            if (!imageRegionCtx.channels.contains(c + 1)) {
+                if (imageRegionCtx.channels.contains(-1 * (c + 1))) {
                     idx += 1;
                 }
                 continue;
             }
-            if (windows != null) {
-                float min = (float) windows.get(idx)[0];
-                float max = (float) windows.get(idx)[1];
+            if (imageRegionCtx.windows != null) {
+                float min = (float) imageRegionCtx.windows.get(idx)[0];
+                float max = (float) imageRegionCtx.windows.get(idx)[1];
                 log.debug("Channel: {}, [{}, {}]", c, min, max);
                 renderingEngine.setChannelWindow(c, min, max, ctx);
             }
-            if (colors != null) {
-                int[] rgba = splitHTMLColor(colors.get(idx));
+            if (imageRegionCtx.colors != null) {
+                int[] rgba = splitHTMLColor(imageRegionCtx.colors.get(idx));
                 if (rgba != null) {
                     renderingEngine.setRGBA(
                             c, rgba[0], rgba[1], rgba[2], rgba[3], ctx);
