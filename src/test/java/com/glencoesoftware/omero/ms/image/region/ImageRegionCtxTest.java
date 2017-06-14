@@ -42,14 +42,14 @@ public class ImageRegionCtxTest {
     final private int channel0 = -1;
     final private int channel1 = 2;
     final private int channel2 = -3;
-    final private int[] window0 = new int[]{0, 65535};
-    final private int[] window1 = new int[]{1755, 51199};
-    final private int[] window2 = new int[]{3218, 26623};
+    final private float[] window0 = new float[]{0, 65535};
+    final private float[] window1 = new float[]{1755, 51199};
+    final private float[] window2 = new float[]{3218, 26623};
     final private String color0 = "0000FF";
     final private String color1 = "00FF00";
     final private String color2 = "FF0000";
     final private String c = String.format(
-            "%d|%d:%d$%s,%d|%d:%d$%s,%d|%d:%d$%s",
+            "%d|%f:%f$%s,%d|%f:%f$%s,%d|%f:%f$%s",
             channel0, window0[0], window0[1], color0,
             channel1, window1[0], window1[1], color1,
             channel2, window2[0], window2[1], color2);
@@ -84,12 +84,12 @@ public class ImageRegionCtxTest {
         Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
         Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals((int) imageCtx.windows.get(0)[0], window0[0]);
-        Assert.assertEquals((int) imageCtx.windows.get(0)[1], window0[1]);
-        Assert.assertEquals((int) imageCtx.windows.get(1)[0], window1[0]);
-        Assert.assertEquals((int) imageCtx.windows.get(1)[1], window1[1]);
-        Assert.assertEquals((int) imageCtx.windows.get(2)[0], window2[0]);
-        Assert.assertEquals((int) imageCtx.windows.get(2)[1], window2[1]);
+        Assert.assertEquals((float) imageCtx.windows.get(0)[0], window0[0]);
+        Assert.assertEquals((float) imageCtx.windows.get(0)[1], window0[1]);
+        Assert.assertEquals((float) imageCtx.windows.get(1)[0], window1[0]);
+        Assert.assertEquals((float) imageCtx.windows.get(1)[1], window1[1]);
+        Assert.assertEquals((float) imageCtx.windows.get(2)[0], window2[0]);
+        Assert.assertEquals((float) imageCtx.windows.get(2)[1], window2[1]);
     }
 
     @Test
