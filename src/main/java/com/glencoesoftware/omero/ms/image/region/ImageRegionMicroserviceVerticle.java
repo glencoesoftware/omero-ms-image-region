@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.LoggerFactory;
@@ -129,8 +130,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         log.info("Rendering image region");
         HttpServerRequest request = event.request();
         ImageRegionCtx imageRegionCtx = new ImageRegionCtx(request.params());
-        Map<String, Object> data = imageRegionCtx.getImageRegionFormatted();
+        Map<String, Object> data = new HashMap<String, Object>();
         data.put("omeroSessionKey", event.get("omero.session_key"));
+        data.put("imageRegionCtx", imageRegionCtx);
         log.info("Received request with data: {}", data);
 
         final HttpServerResponse response = event.response();
