@@ -95,14 +95,22 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void renderImageRegion(Message<String> message)
             throws JsonParseException, JsonMappingException, IOException
     {
-        JsonObject data = new JsonObject(message.body());
+        JsonObject body = new JsonObject(message.body());
         ObjectMapper mapper = new ObjectMapper();
-        ImageRegionCtx imageRegionCtx = mapper.readValue(
-                data.getJsonObject("imageRegionCtx").toString(),
-                ImageRegionCtx.class);
-        String omeroSessionKey = data.getString("omeroSessionKey");
+        ImageRegionCtx imageRegionCtx;
+        try {
+            imageRegionCtx = mapper.readValue(
+                    body.getJsonObject("imageRegionCtx").toString(),
+                    ImageRegionCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal image region context";
+            log.error(v + ": {}", body, e);
+            message.fail(400, v);
+            return;
+        }
+         String omeroSessionKey = body.getString("omeroSessionKey");
         log.debug(
-            "Render image region request with data: {}", data);
+            "Render image region request with data: {}", body);
         log.debug("Connecting to the server: {}, {}, {}",
                   host, port, omeroSessionKey);
         try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
