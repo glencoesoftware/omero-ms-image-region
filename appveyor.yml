@@ -9,6 +9,9 @@ build: off
 build_script:
   - gradlew -PArtifactoryUserName=%ARTIFACTORY_USERNAME% -PArtifactoryPassword=%ARTIFACTORY_PASSWORD% build
 
+test_script:
+  - gradlew test
+
 after_test:
   - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER gradlew -PArtifactoryUserName=%ARTIFACTORY_USERNAME% -PArtifactoryPassword=%ARTIFACTORY_PASSWORD% uploadArchives
 
