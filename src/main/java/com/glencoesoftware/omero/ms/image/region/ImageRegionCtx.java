@@ -7,7 +7,6 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 
 import io.vertx.core.MultiMap;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 
 public class ImageRegionCtx {
@@ -41,7 +40,7 @@ public class ImageRegionCtx {
     private String maps;
 
     /** Compression quality */
-    private Float compressionQuality;
+    private String compressionQuality;
 
     /** Projection 'intmax' OR 'intmax|5:25'
      * NOT handled at the moment - does not look like it's supported
@@ -62,7 +61,7 @@ public class ImageRegionCtx {
         this.region = params.get("region");
         this.c = params.get("c");
         this.m = params.get("m");
-        this.compressionQuality = Float.parseFloat(params.get("q"));
+        this.compressionQuality = params.get("q");
         this.projection = params.get("p");
         this.maps = params.get("maps");
         this.invertedAxis = Boolean.parseBoolean(params.get("ia"));
@@ -165,7 +164,12 @@ public class ImageRegionCtx {
             model = "rgb";
         }
         data.put("m", model);
-        data.put("compressionQuality", this.compressionQuality);
+        if (this.compressionQuality != null) {
+            data.put("compressionQuality",
+                     Float.parseFloat(this.compressionQuality));
+        } else {
+            data.put("compressionQuality", this.compressionQuality);
+        }
         data.put("invertedAxis", this.invertedAxis);
         data.put("projection", this.projection);
         data.put("maps", this.maps);
