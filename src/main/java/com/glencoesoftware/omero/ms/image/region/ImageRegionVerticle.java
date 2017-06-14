@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.LoggerFactory;
 
@@ -82,28 +83,31 @@ public class ImageRegionVerticle extends AbstractVerticle {
         Integer resolution = data.getInteger("resolution");
         Float compressionQuality = data.getFloat("compressionQuality");
         String model = data.getString("m");
-        ArrayList<Integer> tile = null;
-        if (data.getJsonArray("tile") != null) {
-            tile = (ArrayList<Integer>) data.getJsonArray("tile").getList();
+        JsonArray tileAsJson = data.getJsonArray("tile");
+        List<Integer> tile = new ArrayList<Integer>();
+        for (int i = 0; i < tileAsJson.size(); i++) {
+            tile.add(tileAsJson.getInteger(i));
         }
-        ArrayList<Integer> region = null;
-        if (data.getJsonArray("region") != null) {
-            region = (ArrayList<Integer>) data.getJsonArray(
-                    "region").getList();
+        JsonArray regionAsJson = data.getJsonArray("region");
+        List<Integer> region = new ArrayList<Integer>();
+        for (int i = 0; i < regionAsJson.size(); i++) {
+            region.add(regionAsJson.getInteger(i));
         }
         String omeroSessionKey = data.getString("omeroSessionKey");
         JsonObject channelInfo = data.getJsonObject("channelInfo");
         JsonArray channelList = channelInfo.getJsonArray("active");
         JsonArray windowList = channelInfo.getJsonArray("windows");
         JsonArray colorList = channelInfo.getJsonArray("colors");
-        ArrayList<Integer> channels = new ArrayList<Integer>();
-        ArrayList<Integer[] > windows = new ArrayList<Integer []>();
-        ArrayList<String> colors = new ArrayList<String>();
+        List<Integer> channels = new ArrayList<Integer>();
+        List<Integer[] > windows = new ArrayList<Integer[]>();
+        List<String> colors = new ArrayList<String>();
         for (int c = 0; c < channelList.size(); c++) {
             channels.add(channelList.getInteger(c));
-            Integer[] window = new Integer[2];
-            window[0] = windowList.getJsonArray(c).getInteger(0);
-            window[1] = windowList.getJsonArray(c).getInteger(1);
+            JsonArray windowAsJson = windowList.getJsonArray(c);
+            Integer[] window = new Integer[] {
+                windowAsJson.getInteger(0),
+                windowAsJson.getInteger(1)
+            };
             windows.add(window);
             colors.add(colorList.getString(c));
         }

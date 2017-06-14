@@ -20,7 +20,6 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import static omero.rtypes.unwrap;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -60,22 +59,22 @@ public class ImageRegionRequestHandler {
     private final Float compressionQuality;
 
     /** Tile to read */
-    private final ArrayList<Integer> tile;
+    private final List<Integer> tile;
 
     /** Region to read */
-    private final ArrayList<Integer> region;
+    private final List<Integer> region;
 
     /** Rendering model */
     private final String model;
 
     /** Channel settings [-1, 2] **/
-    ArrayList<Integer> channels;
+    List<Integer> channels;
 
     /** Min-max settings for channels **/
-    ArrayList<Integer[] > windows;
+    List<Integer[] > windows;
 
     /** Channel colors */
-    ArrayList<String> colors;
+    List<String> colors;
 
     /**
      * Default constructor.
@@ -84,10 +83,10 @@ public class ImageRegionRequestHandler {
      */
     public ImageRegionRequestHandler(
             Long imageId, int z, int t,
-            ArrayList<Integer> region, ArrayList<Integer> tile, String model,
+            List<Integer> region, List<Integer> tile, String model,
             Integer resolution, Float compressionQuality,
-            ArrayList<Integer> channels, ArrayList<Integer[] > windows,
-            ArrayList<String> colors)
+            List<Integer> channels, List<Integer[] > windows,
+            List<String> colors)
     {
         log.info("Setting up handler");
         this.imageId = imageId;
@@ -133,8 +132,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the image.
      */
     private Image getImage(omero.client client, Long imageId)
-            throws ServerError
-    {
+            throws ServerError {
         return (Image) getImages(client, Arrays.asList(imageId))
                 .stream()
                 .findFirst()
@@ -149,8 +147,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the images.
      */
     private List<IObject> getImages(omero.client client, List<Long> imageIds)
-            throws ServerError
-    {
+            throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
@@ -179,8 +176,7 @@ public class ImageRegionRequestHandler {
      */
     private byte[] getRegion(
             omero.client client, Image image, int longestSide)
-            throws Exception
-    {
+            throws Exception {
         return getRegions(client, Arrays.asList(image), longestSide);
     }
 
@@ -196,8 +192,7 @@ public class ImageRegionRequestHandler {
      */
     private byte[] getRegions(
             omero.client client, List<? extends IObject> images,
-            int longestSide) throws Exception
-    {
+            int longestSide) throws Exception {
         log.debug("Getting image region");
         Image image = (Image) images.get(0);
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
@@ -234,8 +229,7 @@ public class ImageRegionRequestHandler {
     }
 
     private void setCompressionLevel(RenderingEnginePrx renderingEngine)
-            throws ServerError
-    {
+            throws ServerError {
         log.debug("Setting compression level: {}", this.compressionQuality);
         if (this.compressionQuality != null) {
             renderingEngine.setCompressionLevel(this.compressionQuality);
@@ -245,8 +239,7 @@ public class ImageRegionRequestHandler {
     }
 
     private RegionDef getRegionDef(RenderingEnginePrx renderingEngine)
-            throws Exception
-    {
+            throws Exception {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         if (tile != null) {
@@ -262,16 +255,18 @@ public class ImageRegionRequestHandler {
         } else {
             String v = "Tile or region argument required.";
             log.error(v);
+            // FIXME
             throw new Exception(v);
         }
         return regionDef;
     }
 
     private void setResolutionLevel(RenderingEnginePrx renderingEngine)
-            throws ServerError
-    {
-        log.debug("Setting resolution level: {}", this.resolution);
-        if (this.resolution == null) return;
+            throws ServerError {
+        log.debug("Setting resolution level: {}", resolution);
+        if (resolution == null) {
+            return;
+        }
         Integer numberOfLevels = renderingEngine.getResolutionLevels();
         Integer level = numberOfLevels - resolution - 1;
         log.debug("Setting resolution level to: {}", level);
@@ -279,13 +274,12 @@ public class ImageRegionRequestHandler {
     }
 
     private void setRenderingModel(RenderingEnginePrx renderingEngine)
-            throws ServerError
-    {
-        log.debug("Setting rendering model: {}", this.model);
-        for (Object a : renderingEngine.getAvailableModels()) {
-            if (this.model.equals(((RenderingModel) a).getValue().getValue()))
-            {
-                renderingEngine.setModel((RenderingModel) a);
+            throws ServerError {
+        log.debug("Setting rendering model: {}", model);
+        for (IObject a : renderingEngine.getAvailableModels()) {
+            RenderingModel renderingModel = (RenderingModel) a;
+            if (model.equals(renderingModel.getValue().getValue())) {
+                renderingEngine.setModel(renderingModel);
                 break;
             }
         }
@@ -293,27 +287,26 @@ public class ImageRegionRequestHandler {
 
     private void setActiveChannels(
             RenderingEnginePrx renderingEngine, int sizeC,
-            Map<String, String> ctx) throws ServerError
-    {
+            Map<String, String> ctx)
+                    throws ServerError {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < sizeC; c++) {
-            renderingEngine.setActive(c, this.channels.contains(c + 1), ctx);
-            if (!this.channels.contains(c + 1)) {
-                if (this.channels.contains(-1 * (c + 1))) {
+            renderingEngine.setActive(c, channels.contains(c + 1), ctx);
+            if (!channels.contains(c + 1)) {
+                if (channels.contains(-1 * (c + 1))) {
                     idx += 1;
                 }
                 continue;
             }
-            if (this.windows != null)
-            {
-                float min = (float) this.windows.get(idx)[0];
-                float max = (float) this.windows.get(idx)[1];
+            if (windows != null) {
+                float min = (float) windows.get(idx)[0];
+                float max = (float) windows.get(idx)[1];
                 log.debug("Channel: {}, [{}, {}]", c, min, max);
                 renderingEngine.setChannelWindow(c, min, max, ctx);
             }
-            if (this.colors != null) {
-                int[] rgba = this.splitHTMLColor(this.colors.get(idx));
+            if (colors != null) {
+                int[] rgba = splitHTMLColor(colors.get(idx));
                 if (rgba != null) {
                     renderingEngine.setRGBA(
                             c, rgba[0], rgba[1], rgba[2], rgba[3], ctx);
@@ -334,8 +327,7 @@ public class ImageRegionRequestHandler {
      *  @return:        rgba - list of Ints
      */
     private int[] splitHTMLColor(String color) {
-        ArrayList<Integer> level1 = new ArrayList<Integer>(
-                Arrays.asList(3, 4));
+        List<Integer> level1 = Arrays.asList(3, 4);
         int[] out = new int[4];
         try {
             if (level1.contains(color.length())) {
@@ -356,7 +348,7 @@ public class ImageRegionRequestHandler {
                 return out;
             }
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Error while parsing color: {}", e);
         }
         return null;
     }

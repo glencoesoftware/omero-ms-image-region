@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.LoggerFactory;
@@ -53,8 +54,7 @@ public class ImageRegionCtx {
     /** Color mode (g == grey scale; c == rgb) */
     private String m;
 
-    /** Maps
-     * NOT handled at the moment supported from 5.3.0 */
+    /** Maps. <b>Not</b> handled at the moment. Supported from 5.3.0 */
     private String maps;
 
     /** Compression quality */
@@ -71,31 +71,34 @@ public class ImageRegionCtx {
      *  NOT handled at the moment - no use cases*/
     private Boolean invertedAxis;
 
+    /**
+     * Default constructor.
+     * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
+     * required for rendering an image region.
+     */
     ImageRegionCtx(MultiMap params) {
-        this.imageId = Long.parseLong(params.get("imageId"));
-        this.z = Integer.parseInt(params.get("z"));
-        this.t = Integer.parseInt(params.get("t"));
-        this.tile = params.get("tile");
-        this.region = params.get("region");
-        this.c = params.get("c");
-        this.m = params.get("m");
-        this.compressionQuality = params.get("q");
-        this.projection = params.get("p");
-        this.maps = params.get("maps");
-        this.invertedAxis = Boolean.parseBoolean(params.get("ia"));
-        log.debug("imageId: {}, z: {}, t: {}, tile: {}, c: {}, m: {}",
+        imageId = Long.parseLong(params.get("imageId"));
+        z = Integer.parseInt(params.get("z"));
+        t = Integer.parseInt(params.get("t"));
+        tile = params.get("tile");
+        region = params.get("region");
+        c = params.get("c");
+        m = params.get("m");
+        compressionQuality = params.get("q");
+        projection = params.get("p");
+        maps = params.get("maps");
+        invertedAxis = Boolean.parseBoolean(params.get("ia"));
+        log.debug("Image:{}, z: {}, t: {}, tile: {}, c: {}, m: {}",
                 this.imageId, this.z, this.t,
                 this.tile, this.c, this.m);
     }
 
-    private HashMap<String, Object> formatChannelInfo(
-            String channelsFromRequest)
-    {
-        HashMap<String, Object> channels = new HashMap<String, Object>();
+    private Map<String, Object> formatChannelInfo(String channelsFromRequest) {
+        Map<String, Object> channels = new HashMap<String, Object>();
         String[] channelArray = channelsFromRequest.split(",", -1);
-        ArrayList<Integer> activeChannels = new ArrayList<Integer>();
-        ArrayList<String> colors = new ArrayList<String>();
-        ArrayList<Integer[]> windows = new ArrayList<Integer[]>();
+        List<Integer> activeChannels = new ArrayList<Integer>();
+        List<String> colors = new ArrayList<String>();
+        List<Integer[]> windows = new ArrayList<Integer[]>();
         for (String channel : channelArray) {
             // chan  1|12:1386r$0000FF
             // temp ['1', '12:1386r$0000FF']
@@ -137,16 +140,16 @@ public class ImageRegionCtx {
     public Map<String, Object> getImageRegionRaw() {
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("imageId", imageId);
-        data.put("t", this.t);
-        data.put("z", this.z);
-        data.put("tile", this.tile);
-        data.put("region", this.region);
-        data.put("c", this.c);
-        data.put("m", this.m);
-        data.put("compressionQuality", this.compressionQuality);
-        data.put("invertedAxis", this.invertedAxis);
-        data.put("projection", this.projection);
-        data.put("maps", this.maps);
+        data.put("t", t);
+        data.put("z", z);
+        data.put("tile", tile);
+        data.put("region", region);
+        data.put("c", c);
+        data.put("m", m);
+        data.put("compressionQuality", compressionQuality);
+        data.put("invertedAxis", invertedAxis);
+        data.put("projection", projection);
+        data.put("maps", maps);
         return data;
     }
 
@@ -159,14 +162,14 @@ public class ImageRegionCtx {
         data.put("resolution", null);
         data.put("region", null);
         if (this.tile != null) {
-            String[] tileArray = this.tile.split(",", -1);
+            String[] tileArray = tile.split(",", -1);
             JsonArray tileCoor = new JsonArray();
             tileCoor.add(Integer.parseInt(tileArray[1]));
             tileCoor.add(Integer.parseInt(tileArray[2]));
             data.put("tile", tileCoor);
             data.put("resolution", Integer.parseInt(tileArray[0]));
         } else if (this.region != null) {
-            String[] regionSplit = this.region.split(",", -1);
+            String[] regionSplit = region.split(",", -1);
             JsonArray regionCoor = new JsonArray();
             regionCoor.add(Integer.parseInt(regionSplit[0]));
             regionCoor.add(Integer.parseInt(regionSplit[1]));
@@ -174,23 +177,23 @@ public class ImageRegionCtx {
             regionCoor.add(Integer.parseInt(regionSplit[3]));
             data.put("region", regionCoor);
         }
-        data.put("channelInfo", this.formatChannelInfo(c));
+        data.put("channelInfo", formatChannelInfo(c));
         String model = null;
-        if (this.m != null && this.m.equals("g")) {
+        if (m != null && m.equals("g")) {
             model = "greyscale";
-        } else if (this.m != null && this.m.equals("c")) {
+        } else if (m != null && m.equals("c")) {
             model = "rgb";
         }
         data.put("m", model);
-        if (this.compressionQuality != null) {
+        if (compressionQuality != null) {
             data.put("compressionQuality",
-                     Float.parseFloat(this.compressionQuality));
+                     Float.parseFloat(compressionQuality));
         } else {
-            data.put("compressionQuality", this.compressionQuality);
+            data.put("compressionQuality", compressionQuality);
         }
-        data.put("invertedAxis", this.invertedAxis);
-        data.put("projection", this.projection);
-        data.put("maps", this.maps);
+        data.put("invertedAxis", invertedAxis);
+        data.put("projection", projection);
+        data.put("maps", maps);
         return data;
     }
 }
