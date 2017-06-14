@@ -79,6 +79,7 @@ configurations.all {
 dependencies {
     compile 'ch.qos.logback:logback-classic:1.1.7'
     compile 'com.glencoesoftware.omero:omero-ms-core:0.1.0-SNAPSHOT'
+    testCompile 'org.testng:testng:6.10'
 }
 
 jar {

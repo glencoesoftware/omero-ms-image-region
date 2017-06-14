@@ -1,11 +1,19 @@
+environment:
+  ARTIFACTORY_USERNAME:
+    secure: a6JBc7qqVHrcq1cCIJblEg==
+  ARTIFACTORY_PASSWORD:
+    secure: O6ThMzLvtSOPLV0U5yFOkl8G1tFrFOGZEpKI4NSD12c=
+
 build: off
 
 build_script:
-  - gradlew distZip
+  - gradlew -PArtifactoryUserName=%ARTIFACTORY_USERNAME% -PArtifactoryPassword=%ARTIFACTORY_PASSWORD% build
 
-artifacts:
-  - path: build\distributions\*
+test_script:
+  - gradlew test
+
+after_test:
+  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER gradlew -PArtifactoryUserName=%ARTIFACTORY_USERNAME% -PArtifactoryPassword=%ARTIFACTORY_PASSWORD% uploadArchives
 
 cache:
   - '%HOME%\.gradle -> build.gradle'
-
