@@ -48,7 +48,7 @@ public class ImageRegionCtx {
 
     /** channel settings - handled at Verticle level*/
     public List<Integer> channels;
-    public List<Integer[]> windows;
+    public List<Float[]> windows;
     public List<String> colors;
 
     /** Color mode (g == grey scale; c == rgb) */
@@ -70,6 +70,11 @@ public class ImageRegionCtx {
     /** Inverted Axis
      *  NOT handled at the moment - no use cases*/
     public Boolean invertedAxis;
+
+    /**
+     * Constructor for jackson to decode the object from string
+     */
+    ImageRegionCtx() {};
 
     /**
      * Default constructor.
@@ -121,7 +126,7 @@ public class ImageRegionCtx {
         }
         String[] channelArray = channelInfo.split(",", -1);
         channels = new ArrayList<Integer>();
-        windows = new ArrayList<Integer[]>();
+        windows = new ArrayList<Float[]>();
         colors = new ArrayList<String>();
         for (String channel : channelArray) {
             // chan  1|12:1386r$0000FF
@@ -129,7 +134,7 @@ public class ImageRegionCtx {
             String[] temp = channel.split("\\|", 2);
             String active = temp[0];
             String color = null;
-            Integer[] range = new Integer[2];
+            Float[] range = new Float[2];
             String window = null;
             // temp = '1'
             // Not normally used...
@@ -146,8 +151,8 @@ public class ImageRegionCtx {
                 }
                 String[] rangeStr = window.split(":");
                 if (rangeStr.length > 1) {
-                    range[0] = Integer.parseInt(rangeStr[0]);
-                    range[1] = Integer.parseInt(rangeStr[1]);
+                    range[0] = Float.parseFloat(rangeStr[0]);
+                    range[1] = Float.parseFloat(rangeStr[1]);
                 }
             }
             colors.add(color);
