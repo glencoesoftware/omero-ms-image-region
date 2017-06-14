@@ -1,16 +1,18 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.testng.annotations.Test;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 
 import io.vertx.core.MultiMap;
-import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.Json;
 
 public class ImageRegionCtxTest {
 
@@ -70,70 +72,63 @@ public class ImageRegionCtxTest {
         paramsRegion.add("m", m2);
     }
 
-    private void checkChannelInfo(HashMap<String, Object> channelInfo) {
-        ArrayList<Integer> channels =
-                (ArrayList<Integer>) channelInfo.get("active");
-        ArrayList<Integer[] > windows =
-                (ArrayList<Integer []>) channelInfo.get("windows");
-        ArrayList<String> colors =
-                (ArrayList<String>) channelInfo.get("colors");
+    private void checkChannelInfo(ImageRegionCtx imageCtx) {
+        Assert.assertEquals(imageCtx.colors.size(), 3);
+        Assert.assertEquals(imageCtx.windows.size(), 3);
+        Assert.assertEquals(imageCtx.channels.size(), 3);
+        Assert.assertEquals(imageCtx.colors.get(0), color0);
+        Assert.assertEquals(imageCtx.colors.get(1), color1);
+        Assert.assertEquals(imageCtx.colors.get(2), color2);
 
-        Assert.assertEquals(colors.size(), 3);
-        Assert.assertEquals(windows.size(), 3);
-        Assert.assertEquals(channels.size(), 3);
-        Assert.assertEquals(colors.get(0), color0);
-        Assert.assertEquals(colors.get(1), color1);
-        Assert.assertEquals(colors.get(2), color2);
+        Assert.assertEquals((int) imageCtx.channels.get(0), channel0);
+        Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
+        Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals((int) channels.get(0), channel0);
-        Assert.assertEquals((int) channels.get(1), channel1);
-        Assert.assertEquals((int) channels.get(2), channel2);
-
-        Assert.assertEquals((int) windows.get(0)[0], window0[0]);
-        Assert.assertEquals((int) windows.get(0)[1], window0[1]);
-        Assert.assertEquals((int) windows.get(1)[0], window1[0]);
-        Assert.assertEquals((int) windows.get(1)[1], window1[1]);
-        Assert.assertEquals((int) windows.get(2)[0], window2[0]);
-        Assert.assertEquals((int) windows.get(2)[1], window2[1]);
+        Assert.assertEquals((int) imageCtx.windows.get(0)[0], window0[0]);
+        Assert.assertEquals((int) imageCtx.windows.get(0)[1], window0[1]);
+        Assert.assertEquals((int) imageCtx.windows.get(1)[0], window1[0]);
+        Assert.assertEquals((int) imageCtx.windows.get(1)[1], window1[1]);
+        Assert.assertEquals((int) imageCtx.windows.get(2)[0], window2[0]);
+        Assert.assertEquals((int) imageCtx.windows.get(2)[1], window2[1]);
     }
-    
+
     @Test
-    public void testTileParameters() {
+    public void testTileParameters()
+            throws JsonParseException, JsonMappingException, IOException
+    {
         ImageRegionCtx imageCtx = new ImageRegionCtx(paramsTile);
-        Map<String, Object> params = imageCtx.getImageRegionFormatted();
-        Assert.assertEquals(params.size(), 12);
-        Assert.assertNull(params.get("region"));
-        Assert.assertEquals(params.get("m"), "rgb");
-        Assert.assertEquals(params.get("compressionQuality"), q);
-        Assert.assertEquals(params.get("resolution"), resolution);
-        JsonArray tileArray = (JsonArray) params.get("tile");
-        Assert.assertEquals(tileArray.size(), 2);
-        Assert.assertEquals((int) tileArray.getInteger(0), tileX);
-        Assert.assertEquals((int) tileArray.getInteger(1), tileY);
-        // Check channel info
-        HashMap<String, Object> channelInfo =
-                (HashMap<String, Object>) params.get("channelInfo");
-        this.checkChannelInfo(channelInfo);
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(imageCtxDecoded.m, "rgb");
+        Assert.assertEquals(imageCtxDecoded.compressionQuality, q);
+        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
+        Assert.assertEquals(imageCtxDecoded.tile.size(), 2);
+        Assert.assertEquals((int) imageCtxDecoded.tile.get(0), tileX);
+        Assert.assertEquals((int) imageCtxDecoded.tile.get(1), tileY);
+        checkChannelInfo(imageCtxDecoded);
     }
 
     @Test
-    public void testRegionParameters() {
+    public void testRegionParameters()
+            throws JsonParseException, JsonMappingException, IOException
+    {
         ImageRegionCtx imageCtx = new ImageRegionCtx(paramsRegion);
-        Map<String, Object> params = imageCtx.getImageRegionFormatted();
-        Assert.assertEquals(params.size(), 12);
-        Assert.assertNull(params.get("tile"));
-        Assert.assertNull(params.get("resolution"));
-        Assert.assertNull(params.get("compressionQuality"));
-        Assert.assertEquals(params.get("m"), "greyscale");
-        JsonArray region = (JsonArray) params.get("region");
-        Assert.assertEquals(region.size(), 4);
-        Assert.assertEquals((int) region.getInteger(0), regionX);
-        Assert.assertEquals((int) region.getInteger(1), regionY);
-        Assert.assertEquals((int) region.getInteger(2), regionWidth);
-        Assert.assertEquals((int) region.getInteger(3), regionHeight);
-        HashMap<String, Object> channelInfo =
-                (HashMap<String, Object>) params.get("channelInfo");
-        this.checkChannelInfo(channelInfo);
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNull(imageCtxDecoded.tile);
+        Assert.assertNull(imageCtxDecoded.resolution);
+        Assert.assertNull(imageCtxDecoded.compressionQuality);
+        Assert.assertEquals(imageCtxDecoded.m, "greyscale");
+        Assert.assertEquals(imageCtxDecoded.region.size(), 4);
+        Assert.assertEquals((int) imageCtxDecoded.region.get(0), regionX);
+        Assert.assertEquals((int) imageCtxDecoded.region.get(1), regionY);
+        Assert.assertEquals((int) imageCtxDecoded.region.get(2), regionWidth);
+        Assert.assertEquals((int) imageCtxDecoded.region.get(3), regionHeight);
+        checkChannelInfo(imageCtxDecoded);
     }
 
 }
