@@ -40,7 +40,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** t - index */
     public Integer t;
 
-    /** tile descriptor (Region) */
+    /** tile descriptor (Tile) */
     public List<Integer> tile;
 
     /** resolution to read */
@@ -178,18 +178,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     }
 
     private void getCompressionQualityFromString(String quality) {
-        if (quality == null) {
-            compressionQuality = null;
-            return;
-        }
-        compressionQuality = Float.parseFloat(quality);
+        compressionQuality = quality == null? null : Float.parseFloat(quality);
     }
 
     private void getInvertedAxisFromString(String iaString) {
-        if (iaString == null) {
-            invertedAxis = null;
-            return;
-        }
-        invertedAxis = Boolean.parseBoolean(iaString);
+        invertedAxis = iaString == null? null : Boolean.parseBoolean(iaString);
     }
 }
