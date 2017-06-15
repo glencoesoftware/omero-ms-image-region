@@ -111,8 +111,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     @Override
     public void stop() throws Exception {
-        // FIXME
-        //sessionStore.close();
+        sessionStore.close();
     }
 
     /**
