@@ -130,7 +130,7 @@ public class ImageRegionRequestHandler {
      * @throws Exception
      */
     private byte[] getRegion(omero.client client, Image image)
-            throws Exception {
+            throws IllegalArgumentException, ServerError {
         log.debug("Getting image region");
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
@@ -194,7 +194,7 @@ public class ImageRegionRequestHandler {
     }
 
     private RegionDef getRegionDef(RenderingEnginePrx renderingEngine)
-            throws Exception {
+            throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         if (imageRegionCtx.tile != null) {
@@ -217,8 +217,7 @@ public class ImageRegionRequestHandler {
         } else {
             String v = "Tile or region argument required.";
             log.error(v);
-            // FIXME
-            throw new Exception(v);
+            throw new IllegalArgumentException(v);
         }
         return regionDef;
     }

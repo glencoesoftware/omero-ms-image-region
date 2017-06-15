@@ -66,18 +66,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
-                    try {
-                        renderImageRegion(event);
-                    } catch (JsonParseException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    } catch (JsonMappingException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
+                    renderImageRegion(event);
                 });
     }
 
@@ -88,13 +77,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded event data. Required keys are
      * <code>omeroSessionKey</code> (String),
      * <code>imageRegionCtx</code> (ImageRegionCtx).
-     * @throws IOException
-     * @throws JsonMappingException
-     * @throws JsonParseException
      */
-    private void renderImageRegion(Message<String> message)
-            throws JsonParseException, JsonMappingException, IOException
-    {
+    private void renderImageRegion(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -114,19 +98,23 @@ public class ImageRegionVerticle extends AbstractVerticle {
         try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
-            byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
+            byte[] imageRegion = request.execute(new ImageRegionRequestHandler(
                     imageRegionCtx)::renderImageRegion);
-            if (thumbnail == null) {
-                message.fail(404, "Cannot find Image:");
+            if (imageRegion == null) {
+                message.fail(
+                        404, "Cannot find Image:" + imageRegionCtx.imageId);
             } else {
-                message.reply(thumbnail);
+                message.reply(imageRegion);
             }
         } catch (PermissionDeniedException
-                | CannotCreateSessionException e)
-        {
+                | CannotCreateSessionException e) {
             String v = "Permission denied";
             log.debug(v);
             message.fail(403, v);
+        } catch (IllegalArgumentException e) {
+            log.debug(
+                "Illegal argument received while retrieving image region", e);
+            message.fail(400, e.getMessage());
         } catch (Exception e) {
             String v = "Exception while retrieving image region";
             log.error(v, e);
