@@ -150,7 +150,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.write(Buffer.buffer(imageRegion));
             } finally {
                 response.end();
-                log.debug("Reponse ended");
+                log.debug("Response ended");
             }
         });
     }
