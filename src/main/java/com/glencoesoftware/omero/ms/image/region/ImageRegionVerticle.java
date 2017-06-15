@@ -18,12 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.IOException;
-
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
