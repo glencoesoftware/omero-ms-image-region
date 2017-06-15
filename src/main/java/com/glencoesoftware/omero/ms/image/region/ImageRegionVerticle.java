@@ -70,9 +70,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * Render image region event handler.
      * Responds with a <code>image/jpeg</code>
      * body on success or a failure.
-     * @param message JSON encoded event data. Required keys are
-     * <code>omeroSessionKey</code> (String),
-     * <code>imageRegionCtx</code> (ImageRegionCtx).
+     * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void renderImageRegion(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();

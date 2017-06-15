@@ -49,8 +49,7 @@ public class ImageRegionRequestHandler {
 
     /**
      * Default constructor.
-     * @param z Index of the z section to render the region for.
-     * @param t Index of the time point to render the region for.
+     * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(ImageRegionCtx imageRegionCtx) {
         log.info("Setting up handler");
@@ -58,9 +57,10 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Render Image region event handler. Responds with a <code>image/jpeg</code>
-     * body on success based on the <code>longestSide</code> and
-     * <code>imageId</code> encoded in the URL or HTTP 404 if the {@link Image}
+     * Render Image region event handler. Responds with a
+     * <code>image/jpeg</code> body on success based on the
+     * <code>imageId</code>, <code>z</code> and <code>t</code> encoded in the
+     * URL or HTTP 404 if the {@link Image}
      * does not exist or the user does not have permissions to access it.
      * @param event Current routing context.
      */
@@ -175,6 +175,11 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    /**
+     * Sets compression level on the <code>renderingEngine</code>
+     * @param renderingEngine loaded instance of {@link RenderingEnginePrx}
+     * @throws ServerError
+     */
     private void setCompressionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError {
         log.debug("Setting compression level: {}",
@@ -193,6 +198,14 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    /**
+     * Returns RegionDef to read based on tile / region provided in
+     * ImageRegionCtx.
+     * @param renderingEngine loaded instance of {@link RenderingEnginePrx}
+     * @return RegionDef {@link RegionDef} describing image region to read
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     */
     private RegionDef getRegionDef(RenderingEnginePrx renderingEngine)
             throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
@@ -222,6 +235,11 @@ public class ImageRegionRequestHandler {
         return regionDef;
     }
 
+    /**
+     * Sets the pyramid resolution level on the <code>renderingEngine</code>
+     * @param renderingEngine loaded instance of {@link RenderingEnginePrx}
+     * @throws ServerError
+     */
     private void setResolutionLevel(RenderingEnginePrx renderingEngine)
             throws ServerError {
         log.debug("Setting resolution level: {}", imageRegionCtx.resolution);
@@ -246,6 +264,11 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    /**
+     * Sets the rendering model on <code>renderingEngine</code>
+     * @param renderingEngine loaded instance of {@link RenderingEnginePrx}
+     * @throws ServerError
+     */
     private void setRenderingModel(RenderingEnginePrx renderingEngine)
             throws ServerError {
         log.debug("Setting rendering model: {}", imageRegionCtx.m);
@@ -272,6 +295,14 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    /**
+     * Sets the rendering settings on the <code>redneringEngine</code> for
+     * all the channels (<code>sizeC</code>).
+     * @param renderingEngine loaded instance of {@link RenderingEnginePrx}
+     * @param sizeC number of channels
+     * @param ctx OMERO context (group)
+     * @throws ServerError
+     */
     private void setActiveChannels(
             RenderingEnginePrx renderingEngine, int sizeC,
             Map<String, String> ctx)
@@ -326,8 +357,8 @@ public class ImageRegionRequestHandler {
      *  - abcd     -> (0xAA, 0xBB, 0xCC, 0xDD)
      *  - abbccd   -> (0xAB, 0xBC, 0xCD, 0xFF)
      *  - abbccdde -> (0xAB, 0xBC, 0xCD, 0xDE)
-     *  @param color:   Characters to split.
-     *  @return:        rgba - list of Ints
+     *  @param color: Characters to split.
+     *  @return rgba - list of Ints
      */
     private int[] splitHTMLColor(String color) {
         List<Integer> level1 = Arrays.asList(3, 4);
