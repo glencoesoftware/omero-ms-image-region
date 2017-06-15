@@ -31,7 +31,6 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.JsonObject;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
@@ -52,7 +51,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param host OMERO server host.
      * @param port OMERO server port.
      */
-    public ImageRegionVerticle(String host, int port) {
+    public ImageRegionVerticle(String host, int port)
+    {
         this.host = host;
         this.port = port;
     }
@@ -95,26 +95,25 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void renderImageRegion(Message<String> message)
             throws JsonParseException, JsonMappingException, IOException
     {
-        JsonObject body = new JsonObject(message.body());
+        log.info("Message: {}", message);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
             imageRegionCtx = mapper.readValue(
-                    body.getJsonObject("imageRegionCtx").toString(),
-                    ImageRegionCtx.class);
+                    message.body(), ImageRegionCtx.class);
         } catch (Exception e) {
             String v = "Illegal image region context";
-            log.error(v + ": {}", body, e);
+            log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
-         String omeroSessionKey = body.getString("omeroSessionKey");
+        // String omeroSessionKey = body.getString("omeroSessionKey");
         log.debug(
-            "Render image region request with data: {}", body);
+            "Render image region request with data: {}", message.body());
         log.debug("Connecting to the server: {}, {}, {}",
-                  host, port, omeroSessionKey);
+                  host, port, imageRegionCtx.omeroSessionKey);
         try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
-                 host, port, omeroSessionKey))
+                 host, port, imageRegionCtx.omeroSessionKey))
         {
             byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
                     imageRegionCtx)::renderImageRegion);

@@ -96,7 +96,7 @@ public class ImageRegionCtxTest {
     public void testTileParameters()
             throws JsonParseException, JsonMappingException, IOException
     {
-        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsTile);
+        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsTile, "");
         String data = Json.encode(imageCtx);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
@@ -114,7 +114,7 @@ public class ImageRegionCtxTest {
     public void testRegionParameters()
             throws JsonParseException, JsonMappingException, IOException
     {
-        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsRegion);
+        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsRegion, "");
         String data = Json.encode(imageCtx);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
