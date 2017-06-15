@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
-import io.vertx.core.MultiMap;;
+import io.vertx.core.MultiMap;
+import omeis.providers.re.data.RegionDef;;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -40,14 +41,20 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** t - index */
     public Integer t;
 
-    /** tile descriptor (Tile) */
-    public List<Integer> tile;
+    /**
+     * region descriptor (tile); only X and Y are used at this stage and
+     * represent the <b>tile</b> offset rather than the pixel offset
+     */
+    public RegionDef tile;
 
     /** resolution to read */
     public Integer resolution;
 
-    /** tile descriptor (Region) */
-    public List<Integer> region;
+    /**
+     * region descriptor (region); X, Y, width, and height are used at this
+     * stage and represent the pixel offset in all cases
+     */
+    public RegionDef region;
 
     /** channel settings - handled at Verticle level*/
     public List<Integer> channels;
@@ -83,6 +90,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * Default constructor.
      * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
      * required for rendering an image region.
+     * @param omeroSessionKey OMERO session key.
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
@@ -107,9 +115,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             return;
         }
         String[] tileArray = tileString.split(",", -1);
-        tile = new ArrayList<Integer>();
-        tile.add(Integer.parseInt(tileArray[1]));
-        tile.add(Integer.parseInt(tileArray[2]));
+        tile = new RegionDef();
+        tile.setX(Integer.parseInt(tileArray[1]));
+        tile.setY(Integer.parseInt(tileArray[2]));
         resolution = Integer.parseInt(tileArray[0]);
     }
 
@@ -118,11 +126,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             return;
         }
         String[] regionSplit = regionString.split(",", -1);
-        region = new ArrayList<Integer>();
-        region.add(Integer.parseInt(regionSplit[0]));
-        region.add(Integer.parseInt(regionSplit[1]));
-        region.add(Integer.parseInt(regionSplit[2]));
-        region.add(Integer.parseInt(regionSplit[3]));
+        region = new RegionDef(
+            Integer.parseInt(regionSplit[0]),
+            Integer.parseInt(regionSplit[1]),
+            Integer.parseInt(regionSplit[2]),
+            Integer.parseInt(regionSplit[3])
+        );
     }
 
     private void getChannelInfoFromString(String channelInfo) {

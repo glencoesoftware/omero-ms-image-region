@@ -50,10 +50,10 @@ public class ImageRegionCtxTest {
     final private String tile = String.format(
             "%d,%d,%d,1024,1024", resolution, tileX, tileY);
     // region
-    final private int regionX = 0;
-    final private int regionY = 0;
-    final private int regionWidth = 1024;
-    final private int regionHeight = 1024;
+    final private int regionX = 1;
+    final private int regionY = 2;
+    final private int regionWidth = 3;
+    final private int regionHeight = 4;
     final private String region = String.format(
             "%d,%d,%d,%d", regionX, regionY, regionWidth, regionHeight);
     // Channel info
@@ -102,12 +102,12 @@ public class ImageRegionCtxTest {
         Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
         Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals((float) imageCtx.windows.get(0)[0], window0[0]);
-        Assert.assertEquals((float) imageCtx.windows.get(0)[1], window0[1]);
-        Assert.assertEquals((float) imageCtx.windows.get(1)[0], window1[0]);
-        Assert.assertEquals((float) imageCtx.windows.get(1)[1], window1[1]);
-        Assert.assertEquals((float) imageCtx.windows.get(2)[0], window2[0]);
-        Assert.assertEquals((float) imageCtx.windows.get(2)[1], window2[1]);
+        Assert.assertEquals(imageCtx.windows.get(0)[0], window0[0]);
+        Assert.assertEquals(imageCtx.windows.get(0)[1], window0[1]);
+        Assert.assertEquals(imageCtx.windows.get(1)[0], window1[0]);
+        Assert.assertEquals(imageCtx.windows.get(1)[1], window1[1]);
+        Assert.assertEquals(imageCtx.windows.get(2)[0], window2[0]);
+        Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1]);
     }
 
     @Test
@@ -122,9 +122,11 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(imageCtxDecoded.m, "rgb");
         Assert.assertEquals(imageCtxDecoded.compressionQuality, q);
         Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
-        Assert.assertEquals(imageCtxDecoded.tile.size(), 2);
-        Assert.assertEquals((int) imageCtxDecoded.tile.get(0), tileX);
-        Assert.assertEquals((int) imageCtxDecoded.tile.get(1), tileY);
+        Assert.assertNotNull(imageCtxDecoded.tile);
+        Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
+        Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
+        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 0);
+        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 0);
         checkChannelInfo(imageCtxDecoded);
     }
 
@@ -141,11 +143,11 @@ public class ImageRegionCtxTest {
         Assert.assertNull(imageCtxDecoded.resolution);
         Assert.assertNull(imageCtxDecoded.compressionQuality);
         Assert.assertEquals(imageCtxDecoded.m, "greyscale");
-        Assert.assertEquals(imageCtxDecoded.region.size(), 4);
-        Assert.assertEquals((int) imageCtxDecoded.region.get(0), regionX);
-        Assert.assertEquals((int) imageCtxDecoded.region.get(1), regionY);
-        Assert.assertEquals((int) imageCtxDecoded.region.get(2), regionWidth);
-        Assert.assertEquals((int) imageCtxDecoded.region.get(3), regionHeight);
+        Assert.assertNotNull(imageCtxDecoded.region);
+        Assert.assertEquals(imageCtxDecoded.region.getX(), regionX);
+        Assert.assertEquals(imageCtxDecoded.region.getY(), regionY);
+        Assert.assertEquals(imageCtxDecoded.region.getWidth(), regionWidth);
+        Assert.assertEquals(imageCtxDecoded.region.getHeight(), regionHeight);
         checkChannelInfo(imageCtxDecoded);
     }
 

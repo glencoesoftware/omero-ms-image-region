@@ -207,13 +207,13 @@ public class ImageRegionRequestHandler {
             }
             regionDef.width = tileSize[0];
             regionDef.height = tileSize[1];
-            regionDef.x = imageRegionCtx.tile.get(0) * regionDef.width;
-            regionDef.y = imageRegionCtx.tile.get(1) * regionDef.height;
+            regionDef.x = imageRegionCtx.tile.getX() * regionDef.width;
+            regionDef.y = imageRegionCtx.tile.getY() * regionDef.height;
         } else if (imageRegionCtx.region != null) {
-            regionDef.x = imageRegionCtx.region.get(0);
-            regionDef.y = imageRegionCtx.region.get(1);
-            regionDef.width = imageRegionCtx.region.get(2);
-            regionDef.height = imageRegionCtx.region.get(3);
+            regionDef.x = imageRegionCtx.region.getX();
+            regionDef.y = imageRegionCtx.region.getY();
+            regionDef.width = imageRegionCtx.region.getWidth();
+            regionDef.height = imageRegionCtx.region.getHeight();
         } else {
             String v = "Tile or region argument required.";
             log.error(v);
