@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -64,6 +65,7 @@ public class ImageRegionRequestHandler {
      * @param event Current routing context.
      */
     public byte[] renderImageRegion(omero.client client) {
+        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
             Image image = getImage(client, imageRegionCtx.imageId);
             if (image != null) {
@@ -73,6 +75,8 @@ public class ImageRegionRequestHandler {
             }
         } catch (Exception e) {
             log.error("Exception while retrieving thumbnail", e);
+        } finally {
+            t0.stop();
         }
         return null;
     }
@@ -119,36 +123,15 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single JPEG thumbnail from the server.
-     * @param client OMERO client to use for thumbnail retrieval.
-     * @param image {@link Image} instance to retrieve thumbnail for.
-     * @param longestSide Size to confine or upscale the longest side of the
-     * thumbnail to. The other side will then proportionately, based on aspect
-     * ratio, be scaled accordingly.
-     * @return JPEG thumbnail as a byte array.
+     * Retrieves a single JPEG region from the server.
+     * @param client OMERO client to use for image region retrieval.
+     * @param image {@link Image} instance to retrieve image region for.
+     * @return JPEG image region as a byte array.
      * @throws Exception
      */
-    private byte[] getRegion(
-            omero.client client, Image image)
+    private byte[] getRegion(omero.client client, Image image)
             throws Exception {
-        return getRegions(client, Arrays.asList(image));
-    }
-
-    /**
-     * Retrieves a map of JPEG thumbnails from the server.
-     * @param client OMERO client to use for thumbnail retrieval.
-     * @param images {@link Image} list to retrieve thumbnails for.
-     * @param longestSide Size to confine or upscale the longest side of each
-     * thumbnail to. The other side will then proportionately, based on aspect
-     * ratio, be scaled accordingly.
-     * @return Map of primary {@link Pixels} to JPEG thumbnail byte array.
-     * @throws Exception
-     */
-    private byte[] getRegions(
-            omero.client client, List<? extends IObject> images)
-                    throws Exception {
         log.debug("Getting image region");
-        Image image = (Image) images.get(0);
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
         Map<String, String> ctx = new HashMap<String, String>();
@@ -157,21 +140,31 @@ public class ImageRegionRequestHandler {
         RenderingEnginePrx renderingEngine =
                 client.getSession().createRenderingEngine();
         try {
-            renderingEngine.lookupPixels(pixelsId, ctx);
-            if (!(renderingEngine.lookupRenderingDef(pixelsId, ctx))) {
-                renderingEngine.resetDefaultSettings(true, ctx);
-                renderingEngine.lookupRenderingDef(pixelsId, ctx);
+            StopWatch t0 = new Slf4JStopWatch("RenderingEngine.lookupPixels");
+            try {
+                renderingEngine.lookupPixels(pixelsId, ctx);
+                if (!(renderingEngine.lookupRenderingDef(pixelsId, ctx))) {
+                    renderingEngine.resetDefaultSettings(true, ctx);
+                    renderingEngine.lookupRenderingDef(pixelsId, ctx);
+                }
+            } finally {
+                t0.stop();
             }
-            renderingEngine.load(ctx);
+            t0 = new Slf4JStopWatch("RenderingEngine.load");
+            try {
+                renderingEngine.load(ctx);
+            } finally {
+                t0.stop();
+            }
             PlaneDef pDef = new PlaneDef();
             pDef.z = imageRegionCtx.z;
             pDef.t = imageRegionCtx.t;
             pDef.region = getRegionDef(renderingEngine);
             setRenderingModel(renderingEngine);
             setActiveChannels(renderingEngine, sizeC, ctx);
-            this.setResolutionLevel(renderingEngine);
-            this.setCompressionLevel(renderingEngine);
-            StopWatch t0 = new Slf4JStopWatch("renderCompressed");
+            setResolutionLevel(renderingEngine);
+            setCompressionLevel(renderingEngine);
+            t0 = new Slf4JStopWatch("RenderingEngine.renderCompressed");
             try {
                 return renderingEngine.renderCompressed(pDef);
             } finally {
@@ -186,11 +179,17 @@ public class ImageRegionRequestHandler {
             throws ServerError {
         log.debug("Setting compression level: {}",
                   imageRegionCtx.compressionQuality);
-        if (imageRegionCtx.compressionQuality != null) {
-            renderingEngine.setCompressionLevel(
-                    imageRegionCtx.compressionQuality);
-        } else {
-            renderingEngine.setCompressionLevel(0.9f);
+        StopWatch t0 =
+                new Slf4JStopWatch("RenderingEngine.setCompressionLevel");
+        try {
+            if (imageRegionCtx.compressionQuality != null) {
+                renderingEngine.setCompressionLevel(
+                        imageRegionCtx.compressionQuality);
+            } else {
+                renderingEngine.setCompressionLevel(0.9f);
+            }
+        } finally {
+            t0.stop();
         }
     }
 
@@ -199,8 +198,15 @@ public class ImageRegionRequestHandler {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         if (imageRegionCtx.tile != null) {
-            regionDef.width = renderingEngine.getTileSize()[0];
-            regionDef.height = renderingEngine.getTileSize()[1];
+            StopWatch t0 = new Slf4JStopWatch("RenderingEngine.getTileSize");
+            int[] tileSize;
+            try {
+                tileSize = renderingEngine.getTileSize();
+            } finally {
+                t0.stop();
+            }
+            regionDef.width = tileSize[0];
+            regionDef.height = tileSize[1];
             regionDef.x = imageRegionCtx.tile.get(0) * regionDef.width;
             regionDef.y = imageRegionCtx.tile.get(1) * regionDef.height;
         } else if (imageRegionCtx.region != null) {
@@ -223,20 +229,45 @@ public class ImageRegionRequestHandler {
         if (imageRegionCtx.resolution == null) {
             return;
         }
-        Integer numberOfLevels = renderingEngine.getResolutionLevels();
+        StopWatch t0 =
+                new Slf4JStopWatch("RenderingEngine.getResolutionLevels");
+        Integer numberOfLevels;
+        try {
+            numberOfLevels = renderingEngine.getResolutionLevels();
+        } finally {
+            t0.stop();
+        }
         Integer level = numberOfLevels - imageRegionCtx.resolution - 1;
         log.debug("Setting resolution level to: {}", level);
-        renderingEngine.setResolutionLevel(level);
+        t0 = new Slf4JStopWatch("RenderingEngine.setResolutionLevel");
+        try {
+            renderingEngine.setResolutionLevel(level);
+        } finally {
+            t0.stop();
+        }
     }
 
     private void setRenderingModel(RenderingEnginePrx renderingEngine)
             throws ServerError {
         log.debug("Setting rendering model: {}", imageRegionCtx.m);
-        for (IObject a : renderingEngine.getAvailableModels()) {
-            RenderingModel renderingModel = (RenderingModel) a;
-            if (imageRegionCtx.m.equals(renderingModel.getValue().getValue()))
-            {
-                renderingEngine.setModel(renderingModel);
+        StopWatch t0 = new Slf4JStopWatch("RenderingEngine.getAvailableModels");
+        List<RenderingModel> renderingModels;
+        try {
+            renderingModels = renderingEngine.getAvailableModels()
+                    .stream()
+                    .map(x -> (RenderingModel) x)
+                    .collect(Collectors.toList());
+        } finally {
+            t0.stop();
+        }
+        for (RenderingModel renderingModel : renderingModels) {
+            if (imageRegionCtx.m.equals(unwrap(renderingModel.getValue()))) {
+                t0 = new Slf4JStopWatch("RenderingEngine.setModel");
+                try {
+                    renderingEngine.setModel(renderingModel);
+                } finally {
+                    t0.stop();
+                }
                 break;
             }
         }
@@ -249,8 +280,13 @@ public class ImageRegionRequestHandler {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < sizeC; c++) {
-            renderingEngine.setActive(
-                    c, imageRegionCtx.channels.contains(c + 1), ctx);
+            StopWatch t0 = new Slf4JStopWatch("RenderingEngine.setActive");
+            try {
+                renderingEngine.setActive(
+                        c, imageRegionCtx.channels.contains(c + 1), ctx);
+            } finally {
+                t0.stop();
+            }
             if (!imageRegionCtx.channels.contains(c + 1)) {
                 if (imageRegionCtx.channels.contains(-1 * (c + 1))) {
                     idx += 1;
@@ -261,13 +297,23 @@ public class ImageRegionRequestHandler {
                 float min = (float) imageRegionCtx.windows.get(idx)[0];
                 float max = (float) imageRegionCtx.windows.get(idx)[1];
                 log.debug("Channel: {}, [{}, {}]", c, min, max);
-                renderingEngine.setChannelWindow(c, min, max, ctx);
+                t0 = new Slf4JStopWatch("RenderingEngine.setChannelWindow");
+                try {
+                    renderingEngine.setChannelWindow(c, min, max, ctx);
+                } finally {
+                    t0.stop();
+                }
             }
             if (imageRegionCtx.colors != null) {
                 int[] rgba = splitHTMLColor(imageRegionCtx.colors.get(idx));
                 if (rgba != null) {
-                    renderingEngine.setRGBA(
-                            c, rgba[0], rgba[1], rgba[2], rgba[3], ctx);
+                    t0 = new Slf4JStopWatch("RenderingEngine.setRGBA");
+                    try {
+                        renderingEngine.setRGBA(
+                                c, rgba[0], rgba[1], rgba[2], rgba[3], ctx);
+                    } finally {
+                        t0.stop();
+                    }
                 }
             }
             idx += 1;
@@ -306,7 +352,7 @@ public class ImageRegionRequestHandler {
                 return out;
             }
         } catch (Exception e) {
-            log.error("Error while parsing color: {}", e);
+            log.error("Error while parsing color: {}", color, e);
         }
         return null;
     }
