@@ -90,7 +90,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             message.fail(400, v);
             return;
         }
-        // String omeroSessionKey = body.getString("omeroSessionKey");
         log.debug(
             "Render image region request with data: {}", message.body());
         log.debug("Connecting to the server: {}, {}, {}",
