@@ -21,9 +21,12 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.LoggerFactory;
+
+import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
+
 import io.vertx.core.MultiMap;;
 
-public class ImageRegionCtx {
+public class ImageRegionCtx extends OmeroRequestCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionCtx.class);
@@ -81,7 +84,8 @@ public class ImageRegionCtx {
      * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
      * required for rendering an image region.
      */
-    ImageRegionCtx(MultiMap params) {
+    ImageRegionCtx(MultiMap params, String omeroSessionKey) {
+        this.omeroSessionKey = omeroSessionKey;
         imageId = Long.parseLong(params.get("imageId"));
         z = Integer.parseInt(params.get("z"));
         t = Integer.parseInt(params.get("t"));
@@ -93,6 +97,7 @@ public class ImageRegionCtx {
         getInvertedAxisFromString(params.get("ia"));
         projection = params.get("p");
         maps = params.get("maps");
+
         log.debug("{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}",
                 imageId, z, t, tile, channels, windows, colors, m);
     }
