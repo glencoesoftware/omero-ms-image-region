@@ -163,9 +163,9 @@ public class ImageRegionCtx {
     }
 
     private void getColorModelFromString(String colorModel) {
-        if (colorModel != null && colorModel.equals("g")) {
+        if ("g".equals(colorModel)) {
             m = "greyscale";
-        } else if (colorModel != null && colorModel.equals("c")) {
+        } else if ("c".equals(colorModel)) {
             m = "rgb";
         } else {
             m = null;
