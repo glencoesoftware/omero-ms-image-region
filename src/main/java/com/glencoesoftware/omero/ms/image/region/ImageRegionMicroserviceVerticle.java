@@ -18,8 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Map;
-
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
@@ -113,8 +111,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     @Override
     public void stop() throws Exception {
-        // FIXME
-        //sessionStore.close();
+        sessionStore.close();
     }
 
     /**
@@ -128,15 +125,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         HttpServerRequest request = event.request();
-        ImageRegionCtx imageRegionCtx = new ImageRegionCtx(request.params());
-        Map<String, Object> data = imageRegionCtx.getImageRegionFormatted();
-        data.put("omeroSessionKey", event.get("omero.session_key"));
-        log.info("Received request with data: {}", data);
+        ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
+                request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-                Json.encode(data), result -> {
+                Json.encode(imageRegionCtx), result -> {
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
@@ -155,7 +150,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.write(Buffer.buffer(imageRegion));
             } finally {
                 response.end();
-                log.debug("Reponse ended");
+                log.debug("Response ended");
             }
         });
     }

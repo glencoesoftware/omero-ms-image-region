@@ -18,19 +18,15 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
@@ -51,7 +47,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param host OMERO server host.
      * @param port OMERO server port.
      */
-    public ImageRegionVerticle(String host, int port) {
+    public ImageRegionVerticle(String host, int port)
+    {
         this.host = host;
         this.port = port;
     }
@@ -64,7 +61,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
         log.info("Starting verticle");
 
         vertx.eventBus().<String>consumer(
-                RENDER_IMAGE_REGION_EVENT, this::renderImageRegion);
+                RENDER_IMAGE_REGION_EVENT, event -> {
+                    renderImageRegion(event);
+                });
     }
 
     /**
@@ -72,67 +71,45 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * Responds with a <code>image/jpeg</code>
      * body on success or a failure.
      * @param message JSON encoded event data. Required keys are
-     * <code>omeroSessionKey</code> (String), <code>longestSide</code>
-     * (Integer), and <code>imageId</code> (Long).
+     * <code>omeroSessionKey</code> (String),
+     * <code>imageRegionCtx</code> (ImageRegionCtx).
      */
     private void renderImageRegion(Message<String> message) {
-        JsonObject data = new JsonObject(message.body());
-        long imageId = data.getLong("imageId");
-        int z = data.getInteger("z");
-        int t = data.getInteger("t");
-        Integer resolution = data.getInteger("resolution");
-        Float compressionQuality = data.getFloat("compressionQuality");
-        String model = data.getString("m");
-        JsonArray tileAsJson = data.getJsonArray("tile");
-        List<Integer> tile = new ArrayList<Integer>();
-        for (int i = 0; i < tileAsJson.size(); i++) {
-            tile.add(tileAsJson.getInteger(i));
-        }
-        JsonArray regionAsJson = data.getJsonArray("region");
-        List<Integer> region = new ArrayList<Integer>();
-        for (int i = 0; i < regionAsJson.size(); i++) {
-            region.add(regionAsJson.getInteger(i));
-        }
-        String omeroSessionKey = data.getString("omeroSessionKey");
-        JsonObject channelInfo = data.getJsonObject("channelInfo");
-        JsonArray channelList = channelInfo.getJsonArray("active");
-        JsonArray windowList = channelInfo.getJsonArray("windows");
-        JsonArray colorList = channelInfo.getJsonArray("colors");
-        List<Integer> channels = new ArrayList<Integer>();
-        List<Integer[] > windows = new ArrayList<Integer[]>();
-        List<String> colors = new ArrayList<String>();
-        for (int c = 0; c < channelList.size(); c++) {
-            channels.add(channelList.getInteger(c));
-            JsonArray windowAsJson = windowList.getJsonArray(c);
-            Integer[] window = new Integer[] {
-                windowAsJson.getInteger(0),
-                windowAsJson.getInteger(1)
-            };
-            windows.add(window);
-            colors.add(colorList.getString(c));
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageRegionCtx;
+        try {
+            imageRegionCtx = mapper.readValue(
+                    message.body(), ImageRegionCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal image region context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
         }
         log.debug(
-            "Render image region request with data: {}", data);
+            "Render image region request with data: {}", message.body());
         log.debug("Connecting to the server: {}, {}, {}",
-                  host, port, omeroSessionKey);
+                  host, port, imageRegionCtx.omeroSessionKey);
         try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
-                 host, port, omeroSessionKey))
+                 host, port, imageRegionCtx.omeroSessionKey))
         {
-            byte[] thumbnail = request.execute(new ImageRegionRequestHandler(
-                    imageId, z, t, region, tile, model,
-                    resolution, compressionQuality,
-                    channels, windows, colors)::renderImageRegion);
-            if (thumbnail == null) {
-                message.fail(404, "Cannot find Image:");
+            byte[] imageRegion = request.execute(new ImageRegionRequestHandler(
+                    imageRegionCtx)::renderImageRegion);
+            if (imageRegion == null) {
+                message.fail(
+                        404, "Cannot find Image:" + imageRegionCtx.imageId);
             } else {
-                message.reply(thumbnail);
+                message.reply(imageRegion);
             }
         } catch (PermissionDeniedException
-                | CannotCreateSessionException e)
-        {
+                | CannotCreateSessionException e) {
             String v = "Permission denied";
             log.debug(v);
             message.fail(403, v);
+        } catch (IllegalArgumentException e) {
+            log.debug(
+                "Illegal argument received while retrieving image region", e);
+            message.fail(400, e.getMessage());
         } catch (Exception e) {
             String v = "Exception while retrieving image region";
             log.error(v, e);
