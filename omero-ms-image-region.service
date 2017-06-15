@@ -1,0 +1,16 @@
+[Unit]
+Description=OMERO image region microservice server
+Requires=redis.service
+After=network.service
+
+[Service]
+Type=simple
+#Environment="JAVA_OPTS=-Dlogback.configurationFile=/path/to/omero-ms-image-region/logback.xml"
+WorkingDirectory=/path/to/omero-ms-image-region
+ExecStart=/path/to/omero-ms-image-region/bin/omero-ms-image-region -conf conf.json
+User=omero
+Group=omero
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
