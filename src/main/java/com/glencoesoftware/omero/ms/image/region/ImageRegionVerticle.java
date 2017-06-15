@@ -95,7 +95,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void renderImageRegion(Message<String> message)
             throws JsonParseException, JsonMappingException, IOException
     {
-        log.info("Message: {}", message);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
