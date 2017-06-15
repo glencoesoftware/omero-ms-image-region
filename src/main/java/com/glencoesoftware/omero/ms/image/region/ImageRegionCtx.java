@@ -42,21 +42,21 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     public Integer t;
 
     /**
-     * region descriptor (tile); only X and Y are used at this stage and
+     * Region descriptor (tile); only X and Y are used at this stage and
      * represent the <b>tile</b> offset rather than the pixel offset
      */
     public RegionDef tile;
 
-    /** resolution to read */
+    /** Resolution to read */
     public Integer resolution;
 
     /**
-     * region descriptor (region); X, Y, width, and height are used at this
+     * Region descriptor (region); X, Y, width, and height are used at this
      * stage and represent the pixel offset in all cases
      */
     public RegionDef region;
 
-    /** channel settings - handled at Verticle level*/
+    /** Channel settings - handled at the Verticle level*/
     public List<Integer> channels;
     public List<Float[]> windows;
     public List<String> colors;
@@ -70,15 +70,18 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Compression quality */
     public Float compressionQuality;
 
-    /** Projection 'intmax' OR 'intmax|5:25'
+    /**
+     * Projection 'intmax' OR 'intmax|5:25'
      * NOT handled at the moment - does not look like it's supported
      * for renderImageRegion: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8758
      * vs. renderImage: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8837
      * */
     public String projection;
 
-    /** Inverted Axis
-     *  NOT handled at the moment - no use cases*/
+    /**
+     * Inverted Axis
+     * NOT handled at the moment - no use cases
+     * */
     public Boolean invertedAxis;
 
     /**
@@ -110,6 +113,11 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 imageId, z, t, tile, channels, windows, colors, m);
     }
 
+    /**
+     * Parse a string to RegionDef and Int describing tile and resolution.
+     * @param tileString string describing the tile to render:
+     * "1,1,0,1024,1024"
+     */
     private void getTileFromString(String tileString) {
         if (tileString == null) {
             return;
@@ -121,6 +129,11 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         resolution = Integer.parseInt(tileArray[0]);
     }
 
+    /**
+     * Parse a string to RegionDef.
+     * @param regionString string describing the region to render:
+     * "0,0,1024,1024"
+     */
     private void getRegionFromString(String regionString) {
         if (regionString == null) {
             return;
@@ -134,6 +147,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         );
     }
 
+    /**
+     * Parses a string to channel rendering settings.
+     * Populates channels, windows and colors lists.
+     * @param channelInfo string describing the channel rendering settings:
+     * "-1|0:65535$0000FF,2|1755:51199$00FF00,3|3218:26623$FF0000"
+     */
     private void getChannelInfoFromString(String channelInfo) {
         if (channelInfo == null) {
             return;
@@ -176,6 +195,11 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
     }
 
+    /**
+     * Parses color model input to the string accepted by the rendering engine.
+     * @param colorModel string describing color model:
+     * "g" for greyscale and "c" for rgb.
+     */
     private void getColorModelFromString(String colorModel) {
         if ("g".equals(colorModel)) {
             m = "greyscale";
@@ -186,10 +210,18 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
     }
 
+    /**
+     * Parses string to Float and sets it as compressionQuality.
+     * @param quality accepted values: [0, 1]
+     */
     private void getCompressionQualityFromString(String quality) {
         compressionQuality = quality == null? null : Float.parseFloat(quality);
     }
 
+    /**
+     * Parses string to boolean and sets it as inverted axis.
+     * @param iaString accepted values: 0 - False, 1 - True
+     */
     private void getInvertedAxisFromString(String iaString) {
         invertedAxis = iaString == null? null : Boolean.parseBoolean(iaString);
     }
