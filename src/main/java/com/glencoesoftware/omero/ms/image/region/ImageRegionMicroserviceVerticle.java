@@ -93,6 +93,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webgateway/render_image_region/:imageId/:z/:t*")
             .handler(this::renderImageRegion);
+        router.get(
+                "/webclient/render_image_region/:imageId/:z/:t*")
+            .handler(this::renderImageRegion);
 
         int port = config().getInteger("port");
         log.info("Starting HTTP server *:{}", port);
