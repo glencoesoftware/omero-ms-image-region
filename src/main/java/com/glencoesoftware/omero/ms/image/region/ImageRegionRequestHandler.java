@@ -190,8 +190,6 @@ public class ImageRegionRequestHandler {
             if (imageRegionCtx.compressionQuality != null) {
                 renderingEngine.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
-            } else {
-                renderingEngine.setCompressionLevel(0.9f);
             }
         } finally {
             t0.stop();
