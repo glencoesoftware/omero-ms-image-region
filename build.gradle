@@ -108,4 +108,5 @@ test {
 applicationDistribution.from("$projectDir") {
     include 'README.md'
     include 'conf.json.example'
+    include 'omero-ms-image-region.service'
 }

@@ -148,6 +148,10 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
+    location /webclient/render_image_region/ {
+        proxy_pass http://image_region_backend;
+    }
+
 Running Tests
 =============
 
