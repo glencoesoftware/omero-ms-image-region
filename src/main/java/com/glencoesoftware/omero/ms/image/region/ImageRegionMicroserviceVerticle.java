@@ -96,6 +96,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webclient/render_image_region/:imageId/:z/:t*")
             .handler(this::renderImageRegion);
+        router.get(
+                "/webgateway/render_image_region_png/:imageId/:z/:t*")
+            .handler(this::renderImageRegionPng);
+        router.get(
+                "/webclient/render_image_region_png/:imageId/:z/:t*")
+            .handler(this::renderImageRegionPng);
 
         int port = config().getInteger("port");
         log.info("Starting HTTP server *:{}", port);
@@ -156,6 +162,47 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 log.debug("Response ended");
             }
         });
+    }
+
+        /**
+         * Render image region as PNG event handler.
+         * Responds with a <code>image/jpeg</code> body on success based
+         * on the <code>imageId</code>, <code>z</code> and <code>t</code>
+         * encoded in the URL or HTTP 404 if the {@link Image} does not exist
+         * or the user does not have permissions to access it.
+         * @param event Current routing context.
+         */
+        private void renderImageRegionPng(RoutingContext event) {
+            log.info("Rendering image region");
+            HttpServerRequest request = event.request();
+            ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
+                    request.params(), event.get("omero.session_key"));
+
+            final HttpServerResponse response = event.response();
+            vertx.eventBus().send(
+                    ImageRegionVerticle.RENDER_IMAGE_REGION_PNG_EVENT,
+                    Json.encode(imageRegionCtx), result -> {
+                try {
+                    if (result.failed()) {
+                        Throwable t = result.cause();
+                        int statusCode = 404;
+                        if (t instanceof ReplyException) {
+                            statusCode = ((ReplyException) t).failureCode();
+                        }
+                        response.setStatusCode(statusCode);
+                        return;
+                    }
+                    byte[] imageRegion = (byte []) result.result().body();
+                    response.headers().set("Content-Type", "image/png");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(imageRegion.length));
+                    response.write(Buffer.buffer(imageRegion));
+                } finally {
+                    response.end();
+                    log.debug("Response ended");
+                }
+            });
     }
 
 }
