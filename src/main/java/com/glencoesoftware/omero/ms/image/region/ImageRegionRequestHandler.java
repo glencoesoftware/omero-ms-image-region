@@ -20,11 +20,16 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import static omero.rtypes.unwrap;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import javax.imageio.ImageIO;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -44,16 +49,23 @@ public class ImageRegionRequestHandler {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
+    public enum RenderType {JPEG, PNG};
+
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
+
+    /** Image Region Context */
+    private final RenderType renderType;
 
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
-    public ImageRegionRequestHandler(ImageRegionCtx imageRegionCtx) {
+    public ImageRegionRequestHandler(
+            ImageRegionCtx imageRegionCtx, RenderType renderType) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
+        this.renderType = renderType;
     }
 
     /**
@@ -127,10 +139,11 @@ public class ImageRegionRequestHandler {
      * @param client OMERO client to use for image region retrieval.
      * @param image {@link Image} instance to retrieve image region for.
      * @return JPEG image region as a byte array.
+     * @throws IOException
      * @throws Exception
      */
     private byte[] getRegion(omero.client client, Image image)
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException, ServerError, IOException {
         log.debug("Getting image region");
         Integer sizeC = (Integer) unwrap(image.getPrimaryPixels().getSizeC());
         Long pixelsId = (Long) unwrap(image.getPrimaryPixels().getId());
@@ -166,7 +179,23 @@ public class ImageRegionRequestHandler {
             setCompressionLevel(renderingEngine);
             t0 = new Slf4JStopWatch("RenderingEngine.renderCompressed");
             try {
-                return renderingEngine.renderCompressed(pDef);
+                switch (renderType) {
+                    case JPEG:
+                        return renderingEngine.renderCompressed(pDef);
+                    case PNG:
+                        int[] buff = renderingEngine.renderAsPackedInt(pDef);
+                        BufferedImage img = new BufferedImage(
+                                pDef.region.width, pDef.region.height,
+                                BufferedImage.TYPE_INT_RGB);
+                        img.setRGB(0, 0, pDef.region.width, pDef.region.height,
+                                   buff, 0, pDef.region.width);
+                        ByteArrayOutputStream baos =
+                                new ByteArrayOutputStream();
+                        ImageIO.write(img, "png", baos);
+                        return baos.toByteArray();
+                    default:
+                        return null;
+                }
             } finally {
                 t0.stop();
             }

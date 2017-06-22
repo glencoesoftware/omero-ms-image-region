@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.image.region.ImageRegionRequestHandler.RenderType;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -35,6 +36,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
+
+    public static final String RENDER_IMAGE_REGION_PNG_EVENT =
+            "omero.render_image_region_png";
 
     /** OMERO server host */
     private final String host;
@@ -62,7 +66,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
-                    renderImageRegion(event);
+                    renderImageRegion(event, RenderType.JPEG);
+                });
+
+        vertx.eventBus().<String>consumer(
+                RENDER_IMAGE_REGION_PNG_EVENT, event -> {
+                    renderImageRegion(event, RenderType.PNG);
                 });
     }
 
@@ -72,7 +81,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * body on success or a failure.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
-    private void renderImageRegion(Message<String> message) {
+    private void renderImageRegion(
+            Message<String> message,
+            ImageRegionRequestHandler.RenderType renderType) {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -92,7 +103,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  host, port, imageRegionCtx.omeroSessionKey))
         {
             byte[] imageRegion = request.execute(new ImageRegionRequestHandler(
-                    imageRegionCtx)::renderImageRegion);
+                    imageRegionCtx, renderType)::renderImageRegion);
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
