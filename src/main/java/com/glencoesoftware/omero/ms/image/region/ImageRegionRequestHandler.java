@@ -177,27 +177,35 @@ public class ImageRegionRequestHandler {
             setActiveChannels(renderingEngine, sizeC, ctx);
             setResolutionLevel(renderingEngine);
             setCompressionLevel(renderingEngine);
-            t0 = new Slf4JStopWatch("RenderingEngine.renderCompressed");
-            try {
-                switch (renderType) {
-                    case JPEG:
+            switch (renderType) {
+                case JPEG:
+                    t0 = new Slf4JStopWatch(
+                            "RenderingEngine.renderCompressed");
+                    try{
                         return renderingEngine.renderCompressed(pDef);
-                    case PNG:
+                    } finally {
+                        t0.stop();
+                    }
+                case PNG:
+                    t0 = new Slf4JStopWatch(
+                            "RenderingEngine.renderAsPackedInt");
+                    ByteArrayOutputStream byteStream =
+                            new ByteArrayOutputStream();
+                    try {
                         int[] buff = renderingEngine.renderAsPackedInt(pDef);
                         BufferedImage img = new BufferedImage(
-                                pDef.region.width, pDef.region.height,
-                                BufferedImage.TYPE_INT_RGB);
+                            pDef.region.width, pDef.region.height,
+                            BufferedImage.TYPE_INT_RGB);
                         img.setRGB(0, 0, pDef.region.width, pDef.region.height,
                                    buff, 0, pDef.region.width);
-                        ByteArrayOutputStream baos =
-                                new ByteArrayOutputStream();
-                        ImageIO.write(img, "png", baos);
-                        return baos.toByteArray();
+                        ImageIO.write(img, "png", byteStream);
+                        return byteStream.toByteArray();
+                    } finally {
+                        t0.stop();
+                        byteStream.close();
+                    }
                     default:
                         return null;
-                }
-            } finally {
-                t0.stop();
             }
         } finally {
             renderingEngine.close();
