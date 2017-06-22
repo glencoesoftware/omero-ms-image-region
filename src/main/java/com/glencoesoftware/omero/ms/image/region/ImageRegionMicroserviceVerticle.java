@@ -152,7 +152,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     return;
                 }
                 byte[] imageRegion = (byte []) result.result().body();
-                response.headers().set("Content-Type", "image/jpg");
+                response.headers().set("Content-Type", "image/jpeg");
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
