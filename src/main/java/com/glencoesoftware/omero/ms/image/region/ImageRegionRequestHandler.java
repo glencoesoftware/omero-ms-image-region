@@ -189,9 +189,8 @@ public class ImageRegionRequestHandler {
                 case PNG:
                     t0 = new Slf4JStopWatch(
                             "RenderingEngine.renderAsPackedInt");
-                    ByteArrayOutputStream byteStream =
-                            new ByteArrayOutputStream();
-                    try {
+                    try (ByteArrayOutputStream byteStream =
+                            new ByteArrayOutputStream()) {
                         int[] buff = renderingEngine.renderAsPackedInt(pDef);
                         BufferedImage img = new BufferedImage(
                             pDef.region.width, pDef.region.height,
@@ -202,7 +201,6 @@ public class ImageRegionRequestHandler {
                         return byteStream.toByteArray();
                     } finally {
                         t0.stop();
-                        byteStream.close();
                     }
                     default:
                         return null;
