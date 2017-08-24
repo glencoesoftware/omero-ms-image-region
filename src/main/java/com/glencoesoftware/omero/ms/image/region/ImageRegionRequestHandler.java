@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -321,8 +322,10 @@ public class ImageRegionRequestHandler {
         if (rd == null) {
             return;
         }
-        int sizeX = resolutionLevels.get(imageRegionCtx.resolution).get(0);
-        int sizeY = resolutionLevels.get(imageRegionCtx.resolution).get(1);
+        int resolution =
+                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
+        int sizeX = resolutionLevels.get(resolution).get(0);
+        int sizeY = resolutionLevels.get(resolution).get(1);
         if (rd.getWidth() + rd.getX() > sizeX) {
             int newWidth = sizeX - rd.getX();
             log.debug("Resetting out of bounds region XOffset {} width {}" +
