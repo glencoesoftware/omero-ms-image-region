@@ -272,6 +272,9 @@ public class ImageRegionRequestHandler {
             buf =  renderer.renderAsPackedInt(planeDef, null);
         } finally {
             t0.stop();
+            if (log.isDebugEnabled()) {
+                log.debug(renderer.getStats().getStats());
+            }
         }
 
         String format = imageRegionCtx.format;
