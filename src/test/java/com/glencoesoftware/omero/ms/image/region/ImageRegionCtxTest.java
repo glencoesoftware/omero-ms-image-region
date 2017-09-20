@@ -76,16 +76,16 @@ public class ImageRegionCtxTest {
     public void setUp() throws IOException {
         paramsTile.add("tile", tile);
         paramsTile.add("c", c);
-        paramsTile.add("z", String.valueOf(z));
-        paramsTile.add("t", String.valueOf(t));
+        paramsTile.add("theZ", String.valueOf(z));
+        paramsTile.add("theT", String.valueOf(t));
         paramsTile.add("imageId", String.valueOf(imageId));
         paramsTile.add("m", m1);
         paramsTile.add("q", String.valueOf(q));
 
         paramsRegion.add("region", region);
         paramsRegion.add("c", c);
-        paramsRegion.add("z", String.valueOf(z));
-        paramsRegion.add("t", String.valueOf(t));
+        paramsRegion.add("theZ", String.valueOf(z));
+        paramsRegion.add("theT", String.valueOf(t));
         paramsRegion.add("imageId", String.valueOf(imageId));
         paramsRegion.add("m", m2);
     }

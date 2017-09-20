@@ -19,6 +19,8 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
@@ -52,6 +54,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionMicroserviceVerticle.class);
 
+    /** OMERO server Spring application context. */
+    private ApplicationContext context;
+
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
@@ -69,9 +74,24 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             root.setLevel(Level.DEBUG);
         }
 
+        // Set OMERO.server configuration options using system properties
+        JsonObject omeroServer = config().getJsonObject("omero.server");
+        omeroServer.forEach(entry -> {
+            System.setProperty(entry.getKey(), (String) entry.getValue());
+        });
+
+        context = new ClassPathXmlApplicationContext(
+                "classpath:ome/config.xml",
+                "classpath:ome/services/datalayer.xml",
+                "classpath*:beanRefContext.xml");
+
         // Deploy our dependency verticles
         JsonObject omero = config().getJsonObject("omero");
         vertx.deployVerticle(new ImageRegionVerticle(
+                omero.getString("host"), omero.getInteger("port"), context),
+                new DeploymentOptions().setWorker(
+                        true).setMultiThreaded(true));
+        vertx.deployVerticle(new ShapeMaskVerticle(
                 omero.getString("host"), omero.getInteger("port")),
                 new DeploymentOptions().setWorker(
                         true).setMultiThreaded(true));
@@ -91,17 +111,22 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // ImageRegion request handlers
         router.get(
-                "/webgateway/render_image_region/:imageId/:z/:t*")
+                "/webgateway/render_image_region/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
         router.get(
-                "/webclient/render_image_region/:imageId/:z/:t*")
+                "/webgateway/render_image/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
         router.get(
-                "/webgateway/render_image_region_png/:imageId/:z/:t*")
-            .handler(this::renderImageRegionPng);
+                "/webclient/render_image_region/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
         router.get(
-                "/webclient/render_image_region_png/:imageId/:z/:t*")
-            .handler(this::renderImageRegionPng);
+                "/webclient/render_image/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
+
+        // ShapeMask request handlers
+        router.get(
+                "/webgateway/render_shape_mask/:shapeId*")
+            .handler(this::renderShapeMask);
 
         int port = config().getInteger("port");
         log.info("Starting HTTP server *:{}", port);
@@ -125,16 +150,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /**
      * Render image region event handler.
-     * Responds with a <code>image/jpeg</code> body on success based
-     * on the <code>imageId</code>, <code>z</code> and <code>t</code>
-     * encoded in the URL or HTTP 404 if the {@link Image} does not exist
-     * or the user does not have permissions to access it.
+     * Responds with an image body on success based on the <code>imageId</code>,
+     * <code>z</code> and <code>t</code> encoded in the URL or HTTP 404 if the
+     * {@link Image} does not exist or the user does not have permissions to
+     * access it.
      * @param event Current routing context.
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         HttpServerRequest request = event.request();
-        ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
+        final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
@@ -152,7 +177,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     return;
                 }
                 byte[] imageRegion = (byte []) result.result().body();
-                response.headers().set("Content-Type", "image/jpeg");
+                String contentType = "application/octet-stream";
+                if (imageRegionCtx.format.equals("jpeg")) {
+                    contentType = "image/jpeg";
+                }
+                if (imageRegionCtx.format.equals("png")) {
+                    contentType = "image/png";
+                }
+                if (imageRegionCtx.format.equals("tif")) {
+                    contentType = "image/tiff";
+                }
+                response.headers().set("Content-Type", contentType);
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
@@ -164,45 +199,45 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         });
     }
 
-        /**
-         * Render image region as PNG event handler.
-         * Responds with a <code>image/jpeg</code> body on success based
-         * on the <code>imageId</code>, <code>z</code> and <code>t</code>
-         * encoded in the URL or HTTP 404 if the {@link Image} does not exist
-         * or the user does not have permissions to access it.
-         * @param event Current routing context.
-         */
-        private void renderImageRegionPng(RoutingContext event) {
-            log.info("Rendering image region");
-            HttpServerRequest request = event.request();
-            ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
-                    request.params(), event.get("omero.session_key"));
+    /**
+     * Render shape mask event handler.
+     * Responds with a <code>image/png</code> body on success based
+     * on the <code>shapeId</code> encoded in the URL or HTTP 404 if the
+     * {@link Shape} does not exist or the user does not have permissions to
+     * access it.
+     * @param event Current routing context.
+     */
+    private void renderShapeMask(RoutingContext event) {
+        log.info("Rendering shape mask");
+        HttpServerRequest request = event.request();
+        ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
+                request.params(), event.get("omero.session_key"));
 
-            final HttpServerResponse response = event.response();
-            vertx.eventBus().send(
-                    ImageRegionVerticle.RENDER_IMAGE_REGION_PNG_EVENT,
-                    Json.encode(imageRegionCtx), result -> {
-                try {
-                    if (result.failed()) {
-                        Throwable t = result.cause();
-                        int statusCode = 404;
-                        if (t instanceof ReplyException) {
-                            statusCode = ((ReplyException) t).failureCode();
-                        }
-                        response.setStatusCode(statusCode);
-                        return;
+        final HttpServerResponse response = event.response();
+        vertx.eventBus().send(
+                ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
+                Json.encode(shapeMaskCtx), result -> {
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    int statusCode = 404;
+                    if (t instanceof ReplyException) {
+                        statusCode = ((ReplyException) t).failureCode();
                     }
-                    byte[] imageRegion = (byte []) result.result().body();
-                    response.headers().set("Content-Type", "image/png");
-                    response.headers().set(
-                            "Content-Length",
-                            String.valueOf(imageRegion.length));
-                    response.write(Buffer.buffer(imageRegion));
-                } finally {
-                    response.end();
-                    log.debug("Response ended");
+                    response.setStatusCode(statusCode);
+                    return;
                 }
-            });
+                byte[] shapeMask = (byte []) result.result().body();
+                response.headers().set("Content-Type", "image/png");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(shapeMask.length));
+                response.write(Buffer.buffer(shapeMask));
+            } finally {
+                response.end();
+                log.debug("Response ended");
+            }
+        });
     }
 
 }
