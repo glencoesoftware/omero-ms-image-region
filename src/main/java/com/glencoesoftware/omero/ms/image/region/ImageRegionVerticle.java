@@ -18,16 +18,28 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
-import com.glencoesoftware.omero.ms.image.region.ImageRegionRequestHandler.RenderType;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import ome.model.enums.Family;
+import ome.model.enums.RenderingModel;
+import omero.ApiUsageException;
+import omero.ServerError;
+import omero.util.IceMapper;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
@@ -46,15 +58,32 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** OMERO server port */
     private final int port;
 
+    /** OMERO server Spring application context. */
+    private ApplicationContext context;
+
+    /**
+     * Mapper between <code>omero.model</code> client side Ice backed objects
+     * and <code>ome.model</code> server side Hibernate backed objects.
+     */
+    private final IceMapper mapper = new IceMapper();
+
+    /** Available families */
+    private List<Family> families;
+
+    /** Available rendering models */
+    private List<RenderingModel> renderingModels;
+
     /**
      * Default constructor.
      * @param host OMERO server host.
      * @param port OMERO server port.
      */
-    public ImageRegionVerticle(String host, int port)
+    public ImageRegionVerticle(
+            String host, int port, ApplicationContext context)
     {
         this.host = host;
         this.port = port;
+        this.context = context;
     }
 
     /* (non-Javadoc)
@@ -66,12 +95,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
-                    renderImageRegion(event, RenderType.JPEG);
-                });
-
-        vertx.eventBus().<String>consumer(
-                RENDER_IMAGE_REGION_PNG_EVENT, event -> {
-                    renderImageRegion(event, RenderType.PNG);
+                    renderImageRegion(event);
                 });
     }
 
@@ -81,9 +105,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * body on success or a failure.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
-    private void renderImageRegion(
-            Message<String> message,
-            ImageRegionRequestHandler.RenderType renderType) {
+    private void renderImageRegion(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -102,8 +124,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
         try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
-            byte[] imageRegion = request.execute(new ImageRegionRequestHandler(
-                    imageRegionCtx, renderType)::renderImageRegion);
+            if (families == null) {
+                request.execute(this::updateFamilies);
+            }
+            if (renderingModels == null) {
+                request.execute(this::updateRenderingModels);
+            }
+
+            byte[] imageRegion = request.execute(
+                    new ImageRegionRequestHandler(
+                            imageRegionCtx, context, families,
+                            renderingModels)::renderImageRegion);
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
@@ -123,6 +154,78 @@ public class ImageRegionVerticle extends AbstractVerticle {
             String v = "Exception while retrieving image region";
             log.error(v, e);
             message.fail(500, v);
+        }
+    }
+
+    /**
+     * Updates the available enumerations from the server.
+     * @param client valid client to use to perform actions
+     * @return Always <code>null</code>; only present to conform to the
+     * prototype defined by the generics of the relevant {@link OmeroRequest}.
+     */
+    private byte[] updateFamilies(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        StopWatch t0 = new Slf4JStopWatch("getFamilies");
+        try {
+            families = getAllEnumerations(client, Family.class);
+        } finally {
+            t0.stop();
+        }
+        return null;
+    }
+
+    /**
+     * Updates the available enumerations from the server.
+     * @param client valid client to use to perform actions
+     * @return Always <code>null</code>; only present to conform to the
+     * prototype defined by the generics of the relevant {@link OmeroRequest}.
+     */
+    private byte[] updateRenderingModels(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        StopWatch t0 = new Slf4JStopWatch("getRenderingModels");
+        try {
+            renderingModels = getAllEnumerations(
+                    client, RenderingModel.class);
+        } finally {
+            t0.stop();
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves a list of all enumerations from the server of a particular
+     * class.
+     * @param client valid client to use to perform actions
+     * @param klass enumeration class to retrieve.
+     * @return See above.
+     */
+    private <T> List<T> getAllEnumerations(
+            omero.client client, Class<T> klass) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
+        try {
+            return (List<T>) client
+                    .getSession()
+                    .getPixelsService()
+                    .getAllEnumerations(klass.getName(), ctx)
+                    .stream()
+                    .map(x -> {
+                        try {
+                            return (T) mapper.reverse(x);
+                        } catch (ApiUsageException e) {
+                            // *Should* never happen
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .collect(Collectors.toList());
+        } catch (ServerError e) {
+            // *Should* never happen
+            throw new RuntimeException(e);
+        } finally {
+            t0.stop();
         }
     }
 }

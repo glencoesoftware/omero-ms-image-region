@@ -3,8 +3,8 @@
 OMERO Image Region Microservice
 ===============================
 
-OMERO image region Vert.x asynchronous microservice server endpoint for
-OMERO.web.
+OMERO image region and shape mask Vert.x asynchronous microservice server
+endpoint for OMERO.web.
 
 Requirements
 ============
@@ -21,6 +21,11 @@ The microservice server endpoint for OMERO.web relies on the following
 workflow::
 
 1. Setup of OMERO.web to use database or Redis backed sessions
+
+1. Ensure the microservice can communicate with your PostgreSQL instance
+
+1. Ensure the microservice has read-write access to your OMERO server binary
+repository.
 
 1. Running the microservice endpoint for OMERO.web
 
@@ -43,10 +48,13 @@ Development Installation
 your web browser and with the developer tools find the `sessionid` cookie
 value. This is the OMERO.web session key.
 
-1. Run single or multiple thumbnail tests using `curl`::
+1. Run single or multiple image region tests using `curl`::
 
         curl -H 'Cookie: sessionid=<omero_web_session_key>' \
-            http://localhost:8080/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
+            http://localhost:8080/webgateway/render_image/<image_id>/<z>/<t>/
+
+        curl -H 'Cookie: sessionid=<omero_web_session_key>' \
+            http://localhost:8080/webgateway/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
 
 Eclipse Configuration
 =====================
@@ -75,8 +83,10 @@ Configuring and Running the Server
 ==================================
 
 The image region microservice server endpoint piggybacks on the OMERO.web Django
-session.  As such it is essential that as a prerequisite to running the
-server that your OMERO.web instance be configured to use Redis backed sessions.
+session, OMERO database and binary repository.  As such it is essential that as
+a prerequisite to running the server that your OMERO.web instance be configured
+to use Redis backed sessions, the microservice be able to communicate with your
+PostgreSQL instance, and that the binary repository be read-write accessible.
 Filesystem backed sessions **are not** supported.
 
 1. Configure the application::
@@ -148,7 +158,19 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
+    location /webgateway/render_image/ {
+        proxy_pass http://image_region_backend;
+    }
+
     location /webclient/render_image_region/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webclient/render_image/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webgateway/render_shape_mask/ {
         proxy_pass http://image_region_backend;
     }
 

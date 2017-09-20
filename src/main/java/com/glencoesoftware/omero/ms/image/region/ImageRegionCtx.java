@@ -20,19 +20,21 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
-import omeis.providers.re.data.RegionDef;;
+import omeis.providers.re.data.RegionDef;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionCtx.class);
 
-    /** Image Id*/
+    /** Image Id */
     public Long imageId;
 
     /** z - index */
@@ -84,6 +86,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * */
     public Boolean invertedAxis;
 
+    /** Rendering output format */
+    public String format;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -98,8 +103,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
         imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("z"));
-        t = Integer.parseInt(params.get("t"));
+        z = Integer.parseInt(params.get("theZ"));
+        t = Integer.parseInt(params.get("theT"));
         getTileFromString(params.get("tile"));
         getRegionFromString(params.get("region"));
         getChannelInfoFromString(params.get("c"));
@@ -108,9 +113,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getInvertedAxisFromString(params.get("ia"));
         projection = params.get("p");
         maps = params.get("maps");
+        format = Optional.ofNullable(params.get("format")).orElse("jpeg");
 
-        log.debug("{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}",
-                imageId, z, t, tile, channels, windows, colors, m);
+        log.debug(
+                "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
+                "format: {}", imageId, z, t, tile, channels, windows, colors,
+                m, format);
     }
 
     /**

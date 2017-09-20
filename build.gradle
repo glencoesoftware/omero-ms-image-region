@@ -13,7 +13,7 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
-    mavenCentral()
+    jcenter()
     maven {
         name 'Unidata'
         url 'https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases'
@@ -34,10 +34,6 @@ configurations.all {
     exclude group: 'backport-util-concurrent'
     exclude group: 'batik'
     exclude group: 'cglib'
-    exclude group: 'com.codahale.metrics'
-    exclude group: 'com.drewnoakes'
-    exclude group: 'com.esotericsoftware.kryo'
-    exclude group: 'com.google.guava'
     exclude group: 'com.jamonapi'
     exclude group: 'com.mortennobel'
     exclude group: 'com.zeroc', module: 'freeze'
@@ -53,8 +49,8 @@ configurations.all {
     exclude group: 'dom4j'
     exclude group: 'edu.ucar'
     exclude group: 'freemarker'
-    exclude group: 'geronimo-spec'
     exclude group: 'gnu.getopt'
+    exclude group: 'hsqldb'
     exclude group: 'javassist'
     exclude group: 'javax.jts'
     exclude group: 'joda-time'
@@ -67,15 +63,13 @@ configurations.all {
     exclude group: 'omero', module: 'omero-shares'
     exclude group: 'org.apache.lucene'
     exclude group: 'org.apache.httpcomponents'
-    exclude group: 'org.codehaus.btm'
-    exclude group: 'org.hibernate'
-    exclude group: 'org.hibernate.javax.persistence'
     exclude group: 'org.ini4j'
     exclude group: 'org.postgresql'
     exclude group: 'org.scijava'
     exclude group: 'org.springframework', module: 'spring-context-support'
     exclude group: 'org.springframework', module: 'spring-orm'
     exclude group: 'org.springframework.security'
+    exclude group: 'org.uncommons'
     exclude group: 'org.subethamail'
     exclude group: 'pdfbox'
     exclude group: 'quartz'
@@ -87,7 +81,12 @@ configurations.all {
 
 dependencies {
     compile 'ch.qos.logback:logback-classic:1.1.7'
-    compile 'com.glencoesoftware.omero:omero-ms-core:0.2.0-SNAPSHOT'
+    compile ('com.glencoesoftware.omero:omero-ms-core:0.2.0-SNAPSHOT') {
+        exclude group: 'org.testng', module: 'testng'
+    }
+    compile ('omero:blitz:5.2.8-ice36-b69') {
+        exclude group: 'org.testng', module: 'testng'
+    }
     testCompile 'org.testng:testng:6.10'
 }
 
@@ -108,5 +107,6 @@ test {
 applicationDistribution.from("$projectDir") {
     include 'README.md'
     include 'conf.json.example'
+    include 'logback.xml.example'
     include 'omero-ms-image-region.service'
 }
