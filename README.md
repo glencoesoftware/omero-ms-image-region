@@ -9,7 +9,7 @@ endpoint for OMERO.web.
 Requirements
 ============
 
-* OMERO Plus 5.2.x+
+* OMERO 5.2.x+
 * OMERO.web 5.2.x+
 * Redis backed sessions
 * Java 8+
