@@ -68,7 +68,7 @@ public class ImageRegionRequestHandler {
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
     /** OMERO server Spring application context. */
-    private ApplicationContext context;
+    private final ApplicationContext context;
 
     /** OMERO server pixels service. */
     private final PixelsService pixelsService;
