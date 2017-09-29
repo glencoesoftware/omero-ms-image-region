@@ -45,7 +45,7 @@
 
   <bean id="nullMetrics" class="ome.system.metrics.NullMetrics"/>
 
-  <bean name="/OMERO/Pixels" class="ome.io.nio.PixelsService"
+  <bean name="/OMERO/Pixels" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
         parent="filesystem">
     <!-- index=0 "path" comes from parent -->
     <constructor-arg index="1" ref="MemoizerWait"/>
