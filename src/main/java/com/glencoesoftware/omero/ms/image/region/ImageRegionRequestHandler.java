@@ -58,6 +58,7 @@ import omero.ApiUsageException;
 import omero.RType;
 import omero.ServerError;
 import omero.model.Image;
+import omero.model.ImageI;
 import omero.model.Pixels;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
@@ -122,9 +123,10 @@ public class ImageRegionRequestHandler {
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
-            Long pixelsId = getPixelsId(client, imageRegionCtx.imageId);
-            if (pixelsId != null) {
-                return getRegion(client, pixelsId);
+            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
+                    client, imageRegionCtx.imageId);
+            if (pixelsIdAndSeries.size() == 2) {
+                return getRegion(client, pixelsIdAndSeries);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -136,33 +138,33 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single {@link Pixels} identifier from the server for a
-     * given {@link Image} or <code>null</code> if no such identifier exists
-     * or the user does not have permissions to access it.
+     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
+     * the server for a given {@link Image} or <code>null</code> if no such
+     * identifier exists or the user does not have permissions to access it.
      * @param client OMERO client to use for querying.
      * @param imageId {@link Image} identifier to query for.
      * @return See above.
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    private Long getPixelsId(omero.client client, Long imageId)
+    private List<RType> getPixelsIdAndSeries(omero.client client, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageId);
-        StopWatch t0 = new Slf4JStopWatch("getImages");
+        StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
         try {
             List<List<RType>> data = client.getSession()
                 .getQueryService().projection(
-                    "SELECT p.id FROM Pixels as p " +
+                    "SELECT p.id, p.image.series FROM Pixels as p " +
                     "WHERE p.image.id = :id",
                     params, ctx
                 );
             if (data.size() < 1) {
                 return null;
             }
-            return ((omero.RLong) data.get(0).get(0)).getValue();
+            return data.get(0);  // The first row
         } finally {
             t0.stop();
         }
@@ -197,14 +199,15 @@ public class ImageRegionRequestHandler {
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
      * @param client OMERO client to use for image region retrieval.
-     * @param image {@link Image} instance to retrieve image region for.
+     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
+     * to retrieve image region for.
      * @return Image region as a byte array.
      * @throws QuantizationException
-     * @throws Exception
      */
-    private byte[] getRegion(omero.client client, long pixelsId)
-            throws IllegalArgumentException, ServerError, IOException,
-                QuantizationException {
+    private byte[] getRegion(
+            omero.client client, List<RType> pixelsIdAndSeries)
+                    throws IllegalArgumentException, ServerError, IOException,
+                    QuantizationException {
         log.debug("Getting image region");
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -212,9 +215,17 @@ public class ImageRegionRequestHandler {
                 "PixelsService.retrievePixDescription");
         Pixels pixels;
         try {
+            long pixelsId =
+                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
             pixels = client.getSession()
                     .getPixelsService()
                     .retrievePixDescription(pixelsId, ctx);
+            // The series will be used by our version of PixelsService which
+            // avoids attempting to retrieve the series from the database
+            // via IQuery later.
+            Image image = new ImageI(pixels.getImage().getId(), true);
+            image.setSeries((omero.RInt) pixelsIdAndSeries.get(1));
+            pixels.setImage(image);
         } finally {
             t0.stop();
         }
