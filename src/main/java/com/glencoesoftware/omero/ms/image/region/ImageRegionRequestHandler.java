@@ -21,6 +21,7 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -95,18 +96,24 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Available lookup tables. */
+    private final List<File> luts;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
-            List<Family> families, List<RenderingModel> renderingModels) {
+            List<Family> families, List<RenderingModel> renderingModels,
+            List<File> luts) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
+
         this.families = families;
         this.renderingModels = renderingModels;
+        this.luts = luts;
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
         compressionSrv =
                 (LocalCompress) context.getBean("internal-ome.api.ICompress");
@@ -236,7 +243,7 @@ public class ImageRegionRequestHandler {
             quantumFactory, renderingModels,
             (ome.model.core.Pixels) mapper.reverse(pixels),
             getRenderingDef(client, pixels.getId().getValue()),
-            pixelBuffer
+            pixelBuffer, luts
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
         planeDef.setZ(imageRegionCtx.z);
