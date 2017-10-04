@@ -60,7 +60,6 @@ configurations.all {
     exclude group: 'org.apache.lucene'
     exclude group: 'org.apache.httpcomponents'
     exclude group: 'org.ini4j'
-    exclude group: 'org.scijava'
     exclude group: 'org.uncommons'
     exclude group: 'org.subethamail'
     exclude group: 'pdfbox'
