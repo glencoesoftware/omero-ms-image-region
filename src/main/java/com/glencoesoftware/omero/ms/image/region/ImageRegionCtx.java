@@ -114,7 +114,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getCompressionQualityFromString(params.get("q"));
         getInvertedAxisFromString(params.get("ia"));
         projection = params.get("p");
-        maps = Json.decodeValue(params.get("maps"), List.class);
+        String maps = params.get("maps");
+        if (maps != null) {
+            this.maps = Json.decodeValue(maps, List.class);
+        }
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
 
         log.debug(
