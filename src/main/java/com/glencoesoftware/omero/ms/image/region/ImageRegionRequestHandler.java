@@ -393,10 +393,16 @@ public class ImageRegionRequestHandler {
                     renderer.setChannelWindow(c, min, max);
                 }
                 if (imageRegionCtx.colors != null) {
-                    int[] rgba = splitHTMLColor(imageRegionCtx.colors.get(idx));
-                    renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
-                    log.debug("\tColor: [{}, {}, {}, {}]",
-                              rgba[0], rgba[1], rgba[2], rgba[3]);
+                    String color = imageRegionCtx.colors.get(idx);
+                    if (color.endsWith(".lut")) {
+                        renderer.setChannelLookupTable(c, color);
+                        log.debug("\tLUT: {}", color);
+                    } else {
+                        int[] rgba = splitHTMLColor(color);
+                        renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
+                        log.debug("\tColor: [{}, {}, {}, {}]",
+                                  rgba[0], rgba[1], rgba[2], rgba[3]);
+                    }
                 }
             }
 
