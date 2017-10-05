@@ -51,6 +51,7 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.quantum.QuantizationException;
@@ -402,6 +403,20 @@ public class ImageRegionRequestHandler {
                         renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
                         log.debug("\tColor: [{}, {}, {}, {}]",
                                   rgba[0], rgba[1], rgba[2], rgba[3]);
+                    }
+                }
+                if (imageRegionCtx.maps != null) {
+                    if (c < imageRegionCtx.maps.size()) {
+                        Map<String, Map<String, Object>> map =
+                                imageRegionCtx.maps.get(c);
+                        if (map != null) {
+                            Map<String, Object> reverse = map.get("reverse");
+                            if (reverse != null
+                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
+                                renderer.getCodomainChain(c).add(
+                                        new ReverseIntensityContext());
+                            }
+                        }
                     }
                 }
             }

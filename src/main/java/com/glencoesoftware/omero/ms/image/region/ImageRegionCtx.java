@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
+import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
@@ -66,8 +68,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Color mode (g == grey scale; c == rgb) */
     public String m;
 
-    /** Maps. <b>Not</b> handled at the moment. Supported from 5.3.0 */
-    public String maps;
+    /** Codomain maps */
+    public List<Map<String, Map<String, Object>>> maps;
 
     /** Compression quality */
     public Float compressionQuality;
@@ -112,7 +114,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getCompressionQualityFromString(params.get("q"));
         getInvertedAxisFromString(params.get("ia"));
         projection = params.get("p");
-        maps = params.get("maps");
+        maps = Json.decodeValue(params.get("maps"), List.class);
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
 
         log.debug(

@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.testng.annotations.Test;
 
@@ -27,21 +28,16 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 
 public class ImageRegionCtxTest {
 
-    MultiMap paramsTile = MultiMap.caseInsensitiveMultiMap();
-    MultiMap paramsRegion = MultiMap.caseInsensitiveMultiMap();
-
     final private long imageId = 123;
     final private int z = 1;
     final private int t = 1;
-    final private String m1 = "c";
-    final private String m2 = "g";
     final private float q = 0.8f;
     // tile
     final private int resolution = 0;
@@ -71,26 +67,30 @@ public class ImageRegionCtxTest {
             channel0, window0[0], window0[1], color0,
             channel1, window1[0], window1[1], color1,
             channel2, window2[0], window2[1], color2);
+    final private String maps = "[{\"reverse\": {\"enabled\": false}}, " +
+            "{\"reverse\": {\"enabled\": false}}, " +
+            "{\"reverse\": {\"enabled\": false}}]";
 
-    @BeforeTest
+    private MultiMap params = MultiMap.caseInsensitiveMultiMap();
+
+    @BeforeMethod
     public void setUp() throws IOException {
-        paramsTile.add("tile", tile);
-        paramsTile.add("c", c);
-        paramsTile.add("theZ", String.valueOf(z));
-        paramsTile.add("theT", String.valueOf(t));
-        paramsTile.add("imageId", String.valueOf(imageId));
-        paramsTile.add("m", m1);
-        paramsTile.add("q", String.valueOf(q));
+        params.add("imageId", String.valueOf(imageId));
+        params.add("theZ", String.valueOf(z));
+        params.add("theT", String.valueOf(t));
+        params.add("q", String.valueOf(q));
 
-        paramsRegion.add("region", region);
-        paramsRegion.add("c", c);
-        paramsRegion.add("theZ", String.valueOf(z));
-        paramsRegion.add("theT", String.valueOf(t));
-        paramsRegion.add("imageId", String.valueOf(imageId));
-        paramsRegion.add("m", m2);
+        params.add("tile", tile);
+        params.add("c", c);
+
+        params.add("region", region);
+        params.add("c", c);
+        params.add("maps", maps);
     }
 
-    private void checkChannelInfo(ImageRegionCtx imageCtx) {
+    private void assertChannelInfo(ImageRegionCtx imageCtx) {
+        Assert.assertEquals(imageCtx.compressionQuality, q);
+
         Assert.assertEquals(imageCtx.colors.size(), 3);
         Assert.assertEquals(imageCtx.windows.size(), 3);
         Assert.assertEquals(imageCtx.channels.size(), 3);
@@ -113,40 +113,61 @@ public class ImageRegionCtxTest {
     @Test
     public void testTileParameters()
             throws JsonParseException, JsonMappingException, IOException {
-        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsTile, "");
+        params.remove("region");
+        params.add("m", "c");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
         String data = Json.encode(imageCtx);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
+
         Assert.assertEquals(imageCtxDecoded.m, "rgb");
-        Assert.assertEquals(imageCtxDecoded.compressionQuality, q);
-        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
         Assert.assertNotNull(imageCtxDecoded.tile);
         Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
         Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
         Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 0);
         Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 0);
-        checkChannelInfo(imageCtxDecoded);
+        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
+        assertChannelInfo(imageCtxDecoded);
     }
 
     @Test
     public void testRegionParameters()
             throws JsonParseException, JsonMappingException, IOException {
-        ImageRegionCtx imageCtx = new ImageRegionCtx(paramsRegion, "");
+        params.remove("tile");
+        params.add("m", "g");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
         String data = Json.encode(imageCtx);
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertNull(imageCtxDecoded.tile);
         Assert.assertNull(imageCtxDecoded.resolution);
-        Assert.assertNull(imageCtxDecoded.compressionQuality);
         Assert.assertEquals(imageCtxDecoded.m, "greyscale");
         Assert.assertNotNull(imageCtxDecoded.region);
         Assert.assertEquals(imageCtxDecoded.region.getX(), regionX);
         Assert.assertEquals(imageCtxDecoded.region.getY(), regionY);
         Assert.assertEquals(imageCtxDecoded.region.getWidth(), regionWidth);
         Assert.assertEquals(imageCtxDecoded.region.getHeight(), regionHeight);
-        checkChannelInfo(imageCtxDecoded);
+        assertChannelInfo(imageCtxDecoded);
     }
 
+    @Test
+    public void testCodomainMaps()
+            throws JsonParseException, JsonMappingException, IOException {
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNotNull(imageCtxDecoded.maps);
+        Assert.assertEquals(3, imageCtxDecoded.maps.size());
+        for (Map<String, Map<String, Object>> map : imageCtxDecoded.maps) {
+            Map<String, Object> reverse = map.get("reverse");
+            Boolean enabled = (Boolean) reverse.get("enabled");
+            Assert.assertFalse(enabled);
+        }
+    }
 }
