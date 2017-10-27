@@ -1,5 +1,6 @@
 {
     "debug": true,
+    "trace": false,
     "port": 8080,
     "omero": {
         "host": "localhost",

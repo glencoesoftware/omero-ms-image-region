@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.esotericsoftware.minlog.Log;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
@@ -72,6 +73,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             Logger root = (Logger) LoggerFactory.getLogger(
                     "com.glencoesoftware.omero.ms");
             root.setLevel(Level.DEBUG);
+            log.debug("Setting Kryo log level to DEBUG");
+            Log.DEBUG();
+        }
+        if (config().getBoolean("trace")) {
+            Logger root = (Logger) LoggerFactory.getLogger(
+                    "com.glencoesoftware.omero.ms");
+            root.setLevel(Level.TRACE);
+            log.debug("Setting Kryo log level to TRACE");
+            Log.TRACE();
         }
 
         // Set OMERO.server configuration options using system properties
