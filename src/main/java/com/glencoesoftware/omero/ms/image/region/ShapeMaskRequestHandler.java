@@ -28,6 +28,7 @@ import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +39,7 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.ServerError;
 import omero.model.MaskI;
@@ -104,7 +106,7 @@ public class ShapeMaskRequestHandler {
             byte[] bytes = mask.getBytes();
             int width = (int) mask.getWidth().getValue();
             int height = (int) mask.getHeight().getValue();
-            return renderShapeMaskByteAligned(fillColor, bytes, width, height);
+            return renderShapeMask(fillColor, bytes, width, height);
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
         }
@@ -112,27 +114,36 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Render shape mask when it is byte aligned; the scenario when we have a
-     * bit mask and the width is evenly divisible by 8.
+     * Render shape mask.
      * @param fillColor fill color to use for the mask
      * @param bytes mask bytes to render
      * @param width width of the mask
      * @param height height of the mask
      * @return <code>image/png</code> encoded mask
+     * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
      */
-    protected byte[] renderShapeMaskByteAligned(
+    protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMaskByteAligned");
+        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
         try {
+            // The underlying raster will used a MultiPixelPackedSampleModel
+            // which expects the row stride to be evenly divisible by the byte
+            // width of the data type.  If it is not so aligned we will need
+            // to convert it to a byte mask for rendering.
+            int bitsPerPixel = 1;
+            if (width % 8 != 0) {
+                bytes = convertBitsToBytes(bytes, width * height);
+                bitsPerPixel = 8;
+            }
             // Create buffered image
             DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
             WritableRaster raster = Raster.createPackedRaster(
-                    dataBuffer, width, height, 1, new Point(0, 0));
+                    dataBuffer, width, height, bitsPerPixel, new Point(0, 0));
             byte[] colorMap = new byte[] {
                 // First index (0); 100% transparent
                 0, 0, 0, 0,
-                // Second index (1); from shape
+                // Second index (1); our color of choice
                 (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
                 (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
             };
@@ -148,6 +159,20 @@ public class ShapeMaskRequestHandler {
         } finally {
             t0.stop();
         }
+    }
+
+    /**
+     * Converts a bit mask to a <code>[0, 1]</code> byte mask.
+     * @param bits the bits to convert
+     * @param size number of bits to convert
+     */
+    private byte[] convertBitsToBytes(byte[] bits, int size) {
+        PixelData bitData = new PixelData("bit", ByteBuffer.wrap(bits));
+        byte[] bytes = new byte[size];
+        for (int i = 0; i < size; i++) {
+            bytes[i] = (byte) bitData.getPixelValue(i);
+        }
+        return bytes;
     }
 
     /**

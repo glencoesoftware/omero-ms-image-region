@@ -18,7 +18,11 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+
+import javax.imageio.ImageIO;
 
 import org.testng.annotations.Test;
 
@@ -28,6 +32,12 @@ import ome.xml.model.primitives.Color;
 
 public class ShapeMaskRequestHandlerTest {
 
+    private void assertImage(BufferedImage image, int width, int height) {
+        Assert.assertNotNull(image);
+        Assert.assertEquals(image.getWidth(), width);
+        Assert.assertEquals(image.getHeight(), height);
+    }
+
     @Test
     public void testRenderShapeMaskByteAligned() throws IOException {
         ShapeMaskRequestHandler handler = new ShapeMaskRequestHandler(null);
@@ -36,9 +46,10 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 8;
         int height = 2;
-        byte[] png = handler.renderShapeMaskByteAligned(
-                fillColor, bytes, width, height);
+        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
         Assert.assertNotNull(png);
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
+        assertImage(image, width, height);
     }
 
     @Test
@@ -49,9 +60,10 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 4;
         int height = 4;
-        byte[] png = handler.renderShapeMaskByteAligned(
-                fillColor, bytes, width, height);
+        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
         Assert.assertNotNull(png);
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
+        assertImage(image, width, height);
     }
 
 }
