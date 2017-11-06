@@ -100,9 +100,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
     }
 
     /**
-     * Render image region event handler.
-     * Responds with a <code>image/jpeg</code>
-     * body on success or a failure.
+     * Render Image region event handler. Responds with a
+     * request body on success based on the <code>format</code>
+     * <code>imageId</code>, <code>z</code> and <code>t</code> encoded in the
+     * URL or HTTP 404 if the {@link Image} does not exist or the user
+     * does not have permissions to access it.
+     * @param event Current routing context.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void renderImageRegion(Message<String> message) {
