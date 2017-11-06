@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -73,15 +75,19 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             Logger root = (Logger) LoggerFactory.getLogger(
                     "com.glencoesoftware.omero.ms");
             root.setLevel(Level.DEBUG);
-            log.debug("Setting Kryo log level to DEBUG");
-            Log.DEBUG();
         }
-        if (config().getBoolean("trace")) {
-            Logger root = (Logger) LoggerFactory.getLogger(
-                    "com.glencoesoftware.omero.ms");
-            root.setLevel(Level.TRACE);
-            log.debug("Setting Kryo log level to TRACE");
-            Log.TRACE();
+        JsonObject memoizer = config().getJsonObject("memoizer");
+        if (memoizer != null) {
+            if (Optional.ofNullable(memoizer.getBoolean("debug"))
+                    .orElse(Boolean.FALSE)) {
+                log.info("Setting Kryo log level to DEBUG");
+                Log.DEBUG();
+            }
+            if (Optional.ofNullable(memoizer.getBoolean("trace"))
+                    .orElse(Boolean.FALSE)) {
+                log.info("Setting Kryo log level to TRACE");
+                Log.TRACE();
+            }
         }
 
         // Set OMERO.server configuration options using system properties

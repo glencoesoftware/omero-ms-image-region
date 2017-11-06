@@ -1,10 +1,13 @@
 {
     "debug": true,
-    "trace": false,
     "port": 8080,
     "omero": {
         "host": "localhost",
         "port": 4064
+    },
+    "memoizer": {
+        "debug": false,
+        "trace": false
     },
     "omero.server": {
         "omero.data.dir": "/OMERO",
