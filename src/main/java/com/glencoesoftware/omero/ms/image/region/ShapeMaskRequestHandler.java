@@ -136,6 +136,8 @@ public class ShapeMaskRequestHandler {
                 bytes = convertBitsToBytes(bytes, width * height);
                 bitsPerPixel = 8;
             }
+            log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
+                    "Size:{}", width, height, bitsPerPixel, bytes.length);
             // Create buffered image
             DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
             WritableRaster raster = Raster.createPackedRaster(
