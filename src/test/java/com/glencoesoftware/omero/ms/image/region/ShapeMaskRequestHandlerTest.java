@@ -41,4 +41,17 @@ public class ShapeMaskRequestHandlerTest {
         Assert.assertNotNull(png);
     }
 
+    @Test
+    public void testRenderShapeMaskNotByteAligned() throws IOException {
+        ShapeMaskRequestHandler handler = new ShapeMaskRequestHandler(null);
+        Color fillColor = new Color(255, 0, 0, 255);
+        // 4 by 4 grid alternating bits
+        byte[] bytes = new byte[] { 0x55, 0x55 };
+        int width = 4;
+        int height = 4;
+        byte[] png = handler.renderShapeMaskByteAligned(
+                fillColor, bytes, width, height);
+        Assert.assertNotNull(png);
+    }
+
 }
