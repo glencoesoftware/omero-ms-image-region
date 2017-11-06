@@ -27,6 +27,7 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -60,63 +61,93 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Render shape mask event handler. Responds with a
-     * <code>image/png</code> body on success based on the
-     * <code>shapeId</code> encoded in the URL or HTTP 404 if the {@link Shape}
-     * does not exist or the user does not have permissions to access it.
-     * @param event Current routing context.
+     * Render shape mask request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
      */
     public byte[] renderShapeMask(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                Color fillColor = Optional.ofNullable(mask.getFillColor())
-                    .map(x -> new Color(x.getValue()))
-                    .orElse(new Color(255, 255, 0, 255));
-                if (shapeMaskCtx.color != null) {
-                    int[] rgba = ImageRegionRequestHandler
-                            .splitHTMLColor(shapeMaskCtx.color);
-                    fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-                }
-                log.debug(
-                    "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
-                    fillColor.getRed(), fillColor.getGreen(),
-                    fillColor.getBlue(), fillColor.getAlpha()
-                );
-                byte[] bytes = mask.getBytes();
-
-                // Create buffered image
-                DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
-                WritableRaster raster = Raster.createPackedRaster(
-                        dataBuffer,
-                        (int) mask.getWidth().getValue(),
-                        (int) mask.getHeight().getValue(),
-                        1, new Point(0, 0));
-                byte[] colorMap = new byte[] {
-                    // First index (0); 100% transparent
-                    0, 0, 0, 0, 
-                    // Second index (1); from shape 
-                    (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
-                    (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
-                };
-                ColorModel colorModel = new IndexColorModel(
-                        1, 2, colorMap, 0, true);
-                BufferedImage image = new BufferedImage(
-                        colorModel, raster, false, null);
-
-                // Write PNG to memory and return
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ImageIO.write(image, "png", output);
-                return output.toByteArray();
+                return renderShapeMask(mask);
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Render shape mask.
+     * @param mask mask to render
+     * @return <code>image/png</code> encoded mask
+     */
+    protected byte[] renderShapeMask(MaskI mask) {
+        try {
+            Color fillColor = Optional.ofNullable(mask.getFillColor())
+                .map(x -> new Color(x.getValue()))
+                .orElse(new Color(255, 255, 0, 255));
+            if (shapeMaskCtx.color != null) {
+                // Color came from the request so we override the default
+                // color the mask was assigned.
+                int[] rgba = ImageRegionRequestHandler
+                        .splitHTMLColor(shapeMaskCtx.color);
+                fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
+            }
+            log.debug(
+                "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+                fillColor.getRed(), fillColor.getGreen(),
+                fillColor.getBlue(), fillColor.getAlpha()
+            );
+            byte[] bytes = mask.getBytes();
+            int width = (int) mask.getWidth().getValue();
+            int height = (int) mask.getHeight().getValue();
+            return renderShapeMaskByteAligned(fillColor, bytes, width, height);
+        } catch (IOException e) {
+            log.error("Exception while rendering shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Render shape mask when it is byte aligned; the scenario when we have a
+     * bit mask and the width is evenly divisible by 8.
+     * @param fillColor fill color to use for the mask
+     * @param bytes mask bytes to render
+     * @param width width of the mask
+     * @param height height of the mask
+     * @return <code>image/png</code> encoded mask
+     */
+    protected byte[] renderShapeMaskByteAligned(
+            Color fillColor, byte[] bytes, int width, int height)
+                    throws IOException {
+        StopWatch t0 = new Slf4JStopWatch("renderShapeMaskByteAligned");
+        try {
+            // Create buffered image
+            DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+            WritableRaster raster = Raster.createPackedRaster(
+                    dataBuffer, width, height, 1, new Point(0, 0));
+            byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); from shape
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+            ColorModel colorModel = new IndexColorModel(
+                    1, 2, colorMap, 0, true);
+            BufferedImage image = new BufferedImage(
+                    colorModel, raster, false, null);
+
+            // Write PNG to memory and return
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
         } finally {
             t0.stop();
         }
-        return null;
     }
 
     /**

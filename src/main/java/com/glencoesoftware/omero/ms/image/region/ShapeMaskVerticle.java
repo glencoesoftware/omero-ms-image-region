@@ -67,8 +67,10 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     }
 
     /**
-     * Render shape mask event handler.
-     * Responds with a <code>image/png</code> body on success or a failure.
+     * Render shape mask event handler. Responds with a
+     * <code>image/png</code> body on success based on the
+     * <code>shapeId</code> encoded in the URL or HTTP 404 if the {@link Shape}
+     * does not exist or the user does not have permissions to access it.
      * @param message JSON encoded {@link ShapeMaskCtx} object.
      */
     private void renderShapeMask(Message<String> message) {
