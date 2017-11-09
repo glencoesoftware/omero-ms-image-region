@@ -23,11 +23,15 @@ import org.slf4j.LoggerFactory;
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
+import ome.model.roi.Mask;
 
 public class ShapeMaskCtx extends OmeroRequestCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskCtx.class);
+
+    public static final String CACHE_KEY_FORMAT =
+            "%s:%d:%s";  // Class Name, Object ID, Color String
 
     /** Shape Id */
     public Long shapeId;
@@ -54,4 +58,12 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
         log.debug("Shape:{}, color: {}", shapeId, color);
     }
 
+    /**
+     * Creates a cache key for the context.
+     * @return See above.
+     */
+    public String cacheKey() {
+        return String.format(
+                CACHE_KEY_FORMAT, Mask.class.getName(), shapeId, color);
+    }
 }

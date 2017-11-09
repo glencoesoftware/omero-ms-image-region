@@ -32,6 +32,9 @@ import ome.xml.model.primitives.Color;
 
 public class ShapeMaskRequestHandlerTest {
 
+    private final ShapeMaskRequestHandler handler =
+            new ShapeMaskRequestHandler(null);
+
     private void assertImage(BufferedImage image, int width, int height) {
         Assert.assertNotNull(image);
         Assert.assertEquals(image.getWidth(), width);
@@ -40,7 +43,6 @@ public class ShapeMaskRequestHandlerTest {
 
     @Test
     public void testRenderShapeMaskByteAligned() throws IOException {
-        ShapeMaskRequestHandler handler = new ShapeMaskRequestHandler(null);
         Color fillColor = new Color(255, 0, 0, 255);
         // 8 by 2 grid alternating bits
         byte[] bytes = new byte[] { 0x55, 0x55 };
@@ -54,7 +56,6 @@ public class ShapeMaskRequestHandlerTest {
 
     @Test
     public void testRenderShapeMaskNotByteAligned() throws IOException {
-        ShapeMaskRequestHandler handler = new ShapeMaskRequestHandler(null);
         Color fillColor = new Color(255, 0, 0, 255);
         // 4 by 4 grid alternating bits
         byte[] bytes = new byte[] { 0x55, 0x55 };

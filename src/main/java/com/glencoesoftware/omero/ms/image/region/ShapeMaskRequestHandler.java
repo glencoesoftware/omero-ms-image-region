@@ -30,6 +30,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
+import omero.RType;
 import omero.ServerError;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
@@ -175,6 +177,35 @@ public class ShapeMaskRequestHandler {
             bytes[i] = (byte) bitData.getPixelValue(i);
         }
         return bytes;
+    }
+
+    /**
+     * Whether or not a single {@link MaskI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return <code>true</code> if the {@link MaskI} can be loaded or
+     * <code>false</code> otherwise.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    public boolean canRead(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(shapeMaskCtx.shapeId);
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        try {
+            List<List<RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT s.id FROM Shape as s " +
+                            "WHERE s.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("Exception while checking shape mask readability", e);
+        } finally {
+            t0.stop();
+        }
+        return false;
     }
 
     /**

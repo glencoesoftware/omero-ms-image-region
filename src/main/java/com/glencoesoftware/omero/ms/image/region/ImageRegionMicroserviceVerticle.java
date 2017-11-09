@@ -27,6 +27,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import com.esotericsoftware.minlog.Log;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 
 import ch.qos.logback.classic.Level;
@@ -103,6 +104,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Deploy our dependency verticles
         JsonObject omero = config().getJsonObject("omero");
+        DeploymentOptions options = new DeploymentOptions();
+        options.setConfig(config());
+        vertx.deployVerticle(new RedisCacheVerticle(), options);
         vertx.deployVerticle(new ImageRegionVerticle(
                 omero.getString("host"), omero.getInteger("port"), context),
                 new DeploymentOptions().setWorker(
