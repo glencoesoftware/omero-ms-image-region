@@ -124,7 +124,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             "Render image region request with data: {}", message.body());
         log.debug("Connecting to the server: {}, {}, {}",
                   host, port, imageRegionCtx.omeroSessionKey);
-        try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
+        try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
             if (families == null) {
@@ -163,10 +163,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
-     * @return Always <code>null</code>; only present to conform to the
-     * prototype defined by the generics of the relevant {@link OmeroRequest}.
      */
-    private byte[] updateFamilies(omero.client client) {
+    private Void updateFamilies(omero.client client) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch("getFamilies");
@@ -181,10 +179,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
-     * @return Always <code>null</code>; only present to conform to the
-     * prototype defined by the generics of the relevant {@link OmeroRequest}.
      */
-    private byte[] updateRenderingModels(omero.client client) {
+    private Void updateRenderingModels(omero.client client) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch("getRenderingModels");
