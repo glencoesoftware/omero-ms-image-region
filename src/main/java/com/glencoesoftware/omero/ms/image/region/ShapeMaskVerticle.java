@@ -102,8 +102,6 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     shapeMask = result.result().body();
                 }
 
-                log.debug("Connecting to the server: {}, {}, {}",
-                      host, port, shapeMaskCtx.omeroSessionKey);
                 try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))
                 {

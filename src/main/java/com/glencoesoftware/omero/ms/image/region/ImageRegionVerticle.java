@@ -122,8 +122,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         log.debug(
             "Render image region request with data: {}", message.body());
-        log.debug("Connecting to the server: {}, {}, {}",
-                  host, port, imageRegionCtx.omeroSessionKey);
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
