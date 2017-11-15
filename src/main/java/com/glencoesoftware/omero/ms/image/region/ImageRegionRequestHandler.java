@@ -258,6 +258,9 @@ public class ImageRegionRequestHandler {
         if (imageRegionCtx.channels != null) {
             updateSettings(renderer);
         }
+        if (imageRegionCtx.m != null) {
+            updateRenderingModel(renderer);
+        }
         StopWatch t1 = new Slf4JStopWatch("render");
         try {
             // The actual act of rendering will close the provided pixel buffer
