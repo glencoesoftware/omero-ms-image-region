@@ -5,6 +5,10 @@
         "host": "localhost",
         "port": 4064
     },
+    "memoizer": {
+        "debug": false,
+        "trace": false
+    },
     "omero.server": {
         "omero.data.dir": "/OMERO",
         "omero.db.host": "localhost",

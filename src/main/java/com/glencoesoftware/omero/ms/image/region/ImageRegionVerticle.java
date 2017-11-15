@@ -119,9 +119,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
     }
 
     /**
-     * Render image region event handler.
-     * Responds with a <code>image/jpeg</code>
-     * body on success or a failure.
+     * Render Image region event handler. Responds with a
+     * request body on success based on the <code>format</code>
+     * <code>imageId</code>, <code>z</code> and <code>t</code> encoded in the
+     * URL or HTTP 404 if the {@link Image} does not exist or the user
+     * does not have permissions to access it.
+     * @param event Current routing context.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void renderImageRegion(Message<String> message) {
@@ -138,9 +141,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         log.debug(
             "Render image region request with data: {}", message.body());
-        log.debug("Connecting to the server: {}, {}, {}",
-                  host, port, imageRegionCtx.omeroSessionKey);
-        try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
+        try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
             if (families == null) {
@@ -182,37 +183,18 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
-     * @return Always <code>null</code>; only present to conform to the
-     * prototype defined by the generics of the relevant {@link OmeroRequest}.
      */
-    private byte[] updateFamilies(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getFamilies");
-        try {
-            families = getAllEnumerations(client, Family.class);
-        } finally {
-            t0.stop();
-        }
+    private Void updateFamilies(omero.client client) {
+        families = getAllEnumerations(client, Family.class);
         return null;
     }
 
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
-     * @return Always <code>null</code>; only present to conform to the
-     * prototype defined by the generics of the relevant {@link OmeroRequest}.
      */
-    private byte[] updateRenderingModels(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getRenderingModels");
-        try {
-            renderingModels = getAllEnumerations(
-                    client, RenderingModel.class);
-        } finally {
-            t0.stop();
-        }
+    private Void updateRenderingModels(omero.client client) {
+        renderingModels = getAllEnumerations(client, RenderingModel.class);
         return null;
     }
 

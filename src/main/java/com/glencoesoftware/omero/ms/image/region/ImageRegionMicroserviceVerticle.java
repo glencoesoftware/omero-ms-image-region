@@ -18,12 +18,16 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.esotericsoftware.minlog.Log;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 
 import ch.qos.logback.classic.Level;
@@ -73,6 +77,19 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     "com.glencoesoftware.omero.ms");
             root.setLevel(Level.DEBUG);
         }
+        JsonObject memoizer = config().getJsonObject("memoizer");
+        if (memoizer != null) {
+            if (Optional.ofNullable(memoizer.getBoolean("debug"))
+                    .orElse(Boolean.FALSE)) {
+                log.info("Setting Kryo log level to DEBUG");
+                Log.DEBUG();
+            }
+            if (Optional.ofNullable(memoizer.getBoolean("trace"))
+                    .orElse(Boolean.FALSE)) {
+                log.info("Setting Kryo log level to TRACE");
+                Log.TRACE();
+            }
+        }
 
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config().getJsonObject("omero.server");
@@ -87,6 +104,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Deploy our dependency verticles
         JsonObject omero = config().getJsonObject("omero");
+        DeploymentOptions options = new DeploymentOptions();
+        options.setConfig(config());
+        vertx.deployVerticle(new RedisCacheVerticle(), options);
         vertx.deployVerticle(new ImageRegionVerticle(
                 omero.getString("host"), omero.getInteger("port"), context),
                 new DeploymentOptions().setWorker(
@@ -163,7 +183,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().send(
+        vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             try {
@@ -176,7 +196,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.setStatusCode(statusCode);
                     return;
                 }
-                byte[] imageRegion = (byte []) result.result().body();
+                byte[] imageRegion = result.result().body();
                 String contentType = "application/octet-stream";
                 if (imageRegionCtx.format.equals("jpeg")) {
                     contentType = "image/jpeg";
@@ -214,7 +234,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().send(
+        vertx.eventBus().<byte[]>send(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {
@@ -227,7 +247,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.setStatusCode(statusCode);
                     return;
                 }
-                byte[] shapeMask = (byte []) result.result().body();
+                byte[] shapeMask = result.result().body();
                 response.headers().set("Content-Type", "image/png");
                 response.headers().set(
                         "Content-Length",

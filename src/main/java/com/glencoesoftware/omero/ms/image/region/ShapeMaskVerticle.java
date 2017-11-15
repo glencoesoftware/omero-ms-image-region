@@ -22,11 +22,14 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 
 public class ShapeMaskVerticle extends AbstractVerticle {
 
@@ -67,8 +70,10 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     }
 
     /**
-     * Render shape mask event handler.
-     * Responds with a <code>image/png</code> body on success or a failure.
+     * Render shape mask event handler. Responds with a
+     * <code>image/png</code> body on success based on the
+     * <code>shapeId</code> encoded in the URL or HTTP 404 if the {@link Shape}
+     * does not exist or the user does not have permissions to access it.
      * @param message JSON encoded {@link ShapeMaskCtx} object.
      */
     private void renderShapeMask(Message<String> message) {
@@ -85,32 +90,58 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         }
         log.debug(
             "Render shape mask request with data: {}", message.body());
-        log.debug("Connecting to the server: {}, {}, {}",
-                  host, port, shapeMaskCtx.omeroSessionKey);
-        try (OmeroRequest<byte[]> request = new OmeroRequest<byte[]>(
-                 host, port, shapeMaskCtx.omeroSessionKey))
-        {
-            byte[] shapeMask = request.execute(new ShapeMaskRequestHandler(
-                    shapeMaskCtx)::renderShapeMask);
-            if (shapeMask == null) {
-                message.fail(
-                        404, "Cannot find Shape:" + shapeMaskCtx.shapeId);
-            } else {
-                message.reply(shapeMask);
+
+        String key = shapeMaskCtx.cacheKey();
+        JsonObject getMessage = new JsonObject();
+        getMessage.put("key", key);
+        vertx.eventBus().<byte[]>send(
+            RedisCacheVerticle.REDIS_CACHE_GET_EVENT,
+            Json.encode(getMessage), result -> {
+                try (OmeroRequest request = new OmeroRequest(
+                         host, port, shapeMaskCtx.omeroSessionKey))
+                {
+                    byte[] shapeMask =
+                            result.succeeded()? result.result().body() : null;
+                    ShapeMaskRequestHandler requestHandler =
+                            new ShapeMaskRequestHandler(shapeMaskCtx);
+
+                    // If the PNG is in the cache, check we have permissions
+                    // to access it and assign and return
+                    if (shapeMask != null
+                            && request.execute(requestHandler::canRead)) {
+                        message.reply(shapeMask);
+                        return;
+                    }
+
+                    // The PNG is not in the cache we have to create it
+                    shapeMask = request.execute(
+                            requestHandler::renderShapeMask);
+                    message.reply(shapeMask);
+
+                    // Cache the PNG if the color was explicitly set
+                   if (shapeMaskCtx.color != null) {
+                        JsonObject setMessage = new JsonObject();
+                        setMessage.put("key", key);
+                        setMessage.put("value", shapeMask);
+                        vertx.eventBus().send(
+                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                Json.encode(setMessage));
+                    }
+                } catch (PermissionDeniedException
+                        | CannotCreateSessionException e) {
+                    String v = "Permission denied";
+                    log.debug(v);
+                    message.fail(403, v);
+                } catch (IllegalArgumentException e) {
+                    log.debug(
+                        "Illegal argument received while retrieving shape mask", e);
+                    message.fail(400, e.getMessage());
+                } catch (Exception e) {
+                    String v = "Exception while retrieving shape mask";
+                    log.error(v, e);
+                    message.fail(500, v);
+                }
             }
-        } catch (PermissionDeniedException
-                | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (IllegalArgumentException e) {
-            log.debug(
-                "Illegal argument received while retrieving shape mask", e);
-            message.fail(400, e.getMessage());
-        } catch (Exception e) {
-            String v = "Exception while retrieving shape mask";
-            log.error(v, e);
-            message.fail(500, v);
-        }
+        );
     }
 }

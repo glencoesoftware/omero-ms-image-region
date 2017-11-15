@@ -27,7 +27,10 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -37,7 +40,9 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
+import omero.RType;
 import omero.ServerError;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
@@ -60,63 +65,147 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Render shape mask event handler. Responds with a
-     * <code>image/png</code> body on success based on the
-     * <code>shapeId</code> encoded in the URL or HTTP 404 if the {@link Shape}
-     * does not exist or the user does not have permissions to access it.
-     * @param event Current routing context.
+     * Render shape mask request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
      */
     public byte[] renderShapeMask(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                Color fillColor = Optional.ofNullable(mask.getFillColor())
-                    .map(x -> new Color(x.getValue()))
-                    .orElse(new Color(255, 255, 0, 255));
-                if (shapeMaskCtx.color != null) {
-                    int[] rgba = ImageRegionRequestHandler
-                            .splitHTMLColor(shapeMaskCtx.color);
-                    fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-                }
-                log.debug(
-                    "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
-                    fillColor.getRed(), fillColor.getGreen(),
-                    fillColor.getBlue(), fillColor.getAlpha()
-                );
-                byte[] bytes = mask.getBytes();
-
-                // Create buffered image
-                DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
-                WritableRaster raster = Raster.createPackedRaster(
-                        dataBuffer,
-                        (int) mask.getWidth().getValue(),
-                        (int) mask.getHeight().getValue(),
-                        1, new Point(0, 0));
-                byte[] colorMap = new byte[] {
-                    // First index (0); 100% transparent
-                    0, 0, 0, 0, 
-                    // Second index (1); from shape 
-                    (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
-                    (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
-                };
-                ColorModel colorModel = new IndexColorModel(
-                        1, 2, colorMap, 0, true);
-                BufferedImage image = new BufferedImage(
-                        colorModel, raster, false, null);
-
-                // Write PNG to memory and return
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ImageIO.write(image, "png", output);
-                return output.toByteArray();
+                return renderShapeMask(mask);
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Render shape mask.
+     * @param mask mask to render
+     * @return <code>image/png</code> encoded mask
+     */
+    protected byte[] renderShapeMask(MaskI mask) {
+        try {
+            Color fillColor = Optional.ofNullable(mask.getFillColor())
+                .map(x -> new Color(x.getValue()))
+                .orElse(new Color(255, 255, 0, 255));
+            if (shapeMaskCtx.color != null) {
+                // Color came from the request so we override the default
+                // color the mask was assigned.
+                int[] rgba = ImageRegionRequestHandler
+                        .splitHTMLColor(shapeMaskCtx.color);
+                fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
+            }
+            log.debug(
+                "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+                fillColor.getRed(), fillColor.getGreen(),
+                fillColor.getBlue(), fillColor.getAlpha()
+            );
+            byte[] bytes = mask.getBytes();
+            int width = (int) mask.getWidth().getValue();
+            int height = (int) mask.getHeight().getValue();
+            return renderShapeMask(fillColor, bytes, width, height);
+        } catch (IOException e) {
+            log.error("Exception while rendering shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Render shape mask.
+     * @param fillColor fill color to use for the mask
+     * @param bytes mask bytes to render
+     * @param width width of the mask
+     * @param height height of the mask
+     * @return <code>image/png</code> encoded mask
+     * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
+     */
+    protected byte[] renderShapeMask(
+            Color fillColor, byte[] bytes, int width, int height)
+                    throws IOException {
+        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
+        try {
+            // The underlying raster will used a MultiPixelPackedSampleModel
+            // which expects the row stride to be evenly divisible by the byte
+            // width of the data type.  If it is not so aligned we will need
+            // to convert it to a byte mask for rendering.
+            int bitsPerPixel = 1;
+            if (width % 8 != 0) {
+                bytes = convertBitsToBytes(bytes, width * height);
+                bitsPerPixel = 8;
+            }
+            log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
+                    "Size:{}", width, height, bitsPerPixel, bytes.length);
+            // Create buffered image
+            DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+            WritableRaster raster = Raster.createPackedRaster(
+                    dataBuffer, width, height, bitsPerPixel, new Point(0, 0));
+            byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); our color of choice
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+            ColorModel colorModel = new IndexColorModel(
+                    1, 2, colorMap, 0, true);
+            BufferedImage image = new BufferedImage(
+                    colorModel, raster, false, null);
+
+            // Write PNG to memory and return
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
         } finally {
             t0.stop();
         }
-        return null;
+    }
+
+    /**
+     * Converts a bit mask to a <code>[0, 1]</code> byte mask.
+     * @param bits the bits to convert
+     * @param size number of bits to convert
+     */
+    private byte[] convertBitsToBytes(byte[] bits, int size) {
+        PixelData bitData = new PixelData("bit", ByteBuffer.wrap(bits));
+        byte[] bytes = new byte[size];
+        for (int i = 0; i < size; i++) {
+            bytes[i] = (byte) bitData.getPixelValue(i);
+        }
+        return bytes;
+    }
+
+    /**
+     * Whether or not a single {@link MaskI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return <code>true</code> if the {@link MaskI} can be loaded or
+     * <code>false</code> otherwise.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    public boolean canRead(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(shapeMaskCtx.shapeId);
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        try {
+            List<List<RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT s.id FROM Shape as s " +
+                            "WHERE s.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("Exception while checking shape mask readability", e);
+        } finally {
+            t0.stop();
+        }
+        return false;
     }
 
     /**

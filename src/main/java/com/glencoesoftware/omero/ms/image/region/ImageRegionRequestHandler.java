@@ -121,12 +121,10 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Render Image region event handler. Responds with a
-     * <code>image/jpeg</code> body on success based on the
-     * <code>imageId</code>, <code>z</code> and <code>t</code> encoded in the
-     * URL or HTTP 404 if the {@link Image}
-     * does not exist or the user does not have permissions to access it.
-     * @param event Current routing context.
+     * Render Image region request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>imageRegionCtx</code>.
      */
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
