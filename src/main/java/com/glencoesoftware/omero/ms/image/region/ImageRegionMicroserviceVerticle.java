@@ -183,7 +183,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().send(
+        vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             try {
@@ -196,7 +196,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.setStatusCode(statusCode);
                     return;
                 }
-                byte[] imageRegion = (byte []) result.result().body();
+                byte[] imageRegion = result.result().body();
                 String contentType = "application/octet-stream";
                 if (imageRegionCtx.format.equals("jpeg")) {
                     contentType = "image/jpeg";
@@ -234,7 +234,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().send(
+        vertx.eventBus().<byte[]>send(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {
@@ -247,7 +247,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.setStatusCode(statusCode);
                     return;
                 }
-                byte[] shapeMask = (byte []) result.result().body();
+                byte[] shapeMask = result.result().body();
                 response.headers().set("Content-Type", "image/png");
                 response.headers().set(
                         "Content-Length",
