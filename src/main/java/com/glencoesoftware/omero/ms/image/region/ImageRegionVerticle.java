@@ -165,14 +165,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param client valid client to use to perform actions
      */
     private Void updateFamilies(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getFamilies");
-        try {
-            families = getAllEnumerations(client, Family.class);
-        } finally {
-            t0.stop();
-        }
+        families = getAllEnumerations(client, Family.class);
         return null;
     }
 
@@ -181,15 +174,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param client valid client to use to perform actions
      */
     private Void updateRenderingModels(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getRenderingModels");
-        try {
-            renderingModels = getAllEnumerations(
-                    client, RenderingModel.class);
-        } finally {
-            t0.stop();
-        }
+        renderingModels = getAllEnumerations(client, RenderingModel.class);
         return null;
     }
 
