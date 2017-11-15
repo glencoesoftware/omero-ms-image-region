@@ -28,7 +28,6 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 
 public class ShapeMaskVerticle extends AbstractVerticle {
