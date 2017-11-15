@@ -423,6 +423,14 @@ public class ImageRegionRequestHandler {
 
             idx += 1;
         }
+    }
+
+    /**
+     * Update model on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @throws ServerError
+     */
+    private void updateRenderingModel(Renderer renderer) throws ServerError {
         for (RenderingModel renderingModel : renderingModels) {
             if (imageRegionCtx.m.equals(renderingModel.getValue())) {
                 renderer.setModel(renderingModel);
