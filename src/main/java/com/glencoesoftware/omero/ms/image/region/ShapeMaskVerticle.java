@@ -94,17 +94,17 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         String key = shapeMaskCtx.cacheKey();
         JsonObject getMessage = new JsonObject();
         getMessage.put("key", key);
-        vertx.eventBus().send(
+        vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT,
             Json.encode(getMessage), result -> {
                 byte[] shapeMask = null;
                 if (result.succeeded()) {
-                    shapeMask = (byte[]) result.result().body();
+                    shapeMask = result.result().body();
                 }
 
                 log.debug("Connecting to the server: {}, {}, {}",
                       host, port, shapeMaskCtx.omeroSessionKey);
-                try (final OmeroRequest request = new OmeroRequest(
+                try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))
                 {
                     ShapeMaskRequestHandler requestHandler =
@@ -112,7 +112,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
                     // If the PNG is in the cache assign and return
                     if (shapeMask != null) {
-                        boolean canRead = (boolean) request.execute(
+                        boolean canRead = request.execute(
                                 requestHandler::canRead);
                         if (canRead) {
                             message.reply(shapeMask);
@@ -122,7 +122,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
                     // The PNG is not in the cache we have to create it
                     try {
-                        shapeMask = (byte[]) request.execute(
+                        shapeMask = request.execute(
                                 requestHandler::renderShapeMask);
                         message.reply(shapeMask);
                     } catch (Exception e) {
