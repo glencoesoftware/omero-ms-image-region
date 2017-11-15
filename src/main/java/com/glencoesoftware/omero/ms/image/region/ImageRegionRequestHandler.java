@@ -255,7 +255,9 @@ public class ImageRegionRequestHandler {
             compressionSrv.setCompressionLevel(
                     imageRegionCtx.compressionQuality);
         }
-        updateSettings(renderer);
+        if (imageRegionCtx.channels != null) {
+            updateSettings(renderer);
+        }
         StopWatch t1 = new Slf4JStopWatch("render");
         try {
             // The actual act of rendering will close the provided pixel buffer
