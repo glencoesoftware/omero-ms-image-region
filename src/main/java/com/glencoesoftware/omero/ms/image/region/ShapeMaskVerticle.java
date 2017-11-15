@@ -92,11 +92,8 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
-        JsonObject getMessage = new JsonObject();
-        getMessage.put("key", key);
         vertx.eventBus().<byte[]>send(
-            RedisCacheVerticle.REDIS_CACHE_GET_EVENT,
-            Json.encode(getMessage), result -> {
+            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
                 try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))
                 {
@@ -125,7 +122,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                         setMessage.put("value", shapeMask);
                         vertx.eventBus().send(
                                 RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                Json.encode(setMessage));
+                                setMessage);
                     }
                 } catch (PermissionDeniedException
                         | CannotCreateSessionException e) {
