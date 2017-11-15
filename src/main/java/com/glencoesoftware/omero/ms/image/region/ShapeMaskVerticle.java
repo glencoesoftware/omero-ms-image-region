@@ -97,38 +97,26 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT,
             Json.encode(getMessage), result -> {
-                byte[] shapeMask = null;
-                if (result.succeeded()) {
-                    shapeMask = result.result().body();
-                }
-
                 try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))
                 {
+                    byte[] shapeMask =
+                            result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
                             new ShapeMaskRequestHandler(shapeMaskCtx);
 
-                    // If the PNG is in the cache assign and return
-                    if (shapeMask != null) {
-                        boolean canRead = request.execute(
-                                requestHandler::canRead);
-                        if (canRead) {
-                            message.reply(shapeMask);
-                            return;
-                        }
+                    // If the PNG is in the cache, check we have permissions
+                    // to access it and assign and return
+                    if (shapeMask != null
+                            && request.execute(requestHandler::canRead)) {
+                        message.reply(shapeMask);
+                        return;
                     }
 
                     // The PNG is not in the cache we have to create it
-                    try {
-                        shapeMask = request.execute(
-                                requestHandler::renderShapeMask);
-                        message.reply(shapeMask);
-                    } catch (Exception e) {
-                        String v = "Exception while retrieving shape mask";
-                        log.error(v, e);
-                        message.fail(500, v);
-                        return;
-                    }
+                    shapeMask = request.execute(
+                            requestHandler::renderShapeMask);
+                    message.reply(shapeMask);
 
                     // Cache the PNG if the color was explicitly set
                    if (shapeMaskCtx.color != null) {
