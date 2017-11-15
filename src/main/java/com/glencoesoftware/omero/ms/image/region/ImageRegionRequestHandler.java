@@ -376,8 +376,6 @@ public class ImageRegionRequestHandler {
     /**
      * Update settings on the rendering engine based on the current context.
      * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
      * @throws ServerError
      */
     private void updateSettings(Renderer renderer) throws ServerError {
@@ -423,7 +421,6 @@ public class ImageRegionRequestHandler {
                     }
                 }
             }
-
             idx += 1;
         }
     }
