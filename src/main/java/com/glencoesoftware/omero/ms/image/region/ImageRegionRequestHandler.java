@@ -59,6 +59,9 @@ import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
 import omero.RType;
 import omero.ServerError;
+import omero.api.IPixelsPrx;
+import omero.api.IQueryPrx;
+import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
 import omero.model.ImageI;
 import omero.model.Pixels;
@@ -129,10 +132,13 @@ public class ImageRegionRequestHandler {
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    client, imageRegionCtx.imageId);
+                    iQuery, imageRegionCtx.imageId);
             if (pixelsIdAndSeries.size() == 2) {
-                return getRegion(client, pixelsIdAndSeries);
+                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -147,13 +153,13 @@ public class ImageRegionRequestHandler {
      * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
      * the server for a given {@link Image} or <code>null</code> if no such
      * identifier exists or the user does not have permissions to access it.
-     * @param client OMERO client to use for querying.
+     * @param iQuery OMERO query service to use for metadata access.
      * @param imageId {@link Image} identifier to query for.
      * @return See above.
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    private List<RType> getPixelsIdAndSeries(omero.client client, Long imageId)
+    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -161,8 +167,7 @@ public class ImageRegionRequestHandler {
         params.addId(imageId);
         StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
         try {
-            List<List<RType>> data = client.getSession()
-                .getQueryService().projection(
+            List<List<RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
                     "WHERE p.image.id = :id",
                     params, ctx
@@ -179,15 +184,16 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves the rendering settings corresponding to the specified pixels
      * set.
+     * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
     private RenderingDef getRenderingDef(
-            omero.client client, final long pixelsId) throws ServerError {
+            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(client.getSession()
-                .getPixelsService().retrieveRndSettings(pixelsId, ctx));
+        return (RenderingDef) mapper.reverse(
+                iPixels.retrieveRndSettings(pixelsId, ctx));
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels)
@@ -204,14 +210,15 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param client OMERO client to use for image region retrieval.
+     * @param iQuery OMERO query service to use for metadata access.
+     * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
      * to retrieve image region for.
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
     private byte[] getRegion(
-            omero.client client, List<RType> pixelsIdAndSeries)
+            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");
@@ -223,9 +230,7 @@ public class ImageRegionRequestHandler {
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            pixels = client.getSession()
-                    .getPixelsService()
-                    .retrievePixDescription(pixelsId, ctx);
+            pixels = iPixels.retrievePixDescription(pixelsId, ctx);
             // The series will be used by our version of PixelsService which
             // avoids attempting to retrieve the series from the database
             // via IQuery later.
@@ -241,7 +246,7 @@ public class ImageRegionRequestHandler {
         renderer = new Renderer(
             quantumFactory, renderingModels,
             (ome.model.core.Pixels) mapper.reverse(pixels),
-            getRenderingDef(client, pixels.getId().getValue()),
+            getRenderingDef(iPixels, pixels.getId().getValue()),
             pixelBuffer, luts
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);

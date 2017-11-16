@@ -44,6 +44,7 @@ import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
 import omero.ServerError;
+import omero.api.IQueryPrx;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 
@@ -218,13 +219,26 @@ public class ShapeMaskRequestHandler {
      */
     protected MaskI getMask(omero.client client, Long shapeId)
             throws ServerError {
+        return getMask(client.getSession().getQueryService(), shapeId);
+    }
+
+    /**
+     * Retrieves a single {@link MaskI} from the server.
+     * @param iQuery OMERO query service to use for metadata access.
+     * @param shapeId {@link MaskI} identifier to query for.
+     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
+     * exist or the user does not have permissions to access it.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    protected MaskI getMask(IQueryPrx iQuery, Long shapeId)
+            throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(shapeId);
         StopWatch t0 = new Slf4JStopWatch("getMask");
         try {
-            return (MaskI) client.getSession().getQueryService().findByQuery(
+            return (MaskI) iQuery.findByQuery(
                 "SELECT s FROM Shape as s " +
                 "WHERE s.id = :id", params, ctx
             );
@@ -232,5 +246,4 @@ public class ShapeMaskRequestHandler {
             t0.stop();
         }
     }
-
 }
