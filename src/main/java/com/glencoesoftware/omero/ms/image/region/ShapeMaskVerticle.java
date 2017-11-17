@@ -112,6 +112,11 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     // The PNG is not in the cache we have to create it
                     shapeMask = request.execute(
                             requestHandler::renderShapeMask);
+                    if (shapeMask == null) {
+                        message.fail(404, "Cannot render Mask:" +
+                                shapeMaskCtx.shapeId);
+                        return;
+                    }
                     message.reply(shapeMask);
 
                     // Cache the PNG if the color was explicitly set
