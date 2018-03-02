@@ -14,6 +14,10 @@
     </encoder>
   </appender>
 
+  <logger name="com.glencoesoftware.omero.ms" level="INFO"/>
+  <logger name="loci" level="INFO"/><!-- Bio-Formats -->
+  <logger name="loci.formats.Memoizer" level="INFO"/><!-- Bio-Formats memoizer -->
+
   <root level="info">
     <appender-ref ref="STDOUT" />
   </root>

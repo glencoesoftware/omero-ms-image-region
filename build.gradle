@@ -75,6 +75,8 @@ dependencies {
     compile ('com.glencoesoftware.omero:omero-ms-core:0.3.0-SNAPSHOT') {
         exclude group: 'org.testng', module: 'testng'
     }
+    compile 'io.vertx:vertx-config:3.5.1'
+    compile 'io.vertx:vertx-config-yaml:3.5.1'
     compile ('omero:blitz:5.4.3-ice36-b77') {
         exclude group: 'org.testng', module: 'testng'
     }
@@ -95,9 +97,16 @@ test {
   useTestNG()
 }
 
-applicationDistribution.from("$projectDir") {
-    include 'README.md'
-    include 'conf.json.example'
-    include 'logback.xml.example'
-    include 'omero-ms-image-region.service'
+distributions {
+    main {
+        contents {
+            from("$projectDir") {
+                include 'README.md'
+            }
+        }
+    }
 }
+
+applicationDefaultJvmArgs = [
+    "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory"
+]
