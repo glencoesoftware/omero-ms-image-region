@@ -18,20 +18,15 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Optional;
-
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-import com.esotericsoftware.minlog.Log;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
