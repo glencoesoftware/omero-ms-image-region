@@ -19,10 +19,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,10 +38,11 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.services.scripts.ScriptFileType;
 import ome.system.PreferenceContext;
+import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
-import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
 public class ImageRegionVerticle extends AbstractVerticle {
@@ -71,6 +68,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** OMERO server wide preference context. */
     private final PreferenceContext preferences;
 
+    /** Lookup table provider. */
+    private final LutProvider lutProvider;
+
+    /** Lookup table OMERO script file type */
+    private final ScriptFileType lutType;
+
     /** Path to the script repository root. */
     private final String scriptRepoRoot;
 
@@ -86,9 +89,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
-    /** Available lookup tables. */
-    private List<File> luts;
-
     /**
      * Default constructor.
      * @param host OMERO server host.
@@ -103,6 +103,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
         this.preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
         scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
+        lutType = (ScriptFileType) context.getBean("LUTScripts");
+        lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
     }
 
     /* (non-Javadoc)
@@ -150,14 +152,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            if (luts == null) {
-                request.execute(this::updateLuts);
-            }
 
             byte[] imageRegion = request.execute(
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
-                            renderingModels, luts)::renderImageRegion);
+                            renderingModels, lutProvider)::renderImageRegion);
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
@@ -195,44 +194,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Void updateRenderingModels(omero.client client) {
         renderingModels = getAllEnumerations(client, RenderingModel.class);
-        return null;
-    }
-
-    /**
-     * Updates the available lookup tables from the server.
-     * @param client valid client to use to perform actions
-     * @return Always <code>null</code>; only present to conform to the
-     * prototype defined by the generics of the relevant {@link OmeroRequest}.
-     */
-    private byte[] updateLuts(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getLuts");
-        try {
-            ParametersI params = new ParametersI();
-            params.add("mimeType", omero.rtypes.wrap("text/x-lut"));
-            List<List<omero.RType>> pathsAndNames = client
-                    .getSession()
-                    .getQueryService()
-                    .projection(
-                            "SELECT path, name FROM OriginalFile AS o " +
-                            "WHERE o.mimetype = :mimeType", params, ctx);
-            List<File> luts = new ArrayList<File>();
-            for (List<omero.RType> pathAndName : pathsAndNames) {
-                String path = ((omero.RString) pathAndName.get(0)).getValue();
-                String name = ((omero.RString) pathAndName.get(1)).getValue();
-                Path lut = Paths.get(scriptRepoRoot, path, name);
-                if (Files.exists(lut)) {
-                    luts.add(lut.toFile());
-                }
-            }
-            this.luts = luts;
-        } catch (ServerError e) {
-            // *Should* never happen
-            throw new RuntimeException(e);
-        } finally {
-            t0.stop();
-        }
         return null;
     }
 

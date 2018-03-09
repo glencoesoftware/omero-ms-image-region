@@ -21,7 +21,6 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,6 +53,7 @@ import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
+import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
@@ -82,6 +82,9 @@ public class ImageRegionRequestHandler {
     /** Reference to the compression service. */
     private final LocalCompress compressionSrv;
 
+    /** Lookup table provider. */
+    private final LutProvider lutProvider;
+
     /**
      * Mapper between <code>omero.model</code> client side Ice backed objects
      * and <code>ome.model</code> server side Hibernate backed objects.
@@ -100,9 +103,6 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
-    /** Available lookup tables. */
-    private final List<File> luts;
-
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -110,14 +110,14 @@ public class ImageRegionRequestHandler {
     public ImageRegionRequestHandler(
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
-            List<File> luts) {
+            LutProvider lutProvider) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
-
         this.families = families;
         this.renderingModels = renderingModels;
-        this.luts = luts;
+        this.lutProvider = lutProvider;
+
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
         compressionSrv =
                 (LocalCompress) context.getBean("internal-ome.api.ICompress");
@@ -137,7 +137,7 @@ public class ImageRegionRequestHandler {
             IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries.size() == 2) {
+            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
@@ -247,7 +247,7 @@ public class ImageRegionRequestHandler {
             quantumFactory, renderingModels,
             (ome.model.core.Pixels) mapper.reverse(pixels),
             getRenderingDef(iPixels, pixels.getId().getValue()),
-            pixelBuffer, luts
+            pixelBuffer, lutProvider
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
         planeDef.setZ(imageRegionCtx.z);

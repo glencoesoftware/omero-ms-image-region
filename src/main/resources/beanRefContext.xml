@@ -51,4 +51,9 @@
         class="ome.logic.CompressImpl"
         singleton="false"/>
 
+  <bean id="LUTScripts" class="ome.services.scripts.ScriptFileType">
+    <constructor-arg index="0" value="*.lut"/>
+    <constructor-arg index="1" value="text/x-lut"/>
+  </bean>
+
 </beans>
