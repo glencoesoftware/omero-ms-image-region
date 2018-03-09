@@ -77,7 +77,7 @@ dependencies {
     }
     compile 'io.vertx:vertx-config:3.5.1'
     compile 'io.vertx:vertx-config-yaml:3.5.1'
-    compile ('omero:blitz:5.4.3-ice36-b77') {
+    compile ('omero:blitz:5.4.4-ice36-b82') {
         exclude group: 'org.testng', module: 'testng'
     }
     testCompile 'org.testng:testng:6.10'
