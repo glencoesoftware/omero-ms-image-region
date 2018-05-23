@@ -32,6 +32,7 @@ import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtxTest {
 
@@ -169,5 +170,94 @@ public class ImageRegionCtxTest {
             Boolean enabled = (Boolean) reverse.get("enabled");
             Assert.assertFalse(enabled);
         }
+    }
+
+    @Test
+    public void testProjectionIntMax()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "intmax");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntMean()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "intmean");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MEANINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntSum()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "intsum");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.SUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionNormal()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "normal");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNull(imageCtxDecoded.projection);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntMeanStartEnd()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "intmax|0:1");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertEquals(imageCtxDecoded.projectionStart, new Integer(0));
+        Assert.assertEquals(imageCtxDecoded.projectionEnd, new Integer(1));
+    }
+
+    @Test
+    public void testProjectionIntMeanStartEndInvalid()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("p", "intmax|a:b");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
     }
 }

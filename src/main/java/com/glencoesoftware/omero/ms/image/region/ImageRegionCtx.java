@@ -30,6 +30,7 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
+import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -74,13 +75,14 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Compression quality */
     public Float compressionQuality;
 
-    /**
-     * Projection 'intmax' OR 'intmax|5:25'
-     * NOT handled at the moment - does not look like it's supported
-     * for renderImageRegion: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8758
-     * vs. renderImage: https://github.com/openmicroscopy/openmicroscopy/blob/be40a59300bb73a22b72eac00dd24b2aa54e4768/components/tools/OmeroPy/src/omero/gateway/__init__.py#L8837
-     * */
-    public String projection;
+    /** Projection */
+    public ProjectionType projection;
+
+    /** Projection start */
+    public Integer projectionStart;
+
+    /** Projection end */
+    public Integer projectionEnd;
 
     /**
      * Inverted Axis
@@ -113,7 +115,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getColorModelFromString(params.get("m"));
         getCompressionQualityFromString(params.get("q"));
         getInvertedAxisFromString(params.get("ia"));
-        projection = params.get("p");
+        getProjectionFromString(params.get("p"));
         String maps = params.get("maps");
         if (maps != null) {
             this.maps = Json.decodeValue(maps, List.class);
@@ -237,5 +239,50 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     private void getInvertedAxisFromString(String iaString) {
         invertedAxis = iaString == null? null : Boolean.parseBoolean(iaString);
+    }
+
+    /**
+     * Parses string to projection enumeration and sets projection start and
+     * end.  Accepted modes of projection include:
+     * <ul>
+     *   <li><code>normal</code></li>
+     *   <li><code>intmax</code></li>
+     *   <li><code>intmean</code></li>
+     *   <li><code>intsum</code></li>
+     * </ul>
+     * @param projection accepted form <code>[mode]|[start]:[end]</code>
+     */
+    private void getProjectionFromString(String projection) {
+        if (projection == null) {
+            return;
+        }
+
+        String[] parts = projection.split("\\|", -1);
+        switch(parts[0]) {
+            case "intmax": {
+                this.projection = ProjectionType.MAXIMUMINTENSITY;
+                break;
+            }
+            case "intmean": {
+                this.projection = ProjectionType.MEANINTENSITY;
+                break;
+            }
+            case "intsum": {
+                this.projection = ProjectionType.SUMINTENSITY;
+                break;
+            }
+        }
+
+        if (parts.length != 2) {
+            return;
+        }
+
+        parts = parts[1].split(":");
+        try {
+            projectionStart = Integer.parseInt(parts[0]);
+            projectionEnd = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            // Ignore
+        }
     }
 }
