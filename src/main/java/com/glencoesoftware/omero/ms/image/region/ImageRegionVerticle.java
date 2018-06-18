@@ -31,11 +31,13 @@ import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
@@ -143,40 +145,67 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         log.debug(
             "Render image region request with data: {}", message.body());
-        try (OmeroRequest request = new OmeroRequest(
-                 host, port, imageRegionCtx.omeroSessionKey))
-        {
-            if (families == null) {
-                request.execute(this::updateFamilies);
-            }
-            if (renderingModels == null) {
-                request.execute(this::updateRenderingModels);
-            }
 
-            byte[] imageRegion = request.execute(
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx, context, families,
-                            renderingModels, lutProvider)::renderImageRegion);
-            if (imageRegion == null) {
-                message.fail(
-                        404, "Cannot find Image:" + imageRegionCtx.imageId);
-            } else {
-                message.reply(imageRegion);
+        String key = imageRegionCtx.cacheKey();
+        vertx.eventBus().<byte[]>send(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            try (OmeroRequest request = new OmeroRequest(
+                     host, port, imageRegionCtx.omeroSessionKey))
+            {
+                if (families == null) {
+                    request.execute(this::updateFamilies);
+                }
+                if (renderingModels == null) {
+                    request.execute(this::updateRenderingModels);
+                }
+
+                byte[] imageRegion =
+                        result.succeeded()? result.result().body() : null;
+                ImageRegionRequestHandler requestHandler =
+                        new ImageRegionRequestHandler(
+                                imageRegionCtx, context, families,
+                                renderingModels, lutProvider);
+                // If the region is in the cache, check we have permissions
+                // to access it and assign and return
+                if (imageRegion != null
+                        && request.execute(requestHandler::canRead)) {
+                    message.reply(imageRegion);
+                    return;
+                }
+
+                // The region is not in the cache we have to create it
+                imageRegion = request.execute(
+                        requestHandler::renderImageRegion);
+                if (imageRegion == null) {
+                    message.fail(
+                            404, "Cannot find Image:" + imageRegionCtx.imageId);
+                } else {
+                    message.reply(imageRegion);
+                }
+
+                // Cache the image region
+                 JsonObject setMessage = new JsonObject();
+                 setMessage.put("key", key);
+                 setMessage.put("value", imageRegion);
+                 vertx.eventBus().send(
+                         RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                         setMessage);
+            } catch (PermissionDeniedException
+                    | CannotCreateSessionException e) {
+                String v = "Permission denied";
+                log.debug(v);
+                message.fail(403, v);
+            } catch (IllegalArgumentException e) {
+                log.debug(
+                    "Illegal argument received while retrieving image " +
+                    "region", e);
+                message.fail(400, e.getMessage());
+            } catch (Exception e) {
+                String v = "Exception while retrieving image region";
+                log.error(v, e);
+                message.fail(500, v);
             }
-        } catch (PermissionDeniedException
-                | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (IllegalArgumentException e) {
-            log.debug(
-                "Illegal argument received while retrieving image region", e);
-            message.fail(400, e.getMessage());
-        } catch (Exception e) {
-            String v = "Exception while retrieving image region";
-            log.error(v, e);
-            message.fail(500, v);
-        }
+        });
     }
 
     /**

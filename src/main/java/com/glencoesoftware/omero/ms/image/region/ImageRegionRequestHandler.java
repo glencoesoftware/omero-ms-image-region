@@ -528,4 +528,33 @@ public class ImageRegionRequestHandler {
         }
         return null;
     }
+
+    /**
+     * Whether or not a single {@link ImageI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return <code>true</code> if the {@link ImageI} can be loaded or
+     * <code>false</code> otherwise.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    public boolean canRead(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        try {
+            List<List<RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT i.id FROM Image as i " +
+                            "WHERE i.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("Exception while checking Image readability", e);
+        } finally {
+            t0.stop();
+        }
+        return false;
+    }
 }
