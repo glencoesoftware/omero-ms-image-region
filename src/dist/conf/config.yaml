@@ -20,3 +20,8 @@ omero.web:
 # Redis instance that OMERO.web is using to store session information
 redis:
     uri: "redis://password@localhost:6379/1"
+# Redis instance that OMERO.web is using to store cache data.  It is strongly
+# recommended that this instance *not* be the same as the one used to store
+# session information as the LRU is instance wide.
+redis-cache:
+    uri: "redis://password@localhost:7379/1"
