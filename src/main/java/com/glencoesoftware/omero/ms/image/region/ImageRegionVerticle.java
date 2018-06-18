@@ -179,6 +179,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 if (imageRegion == null) {
                     message.fail(
                             404, "Cannot find Image:" + imageRegionCtx.imageId);
+                    return;
                 } else {
                     message.reply(imageRegion);
                 }
