@@ -170,8 +170,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 if (imageRegion != null
                         && request.execute(requestHandler::canRead)) {
                     message.reply(imageRegion);
+                    log.info("Cache HIT {}", key);
                     return;
                 }
+                log.info("Cache MISS {}", key);
 
                 // The region is not in the cache we have to create it
                 imageRegion = request.execute(
