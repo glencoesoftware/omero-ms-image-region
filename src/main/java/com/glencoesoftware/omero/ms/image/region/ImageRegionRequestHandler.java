@@ -45,6 +45,8 @@ import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
+import ome.model.core.Image;
+import ome.model.core.Pixels;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -57,14 +59,10 @@ import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
-import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.model.Image;
-import omero.model.ImageI;
-import omero.model.Pixels;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
@@ -135,9 +133,9 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
+            PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
+            if (pixelsIdAndSeries != null) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
@@ -159,23 +157,30 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
+    private PixelsIdAndSeries getPixelsIdAndSeries(
+            IQueryPrx iQuery, Long imageId)
+                    throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageId);
         StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
         try {
-            List<List<RType>> data = iQuery.projection(
+            List<List<omero.RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
                     "WHERE p.image.id = :id",
                     params, ctx
                 );
-            if (data.size() < 1) {
+            if (data.size() != 1) {
                 return null;
             }
-            return data.get(0);  // The first row
+            List<omero.RType> row = data.get(0);
+            if (row.size() != 2) {
+                return null;
+            }
+            return new PixelsIdAndSeries(
+                    ((omero.RLong) row.get(0)).getValue(),
+                    ((omero.RInt) row.get(1)).getValue());
         } finally {
             t0.stop();
         }
@@ -205,8 +210,7 @@ public class ImageRegionRequestHandler {
             throws ApiUsageException {
         StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
         try {
-            return pixelsService.getPixelBuffer(
-                    (ome.model.core.Pixels) mapper.reverse(pixels), false);
+            return pixelsService.getPixelBuffer(pixels, false);
         } finally {
             t0.stop();
         }
@@ -223,7 +227,8 @@ public class ImageRegionRequestHandler {
      * @throws QuantizationException
      */
     private byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
+            IQueryPrx iQuery, IPixelsPrx iPixels,
+            PixelsIdAndSeries pixelsIdAndSeries)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");
@@ -233,14 +238,13 @@ public class ImageRegionRequestHandler {
                 "PixelsService.retrievePixDescription");
         Pixels pixels;
         try {
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            pixels = iPixels.retrievePixDescription(pixelsId, ctx);
+            pixels = (Pixels) mapper.reverse(iPixels.retrievePixDescription(
+                    pixelsIdAndSeries.pixelsId, ctx));
             // The series will be used by our version of PixelsService which
             // avoids attempting to retrieve the series from the database
             // via IQuery later.
-            Image image = new ImageI(pixels.getImage().getId(), true);
-            image.setSeries((omero.RInt) pixelsIdAndSeries.get(1));
+            Image image = new Image(pixels.getImage().getId(), true);
+            image.setSeries(pixelsIdAndSeries.series);
             pixels.setImage(image);
         } finally {
             t0.stop();
@@ -250,8 +254,7 @@ public class ImageRegionRequestHandler {
 
         renderer = new Renderer(
             quantumFactory, renderingModels,
-            (ome.model.core.Pixels) mapper.reverse(pixels),
-            getRenderingDef(iPixels, pixels.getId().getValue()),
+            pixels, getRenderingDef(iPixels, pixels.getId()),
             pixelBuffer, lutProvider
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -467,8 +470,8 @@ public class ImageRegionRequestHandler {
         } else {
             regionDef.setX(0);
             regionDef.setY(0);
-            regionDef.setWidth(pixels.getSizeX().getValue());
-            regionDef.setHeight(pixels.getSizeY().getValue());
+            regionDef.setWidth(pixels.getSizeX());
+            regionDef.setHeight(pixels.getSizeY());
         }
         return regionDef;
     }
@@ -548,7 +551,7 @@ public class ImageRegionRequestHandler {
         params.addId(imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch("canRead");
         try {
-            List<List<RType>> rows = client.getSession()
+            List<List<omero.RType>> rows = client.getSession()
                     .getQueryService().projection(
                             "SELECT i.id FROM Image as i " +
                             "WHERE i.id = :id", params, ctx);
@@ -561,5 +564,24 @@ public class ImageRegionRequestHandler {
             t0.stop();
         }
         return false;
+    }
+
+    /**
+     * Struct like class to store {@link ome.model.core.Pixels} and Bio-Formats
+     * series metadata.
+     */
+    private final class PixelsIdAndSeries {
+
+        /** {@link ome.model.core.Pixels} identifer */
+        public final long pixelsId;
+
+        /** Bio-Formats series */
+        public final int series;
+
+        PixelsIdAndSeries(long pixelsId, int series) {
+            this.pixelsId = pixelsId;
+            this.series = series;
+        }
+
     }
 }
