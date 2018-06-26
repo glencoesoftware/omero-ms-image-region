@@ -47,6 +47,8 @@ import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
+import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -56,6 +58,7 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
+import omeis.providers.re.metadata.StatsFactory;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
@@ -187,25 +190,62 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsId The identifier of the pixels.
+     * Creates a new set of rendering settings corresponding to the specified
+     * pixels set.  Most values will be overwritten during
+     * {@link #updateSettings(Renderer)} usage.
+     * @param pixels pixels metadata
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getRenderingDef");
-        try {
-            return (RenderingDef) mapper.reverse(
-                    iPixels.retrieveRndSettings(pixelsId, ctx));
-        } finally {
-            t0.stop();
+    private RenderingDef createRenderingDef(Pixels pixels) throws ServerError {
+        QuantumFactory quantumFactory = new QuantumFactory(families);
+        StatsFactory statsFactory = new StatsFactory();
+
+        RenderingDef renderingDef = new RenderingDef();
+        // Model will be reset during updateSettings()
+        renderingModels.forEach(model -> {
+            if (model.getValue().equals(Renderer.MODEL_GREYSCALE)) {
+                renderingDef.setModel(model);
+            }
+        });
+        // QuantumDef defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetDefaults().  These *will not*
+        // be reset by updateSettings().
+        QuantumDef quantumDef = new QuantumDef();
+        quantumDef.setCdStart(0);
+        quantumDef.setCdEnd(QuantumFactory.DEPTH_8BIT);
+        quantumDef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        renderingDef.setQuantization(quantumDef);
+        // ChannelBinding defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetChannelBindings().  All *will*
+        // be reset by updateSettings() unless otherwise denoted.
+        for (int c = 0; c < pixels.sizeOfChannels(); c++) {
+            double[] range = statsFactory.initPixelsRange(pixels);
+            ChannelBinding cb = new ChannelBinding();
+            // Will *not* be reset by updateSettings()
+            cb.setCoefficient(1.0);
+            // Will *not* be reset by updateSettings()
+            cb.setNoiseReduction(false);
+            // Will *not* be reset by updateSettings()
+            cb.setFamily(quantumFactory.getFamily(Family.VALUE_LINEAR));
+            cb.setInputStart(range[0]);
+            cb.setInputEnd(range[1]);
+            cb.setActive(c < 3);
+            cb.setRed(255);
+            cb.setBlue(0);
+            cb.setGreen(0);
+            cb.setAlpha(255);
+            renderingDef.addChannelBinding(cb);
         }
+        return renderingDef;
     }
 
+    /**
+     * Retrieves a pixel buffer for the specified pixels set.
+     * @param pixels pixels metadata
+     * @return See above.
+     * @throws ApiUsageException If there is a problem retrieving the pixel
+     * buffer.
+     */
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
         StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
@@ -254,7 +294,7 @@ public class ImageRegionRequestHandler {
 
         renderer = new Renderer(
             quantumFactory, renderingModels,
-            pixels, getRenderingDef(iPixels, pixels.getId()),
+            pixels, createRenderingDef(pixels),
             pixelBuffer, lutProvider
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
