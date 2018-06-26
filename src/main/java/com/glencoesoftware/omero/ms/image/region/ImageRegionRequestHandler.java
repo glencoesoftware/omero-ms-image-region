@@ -192,8 +192,13 @@ public class ImageRegionRequestHandler {
             IPixelsPrx iPixels, final long pixelsId) throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
+        StopWatch t0 = new Slf4JStopWatch("getRenderingDef");
+        try {
+            return (RenderingDef) mapper.reverse(
+                    iPixels.retrieveRndSettings(pixelsId, ctx));
+        } finally {
+            t0.stop();
+        }
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels)
