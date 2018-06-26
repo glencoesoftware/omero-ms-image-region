@@ -260,7 +260,12 @@ public class ImageRegionRequestHandler {
             compressionSrv.setCompressionLevel(
                     imageRegionCtx.compressionQuality);
         }
-        updateSettings(renderer);
+        if (imageRegionCtx.channels != null) {
+            updateSettings(renderer);
+        }
+        if (imageRegionCtx.m != null) {
+            updateRenderingModel(renderer);
+        }
         StopWatch t1 = new Slf4JStopWatch("render");
         try {
             // The actual act of rendering will close the provided pixel buffer
@@ -376,8 +381,6 @@ public class ImageRegionRequestHandler {
     /**
      * Update settings on the rendering engine based on the current context.
      * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
      * @throws ServerError
      */
     private void updateSettings(Renderer renderer) throws ServerError {
@@ -423,9 +426,16 @@ public class ImageRegionRequestHandler {
                     }
                 }
             }
-
             idx += 1;
         }
+    }
+
+    /**
+     * Update model on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @throws ServerError
+     */
+    private void updateRenderingModel(Renderer renderer) throws ServerError {
         for (RenderingModel renderingModel : renderingModels) {
             if (imageRegionCtx.m.equals(renderingModel.getValue())) {
                 renderer.setModel(renderingModel);
