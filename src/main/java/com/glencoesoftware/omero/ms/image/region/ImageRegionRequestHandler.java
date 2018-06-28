@@ -142,10 +142,8 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            Pixels pixels = getPixels(iPixels, pixelsIdAndSeries);
-            if (pixelsIdAndSeries != null) {
+            Pixels pixels = getPixels(iQuery, iPixels);
+            if (pixels != null) {
                 return getRegion(pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
@@ -263,16 +261,20 @@ public class ImageRegionRequestHandler {
 
     /**
      * Retrieves pixels metadata from the server.
+     * @param iQuery OMERO query service to use for metadata access.
      * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
      * @return Populated {@link Pixels} ready to be used by the {@link Renderer}
      * @throws ServerError
      * @throws ApiUsageException
      */
-    private Pixels getPixels(
-            IPixelsPrx iPixels, PixelsIdAndSeries pixelsIdAndSeries)
-                    throws ApiUsageException, ServerError {
+    private Pixels getPixels(IQueryPrx iQuery, IPixelsPrx iPixels)
+            throws ApiUsageException, ServerError {
+        PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
+                iQuery, imageRegionCtx.imageId);
+        if (pixelsIdAndSeries == null) {
+            return null;
+        }
+
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch(
