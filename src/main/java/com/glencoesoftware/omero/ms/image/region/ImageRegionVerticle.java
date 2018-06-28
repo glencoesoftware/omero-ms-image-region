@@ -38,6 +38,7 @@ import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
+import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
@@ -176,11 +177,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 log.info("Cache MISS {}", key);
 
                 // The region is not in the cache we have to create it
+                Pixels pixels = request.execute(requestHandler::loadPixels);
+                if (pixels == null) {
+                    message.fail(
+                        404, "Cannot find Image:" + imageRegionCtx.imageId);
+                    return;
+                }
+                requestHandler.setPixels(pixels);
                 imageRegion = request.execute(
                         requestHandler::renderImageRegion);
                 if (imageRegion == null) {
-                    message.fail(
-                            404, "Cannot find Image:" + imageRegionCtx.imageId);
+                    message.fail(404, "Cannot render region");
                     return;
                 } else {
                     message.reply(imageRegion);

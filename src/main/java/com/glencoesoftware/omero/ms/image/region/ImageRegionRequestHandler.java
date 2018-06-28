@@ -109,6 +109,9 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Pixels metadata */
+    private Pixels pixels;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -131,18 +134,18 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Render Image region request handler.
+     * Render Image region request handler.  {@link #setPixels(Pixels)} must be
+     * called before calling this method either with pixels metadata loaded
+     * using {@link #loadPixels(omero.client)} or from cache.
      * @param client OMERO client to use for querying.
      * @return A response body in accordance with the initial settings
      * provided by <code>imageRegionCtx</code>.
+     * @see #setPixels(Pixels)
+     * @see #loadPixels(omero.client)
      */
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            Pixels pixels = getPixels(iQuery, iPixels);
             if (pixels != null) {
                 return getRegion(pixels);
             }
@@ -260,39 +263,69 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves pixels metadata from the server.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @return Populated {@link Pixels} ready to be used by the {@link Renderer}
-     * @throws ServerError
-     * @throws ApiUsageException
+     * Retrieves the current active pixels metadata for the request.
+     * @return See above.
      */
-    private Pixels getPixels(IQueryPrx iQuery, IPixelsPrx iPixels)
-            throws ApiUsageException, ServerError {
-        PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
-                iQuery, imageRegionCtx.imageId);
-        if (pixelsIdAndSeries == null) {
-            return null;
-        }
+    public Pixels getPixels() {
+        return pixels;
+    }
 
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch(
-                "PixelsService.retrievePixDescription");
-        Pixels pixels;
+    /**
+     * Sets the current active pixels metadta for the request.
+     * @param pixels pixels metadata loaded using
+     * {@link #loadPixels(omero.client)
+     */
+    public void setPixels(Pixels pixels) {
+        this.pixels = pixels;
+    }
+
+    /**
+     * Retrieves pixels metadata from the server.
+     * @param client OMERO client to use for querying.
+     * @return Populated {@link Pixels} ready to be used by the
+     * {@link Renderer} or <code>null</code> if it cannot be retrieved.
+     * @see #setPixels(Pixels)
+     */
+    public Pixels loadPixels(omero.client client) {
+        StopWatch t0 = new Slf4JStopWatch("loadPixels");
         try {
-            pixels = (Pixels) mapper.reverse(iPixels.retrievePixDescription(
-                    pixelsIdAndSeries.pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setSeries(pixelsIdAndSeries.series);
-            pixels.setImage(image);
-            return pixels;
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            IPixelsPrx iPixels = sf.getPixelsService();
+            PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
+                    iQuery, imageRegionCtx.imageId);
+            if (pixelsIdAndSeries == null) {
+                return null;
+            }
+
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            StopWatch t1 = new Slf4JStopWatch(
+                    "PixelsService.retrievePixDescription");
+            Pixels pixels;
+            try {
+                pixels = (Pixels) mapper.reverse(iPixels.retrievePixDescription(
+                        pixelsIdAndSeries.pixelsId, ctx));
+                // The series will be used by our version of PixelsService which
+                // avoids attempting to retrieve the series from the database
+                // via IQuery later.
+                Image image = new Image(pixels.getImage().getId(), true);
+                image.setSeries(pixelsIdAndSeries.series);
+                pixels.setImage(image);
+                return pixels;
+            } finally {
+                t1.stop();
+            }
+        } catch (ApiUsageException e) {
+            String v = "Illegal API usage while retrieving Pixels metadata";
+            log.error(v, e);
+        } catch (ServerError e) {
+            String v = "Server error while retrieving Pixels metadata";
+            log.error(v, e);
         } finally {
             t0.stop();
         }
+        return null;
     }
 
     /**
