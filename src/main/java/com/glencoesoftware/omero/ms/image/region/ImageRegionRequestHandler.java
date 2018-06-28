@@ -43,6 +43,7 @@ import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
 import ome.api.local.LocalCompress;
+import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
@@ -54,6 +55,7 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.RenderingStats;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
@@ -82,6 +84,9 @@ public class ImageRegionRequestHandler {
 
     /** Reference to the compression service. */
     private final LocalCompress compressionSrv;
+
+    /** Reference to the projection service. */
+    private final ProjectionService projectionService;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
@@ -120,6 +125,7 @@ public class ImageRegionRequestHandler {
         this.lutProvider = lutProvider;
 
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        projectionService = new ProjectionService();
         compressionSrv =
                 (LocalCompress) context.getBean("internal-ome.api.ICompress");
     }
@@ -321,7 +327,7 @@ public class ImageRegionRequestHandler {
         StopWatch t1 = new Slf4JStopWatch("render");
         try {
             // The actual act of rendering will close the provided pixel buffer
-            return render(renderer, resolutionLevels, planeDef);
+            return render(renderer, resolutionLevels, pixels, planeDef);
         } finally {
             t1.stop();
         }
@@ -333,6 +339,7 @@ public class ImageRegionRequestHandler {
      * @param renderer fully initialized renderer
      * @param resolutionLevels complete definition of all resolution levels
      * for the image.
+     * @param pixels pixels metadata
      * @param planeDef plane definition to use for rendering
      * @return Image region as a byte array.
      * @throws ServerError
@@ -341,26 +348,85 @@ public class ImageRegionRequestHandler {
      */
     private byte[] render(
             Renderer renderer, List<List<Integer>> resolutionLevels,
-            PlaneDef planeDef)
+            Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
         StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
         int[] buf;
         try {
-            buf =  renderer.renderAsPackedInt(planeDef, null);
+            PixelBuffer newBuffer = null;
+            if (imageRegionCtx.projection != null) {
+                byte[][][][] planes = new byte[1][pixels.getSizeC()][1][];
+                int projectedSizeC = 0;
+                ChannelBinding[] channelBindings =
+                        renderer.getChannelBindings();
+                PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+                int start = Optional
+                        .ofNullable(imageRegionCtx.projectionStart)
+                        .orElse(0);
+                int end = Optional
+                        .ofNullable(imageRegionCtx.projectionEnd)
+                        .orElse(pixels.getSizeZ() - 1);
+                try {
+                    for (int i = 0; i < channelBindings.length; i++) {
+                        if (!channelBindings[i].getActive()) {
+                            continue;
+                        }
+                        StopWatch t1 = new Slf4JStopWatch(
+                                "ProjectionService.projectStack");
+                        try {
+                            planes[0][i][0] = projectionService.projectStack(
+                                pixels,
+                                pixelBuffer,
+                                imageRegionCtx.projection.ordinal(),
+                                imageRegionCtx.t,
+                                i,  // Channel index
+                                1,  // Stepping 1 in ImageWrapper.renderJpeg()
+                                start,
+                                end
+                            );
+                        } finally {
+                            t1.stop();
+                        }
+                        projectedSizeC++;
+                    }
+                } finally {
+                    pixelBuffer.close();
+                }
+                Pixels projectedPixels = new Pixels(
+                    pixels.getImage(),
+                    pixels.getPixelsType(),
+                    pixels.getSizeX(),
+                    pixels.getSizeY(),
+                    1,  // Z
+                    projectedSizeC,
+                    1,  // T
+                    "",
+                    pixels.getDimensionOrder()
+                );
+                newBuffer = new InMemoryPlanarPixelBuffer(
+                        projectedPixels, planes);
+                planeDef = new PlaneDef(PlaneDef.XY, 0);
+                planeDef.setZ(0);
+            }
+            buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
             t0.stop();
             if (log.isDebugEnabled()) {
-                log.debug(renderer.getStats().getStats());
+                RenderingStats stats = renderer.getStats();
+                if (stats != null) {
+                    log.debug(renderer.getStats().getStats());
+                }
             }
         }
 
         String format = imageRegionCtx.format;
+        RegionDef region = planeDef.getRegion();
+        int sizeX = region != null? region.getWidth() : pixels.getSizeX();
+        int sizeY = region != null? region.getHeight() : pixels.getSizeY();
         BufferedImage image = ImageUtil.createBufferedImage(
-            buf,
-            planeDef.getRegion().getWidth(),
-            planeDef.getRegion().getHeight()
+            buf, sizeX, sizeY
         );
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         if (format.equals("jpeg")) {
@@ -500,9 +566,8 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @throws ServerError
      */
-    private RegionDef getRegionDef(
-            Pixels pixels, PixelBuffer pixelBuffer)
-                    throws IllegalArgumentException, ServerError {
+    private RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
+            throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         if (imageRegionCtx.tile != null) {
