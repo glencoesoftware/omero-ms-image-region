@@ -138,8 +138,9 @@ public class ImageRegionRequestHandler {
             IPixelsPrx iPixels = sf.getPixelsService();
             PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
+            Pixels pixels = getPixels(iPixels, pixelsIdAndSeries);
             if (pixelsIdAndSeries != null) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+                return getRegion(pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -157,8 +158,7 @@ public class ImageRegionRequestHandler {
      * @param iQuery OMERO query service to use for metadata access.
      * @param imageId {@link Image} identifier to query for.
      * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
+     * @throws ServerError
      */
     private PixelsIdAndSeries getPixelsIdAndSeries(
             IQueryPrx iQuery, Long imageId)
@@ -243,8 +243,7 @@ public class ImageRegionRequestHandler {
      * Retrieves a pixel buffer for the specified pixels set.
      * @param pixels pixels metadata
      * @return See above.
-     * @throws ApiUsageException If there is a problem retrieving the pixel
-     * buffer.
+     * @throws ApiUsageException
      */
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
@@ -257,21 +256,17 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single region from the server in the requested format as
-     * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
+     * Retrieves pixels metadata from the server.
      * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
      * to retrieve image region for.
-     * @return Image region as a byte array.
-     * @throws QuantizationException
+     * @return Populated {@link Pixels} ready to be used by the {@link Renderer}
+     * @throws ServerError
+     * @throws ApiUsageException
      */
-    private byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels,
-            PixelsIdAndSeries pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
-        log.debug("Getting image region");
+    private Pixels getPixels(
+            IPixelsPrx iPixels, PixelsIdAndSeries pixelsIdAndSeries)
+                    throws ApiUsageException, ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch(
@@ -286,9 +281,23 @@ public class ImageRegionRequestHandler {
             Image image = new Image(pixels.getImage().getId(), true);
             image.setSeries(pixelsIdAndSeries.series);
             pixels.setImage(image);
+            return pixels;
         } finally {
             t0.stop();
         }
+    }
+
+    /**
+     * Retrieves a single region from the server in the requested format as
+     * defined by <code>imageRegionCtx.format</code>.
+     * @param pixels pixels metadata
+     * @return Image region as a byte array.
+     * @throws QuantizationException
+     */
+    private byte[] getRegion(Pixels pixels)
+                    throws IllegalArgumentException, ServerError, IOException,
+                    QuantizationException {
+        log.debug("Getting image region");
         QuantumFactory quantumFactory = new QuantumFactory(families);
         PixelBuffer pixelBuffer = getPixelBuffer(pixels);
 
@@ -582,7 +591,7 @@ public class ImageRegionRequestHandler {
      * @param client OMERO client to use for querying.
      * @return <code>true</code> if the {@link ImageI} can be loaded or
      * <code>false</code> otherwise.
-     * @throws ServerError If there was any sort of error retrieving the image.
+     * @throws ServerError
      */
     public boolean canRead(omero.client client) {
         Map<String, String> ctx = new HashMap<String, String>();
