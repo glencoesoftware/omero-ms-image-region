@@ -18,7 +18,12 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,7 @@ import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import ome.model.core.Pixels;
@@ -124,6 +130,30 @@ public class ImageRegionVerticle extends AbstractVerticle {
     }
 
     /**
+     * Creates an OMERO request based on the current context
+     * @param imageRegionCtx request context
+     * @param message JSON encoded {@link ImageRegionCtx} object.
+     * @return See above.
+     */
+    private OmeroRequest createOmeroRequest(
+            ImageRegionCtx imageRegionCtx, Message<String> message) {
+        try {
+            return new OmeroRequest(
+                host, port, imageRegionCtx.omeroSessionKey);
+        } catch (PermissionDeniedException
+                | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while creating OMERO request";
+            log.error(v, e);
+            message.fail(500, v);
+        }
+        return null;
+    }
+
+    /**
      * Render Image region event handler. Responds with a
      * request body on success based on the <code>format</code>
      * <code>imageId</code>, <code>z</code> and <code>t</code> encoded in the
@@ -147,12 +177,22 @@ public class ImageRegionVerticle extends AbstractVerticle {
         log.debug(
             "Render image region request with data: {}", message.body());
 
+        final OmeroRequest request =
+                createOmeroRequest(imageRegionCtx, message);
+        if (request == null) {
+            return;
+        }
+        Future<Void> future = Future.future();
+        future.setHandler(handler -> {
+            log.debug("Completing OmeroRequest close future");
+            if (request != null) {
+                request.close();
+            }
+        });
         String key = imageRegionCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-            try (OmeroRequest request = new OmeroRequest(
-                     host, port, imageRegionCtx.omeroSessionKey))
-            {
+            try {
                 if (families == null) {
                     request.execute(this::updateFamilies);
                 }
@@ -160,7 +200,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     request.execute(this::updateRenderingModels);
                 }
 
-                byte[] imageRegion =
+                byte[] cachedImageRegion =
                         result.succeeded()? result.result().body() : null;
                 ImageRegionRequestHandler requestHandler =
                         new ImageRegionRequestHandler(
@@ -168,52 +208,99 @@ public class ImageRegionVerticle extends AbstractVerticle {
                                 renderingModels, lutProvider);
                 // If the region is in the cache, check we have permissions
                 // to access it and assign and return
-                if (imageRegion != null
+                if (cachedImageRegion != null
                         && request.execute(requestHandler::canRead)) {
-                    message.reply(imageRegion);
+                    message.reply(cachedImageRegion);
+                    future.complete();
                     log.info("Cache HIT {}", key);
                     return;
                 }
                 log.info("Cache MISS {}", key);
 
                 // The region is not in the cache we have to create it
-                Pixels pixels = request.execute(requestHandler::loadPixels);
-                if (pixels == null) {
-                    message.fail(
-                        404, "Cannot find Image:" + imageRegionCtx.imageId);
-                    return;
-                }
-                requestHandler.setPixels(pixels);
-                imageRegion = request.execute(
-                        requestHandler::renderImageRegion);
-                if (imageRegion == null) {
-                    message.fail(404, "Cannot render region");
-                    return;
-                } else {
-                    message.reply(imageRegion);
-                }
+                String metadataKey = String.format("%s:Image:%d",
+                        Pixels.class.getName(), imageRegionCtx.imageId);
+                vertx.eventBus().<byte[]>send(
+                        RedisCacheVerticle.REDIS_CACHE_GET_EVENT, metadataKey,
+                        metadataResult -> {
+                    try {
+                        Pixels pixels = null;
+                        byte[] serialized = null;
+                        if (metadataResult.succeeded()) {
+                            serialized = metadataResult.result().body();
+                        }
+                        if (serialized == null) {
+                            log.info("Cache MISS {}", metadataKey);
+                            pixels = request.execute(
+                                    requestHandler::loadPixels);
+                            ByteArrayOutputStream bos =
+                                    new ByteArrayOutputStream();
+                            try (ObjectOutputStream oos =
+                                    new ObjectOutputStream(bos)) {
+                                oos.writeObject(pixels);
+                                serialized = bos.toByteArray();
+                            }
+                        } else {
+                            log.info("Cache HIT {}", metadataKey);
+                            try (ObjectInputStream oos = new ObjectInputStream(
+                                    new ByteArrayInputStream(serialized))) {
+                                pixels = (Pixels) oos.readObject();
+                            } catch (Exception e) {
+                                log.warn("Failed to deserialize {}", e);
+                            }
+                        }
 
-                // Cache the image region
-                 JsonObject setMessage = new JsonObject();
-                 setMessage.put("key", key);
-                 setMessage.put("value", imageRegion);
-                 vertx.eventBus().send(
-                         RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                         setMessage);
-            } catch (PermissionDeniedException
-                    | CannotCreateSessionException e) {
-                String v = "Permission denied";
-                log.debug(v);
-                message.fail(403, v);
+                        if (pixels == null) {
+                            message.fail(
+                                404,
+                                "Cannot find Image:" + imageRegionCtx.imageId
+                            );
+                            future.complete();
+                            return;
+                        }
+                        requestHandler.setPixels(pixels);
+                        byte[] imageRegion = request.execute(
+                                requestHandler::renderImageRegion);
+                        if (imageRegion == null) {
+                            message.fail(404, "Cannot render region");
+                            future.complete();
+                            return;
+                        } else {
+                            message.reply(imageRegion);
+                            future.complete();
+                        }
+
+                        // Cache the pixels metadata and image region
+                        JsonObject setMessage = new JsonObject();
+                        setMessage.put("key", metadataKey);
+                        setMessage.put("value", serialized);
+                        vertx.eventBus().send(
+                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                setMessage);
+                        setMessage = new JsonObject();
+                        setMessage.put("key", key);
+                        setMessage.put("value", imageRegion);
+                        vertx.eventBus().send(
+                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                setMessage);
+                    } catch (Exception e) {
+                        String v = "Exception while retrieving image region";
+                        log.error(v, e);
+                        message.fail(500, v);
+                        future.complete();
+                    }
+                });
             } catch (IllegalArgumentException e) {
                 log.debug(
                     "Illegal argument received while retrieving image " +
                     "region", e);
                 message.fail(400, e.getMessage());
+                future.complete();
             } catch (Exception e) {
                 String v = "Exception while retrieving image region";
                 log.error(v, e);
                 message.fail(500, v);
+                future.complete();
             }
         });
     }
