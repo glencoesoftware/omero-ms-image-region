@@ -45,6 +45,8 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import omero.model.Image;
 
+import io.prometheus.client.vertx.MetricsHandler;
+
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
  * @author Chris Allan <callan@glencoesoftware.com>
@@ -170,6 +172,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
+
+        // Prometheus request handler
+        router.get("/metrics").handler(new MetricsHandler());
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
