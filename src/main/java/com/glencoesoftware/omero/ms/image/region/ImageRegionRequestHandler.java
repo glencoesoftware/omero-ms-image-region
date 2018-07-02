@@ -71,6 +71,10 @@ import omero.api.ServiceFactoryPrx;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Summary;
+
 public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
@@ -111,6 +115,12 @@ public class ImageRegionRequestHandler {
 
     /** Pixels metadata */
     private Pixels pixels;
+    
+    /** Test Prometheus Counter */
+    private static final Counter testCounter = Counter.build()
+      .name("test_counter")
+      .help("A Test Counter")
+      .register();
 
     /**
      * Default constructor.
@@ -145,6 +155,7 @@ public class ImageRegionRequestHandler {
      */
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
+        testCounter.inc();
         try {
             if (pixels != null) {
                 return getRegion(pixels);

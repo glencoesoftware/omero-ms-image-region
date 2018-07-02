@@ -24,6 +24,7 @@ repositories {
     maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
+    mavenCentral()
 }
 
 configurations.all {
@@ -80,6 +81,8 @@ dependencies {
     compile ('omero:blitz:5.4.6-ice36-b87') {
         exclude group: 'org.testng', module: 'testng'
     }
+    compile'io.prometheus:simpleclient:0.4.0'
+    compile'io.prometheus:simpleclient_hotspot:0.4.0'
     testCompile 'org.testng:testng:6.10'
 }
 
