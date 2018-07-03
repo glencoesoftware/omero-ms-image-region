@@ -721,7 +721,7 @@ public class ImageRegionRequestHandler {
      */
     private final class PixelsIdAndSeries {
 
-        /** {@link ome.model.core.Pixels} identifer */
+        /** {@link ome.model.core.Pixels} identifier */
         public final long pixelsId;
 
         /** Bio-Formats series */
