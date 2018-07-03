@@ -27,6 +27,8 @@ import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
@@ -40,6 +42,8 @@ import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -94,6 +98,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * and <code>ome.model</code> server side Hibernate backed objects.
      */
     private final IceMapper mapper = new IceMapper();
+
+    /**
+     * Cache of read access to certain OMERO objects for a given OMERO session
+     */
+    private final Cache<String, Boolean> canRead = CacheBuilder.newBuilder()
+            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .build();
 
     /** Available families */
     private List<Family> families;
@@ -334,7 +345,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                                 imageRegionCtx, context, families,
                                 renderingModels, lutProvider);
                 if (imageRegion != null
-                        && request.get().execute(requestHandler::canRead)) {
+                        && canRead(imageRegionCtx, request, requestHandler)) {
                     log.info("Cache HIT {}", key);
                     future.complete(imageRegion);
                 } else {
@@ -370,7 +381,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 Pixels pixels = null;
                 byte[] serialized = null;
                 if (result.succeeded()
-                        && request.get().execute(requestHandler::canRead)) {
+                        && canRead(imageRegionCtx, request, requestHandler)) {
                     serialized = result.result().body();
                 }
                 if (serialized == null) {
@@ -464,6 +475,26 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } finally {
             t0.stop();
         }
+    }
+
+    /**
+     * Whether or not the current OMERO session can read the metadata required
+     * to fulfill the request.
+     * @param imageRegionCtx request context
+     * @param request OMERO request based on the current context
+     * @param requestHandler OMERO image region request handler
+     * @return See above.
+     */
+    private Boolean canRead(
+            ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
+            ImageRegionRequestHandler requestHandler)
+                    throws ServerError, ExecutionException {
+        String key = String.format(
+                "%s:Image:%d", imageRegionCtx.omeroSessionKey,
+                imageRegionCtx.imageId);
+        return canRead.get(key, () -> {
+            return request.get().execute(requestHandler::canRead);
+        });
     }
 
     /**
