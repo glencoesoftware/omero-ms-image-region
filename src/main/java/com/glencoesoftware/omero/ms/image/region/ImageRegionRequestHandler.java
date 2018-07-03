@@ -122,6 +122,61 @@ public class ImageRegionRequestHandler {
       .help("A Test Counter")
       .register();
 
+    /** Get Pixel Buffer Summary */
+    private static final Summary getPixelBufferSummary = Summary.build()
+      .name("get_pixel_buffer")
+      .help("Get Pixel Buffer time")
+      .register();
+
+    /** Render As Int Summary */
+    private static final Summary renderAsPackedIntSummary = Summary.build()
+      .name("render_as_packed_int")
+      .help("Render as packed int time")
+      .register();
+
+    /** Render Image Region Summary */
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .name("render_image_region")
+      .help("Render image region")
+      .register();
+
+    /** Load Pixels Summary */
+    private static final Summary loadPixelsSummary = Summary.build()
+      .name("load_pixels")
+      .help("load pixles time")
+      .register();
+
+    /** Retrieve Pixel Description Summary */
+    private static final Summary retrievePixSummary = Summary.build()
+      .name("retrieve_pixels")
+      .help("retrieve pixles time")
+      .register();
+
+    /** Render Summary */
+    private static final Summary renderSummary = Summary.build()
+      .name("render")
+      .help("render time")
+      .register();
+
+    /** Get Pixels ID and Serise Summary */
+    private static final Summary getPixIdAndSeriesSummary= Summary.build()
+      .name("get_pix_id_and_series")
+      .help("Get pixels ID and series time")
+      .register();
+
+    /** Project Stack Summary */
+    private static final Summary projectStackSummary = Summary.build()
+      .name("project_stack")
+      .help("Project Stack time")
+      .register();
+
+    /** Can Read Summary */
+    private static final Summary canReadSummary = Summary.build()
+      .name("can_read")
+      .help("Can Read time")
+      .register();
+
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -155,6 +210,7 @@ public class ImageRegionRequestHandler {
      */
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
+        Summary.Timer renderImageRegionTimer = renderImageRegionSummary.startTimer();
         testCounter.inc();
         try {
             if (pixels != null) {
@@ -165,6 +221,7 @@ public class ImageRegionRequestHandler {
             log.error("Exception while retrieving image region", e);
         } finally {
             t0.stop();
+            renderImageRegionTimer.observeDuration();
         }
         return null;
     }
@@ -186,6 +243,7 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageId);
         StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
+        Summary.Timer timer = getPixIdAndSeriesSummary.startTimer();
         try {
             List<List<omero.RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
@@ -204,6 +262,7 @@ public class ImageRegionRequestHandler {
                     ((omero.RInt) row.get(1)).getValue());
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
     }
 
@@ -266,10 +325,12 @@ public class ImageRegionRequestHandler {
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
         StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
+        Summary.Timer timer = getPixelBufferSummary.startTimer();
         try {
             return pixelsService.getPixelBuffer(pixels, false);
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
     }
 
@@ -299,6 +360,7 @@ public class ImageRegionRequestHandler {
      */
     public Pixels loadPixels(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("loadPixels");
+        Summary.Timer timer = loadPixelsSummary.startTimer();
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
@@ -313,6 +375,7 @@ public class ImageRegionRequestHandler {
             ctx.put("omero.group", "-1");
             StopWatch t1 = new Slf4JStopWatch(
                     "PixelsService.retrievePixDescription");
+            Summary.Timer timer2 = retrievePixSummary.startTimer();
             Pixels pixels;
             try {
                 pixels = (Pixels) mapper.reverse(iPixels.retrievePixDescription(
@@ -326,6 +389,7 @@ public class ImageRegionRequestHandler {
                 return pixels;
             } finally {
                 t1.stop();
+                timer2.observeDuration();
             }
         } catch (ApiUsageException e) {
             String v = "Illegal API usage while retrieving Pixels metadata";
@@ -335,6 +399,7 @@ public class ImageRegionRequestHandler {
             log.error(v, e);
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
         return null;
     }
@@ -371,11 +436,13 @@ public class ImageRegionRequestHandler {
         }
         updateSettings(renderer);
         StopWatch t1 = new Slf4JStopWatch("render");
+        Summary.Timer timer = renderSummary.startTimer();
         try {
             // The actual act of rendering will close the provided pixel buffer
             return render(renderer, resolutionLevels, pixels, planeDef);
         } finally {
             t1.stop();
+            timer.observeDuration();
         }
     }
 
@@ -399,6 +466,7 @@ public class ImageRegionRequestHandler {
         checkPlaneDef(resolutionLevels, planeDef);
 
         StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
+        Summary.Timer timer = renderAsPackedIntSummary.startTimer();
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -421,6 +489,7 @@ public class ImageRegionRequestHandler {
                         }
                         StopWatch t1 = new Slf4JStopWatch(
                                 "ProjectionService.projectStack");
+                        Summary.Timer timer2 = projectStackSummary.startTimer();
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
@@ -434,6 +503,7 @@ public class ImageRegionRequestHandler {
                             );
                         } finally {
                             t1.stop();
+                            timer2.observeDuration();
                         }
                         projectedSizeC++;
                     }
@@ -459,6 +529,7 @@ public class ImageRegionRequestHandler {
             buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
             t0.stop();
+            timer.observeDuration();
             if (log.isDebugEnabled()) {
                 RenderingStats stats = renderer.getStats();
                 if (stats != null) {
@@ -710,6 +781,7 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch("canRead");
+        Summary.Timer timer = canReadSummary.startTimer();
         try {
             List<List<omero.RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -722,6 +794,7 @@ public class ImageRegionRequestHandler {
             log.error("Exception while checking Image readability", e);
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
         return false;
     }

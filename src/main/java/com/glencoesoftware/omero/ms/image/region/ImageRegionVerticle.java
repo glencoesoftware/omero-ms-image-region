@@ -61,6 +61,10 @@ import omero.ApiUsageException;
 import omero.ServerError;
 import omero.util.IceMapper;
 
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Summary;
+
 public class ImageRegionVerticle extends AbstractVerticle {
 
 	private static final org.slf4j.Logger log =
@@ -109,6 +113,18 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
+
+    /** Prometheus Summary for createOmeroRequest */
+    private static final Summary createOmeroRequestSummary = Summary.build()
+      .name("createOmeroRequest")
+      .help("Time to create Omero request")
+      .register();
+
+    /** Prometheus Summary for getAllEnumerations*/
+    private static final Summary getAllEnumerationsSummary = Summary.build()
+      .name("getAllEnumerations")
+      .help("Time to get all enumerations")
+      .register();
 
     /**
      * Default constructor.
@@ -165,11 +181,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
             throws PermissionDeniedException, CannotCreateSessionException,
                 ServerError {
         StopWatch t0 = new Slf4JStopWatch("createOmeroRequest");
+        Summary.Timer timer = createOmeroRequestSummary.startTimer();
         try {
             return new OmeroRequest(
                 host, port, imageRegionCtx.omeroSessionKey);
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
     }
 
@@ -467,6 +485,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
+        Summary.Timer timer = getAllEnumerationsSummary.startTimer();
         try {
             return (List<T>) client
                     .getSession()
@@ -487,6 +506,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             throw new RuntimeException(e);
         } finally {
             t0.stop();
+            timer.observeDuration();
         }
     }
 
