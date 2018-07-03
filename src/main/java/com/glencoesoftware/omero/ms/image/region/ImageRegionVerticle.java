@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
+import org.python.google.common.base.Throwables;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -195,11 +196,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 if (result.succeeded()) {
                     message.reply(result.result());
                 } else {
-                    Throwable cause = result.cause();
-                    if (cause instanceof RuntimeException) {
-                        // Unwrap
-                        cause = cause.getCause();
-                    }
+                    // Unwrap RuntimeException or similar if present
+                    Throwable cause = Throwables.getRootCause(result.cause());
 
                     if (cause instanceof IllegalArgumentException) {
                         message.fail(400, cause.getMessage());
@@ -209,6 +207,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     } else if (cause instanceof ObjectNotFoundException) {
                         message.fail(404, cause.getMessage());
                     } else {
+                        log.error("Exception retrieving image region", cause);
                         message.fail(500, cause.getMessage());
                     }
                 }
