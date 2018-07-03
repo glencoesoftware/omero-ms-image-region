@@ -370,7 +370,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
             try {
                 Pixels pixels = null;
                 byte[] serialized = null;
-                if (result.succeeded()) {
+                if (result.succeeded()
+                        && request.get().execute(requestHandler::canRead)) {
                     serialized = result.result().body();
                 }
                 if (serialized == null) {
