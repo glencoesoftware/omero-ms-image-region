@@ -140,6 +140,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
 
+        // Prometheus request handler
+        router.get("/metrics").handler(new MetricsHandler());
+
         // Cookie handler so we can pick up the OMERO.web session
         router.route().handler(CookieHandler.create());
 
@@ -172,9 +175,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
-
-        // Prometheus request handler
-        router.get("/metrics").handler(new MetricsHandler());
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
