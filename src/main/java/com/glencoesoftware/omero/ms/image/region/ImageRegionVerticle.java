@@ -102,9 +102,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Cache of read access to certain OMERO objects for a given OMERO session
      */
-    private final Cache<String, Boolean> canRead = CacheBuilder.newBuilder()
-            .expireAfterWrite(10, TimeUnit.MINUTES)
-            .build();
+    private Cache<String, Boolean> canRead;
 
     /** Available families */
     private List<Family> families;
@@ -136,6 +134,21 @@ public class ImageRegionVerticle extends AbstractVerticle {
     @Override
     public void start() {
         log.info("Starting verticle");
+
+        JsonObject canReadCacheConfig =
+                config().getJsonObject("can-read-cache");
+        long maximumSize = 10000;
+        long timeToLive = 0;
+        if (canReadCacheConfig != null) {
+            maximumSize = canReadCacheConfig.getLong(
+                    "maximum-size", maximumSize);
+            timeToLive = canReadCacheConfig.getLong(
+                    "time-to-live", timeToLive);
+        }
+        canRead = CacheBuilder.newBuilder()
+                .maximumSize(maximumSize)
+                .expireAfterWrite(timeToLive, TimeUnit.SECONDS)
+                .build();
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
