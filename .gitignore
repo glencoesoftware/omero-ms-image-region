@@ -7,6 +7,7 @@ bin
 build
 conf.json
 target
+*.swp
 
 .DS_Store
 */.DS_Store

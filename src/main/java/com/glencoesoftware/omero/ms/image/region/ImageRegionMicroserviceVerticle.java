@@ -43,6 +43,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
+import io.vertx.ext.auth.AuthProvider;
+import io.vertx.ext.web.handler.AuthHandler;
+import io.vertx.ext.web.handler.BasicAuthHandler;
+
 import omero.model.Image;
 
 import io.prometheus.client.vertx.MetricsHandler;
@@ -143,6 +147,28 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         // Prometheus request handler
+        AuthProvider authProvider = (authInfo, resultHandler) -> {
+            String username = authInfo.getString("username");
+            String password = authInfo.getString("password");
+            String correct_username = System.getenv("PROMETHEUS_USERNAME");
+            String correct_password = System.getenv("PROMETHEUS_PASSWORD");
+            if(correct_username == null || correct_password == null)
+            {
+              resultHandler.handle(Future.failedFuture("Credentials not correctly set");
+            }
+            if(!username.equals(correct_username) || !password.equals(correct_password))
+            {
+              resultHandler.handle(Future.failedFuture("not authenticated"));
+            }
+            else{
+              resultHandler.handle(Future.succeededFuture());
+            }
+          };
+
+        AuthHandler basicAuthHandler = BasicAuthHandler.create(authProvider);
+        
+        router.get("/metrics").handler(basicAuthHandler);
+
         router.get("/metrics").handler(new MetricsHandler());
 
         // Cookie handler so we can pick up the OMERO.web session
