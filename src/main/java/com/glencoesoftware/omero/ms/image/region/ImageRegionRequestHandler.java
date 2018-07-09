@@ -42,6 +42,7 @@ import org.springframework.context.ApplicationContext;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import io.vertx.core.Future;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
@@ -49,9 +50,9 @@ import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
-import ome.model.enums.ProjectionType;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
@@ -60,10 +61,10 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
+import omeis.providers.re.metadata.StatsFactory;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
-import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
@@ -109,6 +110,9 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Pixels metadata */
+    private Pixels pixels;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -131,21 +135,20 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Render Image region request handler.
+     * Render Image region request handler.  {@link #setPixels(Pixels)} must be
+     * called before calling this method either with pixels metadata loaded
+     * using {@link #loadPixels(omero.client)} or from cache.
      * @param client OMERO client to use for querying.
      * @return A response body in accordance with the initial settings
      * provided by <code>imageRegionCtx</code>.
+     * @see #setPixels(Pixels)
+     * @see #loadPixels(omero.client)
      */
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+            if (pixels != null) {
+                return getRegion(pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -163,46 +166,93 @@ public class ImageRegionRequestHandler {
      * @param iQuery OMERO query service to use for metadata access.
      * @param imageId {@link Image} identifier to query for.
      * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
+     * @throws ServerError
      */
-    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
+    private PixelsIdAndSeries getPixelsIdAndSeries(
+            IQueryPrx iQuery, Long imageId)
+                    throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageId);
         StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
         try {
-            List<List<RType>> data = iQuery.projection(
+            List<List<omero.RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
                     "WHERE p.image.id = :id",
                     params, ctx
                 );
-            if (data.size() < 1) {
+            if (data.size() != 1) {
                 return null;
             }
-            return data.get(0);  // The first row
+            List<omero.RType> row = data.get(0);
+            if (row.size() != 2) {
+                return null;
+            }
+            return new PixelsIdAndSeries(
+                    ((omero.RLong) row.get(0)).getValue(),
+                    ((omero.RInt) row.get(1)).getValue());
         } finally {
             t0.stop();
         }
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsId The identifier of the pixels.
+     * Creates a new set of rendering settings corresponding to the specified
+     * pixels set.  Most values will be overwritten during
+     * {@link #updateSettings(Renderer)} usage.
+     * @param pixels pixels metadata
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
+    private RenderingDef createRenderingDef(Pixels pixels) throws ServerError {
+        QuantumFactory quantumFactory = new QuantumFactory(families);
+        StatsFactory statsFactory = new StatsFactory();
+
+        RenderingDef renderingDef = new RenderingDef();
+        // Model will be reset during updateSettings()
+        renderingModels.forEach(model -> {
+            if (model.getValue().equals(Renderer.MODEL_GREYSCALE)) {
+                renderingDef.setModel(model);
+            }
+        });
+        // QuantumDef defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetDefaults().  These *will not*
+        // be reset by updateSettings().
+        QuantumDef quantumDef = new QuantumDef();
+        quantumDef.setCdStart(0);
+        quantumDef.setCdEnd(QuantumFactory.DEPTH_8BIT);
+        quantumDef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        renderingDef.setQuantization(quantumDef);
+        // ChannelBinding defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetChannelBindings().  All *will*
+        // be reset by updateSettings() unless otherwise denoted.
+        for (int c = 0; c < pixels.sizeOfChannels(); c++) {
+            double[] range = statsFactory.initPixelsRange(pixels);
+            ChannelBinding cb = new ChannelBinding();
+            // Will *not* be reset by updateSettings()
+            cb.setCoefficient(1.0);
+            // Will *not* be reset by updateSettings()
+            cb.setNoiseReduction(false);
+            // Will *not* be reset by updateSettings()
+            cb.setFamily(quantumFactory.getFamily(Family.VALUE_LINEAR));
+            cb.setInputStart(range[0]);
+            cb.setInputEnd(range[1]);
+            cb.setActive(c < 3);
+            cb.setRed(255);
+            cb.setBlue(0);
+            cb.setGreen(0);
+            cb.setAlpha(255);
+            renderingDef.addChannelBinding(cb);
+        }
+        return renderingDef;
     }
 
+    /**
+     * Retrieves a pixel buffer for the specified pixels set.
+     * @param pixels pixels metadata
+     * @return See above.
+     * @throws ApiUsageException
+     */
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
         StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
@@ -214,45 +264,88 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single region from the server in the requested format as
-     * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
-     * @return Image region as a byte array.
-     * @throws QuantizationException
+     * Retrieves the current active pixels metadata for the request.
+     * @return See above.
      */
-    private byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
-        log.debug("Getting image region");
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch(
-                "PixelsService.retrievePixDescription");
-        Pixels pixels;
+    public Pixels getPixels() {
+        return pixels;
+    }
+
+    /**
+     * Sets the current active pixels metadta for the request.
+     * @param pixels pixels metadata loaded using
+     * {@link #loadPixels(omero.client)
+     */
+    public void setPixels(Pixels pixels) {
+        this.pixels = pixels;
+    }
+
+    /**
+     * Retrieves pixels metadata from the server.
+     * @param client OMERO client to use for querying.
+     * @return Populated {@link Pixels} ready to be used by the
+     * {@link Renderer} or <code>null</code> if it cannot be retrieved.
+     * @see #setPixels(Pixels)
+     */
+    public Pixels loadPixels(omero.client client) {
+        StopWatch t0 = new Slf4JStopWatch("loadPixels");
         try {
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            pixels = (Pixels) mapper.reverse(
-                    iPixels.retrievePixDescription(pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
-            pixels.setImage(image);
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            IPixelsPrx iPixels = sf.getPixelsService();
+            PixelsIdAndSeries pixelsIdAndSeries = getPixelsIdAndSeries(
+                    iQuery, imageRegionCtx.imageId);
+            if (pixelsIdAndSeries == null) {
+                return null;
+            }
+
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            StopWatch t1 = new Slf4JStopWatch(
+                    "PixelsService.retrievePixDescription");
+            Pixels pixels;
+            try {
+                pixels = (Pixels) mapper.reverse(iPixels.retrievePixDescription(
+                        pixelsIdAndSeries.pixelsId, ctx));
+                // The series will be used by our version of PixelsService which
+                // avoids attempting to retrieve the series from the database
+                // via IQuery later.
+                Image image = new Image(pixels.getImage().getId(), true);
+                image.setSeries(pixelsIdAndSeries.series);
+                pixels.setImage(image);
+                return pixels;
+            } finally {
+                t1.stop();
+            }
+        } catch (ApiUsageException e) {
+            String v = "Illegal API usage while retrieving Pixels metadata";
+            log.error(v, e);
+        } catch (ServerError e) {
+            String v = "Server error while retrieving Pixels metadata";
+            log.error(v, e);
         } finally {
             t0.stop();
         }
+        return null;
+    }
+
+    /**
+     * Retrieves a single region from the server in the requested format as
+     * defined by <code>imageRegionCtx.format</code>.
+     * @param pixels pixels metadata
+     * @return Image region as a byte array.
+     * @throws QuantizationException
+     */
+    private byte[] getRegion(Pixels pixels)
+                    throws IllegalArgumentException, ServerError, IOException,
+                    QuantizationException {
+        log.debug("Getting image region");
         QuantumFactory quantumFactory = new QuantumFactory(families);
         PixelBuffer pixelBuffer = getPixelBuffer(pixels);
 
         renderer = new Renderer(
             quantumFactory, renderingModels,
-            pixels, getRenderingDef(iPixels, pixels.getId()),
+            pixels, createRenderingDef(pixels),
             pixelBuffer, lutProvider
         );
         PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -592,5 +685,96 @@ public class ImageRegionRequestHandler {
             log.error("Error while parsing color: {}", color, e);
         }
         return null;
+    }
+
+    /**
+     * Whether or not a single {@link ImageI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return <code>true</code> if the {@link ImageI} can be loaded or
+     * <code>false</code> otherwise.
+     * @see #canReadAsync(omero.client)
+     */
+    public boolean canRead(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        try {
+            List<List<omero.RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT i.id FROM Image as i " +
+                            "WHERE i.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("Exception while checking Image readability", e);
+        } finally {
+            t0.stop();
+        }
+        return false;
+    }
+
+    /**
+     * Whether or not a single {@link ImageI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return Future with the same completion value semantics as
+     * {@link #canRead(omero.client)}
+     * @see #canRead(omero.client)
+     */
+    public Future<Boolean> canReadAsync(omero.client client) {
+        Future<Boolean> future = Future.future();
+
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch("canReadAsync");
+        try {
+            client.getSession().getQueryService().begin_projection(
+                "SELECT i.id FROM Image as i WHERE i.id = :id",
+                params, ctx, (List<List<omero.RType>> rows) -> {
+                    t0.stop();
+                    if (rows.size() > 0) {
+                        future.complete(true);
+                    } else {
+                        future.complete(false);
+                    }
+                }, (Ice.UserException e) -> {
+                    t0.stop();
+                    log.error("Exception while checking Image readability", e);
+                    future.complete(false);
+                }, (Ice.Exception e) -> {
+                    t0.stop();
+                    log.error("Exception while checking Image readability", e);
+                    future.complete(false);
+                });
+        } catch (Exception e) {
+            t0.stop();
+            log.error("Exception while checking Image readability", e);
+            future.complete(false);
+        }
+
+        return future;
+    }
+
+    /**
+     * Struct like class to store {@link ome.model.core.Pixels} and Bio-Formats
+     * series metadata.
+     */
+    private final class PixelsIdAndSeries {
+
+        /** {@link ome.model.core.Pixels} identifier */
+        public final long pixelsId;
+
+        /** Bio-Formats series */
+        public final int series;
+
+        PixelsIdAndSeries(long pixelsId, int series) {
+            this.pixelsId = pixelsId;
+            this.series = series;
+        }
+
     }
 }
