@@ -46,6 +46,7 @@ import io.vertx.ext.web.handler.CookieHandler;
 import omero.model.Image;
 
 import io.prometheus.client.vertx.MetricsHandler;
+import io.prometheus.client.hotspot.DefaultExports;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -71,6 +72,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> future) {
         log.info("Starting verticle");
+        DefaultExports.initialize();
 
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
