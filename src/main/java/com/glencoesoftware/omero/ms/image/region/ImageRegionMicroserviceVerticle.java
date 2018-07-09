@@ -154,7 +154,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             String correct_password = System.getenv("PROMETHEUS_PASSWORD");
             if(correct_username == null || correct_password == null)
             {
-              resultHandler.handle(Future.failedFuture("Credentials not correctly set");
+              resultHandler.handle(Future.failedFuture("Credentials not correctly set"));
             }
             if(!username.equals(correct_username) || !password.equals(correct_password))
             {
