@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Base64;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -146,6 +148,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
 
+/*
         // Prometheus request handler
         AuthProvider authProvider = (authInfo, resultHandler) -> {
             log.info("CHECKING AUTHORIZATION");
@@ -173,8 +176,36 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
           };
 
         AuthHandler basicAuthHandler = BasicAuthHandler.create(authProvider);
+        */
         
-        router.get("/metrics").handler(basicAuthHandler);
+        router.get("/metrics").handler(event -> {
+            log.info("CHECKING AUTHORIZATION");
+            HttpServerRequest request = event.request();
+            String header = request.getHeader("Authorization");
+            String base64Credentials = header.substring("Basic".length()).trim();
+            String authInfo = new String(Base64.getDecoder().decode(base64Credentials));
+            String username = authInfo.split(":",2)[0];
+            String password = authInfo.split(":",2)[0];
+            String correct_username = System.getenv("PROMETHEUS_USERNAME");
+            String correct_password = System.getenv("PROMETHEUS_PASSWORD");
+            log.info("GIVEN USERNAME: " + username);
+            log.info("GIVEN PASSWORD: " + password);
+            log.info("CORRECT USERNAME: " + correct_username);
+            log.info("CORRECT PASSWORD: " + correct_password);
+            if(correct_username == null || correct_password == null)
+            {
+              log.info("Username or password is null");
+              event.response().setStatusCode(500).end("Credentials not correctly set");
+            }
+            if(!username.equals(correct_username) || !password.equals(correct_password))
+            {
+              log.info("Given username or password doesn't match");
+              event.response().setStatusCode(403).end("Not authenticated");
+            }
+            else{
+              event.next();
+            }
+        });
 
         router.get("/metrics").handler(new MetricsHandler());
 
