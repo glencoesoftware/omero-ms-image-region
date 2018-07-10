@@ -148,16 +148,23 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Prometheus request handler
         AuthProvider authProvider = (authInfo, resultHandler) -> {
+            log.info("CHECKING AUTHORIZATION");
             String username = authInfo.getString("username");
             String password = authInfo.getString("password");
             String correct_username = System.getenv("PROMETHEUS_USERNAME");
             String correct_password = System.getenv("PROMETHEUS_PASSWORD");
+            log.info("GIVEN USERNAME: " + username);
+            log.info("GIVEN PASSWORD: " + password);
+            log.info("CORRECT USERNAME: " + correct_username);
+            log.info("CORRECT PASSWORD: " + correct_password);
             if(correct_username == null || correct_password == null)
             {
+              log.info("Username or password is null");
               resultHandler.handle(Future.failedFuture("Credentials not correctly set"));
             }
             if(!username.equals(correct_username) || !password.equals(correct_password))
             {
+              log.info("Given username or password doesn't match");
               resultHandler.handle(Future.failedFuture("not authenticated"));
             }
             else{
