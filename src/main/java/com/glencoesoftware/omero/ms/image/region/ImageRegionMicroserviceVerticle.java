@@ -148,58 +148,24 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
 
-/*
-        // Prometheus request handler
-        AuthProvider authProvider = (authInfo, resultHandler) -> {
-            log.info("CHECKING AUTHORIZATION");
-            String username = authInfo.getString("username");
-            String password = authInfo.getString("password");
-            String correct_username = System.getenv("PROMETHEUS_USERNAME");
-            String correct_password = System.getenv("PROMETHEUS_PASSWORD");
-            log.info("GIVEN USERNAME: " + username);
-            log.info("GIVEN PASSWORD: " + password);
-            log.info("CORRECT USERNAME: " + correct_username);
-            log.info("CORRECT PASSWORD: " + correct_password);
-            if(correct_username == null || correct_password == null)
-            {
-              log.info("Username or password is null");
-              resultHandler.handle(Future.failedFuture("Credentials not correctly set"));
-            }
-            if(!username.equals(correct_username) || !password.equals(correct_password))
-            {
-              log.info("Given username or password doesn't match");
-              resultHandler.handle(Future.failedFuture("not authenticated"));
-            }
-            else{
-              resultHandler.handle(Future.succeededFuture());
-            }
-          };
-
-        AuthHandler basicAuthHandler = BasicAuthHandler.create(authProvider);
-        */
-        
         router.get("/metrics").handler(event -> {
-            log.info("CHECKING AUTHORIZATION");
             HttpServerRequest request = event.request();
             String header = request.getHeader("Authorization");
+            if(header == null || header.isEmpty() || header.indexOf("Basic") == -1){
+              event.response().setStatusCode(403).end("Missing Authentication");
+            }
             String base64Credentials = header.substring("Basic".length()).trim();
             String authInfo = new String(Base64.getDecoder().decode(base64Credentials));
             String username = authInfo.split(":",2)[0];
             String password = authInfo.split(":",2)[0];
             String correct_username = System.getenv("PROMETHEUS_USERNAME");
             String correct_password = System.getenv("PROMETHEUS_PASSWORD");
-            log.info("GIVEN USERNAME: " + username);
-            log.info("GIVEN PASSWORD: " + password);
-            log.info("CORRECT USERNAME: " + correct_username);
-            log.info("CORRECT PASSWORD: " + correct_password);
             if(correct_username == null || correct_password == null)
             {
-              log.info("Username or password is null");
               event.response().setStatusCode(500).end("Credentials not correctly set");
             }
             if(!username.equals(correct_username) || !password.equals(correct_password))
             {
-              log.info("Given username or password doesn't match");
               event.response().setStatusCode(403).end("Not authenticated");
             }
             else{
