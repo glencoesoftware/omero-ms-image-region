@@ -53,6 +53,8 @@ import omero.model.Image;
 
 import io.prometheus.client.vertx.MetricsHandler;
 import io.prometheus.client.hotspot.DefaultExports;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Summary;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -70,6 +72,30 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
+
+    /** Prometheus render image region Count*/
+    private static final Counter renderImageRegionCounter = Counter.build()
+      .name("renderImageRegion")
+      .help("Count renderImageRegion calls")
+      .register();
+
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .name("renderImageRegion")
+      .help("Time spent in renderImageRegion")
+      .register();
+
+    /** Prometheus render shape mask Count*/
+    private static final Counter renderShapeMaskCounter = Counter.build()
+      .name("renderShapeMask")
+      .help("Count renderShapeMask calls")
+      .register();
+
+    /** Prometheus Summary for renderShapeMask*/
+    private static final Summary renderShapeMaskSummary = Summary.build()
+      .name("renderShapeMask")
+      .help("Time spent in renderShapeMask")
+      .register();
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -238,6 +264,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
+        renderImageRegionCounter.inc();
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
@@ -275,6 +303,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
+                timer.observeDuration();
             }
         });
     }
@@ -289,6 +318,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderShapeMask(RoutingContext event) {
         log.info("Rendering shape mask");
+        renderShapeMaskCounter.inc();
+        Summary.Timer timer = renderShapeMaskSummary.startTimer();
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
@@ -316,6 +347,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
+                timer.observeDuration();
             }
         });
     }
