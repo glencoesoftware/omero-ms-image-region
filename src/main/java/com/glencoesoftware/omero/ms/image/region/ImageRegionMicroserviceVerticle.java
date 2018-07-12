@@ -252,7 +252,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
-//        Summary.Timer timer = renderImageRegionSummary.startTimer();
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
@@ -290,7 +290,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
-//                timer.observeDuration();
+                timer.observeDuration();
             }
         });
     }
