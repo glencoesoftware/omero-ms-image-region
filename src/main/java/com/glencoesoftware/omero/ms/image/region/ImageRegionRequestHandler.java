@@ -117,12 +117,6 @@ public class ImageRegionRequestHandler {
     /** Pixels metadata */
     private Pixels pixels;
     
-    /** Test Prometheus Counter */
-    private static final Counter testCounter = Counter.build()
-      .name("test_counter")
-      .help("A Test Counter")
-      .register();
-
     /** Get Pixel Buffer Summary */
     private static final Summary getPixelBufferSummary = Summary.build()
       .name("get_pixel_buffer")
@@ -212,7 +206,6 @@ public class ImageRegionRequestHandler {
     public byte[] renderImageRegion(omero.client client) {
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         Summary.Timer renderImageRegionTimer = renderImageRegionSummary.startTimer();
-        testCounter.inc();
         try {
             if (pixels != null) {
                 return getRegion(pixels);

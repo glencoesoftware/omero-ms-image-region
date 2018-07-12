@@ -134,7 +134,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Prometheus ImageRegionCache Hit Count*/
     private static final Counter imageRegionCacheHit = Counter.build()
-      .name("imageRegionCacheHit")
+      .name("image_region_cache_hit")
       .help("Count cache hits in getCachedImageRegion")
       .register();
 

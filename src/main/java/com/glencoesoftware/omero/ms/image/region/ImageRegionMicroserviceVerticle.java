@@ -73,28 +73,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
-    /** Prometheus render image region Count*/
-    private static final Counter renderImageRegionCounter = Counter.build()
-      .name("render_image_region_count")
-      .help("Count renderImageRegion calls")
-      .register();
-
     /** Prometheus Summary for renderImageRegion */
     private static final Summary renderImageRegionSummary = Summary.build()
-      .name("render_image_region_time")
-      .help("Time spent in renderImageRegion")
-      .register();
-
-    /** Prometheus render shape mask Count*/
-    private static final Counter renderShapeMaskCounter = Counter.build()
-      .name("render_shape_mask_count")
-      .help("Count renderShapeMask calls")
+      .name("render_image_region_ms")
+      .help("Time spent in renderImageRegion in the microservice verticle")
       .register();
 
     /** Prometheus Summary for renderShapeMask*/
     private static final Summary renderShapeMaskSummary = Summary.build()
-      .name("render_shape_mask_time")
-      .help("Time spent in renderShapeMask")
+      .name("render_shape_mask_ms")
+      .help("Time spent in renderShapeMask in the microservice verticle")
       .register();
 
     /**
@@ -264,7 +252,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
-        renderImageRegionCounter.inc();
         Summary.Timer timer = renderImageRegionSummary.startTimer();
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
@@ -318,7 +305,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderShapeMask(RoutingContext event) {
         log.info("Rendering shape mask");
-        renderShapeMaskCounter.inc();
         Summary.Timer timer = renderShapeMaskSummary.startTimer();
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
