@@ -116,19 +116,19 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Prometheus Summary for createOmeroRequest */
     private static final Summary createOmeroRequestSummary = Summary.build()
-      .name("createOmeroRequest")
+      .name("create_omero_request")
       .help("Time to create Omero request")
       .register();
 
     /** Prometheus Summary for getAllEnumerations*/
     private static final Summary getAllEnumerationsSummary = Summary.build()
-      .name("getAllEnumerations")
+      .name("get_all_enumerations")
       .help("Time to get all enumerations")
       .register();
 
     /** Prometheus ImageRegionCache Miss Count*/
     private static final Counter imageRegionCacheMiss = Counter.build()
-      .name("imageRegionCacheMiss")
+      .name("image_region_cache_miss")
       .help("Count cache misses in getCachedImageRegion")
       .register();
 
@@ -140,31 +140,31 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Prometheus Pixels Miss Count*/
     private static final Counter pixelsCacheMiss = Counter.build()
-      .name("pixelsCacheMiss")
+      .name("pixels_cache_miss")
       .help("Count cache misses in getPixels")
       .register();
 
     /** Prometheus Pixels Hit Count*/
     private static final Counter pixelsCacheHit = Counter.build()
-      .name("pixelsCacheHit")
+      .name("pixels_cache_hit")
       .help("Count cache hits in getPixels")
       .register();
 
     /** Prometheus Illegal Image Region Count*/
     private static final Counter illegalImageRegionCounter = Counter.build()
-      .name("illegalImageRegion")
+      .name("illegal_image_region")
       .help("Count illegal image regions")
       .register();
 
     /** Prometheus Image Retrieveal Error Count*/
     private static final Counter imageRetrievalErrorCounter = Counter.build()
-      .name("imageRetrievalError")
+      .name("image_retrieval_error")
       .help("Count image region retrieval errors")
       .register();
 
     /** Prometheus Pixel Serialization Error Count*/
     private static final Counter pixelSerializationErrorCounter = Counter.build()
-      .name("pixelSerializationError")
+      .name("pixel_serialization_error")
       .help("Count pixel serialization errors")
       .register();
 

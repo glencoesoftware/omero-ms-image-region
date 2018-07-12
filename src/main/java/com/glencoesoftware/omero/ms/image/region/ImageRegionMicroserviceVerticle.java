@@ -75,25 +75,25 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** Prometheus render image region Count*/
     private static final Counter renderImageRegionCounter = Counter.build()
-      .name("renderImageRegion")
+      .name("render_image_region_count")
       .help("Count renderImageRegion calls")
       .register();
 
     /** Prometheus Summary for renderImageRegion */
     private static final Summary renderImageRegionSummary = Summary.build()
-      .name("renderImageRegion")
+      .name("render_image_region_time")
       .help("Time spent in renderImageRegion")
       .register();
 
     /** Prometheus render shape mask Count*/
     private static final Counter renderShapeMaskCounter = Counter.build()
-      .name("renderShapeMask")
+      .name("render_shape_mask_count")
       .help("Count renderShapeMask calls")
       .register();
 
     /** Prometheus Summary for renderShapeMask*/
     private static final Summary renderShapeMaskSummary = Summary.build()
-      .name("renderShapeMask")
+      .name("render_shape_mask_time")
       .help("Time spent in renderShapeMask")
       .register();
 
