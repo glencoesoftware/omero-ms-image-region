@@ -171,6 +171,47 @@ public class ImageRegionRequestHandler {
       .help("Can Read time")
       .register();
 
+    /** Prometheus Cannot Find Image Counter*/
+    private static final Counter cannotFindImageCounter = Counter.build()
+      .name("cannot_find_image")
+      .help("Count times when image cannot be found in getRegion")
+      .register();
+
+    /** Prometheus getRegion Error Counter*/
+    private static final Counter getRegionErrorCounter = Counter.build()
+      .name("get_region_error")
+      .help("Count errors in getRegion")
+      .register();
+
+    /** Prometheus loadPixels API Error Counter*/
+    private static final Counter loadPixelsApiErrorCounter = Counter.build()
+      .name("load_pixels_api_error")
+      .help("Count API errors in loadPixels")
+      .register();
+
+    /** Prometheus loadPixels Server Error Counter*/
+    private static final Counter loadPixelsServerErrorCounter = Counter.build()
+      .name("load_pixels_server_error")
+      .help("Count Server errors in loadPixels")
+      .register();
+
+    /** Prometheus render unknown format Counter*/
+    private static final Counter renderUnknownFormatCounter = Counter.build()
+      .name("render_unknown_format")
+      .help("Count unknown formats encountered in render")
+      .register();
+
+    /** Prometheus splitHTML color parsing error Counter*/
+    private static final Counter colorParsingErrorCounter = Counter.build()
+      .name("color_parsing_error")
+      .help("Count unknown formats encountered in render")
+      .register();
+
+    /** Prometheus image readability error Counter*/
+    private static final Counter imageReadabilityErrorCounter = Counter.build()
+      .name("image_readability_error")
+      .help("Count image readability errors")
+      .register();
 
     /**
      * Default constructor.
@@ -211,8 +252,10 @@ public class ImageRegionRequestHandler {
                 return getRegion(pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
+            cannotFindImageCounter.inc();
         } catch (Exception e) {
             log.error("Exception while retrieving image region", e);
+            getRegionErrorCounter.inc();
         } finally {
             t0.stop();
             renderImageRegionTimer.observeDuration();
@@ -388,9 +431,11 @@ public class ImageRegionRequestHandler {
         } catch (ApiUsageException e) {
             String v = "Illegal API usage while retrieving Pixels metadata";
             log.error(v, e);
+            loadPixelsApiErrorCounter.inc();
         } catch (ServerError e) {
             String v = "Server error while retrieving Pixels metadata";
             log.error(v, e);
+            loadPixelsServerErrorCounter.inc();
         } finally {
             t0.stop();
             timer.observeDuration();
@@ -563,6 +608,7 @@ public class ImageRegionRequestHandler {
             return output.toByteArray();
         }
         log.error("Unknown format {}", imageRegionCtx.format);
+        renderUnknownFormatCounter.inc();
         return null;
     }
 
@@ -758,6 +804,7 @@ public class ImageRegionRequestHandler {
             }
         } catch (Exception e) {
             log.error("Error while parsing color: {}", color, e);
+            colorParsingErrorCounter.inc();
         }
         return null;
     }
@@ -786,6 +833,7 @@ public class ImageRegionRequestHandler {
             }
         } catch (Exception e) {
             log.error("Exception while checking Image readability", e);
+            imageReadabilityErrorCounter.inc();
         } finally {
             t0.stop();
             timer.observeDuration();
@@ -821,15 +869,18 @@ public class ImageRegionRequestHandler {
                 }, (Ice.UserException e) -> {
                     t0.stop();
                     log.error("Exception while checking Image readability", e);
+                    imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 }, (Ice.Exception e) -> {
                     t0.stop();
                     log.error("Exception while checking Image readability", e);
+                    imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 });
         } catch (Exception e) {
             t0.stop();
             log.error("Exception while checking Image readability", e);
+            imageReadabilityErrorCounter.inc();
             future.complete(false);
         }
 
