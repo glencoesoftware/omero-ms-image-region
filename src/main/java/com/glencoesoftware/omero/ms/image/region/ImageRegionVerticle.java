@@ -126,6 +126,48 @@ public class ImageRegionVerticle extends AbstractVerticle {
       .help("Time to get all enumerations")
       .register();
 
+    /** Prometheus Summary for renderImageRegion*/
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .name("render_image_region_irv")
+      .help("Time spent in renderImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getPixels*/
+    private static final Summary getPixelsSummary = Summary.build()
+      .name("get_pixels_irv")
+      .help("Time spent in getPixels in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for loadPixels*/
+    private static final Summary loadPixelsSummary = Summary.build()
+      .name("load_pixels_irv")
+      .help("Time spent in loadPixels in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for canRead*/
+    private static final Summary canReadSummary = Summary.build()
+      .name("can_read")
+      .help("Time spent in canRead in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getImageRegion*/
+    private static final Summary getImageRegionSummary = Summary.build()
+      .name("get_image_region")
+      .help("Time spent in getImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getCachedImageRegion*/
+    private static final Summary getCachedImageRegionSummary = Summary.build()
+      .name("get_cached_image_region")
+      .help("Time spent in getCachedImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for handleRenderImageRegion*/
+    private static final Summary handleRenderImageRegionSummary = Summary.build()
+      .name("handle_render_image_region")
+      .help("Time spent in handleRenderImageRegion in ImageRegionVerticle")
+      .register();
+
     /** Prometheus ImageRegionCache Miss Count*/
     private static final Counter imageRegionCacheMiss = Counter.build()
       .name("image_region_cache_miss")
@@ -242,6 +284,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void handleRenderImageRegion(Message<String> message) {
+        Summary.Timer timer = handleRenderImageRegionSummary.startTimer();
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -253,6 +296,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
             illegalImageRegionCounter.inc();
             message.fail(400, v);
             return;
+        } finally {
+          timer.observeDuration();
         }
         log.debug(
             "Render image region request with data: {}", message.body());
@@ -301,6 +346,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 cleanup.complete();
             }
         });
+        timer.observeDuration();
     }
 
     /**
@@ -311,6 +357,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> getImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
+        Summary.Timer timer = getImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         try {
@@ -351,6 +398,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
+        timer.observeDuration();
         return future;
     }
 
@@ -362,6 +410,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> renderImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         ImageRegionRequestHandler requestHandler =
@@ -396,6 +445,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         }, future);
 
+        timer.observeDuration();
         return future;
     }
 
@@ -407,6 +457,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> getCachedImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
+        Summary.Timer timer = getCachedImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         String key = imageRegionCtx.cacheKey();
@@ -444,6 +495,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
+        timer.observeDuration();
         return future;
     }
 
@@ -458,6 +510,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Future<Pixels> getPixels(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler) {
+        Summary.Timer timer = getPixelsSummary.startTimer();
         Future<Pixels> future = Future.future();
 
         String key = String.format("%s:Image:%d",
@@ -507,6 +560,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
+        timer.observeDuration();
         return future;
     }
 
@@ -520,6 +574,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Pixels loadPixels(Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler, String key)
                     throws ServerError {
+        Summary.Timer timer = loadPixelsSummary.startTimer();
         Pixels pixels = request.get().execute(
                 requestHandler::loadPixels);
         ByteArrayOutputStream bos =
@@ -541,6 +596,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     pixels.getId(), e);
             pixelSerializationErrorCounter.inc();
         }
+        timer.observeDuration();
         return null;
     }
 
@@ -611,6 +667,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler)
                     throws ServerError, ExecutionException {
+        Summary.Timer timer = canReadSummary.startTimer();
         Future<Boolean> future = Future.future();
 
         String key = String.format(
@@ -628,7 +685,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 future.complete(result);
             }, future);
         }
-
+        timer.observeDuration();
         return future;
     }
 
