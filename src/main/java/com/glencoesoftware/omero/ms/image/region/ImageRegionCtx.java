@@ -35,6 +35,8 @@ import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
 import omero.constants.projection.ProjectionType;
 
+import io.prometheus.client.Summary;
+
 public class ImageRegionCtx extends OmeroRequestCtx {
 
     private static final org.slf4j.Logger log =
@@ -99,6 +101,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Cache key */
     public String cacheKey;
 
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary constructorSummary = Summary.build()
+      .name("image_region_ctx_constructor")
+      .help("Time spent in ImageRegionCtx constructor")
+      .register();
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -111,6 +119,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
+        Summary.Timer timer = constructorSummary.startTimer();
         this.omeroSessionKey = omeroSessionKey;
         imageId = Long.parseLong(params.get("imageId"));
         z = Integer.parseInt(params.get("theZ"));
@@ -133,6 +142,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
                 windows, colors, m, format, cacheKey);
+        timer.observeDuration();
     }
 
     /**
