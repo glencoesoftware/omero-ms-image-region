@@ -344,9 +344,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 }
             } finally {
                 cleanup.complete();
+                timer.observeDuration();
             }
         });
-        timer.observeDuration();
     }
 
     /**

@@ -79,6 +79,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
       .help("Time spent in renderImageRegion in the microservice verticle")
       .register();
 
+    /** Prometheus Summary for renderImageRegion callback*/
+    private static final Summary renderImageRegionCallbackSummary = Summary.build()
+      .name("render_image_region_ms_callback")
+      .help("Time spent in renderImageRegion's callback in the microservice verticle")
+      .register();
+
     /** Prometheus Summary for renderShapeMask*/
     private static final Summary renderShapeMaskSummary = Summary.build()
       .name("render_shape_mask_ms")
@@ -261,6 +267,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
+            Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
@@ -290,6 +297,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
+                callbackTimer.observeDuration();
                 timer.observeDuration();
             }
         });
