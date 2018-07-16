@@ -268,9 +268,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
        vertx.eventBus().<byte[]>send(
               ImageRegionVerticle.PING_EVENT,
               "Hello!", result -> {
+                log.info("pingHandler got message response");
                 response.setStatusCode(200);
-                response.write("Ping successful");
-                response.end();
+                response.end("Ping successful");
                 timer.observeDuration();
               });
     }
