@@ -79,6 +79,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
       .help("Time spent in renderImageRegion in the microservice verticle")
       .register();
 
+    /** Prometheus Summary for eventbus*/
+    private static final Summary eventbusSummary = Summary.build()
+      .name("event_bus_ms")
+      .help("Time elapsed from message sent to event bus to repsonse received")
+      .register();
+
     /** Prometheus Summary for renderImageRegion callback*/
     private static final Summary renderImageRegionCallbackSummary = Summary.build()
       .name("render_image_region_ms_callback")
@@ -264,9 +270,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
+        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
+            eventbusTimer.observeDuration();
             Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
