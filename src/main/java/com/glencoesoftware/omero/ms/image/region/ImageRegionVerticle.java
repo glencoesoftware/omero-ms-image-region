@@ -70,6 +70,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
 
+    public static final String PING_EVENT=
+            "omero.ping";
+
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
@@ -174,6 +177,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
       .help("Count cache misses in getCachedImageRegion")
       .register();
 
+    /** Prometheus Ping Count*/
+    private static final Counter pingCounter = Counter.build()
+      .name("ping_irv")
+      .help("Count pings received by ImageRegionVerticle")
+      .register();
+
     /** Prometheus ImageRegionCache Hit Count*/
     private static final Counter imageRegionCacheHit = Counter.build()
       .name("image_region_cache_hit")
@@ -254,6 +263,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     handleRenderImageRegion(event);
                 });
+        vertx.eventBus().<String>consumer(
+                PING_EVENT, event ->{
+                    handlePing(event);
+                });
     }
 
     /**
@@ -273,6 +286,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
             t0.stop();
             timer.observeDuration();
         }
+    }
+
+    private void handlePing(Message<String> message) {
+      log.info("handlePing received message");
+      pingCounter.inc();
     }
 
     /**
