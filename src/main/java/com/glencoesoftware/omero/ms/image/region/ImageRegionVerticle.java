@@ -291,6 +291,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void handlePing(Message<String> message) {
       log.info("handlePing received message");
       pingCounter.inc();
+      message.reply("Ping successful");
     }
 
     /**
