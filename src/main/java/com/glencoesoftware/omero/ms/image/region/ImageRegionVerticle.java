@@ -117,107 +117,107 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
-//    /** Prometheus Summary for createOmeroRequest */
-//    private static final Summary createOmeroRequestSummary = Summary.build()
-//      .name("create_omero_request")
-//      .help("Time to create Omero request")
-//      .register();
-//
-//    /** Prometheus Summary for getAllEnumerations*/
-//    private static final Summary getAllEnumerationsSummary = Summary.build()
-//      .name("get_all_enumerations")
-//      .help("Time to get all enumerations")
-//      .register();
-//
-//    /** Prometheus Summary for renderImageRegion*/
-//    private static final Summary renderImageRegionSummary = Summary.build()
-//      .name("render_image_region_irv")
-//      .help("Time spent in renderImageRegion in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for getPixels*/
-//    private static final Summary getPixelsSummary = Summary.build()
-//      .name("get_pixels_irv")
-//      .help("Time spent in getPixels in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for loadPixels*/
-//    private static final Summary loadPixelsSummary = Summary.build()
-//      .name("load_pixels_irv")
-//      .help("Time spent in loadPixels in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for canRead*/
-//    private static final Summary canReadSummary = Summary.build()
-//      .name("can_read")
-//      .help("Time spent in canRead in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for getImageRegion*/
-//    private static final Summary getImageRegionSummary = Summary.build()
-//      .name("get_image_region")
-//      .help("Time spent in getImageRegion in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for getCachedImageRegion*/
-//    private static final Summary getCachedImageRegionSummary = Summary.build()
-//      .name("get_cached_image_region")
-//      .help("Time spent in getCachedImageRegion in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus Summary for handleRenderImageRegion*/
-//    private static final Summary handleRenderImageRegionSummary = Summary.build()
-//      .name("handle_render_image_region")
-//      .help("Time spent in handleRenderImageRegion in ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus ImageRegionCache Miss Count*/
-//    private static final Counter imageRegionCacheMiss = Counter.build()
-//      .name("image_region_cache_miss")
-//      .help("Count cache misses in getCachedImageRegion")
-//      .register();
-//
-//    /** Prometheus Ping Count*/
-//    private static final Counter pingCounter = Counter.build()
-//      .name("ping_irv")
-//      .help("Count pings received by ImageRegionVerticle")
-//      .register();
-//
-//    /** Prometheus ImageRegionCache Hit Count*/
-//    private static final Counter imageRegionCacheHit = Counter.build()
-//      .name("image_region_cache_hit")
-//      .help("Count cache hits in getCachedImageRegion")
-//      .register();
-//
-//    /** Prometheus Pixels Miss Count*/
-//    private static final Counter pixelsCacheMiss = Counter.build()
-//      .name("pixels_cache_miss")
-//      .help("Count cache misses in getPixels")
-//      .register();
-//
-//    /** Prometheus Pixels Hit Count*/
-//    private static final Counter pixelsCacheHit = Counter.build()
-//      .name("pixels_cache_hit")
-//      .help("Count cache hits in getPixels")
-//      .register();
-//
-//    /** Prometheus Illegal Image Region Count*/
-//    private static final Counter illegalImageRegionCounter = Counter.build()
-//      .name("illegal_image_region")
-//      .help("Count illegal image regions")
-//      .register();
-//
-//    /** Prometheus Image Retrieveal Error Count*/
-//    private static final Counter imageRetrievalErrorCounter = Counter.build()
-//      .name("image_retrieval_error")
-//      .help("Count image region retrieval errors")
-//      .register();
-//
-//    /** Prometheus Pixel Serialization Error Count*/
-//    private static final Counter pixelSerializationErrorCounter = Counter.build()
-//      .name("pixel_serialization_error")
-//      .help("Count pixel serialization errors")
-//      .register();
+    /** Prometheus Summary for createOmeroRequest */
+    private static final Summary createOmeroRequestSummary = Summary.build()
+      .name("create_omero_request")
+      .help("Time to create Omero request")
+      .register();
+
+    /** Prometheus Summary for getAllEnumerations*/
+    private static final Summary getAllEnumerationsSummary = Summary.build()
+      .name("get_all_enumerations")
+      .help("Time to get all enumerations")
+      .register();
+
+    /** Prometheus Summary for renderImageRegion*/
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .name("render_image_region_irv")
+      .help("Time spent in renderImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getPixels*/
+    private static final Summary getPixelsSummary = Summary.build()
+      .name("get_pixels_irv")
+      .help("Time spent in getPixels in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for loadPixels*/
+    private static final Summary loadPixelsSummary = Summary.build()
+      .name("load_pixels_irv")
+      .help("Time spent in loadPixels in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for canRead*/
+    private static final Summary canReadSummary = Summary.build()
+      .name("can_read")
+      .help("Time spent in canRead in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getImageRegion*/
+    private static final Summary getImageRegionSummary = Summary.build()
+      .name("get_image_region")
+      .help("Time spent in getImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for getCachedImageRegion*/
+    private static final Summary getCachedImageRegionSummary = Summary.build()
+      .name("get_cached_image_region")
+      .help("Time spent in getCachedImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus Summary for handleRenderImageRegion*/
+    private static final Summary handleRenderImageRegionSummary = Summary.build()
+      .name("handle_render_image_region")
+      .help("Time spent in handleRenderImageRegion in ImageRegionVerticle")
+      .register();
+
+    /** Prometheus ImageRegionCache Miss Count*/
+    private static final Counter imageRegionCacheMiss = Counter.build()
+      .name("image_region_cache_miss")
+      .help("Count cache misses in getCachedImageRegion")
+      .register();
+
+    /** Prometheus Ping Count*/
+    private static final Counter pingCounter = Counter.build()
+      .name("ping_irv")
+      .help("Count pings received by ImageRegionVerticle")
+      .register();
+
+    /** Prometheus ImageRegionCache Hit Count*/
+    private static final Counter imageRegionCacheHit = Counter.build()
+      .name("image_region_cache_hit")
+      .help("Count cache hits in getCachedImageRegion")
+      .register();
+
+    /** Prometheus Pixels Miss Count*/
+    private static final Counter pixelsCacheMiss = Counter.build()
+      .name("pixels_cache_miss")
+      .help("Count cache misses in getPixels")
+      .register();
+
+    /** Prometheus Pixels Hit Count*/
+    private static final Counter pixelsCacheHit = Counter.build()
+      .name("pixels_cache_hit")
+      .help("Count cache hits in getPixels")
+      .register();
+
+    /** Prometheus Illegal Image Region Count*/
+    private static final Counter illegalImageRegionCounter = Counter.build()
+      .name("illegal_image_region")
+      .help("Count illegal image regions")
+      .register();
+
+    /** Prometheus Image Retrieveal Error Count*/
+    private static final Counter imageRetrievalErrorCounter = Counter.build()
+      .name("image_retrieval_error")
+      .help("Count image region retrieval errors")
+      .register();
+
+    /** Prometheus Pixel Serialization Error Count*/
+    private static final Counter pixelSerializationErrorCounter = Counter.build()
+      .name("pixel_serialization_error")
+      .help("Count pixel serialization errors")
+      .register();
 
     /**
      * Default constructor.
@@ -278,19 +278,19 @@ public class ImageRegionVerticle extends AbstractVerticle {
             throws PermissionDeniedException, CannotCreateSessionException,
                 ServerError {
         StopWatch t0 = new Slf4JStopWatch("createOmeroRequest");
-//        Summary.Timer timer = createOmeroRequestSummary.startTimer();
+        Summary.Timer timer = createOmeroRequestSummary.startTimer();
         try {
             return new OmeroRequest(
                 host, port, imageRegionCtx.omeroSessionKey);
         } finally {
             t0.stop();
-//            timer.observeDuration();
+            timer.observeDuration();
         }
     }
 
     private void handlePing(Message<String> message) {
       log.info("handlePing received message");
-//      pingCounter.inc();
+      pingCounter.inc();
       message.reply("Ping successful");
     }
 
@@ -303,7 +303,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void handleRenderImageRegion(Message<String> message) {
-//        Summary.Timer timer = handleRenderImageRegionSummary.startTimer();
+        Summary.Timer timer = handleRenderImageRegionSummary.startTimer();
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -312,11 +312,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
-//            illegalImageRegionCounter.inc();
+            illegalImageRegionCounter.inc();
             message.fail(400, v);
             return;
         } finally {
-//          timer.observeDuration();
+          timer.observeDuration();
         }
         log.debug(
             "Render image region request with data: {}", message.body());
@@ -357,13 +357,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         message.fail(404, cause.getMessage());
                     } else {
                         log.error("Exception retrieving image region", cause);
-//                        imageRetrievalErrorCounter.inc();
+                        imageRetrievalErrorCounter.inc();
                         message.fail(500, cause.getMessage());
                     }
                 }
             } finally {
                 cleanup.complete();
-//                timer.observeDuration();
+                timer.observeDuration();
             }
         });
     }
@@ -376,7 +376,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> getImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
-//        Summary.Timer timer = getImageRegionSummary.startTimer();
+        Summary.Timer timer = getImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         try {
@@ -417,7 +417,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
-//        timer.observeDuration();
+        timer.observeDuration();
         return future;
     }
 
@@ -429,7 +429,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> renderImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
-//        Summary.Timer timer = renderImageRegionSummary.startTimer();
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         ImageRegionRequestHandler requestHandler =
@@ -464,7 +464,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         }, future);
 
-//        timer.observeDuration();
+        timer.observeDuration();
         return future;
     }
 
@@ -476,7 +476,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Future<byte[]> getCachedImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
-//        Summary.Timer timer = getCachedImageRegionSummary.startTimer();
+        Summary.Timer timer = getCachedImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
         String key = imageRegionCtx.cacheKey();
@@ -496,17 +496,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     step1.compose(canRead -> {
                         if (canRead) {
                             log.info("Cache HIT {}", key);
-//                            imageRegionCacheHit.inc();
+                            imageRegionCacheHit.inc();
                             future.complete(imageRegion);
                         } else {
                             log.info("Cache MISS {}", key);
-//                            imageRegionCacheMiss.inc();
+                            imageRegionCacheMiss.inc();
                             future.complete(null);
                         }
                     }, future);
                 } else {
                     log.info("Cache MISS {}", key);
-//                    imageRegionCacheMiss.inc();
+                    imageRegionCacheMiss.inc();
                     future.complete(null);
                 }
             } catch (Exception e) {
@@ -514,7 +514,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
-//        timer.observeDuration();
+        timer.observeDuration();
         return future;
     }
 
@@ -529,7 +529,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Future<Pixels> getPixels(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler) {
-//        Summary.Timer timer = getPixelsSummary.startTimer();
+        Summary.Timer timer = getPixelsSummary.startTimer();
         Future<Pixels> future = Future.future();
 
         String key = String.format("%s:Image:%d",
@@ -548,7 +548,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             try (ObjectInputStream oos = new ObjectInputStream(
                                     new ByteArrayInputStream(serialized))) {
                                 log.info("Cache HIT {}", key);
-//                                pixelsCacheHit.inc();
+                                pixelsCacheHit.inc();
                                 future.complete((Pixels) oos.readObject());
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -556,7 +556,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         } else {
                             try {
                                 log.info("Cache MISS {}", key);
-//                                pixelsCacheMiss.inc();
+                                pixelsCacheMiss.inc();
                                 future.complete(loadPixels(
                                         request, requestHandler, key));
                             } catch (Exception e) {
@@ -567,7 +567,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 } else {
                     try {
                         log.info("Cache MISS {}", key);
-//                        pixelsCacheMiss.inc();
+                        pixelsCacheMiss.inc();
                         future.complete(loadPixels(
                                 request, requestHandler, key));
                     } catch (Exception e) {
@@ -579,7 +579,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         });
 
-//        timer.observeDuration();
+        timer.observeDuration();
         return future;
     }
 
@@ -593,7 +593,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Pixels loadPixels(Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler, String key)
                     throws ServerError {
-//        Summary.Timer timer = loadPixelsSummary.startTimer();
+        Summary.Timer timer = loadPixelsSummary.startTimer();
         Pixels pixels = request.get().execute(
                 requestHandler::loadPixels);
         ByteArrayOutputStream bos =
@@ -613,9 +613,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (IOException e) {
             log.error("IO error serializing Pixels:{}",
                     pixels.getId(), e);
-//            pixelSerializationErrorCounter.inc();
+            pixelSerializationErrorCounter.inc();
         }
-//        timer.observeDuration();
+        timer.observeDuration();
         return null;
     }
 
@@ -649,7 +649,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
-//        Summary.Timer timer = getAllEnumerationsSummary.startTimer();
+        Summary.Timer timer = getAllEnumerationsSummary.startTimer();
         try {
             return (List<T>) client
                     .getSession()
@@ -670,7 +670,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             throw new RuntimeException(e);
         } finally {
             t0.stop();
-//            timer.observeDuration();
+            timer.observeDuration();
         }
     }
 
@@ -686,7 +686,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler)
                     throws ServerError, ExecutionException {
-//        Summary.Timer timer = canReadSummary.startTimer();
+        Summary.Timer timer = canReadSummary.startTimer();
         Future<Boolean> future = Future.future();
 
         String key = String.format(
@@ -704,7 +704,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 future.complete(result);
             }, future);
         }
-//        timer.observeDuration();
+        timer.observeDuration();
         return future;
     }
 
