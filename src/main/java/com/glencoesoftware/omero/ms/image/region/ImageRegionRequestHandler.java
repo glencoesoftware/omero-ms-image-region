@@ -42,6 +42,7 @@ import org.springframework.context.ApplicationContext;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import io.vertx.core.Future;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
@@ -813,7 +814,7 @@ public class ImageRegionRequestHandler {
      * @param client OMERO client to use for querying.
      * @return <code>true</code> if the {@link ImageI} can be loaded or
      * <code>false</code> otherwise.
-     * @throws ServerError
+     * @see #canReadAsync(omero.client)
      */
     public boolean canRead(omero.client client) {
         Map<String, String> ctx = new HashMap<String, String>();
@@ -838,6 +839,52 @@ public class ImageRegionRequestHandler {
             timer.observeDuration();
         }
         return false;
+    }
+
+    /**
+     * Whether or not a single {@link ImageI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return Future with the same completion value semantics as
+     * {@link #canRead(omero.client)}
+     * @see #canRead(omero.client)
+     */
+    public Future<Boolean> canReadAsync(omero.client client) {
+        Future<Boolean> future = Future.future();
+
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch("canReadAsync");
+        try {
+            client.getSession().getQueryService().begin_projection(
+                "SELECT i.id FROM Image as i WHERE i.id = :id",
+                params, ctx, (List<List<omero.RType>> rows) -> {
+                    t0.stop();
+                    if (rows.size() > 0) {
+                        future.complete(true);
+                    } else {
+                        future.complete(false);
+                    }
+                }, (Ice.UserException e) -> {
+                    t0.stop();
+                    log.error("Exception while checking Image readability", e);
+                    imageReadabilityErrorCounter.inc();
+                    future.complete(false);
+                }, (Ice.Exception e) -> {
+                    t0.stop();
+                    log.error("Exception while checking Image readability", e);
+                    imageReadabilityErrorCounter.inc();
+                    future.complete(false);
+                });
+        } catch (Exception e) {
+            t0.stop();
+            log.error("Exception while checking Image readability", e);
+            imageReadabilityErrorCounter.inc();
+            future.complete(false);
+        }
+
+        return future;
     }
 
     /**

@@ -489,10 +489,21 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         new ImageRegionRequestHandler(
                                 imageRegionCtx, context, families,
                                 renderingModels, lutProvider);
-                if (imageRegion != null
-                        && canRead(imageRegionCtx, request, requestHandler)) {
-                    log.info("Cache HIT {}", key);
-                    future.complete(imageRegion);
+                if (imageRegion != null) {
+                    Future<Boolean> step1 =
+                            canRead(imageRegionCtx, request, requestHandler);
+
+                    step1.compose(canRead -> {
+                        if (canRead) {
+                            log.info("Cache HIT {}", key);
+                            imageRegionCacheHit.inc();
+                            future.complete(imageRegion);
+                        } else {
+                            log.info("Cache MISS {}", key);
+                            imageRegionCacheMiss.inc();
+                            future.complete(null);
+                        }
+                    }, future);
                 } else {
                     log.info("Cache MISS {}", key);
                     imageRegionCacheMiss.inc();
@@ -526,44 +537,43 @@ public class ImageRegionVerticle extends AbstractVerticle {
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
             try {
-                Pixels pixels = null;
-                byte[] serialized = null;
-                if (result.succeeded()
-                        && canRead(imageRegionCtx, request, requestHandler)) {
-                    serialized = result.result().body();
-                }
-                if (serialized == null) {
-                    log.info("Cache MISS {}", key);
-                    pixels = request.get().execute(
-                            requestHandler::loadPixels);
-                    ByteArrayOutputStream bos =
-                            new ByteArrayOutputStream();
-                    try (ObjectOutputStream oos =
-                            new ObjectOutputStream(bos)) {
-                        oos.writeObject(pixels);
-                        serialized = bos.toByteArray();
+                final byte[] serialized = result.succeeded()?
+                        result.result().body() : null;
+                if (serialized != null) {
+                    Future<Boolean> step1 =
+                            canRead(imageRegionCtx, request, requestHandler);
 
-                        // Cache the pixels metadata and image region
-                        JsonObject setMessage = new JsonObject();
-                        setMessage.put("key", key);
-                        setMessage.put("value", serialized);
-                        vertx.eventBus().send(
-                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                setMessage);
-                    } catch (IOException e) {
-                        log.error("IO error serializing Pixels:{}",
-                                pixels.getId(), e);
-                    }
+                    step1.compose(canRead -> {
+                        if (canRead) {
+                            try (ObjectInputStream oos = new ObjectInputStream(
+                                    new ByteArrayInputStream(serialized))) {
+                                log.info("Cache HIT {}", key);
+                                pixelsCacheHit.inc();
+                                future.complete((Pixels) oos.readObject());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        } else {
+                            try {
+                                log.info("Cache MISS {}", key);
+                                pixelsCacheMiss.inc();
+                                future.complete(loadPixels(
+                                        request, requestHandler, key));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }, future);
                 } else {
-                    log.info("Cache HIT {}", key);
-                    try (ObjectInputStream oos = new ObjectInputStream(
-                            new ByteArrayInputStream(serialized))) {
-                        pixels = (Pixels) oos.readObject();
+                    try {
+                        log.info("Cache MISS {}", key);
+                        pixelsCacheMiss.inc();
+                        future.complete(loadPixels(
+                                request, requestHandler, key));
                     } catch (Exception e) {
-                        log.error("Failed to deserialize", e);
+                        throw new RuntimeException(e);
                     }
                 }
-                future.complete(pixels);
             } catch (Exception e) {
                 future.fail(e);
             }
@@ -571,6 +581,42 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         timer.observeDuration();
         return future;
+    }
+
+    /**
+     * Load {@link Pixels} from the server.
+     * @param request OMERO request based on the current context
+     * @param requestHandler OMERO image region request handler
+     * @param key Cache key for {@link Pixels} metadata
+     * @return See above.
+     */
+    private Pixels loadPixels(Supplier<OmeroRequest> request,
+            ImageRegionRequestHandler requestHandler, String key)
+                    throws ServerError {
+        Summary.Timer timer = loadPixelsSummary.startTimer();
+        Pixels pixels = request.get().execute(
+                requestHandler::loadPixels);
+        ByteArrayOutputStream bos =
+                new ByteArrayOutputStream();
+        try (ObjectOutputStream oos =
+                new ObjectOutputStream(bos)) {
+            oos.writeObject(pixels);
+            byte[] serialized = bos.toByteArray();
+
+            // Cache the pixels metadata and image region
+            JsonObject setMessage = new JsonObject();
+            setMessage.put("key", key);
+            setMessage.put("value", serialized);
+            vertx.eventBus().send(
+                    RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                    setMessage);
+        } catch (IOException e) {
+            log.error("IO error serializing Pixels:{}",
+                    pixels.getId(), e);
+            pixelSerializationErrorCounter.inc();
+        }
+        timer.observeDuration();
+        return null;
     }
 
     /**
@@ -634,20 +680,32 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param imageRegionCtx request context
      * @param request OMERO request based on the current context
      * @param requestHandler OMERO image region request handler
-     * @return See above.
+     * @return Future which will be completed with the readability.
      */
-    private Boolean canRead(
+    private Future<Boolean> canRead(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler)
                     throws ServerError, ExecutionException {
         Summary.Timer timer = canReadSummary.startTimer();
+        Future<Boolean> future = Future.future();
+
         String key = String.format(
                 "%s:Image:%d", imageRegionCtx.omeroSessionKey,
                 imageRegionCtx.imageId);
+        Boolean canRead = this.canRead.getIfPresent(key);
+        if (canRead != null) {
+            future.complete(canRead);
+        } else {
+            Future<Boolean> step1 = request.get()
+                    .execute(requestHandler::canReadAsync);
+
+            step1.compose(result -> {
+                this.canRead.put(key,  result);
+                future.complete(result);
+            }, future);
+        }
         timer.observeDuration();
-        return canRead.get(key, () -> {
-            return request.get().execute(requestHandler::canRead);
-        });
+        return future;
     }
 
     /**
