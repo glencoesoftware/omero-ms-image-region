@@ -147,17 +147,17 @@ public class ImageRegionRequestHandler {
 //      .help("retrieve pixles time")
 //      .register();
 //
-    /** Render Summary */
-    private static final Summary renderSummary = Summary.build()
-      .name("render")
-      .help("render time")
-      .register();
-
-    /** Get Pixels ID and Serise Summary */
-    private static final Summary getPixIdAndSeriesSummary= Summary.build()
-      .name("get_pix_id_and_series")
-      .help("Get pixels ID and series time")
-      .register();
+//    /** Render Summary */
+//    private static final Summary renderSummary = Summary.build()
+//      .name("render")
+//      .help("render time")
+//      .register();
+//
+//    /** Get Pixels ID and Serise Summary */
+//    private static final Summary getPixIdAndSeriesSummary= Summary.build()
+//      .name("get_pix_id_and_series")
+//      .help("Get pixels ID and series time")
+//      .register();
 
     /** Project Stack Summary */
     private static final Summary projectStackSummary = Summary.build()
@@ -280,7 +280,7 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageId);
         StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
-        Summary.Timer timer = getPixIdAndSeriesSummary.startTimer();
+//        Summary.Timer timer = getPixIdAndSeriesSummary.startTimer();
         try {
             List<List<omero.RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
@@ -299,7 +299,7 @@ public class ImageRegionRequestHandler {
                     ((omero.RInt) row.get(1)).getValue());
         } finally {
             t0.stop();
-            timer.observeDuration();
+//            timer.observeDuration();
         }
     }
 
@@ -475,13 +475,13 @@ public class ImageRegionRequestHandler {
         }
         updateSettings(renderer);
         StopWatch t1 = new Slf4JStopWatch("render");
-        Summary.Timer timer = renderSummary.startTimer();
+//        Summary.Timer timer = renderSummary.startTimer();
         try {
             // The actual act of rendering will close the provided pixel buffer
             return render(renderer, resolutionLevels, pixels, planeDef);
         } finally {
             t1.stop();
-            timer.observeDuration();
+//            timer.observeDuration();
         }
     }
 
