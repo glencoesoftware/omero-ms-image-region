@@ -73,35 +73,35 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
-//    /** Prometheus Summary for renderImageRegion */
-//    private static final Summary renderImageRegionSummary = Summary.build()
-//      .name("render_image_region_ms")
-//      .help("Time spent in renderImageRegion in the microservice verticle")
-//      .register();
-//
-//    /** Prometheus Summary for eventbus*/
-//    private static final Summary eventbusSummary = Summary.build()
-//      .name("event_bus_ms")
-//      .help("Time elapsed from message sent to event bus to repsonse received")
-//      .register();
-//
-//    /** Prometheus Summary for ping*/
-//    private static final Summary pingSummary = Summary.build()
-//      .name("ping_ms")
-//      .help("Time elapsed during eventbus ping")
-//      .register();
-//
-//    /** Prometheus Summary for renderImageRegion callback*/
-//    private static final Summary renderImageRegionCallbackSummary = Summary.build()
-//      .name("render_image_region_ms_callback")
-//      .help("Time spent in renderImageRegion's callback in the microservice verticle")
-//      .register();
-//
-//    /** Prometheus Summary for renderShapeMask*/
-//    private static final Summary renderShapeMaskSummary = Summary.build()
-//      .name("render_shape_mask_ms")
-//      .help("Time spent in renderShapeMask in the microservice verticle")
-//      .register();
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .name("render_image_region_ms")
+      .help("Time spent in renderImageRegion in the microservice verticle")
+      .register();
+
+    /** Prometheus Summary for eventbus*/
+    private static final Summary eventbusSummary = Summary.build()
+      .name("event_bus_ms")
+      .help("Time elapsed from message sent to event bus to repsonse received")
+      .register();
+
+    /** Prometheus Summary for ping*/
+    private static final Summary pingSummary = Summary.build()
+      .name("ping_ms")
+      .help("Time elapsed during eventbus ping")
+      .register();
+
+    /** Prometheus Summary for renderImageRegion callback*/
+    private static final Summary renderImageRegionCallbackSummary = Summary.build()
+      .name("render_image_region_ms_callback")
+      .help("Time spent in renderImageRegion's callback in the microservice verticle")
+      .register();
+
+    /** Prometheus Summary for renderShapeMask*/
+    private static final Summary renderShapeMaskSummary = Summary.build()
+      .name("render_shape_mask_ms")
+      .help("Time spent in renderShapeMask in the microservice verticle")
+      .register();
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -263,7 +263,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     }
 
     private void pingHandler(RoutingContext event){
-//      Summary.Timer timer = pingSummary.startTimer();
+      Summary.Timer timer = pingSummary.startTimer();
       final HttpServerResponse response = event.response();
        vertx.eventBus().<byte[]>send(
               ImageRegionVerticle.PING_EVENT,
@@ -271,7 +271,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 log.info("pingHandler got message response");
                 response.setStatusCode(200);
                 response.end("Ping successful");
-//                timer.observeDuration();
+                timer.observeDuration();
               });
     }
 
@@ -285,18 +285,18 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
-//        Summary.Timer timer = renderImageRegionSummary.startTimer();
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-//        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
+        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
-//            eventbusTimer.observeDuration();
-//            Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
+            eventbusTimer.observeDuration();
+            Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
@@ -326,8 +326,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
-//                callbackTimer.observeDuration();
-//                timer.observeDuration();
+                callbackTimer.observeDuration();
+                timer.observeDuration();
             }
         });
     }
@@ -342,7 +342,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderShapeMask(RoutingContext event) {
         log.info("Rendering shape mask");
-//        Summary.Timer timer = renderShapeMaskSummary.startTimer();
+        Summary.Timer timer = renderShapeMaskSummary.startTimer();
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
@@ -370,7 +370,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
-//                timer.observeDuration();
+                timer.observeDuration();
             }
         });
     }
