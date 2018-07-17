@@ -291,11 +291,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
-        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
+//        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
-            eventbusTimer.observeDuration();
+//            eventbusTimer.observeDuration();
             Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
