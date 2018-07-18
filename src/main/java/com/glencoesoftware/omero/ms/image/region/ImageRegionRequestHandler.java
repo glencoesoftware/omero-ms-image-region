@@ -34,8 +34,6 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -245,7 +243,6 @@ public class ImageRegionRequestHandler {
      * @see #loadPixels(omero.client)
      */
     public byte[] renderImageRegion(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         Summary.Timer renderImageRegionTimer = renderImageRegionSummary.startTimer();
         try {
             if (pixels != null) {
@@ -257,7 +254,6 @@ public class ImageRegionRequestHandler {
             log.error("Exception while retrieving image region", e);
             getRegionErrorCounter.inc();
         } finally {
-            t0.stop();
             renderImageRegionTimer.observeDuration();
         }
         return null;
@@ -279,7 +275,6 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageId);
-        StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
         Summary.Timer timer = getPixIdAndSeriesSummary.startTimer();
         try {
             List<List<omero.RType>> data = iQuery.projection(
@@ -298,7 +293,6 @@ public class ImageRegionRequestHandler {
                     ((omero.RLong) row.get(0)).getValue(),
                     ((omero.RInt) row.get(1)).getValue());
         } finally {
-            t0.stop();
             timer.observeDuration();
         }
     }
@@ -361,12 +355,10 @@ public class ImageRegionRequestHandler {
      */
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
-        StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
         Summary.Timer timer = getPixelBufferSummary.startTimer();
         try {
             return pixelsService.getPixelBuffer(pixels, false);
         } finally {
-            t0.stop();
             timer.observeDuration();
         }
     }
@@ -396,7 +388,6 @@ public class ImageRegionRequestHandler {
      * @see #setPixels(Pixels)
      */
     public Pixels loadPixels(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("loadPixels");
         Summary.Timer timer = loadPixelsSummary.startTimer();
         try {
             ServiceFactoryPrx sf = client.getSession();
@@ -410,8 +401,6 @@ public class ImageRegionRequestHandler {
 
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
-            StopWatch t1 = new Slf4JStopWatch(
-                    "PixelsService.retrievePixDescription");
             Summary.Timer timer2 = retrievePixSummary.startTimer();
             Pixels pixels;
             try {
@@ -425,7 +414,6 @@ public class ImageRegionRequestHandler {
                 pixels.setImage(image);
                 return pixels;
             } finally {
-                t1.stop();
                 timer2.observeDuration();
             }
         } catch (ApiUsageException e) {
@@ -437,7 +425,6 @@ public class ImageRegionRequestHandler {
             log.error(v, e);
             loadPixelsServerErrorCounter.inc();
         } finally {
-            t0.stop();
             timer.observeDuration();
         }
         return null;
@@ -474,13 +461,11 @@ public class ImageRegionRequestHandler {
                     imageRegionCtx.compressionQuality);
         }
         updateSettings(renderer);
-        StopWatch t1 = new Slf4JStopWatch("render");
         Summary.Timer timer = renderSummary.startTimer();
         try {
             // The actual act of rendering will close the provided pixel buffer
             return render(renderer, resolutionLevels, pixels, planeDef);
         } finally {
-            t1.stop();
             timer.observeDuration();
         }
     }
@@ -504,7 +489,6 @@ public class ImageRegionRequestHandler {
                     throws ServerError, IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
-        StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
         Summary.Timer timer = renderAsPackedIntSummary.startTimer();
         int[] buf;
         try {
@@ -526,8 +510,6 @@ public class ImageRegionRequestHandler {
                         if (!channelBindings[i].getActive()) {
                             continue;
                         }
-                        StopWatch t1 = new Slf4JStopWatch(
-                                "ProjectionService.projectStack");
                       Summary.Timer timer2 = projectStackSummary.startTimer();
                         try {
                             planes[0][i][0] = projectionService.projectStack(
@@ -541,7 +523,6 @@ public class ImageRegionRequestHandler {
                                 end
                             );
                         } finally {
-                            t1.stop();
                           timer2.observeDuration();
                         }
                         projectedSizeC++;
@@ -567,7 +548,6 @@ public class ImageRegionRequestHandler {
             }
             buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
-            t0.stop();
             timer.observeDuration();
             if (log.isDebugEnabled()) {
                 RenderingStats stats = renderer.getStats();
@@ -821,7 +801,6 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
-        StopWatch t0 = new Slf4JStopWatch("canRead");
         try {
             List<List<omero.RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -833,8 +812,6 @@ public class ImageRegionRequestHandler {
         } catch (Exception e) {
             log.error("Exception while checking Image readability", e);
             imageReadabilityErrorCounter.inc();
-        } finally {
-            t0.stop();
         }
         return false;
     }
@@ -853,13 +830,11 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
-        StopWatch t0 = new Slf4JStopWatch("canReadAsync");
         Summary.Timer timer = canReadAsyncSummary.startTimer();
         try {
             client.getSession().getQueryService().begin_projection(
                 "SELECT i.id FROM Image as i WHERE i.id = :id",
                 params, ctx, (List<List<omero.RType>> rows) -> {
-                    t0.stop();
                     timer.observeDuration();
                     if (rows.size() > 0) {
                         future.complete(true);
@@ -867,20 +842,17 @@ public class ImageRegionRequestHandler {
                         future.complete(false);
                     }
                 }, (Ice.UserException e) -> {
-                    t0.stop();
                     timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
                     imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 }, (Ice.Exception e) -> {
-                    t0.stop();
                     timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
                     imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 });
         } catch (Exception e) {
-            t0.stop();
             timer.observeDuration();
             log.error("Exception while checking Image readability", e);
             imageReadabilityErrorCounter.inc();

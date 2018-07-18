@@ -31,8 +31,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.python.google.common.base.Throwables;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -147,12 +145,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
       .help("Time spent in loadPixels in ImageRegionVerticle")
       .register();
 
-    /** Prometheus Summary for canRead*/
-    private static final Summary canReadSummary = Summary.build()
-      .name("can_read")
-      .help("Time spent in canRead in ImageRegionVerticle")
-      .register();
-
     /** Prometheus Summary for getImageRegion*/
     private static final Summary getImageRegionSummary = Summary.build()
       .name("get_image_region")
@@ -263,10 +255,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     handleRenderImageRegion(event);
                 });
-        vertx.eventBus().<String>consumer(
-                PING_EVENT, event ->{
-                    handlePing(event);
-                });
     }
 
     /**
@@ -277,21 +265,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private OmeroRequest createOmeroRequest(ImageRegionCtx imageRegionCtx)
             throws PermissionDeniedException, CannotCreateSessionException,
                 ServerError {
-        StopWatch t0 = new Slf4JStopWatch("createOmeroRequest");
         Summary.Timer timer = createOmeroRequestSummary.startTimer();
         try {
             return new OmeroRequest(
                 host, port, imageRegionCtx.omeroSessionKey);
         } finally {
-            t0.stop();
             timer.observeDuration();
         }
-    }
-
-    private void handlePing(Message<String> message) {
-      log.info("handlePing received message");
-      pingCounter.inc();
-      message.reply("Ping successful");
     }
 
     /**
@@ -648,7 +628,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             omero.client client, Class<T> klass) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
         Summary.Timer timer = getAllEnumerationsSummary.startTimer();
         try {
             return (List<T>) client
@@ -669,7 +648,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             // *Should* never happen
             throw new RuntimeException(e);
         } finally {
-            t0.stop();
             timer.observeDuration();
         }
     }
@@ -686,7 +664,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler)
                     throws ServerError, ExecutionException {
-        Summary.Timer timer = canReadSummary.startTimer();
         Future<Boolean> future = Future.future();
 
         String key = String.format(
@@ -704,7 +681,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 future.complete(result);
             }, future);
         }
-        timer.observeDuration();
         return future;
     }
 

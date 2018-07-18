@@ -85,12 +85,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
       .help("Time elapsed from message sent to event bus to repsonse received")
       .register();
 
-    /** Prometheus Summary for ping*/
-    private static final Summary pingSummary = Summary.build()
-      .name("ping_ms")
-      .help("Time elapsed during eventbus ping")
-      .register();
-
     /** Prometheus Summary for renderImageRegion callback*/
     private static final Summary renderImageRegionCallbackSummary = Summary.build()
       .name("render_image_region_ms_callback")
@@ -180,8 +174,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
 
-        router.get("/ping").handler(this::pingHandler);
-
         router.get("/metrics").handler(event -> {
             HttpServerRequest request = event.request();
             String header = request.getHeader("Authorization");
@@ -260,19 +252,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
-    }
-
-    private void pingHandler(RoutingContext event){
-      Summary.Timer timer = pingSummary.startTimer();
-      final HttpServerResponse response = event.response();
-       vertx.eventBus().<byte[]>send(
-              ImageRegionVerticle.PING_EVENT,
-              "Hello!", result -> {
-                log.info("pingHandler got message response");
-                response.setStatusCode(200);
-                response.end("Ping successful");
-                timer.observeDuration();
-              });
     }
 
     /**
