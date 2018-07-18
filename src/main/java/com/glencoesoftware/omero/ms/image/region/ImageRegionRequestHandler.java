@@ -165,11 +165,11 @@ public class ImageRegionRequestHandler {
       .help("Project Stack time")
       .register();
 
-    /** Can Read Summary */
-    private static final Summary canReadSummary = Summary.build()
-      .name("can_read")
-      .help("Can Read time")
-      .register();
+//    /** Can Read Summary */
+//    private static final Summary canReadSummary = Summary.build()
+//      .name("can_read")
+//      .help("Can Read time")
+//      .register();
 
     /** Prometheus Cannot Find Image Counter*/
     private static final Counter cannotFindImageCounter = Counter.build()
@@ -822,7 +822,7 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch("canRead");
-        Summary.Timer timer = canReadSummary.startTimer();
+//        Summary.Timer timer = canReadSummary.startTimer();
         try {
             List<List<omero.RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -836,7 +836,7 @@ public class ImageRegionRequestHandler {
             imageReadabilityErrorCounter.inc();
         } finally {
             t0.stop();
-            timer.observeDuration();
+//            timer.observeDuration();
         }
         return false;
     }
