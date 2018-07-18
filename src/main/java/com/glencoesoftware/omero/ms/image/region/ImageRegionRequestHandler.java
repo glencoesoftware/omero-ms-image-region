@@ -165,11 +165,11 @@ public class ImageRegionRequestHandler {
       .help("Project Stack time")
       .register();
 
-//    /** Can Read Summary */
-//    private static final Summary canReadSummary = Summary.build()
-//      .name("can_read")
-//      .help("Can Read time")
-//      .register();
+    /** Can Read Async Summary */
+    private static final Summary canReadAsyncSummary = Summary.build()
+      .name("can_read_async_rh")
+      .help("Can Read time")
+      .register();
 
     /** Prometheus Cannot Find Image Counter*/
     private static final Counter cannotFindImageCounter = Counter.build()
@@ -822,7 +822,6 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch("canRead");
-//        Summary.Timer timer = canReadSummary.startTimer();
         try {
             List<List<omero.RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -836,7 +835,6 @@ public class ImageRegionRequestHandler {
             imageReadabilityErrorCounter.inc();
         } finally {
             t0.stop();
-//            timer.observeDuration();
         }
         return false;
     }
@@ -856,11 +854,13 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch("canReadAsync");
+        Summary.Timer timer = canReadAsyncSummary.startTimer();
         try {
             client.getSession().getQueryService().begin_projection(
                 "SELECT i.id FROM Image as i WHERE i.id = :id",
                 params, ctx, (List<List<omero.RType>> rows) -> {
                     t0.stop();
+                    timer.observeDuration();
                     if (rows.size() > 0) {
                         future.complete(true);
                     } else {
@@ -868,17 +868,20 @@ public class ImageRegionRequestHandler {
                     }
                 }, (Ice.UserException e) -> {
                     t0.stop();
+                    timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
                     imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 }, (Ice.Exception e) -> {
                     t0.stop();
+                    timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
                     imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 });
         } catch (Exception e) {
             t0.stop();
+            timer.observeDuration();
             log.error("Exception while checking Image readability", e);
             imageReadabilityErrorCounter.inc();
             future.complete(false);
