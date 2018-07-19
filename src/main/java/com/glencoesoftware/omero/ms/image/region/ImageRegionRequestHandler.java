@@ -70,7 +70,6 @@ import omero.api.ServiceFactoryPrx;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
-import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Summary;
 
@@ -114,7 +113,7 @@ public class ImageRegionRequestHandler {
 
     /** Pixels metadata */
     private Pixels pixels;
-    
+
     /** Get Pixel Buffer Summary */
     private static final Summary getPixelBufferSummary = Summary.build()
       .name("get_pixel_buffer")
@@ -175,40 +174,10 @@ public class ImageRegionRequestHandler {
       .help("Count times when image cannot be found in getRegion")
       .register();
 
-    /** Prometheus getRegion Error Counter*/
-    private static final Counter getRegionErrorCounter = Counter.build()
-      .name("get_region_error")
-      .help("Count errors in getRegion")
-      .register();
-
-    /** Prometheus loadPixels API Error Counter*/
-    private static final Counter loadPixelsApiErrorCounter = Counter.build()
-      .name("load_pixels_api_error")
-      .help("Count API errors in loadPixels")
-      .register();
-
-    /** Prometheus loadPixels Server Error Counter*/
-    private static final Counter loadPixelsServerErrorCounter = Counter.build()
-      .name("load_pixels_server_error")
-      .help("Count Server errors in loadPixels")
-      .register();
-
     /** Prometheus render unknown format Counter*/
     private static final Counter renderUnknownFormatCounter = Counter.build()
       .name("render_unknown_format")
       .help("Count unknown formats encountered in render")
-      .register();
-
-    /** Prometheus splitHTML color parsing error Counter*/
-    private static final Counter colorParsingErrorCounter = Counter.build()
-      .name("color_parsing_error")
-      .help("Count unknown formats encountered in render")
-      .register();
-
-    /** Prometheus image readability error Counter*/
-    private static final Counter imageReadabilityErrorCounter = Counter.build()
-      .name("image_readability_error")
-      .help("Count image readability errors")
       .register();
 
     /**
@@ -243,7 +212,8 @@ public class ImageRegionRequestHandler {
      * @see #loadPixels(omero.client)
      */
     public byte[] renderImageRegion(omero.client client) {
-        Summary.Timer renderImageRegionTimer = renderImageRegionSummary.startTimer();
+        Summary.Timer renderImageRegionTimer =
+            renderImageRegionSummary.startTimer();
         try {
             if (pixels != null) {
                 return getRegion(pixels);
@@ -252,7 +222,6 @@ public class ImageRegionRequestHandler {
             cannotFindImageCounter.inc();
         } catch (Exception e) {
             log.error("Exception while retrieving image region", e);
-            getRegionErrorCounter.inc();
         } finally {
             renderImageRegionTimer.observeDuration();
         }
@@ -419,11 +388,9 @@ public class ImageRegionRequestHandler {
         } catch (ApiUsageException e) {
             String v = "Illegal API usage while retrieving Pixels metadata";
             log.error(v, e);
-            loadPixelsApiErrorCounter.inc();
         } catch (ServerError e) {
             String v = "Server error while retrieving Pixels metadata";
             log.error(v, e);
-            loadPixelsServerErrorCounter.inc();
         } finally {
             timer.observeDuration();
         }
@@ -510,7 +477,7 @@ public class ImageRegionRequestHandler {
                         if (!channelBindings[i].getActive()) {
                             continue;
                         }
-                      Summary.Timer timer2 = projectStackSummary.startTimer();
+                        Summary.Timer timer2 = projectStackSummary.startTimer();
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
@@ -523,7 +490,7 @@ public class ImageRegionRequestHandler {
                                 end
                             );
                         } finally {
-                          timer2.observeDuration();
+                            timer2.observeDuration();
                         }
                         projectedSizeC++;
                     }
@@ -784,7 +751,6 @@ public class ImageRegionRequestHandler {
             }
         } catch (Exception e) {
             log.error("Error while parsing color: {}", color, e);
-            colorParsingErrorCounter.inc();
         }
         return null;
     }
@@ -811,7 +777,6 @@ public class ImageRegionRequestHandler {
             }
         } catch (Exception e) {
             log.error("Exception while checking Image readability", e);
-            imageReadabilityErrorCounter.inc();
         }
         return false;
     }
@@ -844,18 +809,15 @@ public class ImageRegionRequestHandler {
                 }, (Ice.UserException e) -> {
                     timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
-                    imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 }, (Ice.Exception e) -> {
                     timer.observeDuration();
                     log.error("Exception while checking Image readability", e);
-                    imageReadabilityErrorCounter.inc();
                     future.complete(false);
                 });
         } catch (Exception e) {
             timer.observeDuration();
             log.error("Exception while checking Image readability", e);
-            imageReadabilityErrorCounter.inc();
             future.complete(false);
         }
 

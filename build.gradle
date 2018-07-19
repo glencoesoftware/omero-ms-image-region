@@ -24,7 +24,6 @@ repositories {
     maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
-    mavenCentral()
 }
 
 configurations.all {

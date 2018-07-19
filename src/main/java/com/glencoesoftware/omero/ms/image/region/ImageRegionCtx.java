@@ -120,29 +120,32 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         Summary.Timer timer = constructorSummary.startTimer();
-        this.omeroSessionKey = omeroSessionKey;
-        imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("theZ"));
-        t = Integer.parseInt(params.get("theT"));
-        getTileFromString(params.get("tile"));
-        getRegionFromString(params.get("region"));
-        getChannelInfoFromString(params.get("c"));
-        getColorModelFromString(params.get("m"));
-        getCompressionQualityFromString(params.get("q"));
-        getInvertedAxisFromString(params.get("ia"));
-        getProjectionFromString(params.get("p"));
-        String maps = params.get("maps");
-        if (maps != null) {
-            this.maps = Json.decodeValue(maps, List.class);
-        }
-        format = Optional.ofNullable(params.get("format")).orElse("jpeg");
-        cacheKey = createCacheKey(params);
+        try{
+            this.omeroSessionKey = omeroSessionKey;
+            imageId = Long.parseLong(params.get("imageId"));
+            z = Integer.parseInt(params.get("theZ"));
+            t = Integer.parseInt(params.get("theT"));
+            getTileFromString(params.get("tile"));
+            getRegionFromString(params.get("region"));
+            getChannelInfoFromString(params.get("c"));
+            getColorModelFromString(params.get("m"));
+            getCompressionQualityFromString(params.get("q"));
+            getInvertedAxisFromString(params.get("ia"));
+            getProjectionFromString(params.get("p"));
+            String maps = params.get("maps");
+            if (maps != null) {
+                this.maps = Json.decodeValue(maps, List.class);
+            }
+            format = Optional.ofNullable(params.get("format")).orElse("jpeg");
+            cacheKey = createCacheKey(params);
 
-        log.debug(
-                "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
-                "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
-                windows, colors, m, format, cacheKey);
-        timer.observeDuration();
+            log.debug(
+                    "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
+                    "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
+                    windows, colors, m, format, cacheKey);
+        } finally{
+            timer.observeDuration();
+        }
     }
 
     /**

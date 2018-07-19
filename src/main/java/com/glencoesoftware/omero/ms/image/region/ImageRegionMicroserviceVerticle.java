@@ -18,8 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Base64;
-
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -45,15 +43,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
-import io.vertx.ext.auth.AuthProvider;
-import io.vertx.ext.web.handler.AuthHandler;
-import io.vertx.ext.web.handler.BasicAuthHandler;
 
 import omero.model.Image;
 
 import io.prometheus.client.vertx.MetricsHandler;
 import io.prometheus.client.hotspot.DefaultExports;
-import io.prometheus.client.Counter;
 import io.prometheus.client.Summary;
 
 /**
@@ -173,33 +167,28 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
+      
+        String prometheus_username =
+            config.getJsonObject("prometheus_auth").getString("username");
 
-        router.get("/metrics").handler(event -> {
-            HttpServerRequest request = event.request();
-            String header = request.getHeader("Authorization");
-            if(header == null || header.isEmpty() || header.indexOf("Basic") == -1){
-              event.response().setStatusCode(403).end("Missing Authentication");
-            }
-            String base64Credentials = header.substring("Basic".length()).trim();
-            String authInfo = new String(Base64.getDecoder().decode(base64Credentials));
-            String username = authInfo.split(":",2)[0];
-            String password = authInfo.split(":",2)[0];
-            String correct_username = System.getenv("PROMETHEUS_USERNAME");
-            String correct_password = System.getenv("PROMETHEUS_PASSWORD");
-            if(correct_username == null || correct_password == null)
-            {
-              event.response().setStatusCode(500).end("Credentials not correctly set");
-            }
-            if(!username.equals(correct_username) || !password.equals(correct_password))
-            {
-              event.response().setStatusCode(403).end("Not authenticated");
-            }
-            else{
-              event.next();
-            }
-        });
+        String prometheus_password =
+            config.getJsonObject("prometheus_auth").getString("password");
 
-        router.get("/metrics").handler(new MetricsHandler());
+        if(prometheus_username != null
+            && prometheus_username != ""
+            && prometheus_password != null
+            && prometheus_password != ""){
+            log.info("Setting up metrics endpoint");
+
+
+            router.get("/metrics").handler(
+              new PrometheusAuthHandler(prometheus_username, 
+                  prometheus_password));
+            router.get("/metrics").handler(new MetricsHandler());
+        } else{
+            log.error("Metrics credentials not set - endpoint not accessible");
+        }
+     
 
         // Cookie handler so we can pick up the OMERO.web session
         router.route().handler(CookieHandler.create());
@@ -275,7 +264,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             eventbusTimer.observeDuration();
-            Summary.Timer callbackTimer = renderImageRegionCallbackSummary.startTimer();
+            Summary.Timer callbackTimer =
+                renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();

@@ -59,7 +59,6 @@ import omero.ApiUsageException;
 import omero.ServerError;
 import omero.util.IceMapper;
 
-import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Summary;
 
@@ -169,12 +168,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
       .help("Count cache misses in getCachedImageRegion")
       .register();
 
-    /** Prometheus Ping Count*/
-    private static final Counter pingCounter = Counter.build()
-      .name("ping_irv")
-      .help("Count pings received by ImageRegionVerticle")
-      .register();
-
     /** Prometheus ImageRegionCache Hit Count*/
     private static final Counter imageRegionCacheHit = Counter.build()
       .name("image_region_cache_hit")
@@ -191,24 +184,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private static final Counter pixelsCacheHit = Counter.build()
       .name("pixels_cache_hit")
       .help("Count cache hits in getPixels")
-      .register();
-
-    /** Prometheus Illegal Image Region Count*/
-    private static final Counter illegalImageRegionCounter = Counter.build()
-      .name("illegal_image_region")
-      .help("Count illegal image regions")
-      .register();
-
-    /** Prometheus Image Retrieveal Error Count*/
-    private static final Counter imageRetrievalErrorCounter = Counter.build()
-      .name("image_retrieval_error")
-      .help("Count image region retrieval errors")
-      .register();
-
-    /** Prometheus Pixel Serialization Error Count*/
-    private static final Counter pixelSerializationErrorCounter = Counter.build()
-      .name("pixel_serialization_error")
-      .help("Count pixel serialization errors")
       .register();
 
     /**
@@ -292,7 +267,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
-            illegalImageRegionCounter.inc();
             message.fail(400, v);
             return;
         } finally {
@@ -337,7 +311,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         message.fail(404, cause.getMessage());
                     } else {
                         log.error("Exception retrieving image region", cause);
-                        imageRetrievalErrorCounter.inc();
                         message.fail(500, cause.getMessage());
                     }
                 }
@@ -368,6 +341,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         } catch (Exception e) {
             future.fail(e);
+            timer.observeDuration();
             return future;
         }
 
@@ -378,6 +352,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 // If the region is in the cache complete and return
                 byte[] imageRegion = result1.result();
                 if (imageRegion != null) {
+                    timer.observeDuration();
                     future.complete(imageRegion);
                 } else {
                     // The region is not in the cache, we have to create it
@@ -390,14 +365,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         } else {
                             future.fail(result2.cause());
                         }
+                        timer.observeDuration();
                     });
                 }
             } else {
+                timer.observeDuration();
                 future.fail(result1.cause());
             }
         });
 
-        timer.observeDuration();
         return future;
     }
 
@@ -438,13 +414,14 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 vertx.eventBus().send(
                         RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                         setMessage);
+                timer.observeDuration();
                 future.complete(imageRegion);
             } catch (Exception e) {
+                timer.observeDuration();
                 future.fail(e);
             }
         }, future);
 
-        timer.observeDuration();
         return future;
     }
 
@@ -475,26 +452,26 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
                     step1.compose(canRead -> {
                         if (canRead) {
-                            log.info("Cache HIT {}", key);
                             imageRegionCacheHit.inc();
+                            timer.observeDuration();
                             future.complete(imageRegion);
                         } else {
-                            log.info("Cache MISS {}", key);
                             imageRegionCacheMiss.inc();
+                            timer.observeDuration();
                             future.complete(null);
                         }
                     }, future);
                 } else {
-                    log.info("Cache MISS {}", key);
                     imageRegionCacheMiss.inc();
+                    timer.observeDuration();
                     future.complete(null);
                 }
             } catch (Exception e) {
+                timer.observeDuration();
                 future.fail(e);
             }
         });
 
-        timer.observeDuration();
         return future;
     }
 
@@ -527,39 +504,42 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         if (canRead) {
                             try (ObjectInputStream oos = new ObjectInputStream(
                                     new ByteArrayInputStream(serialized))) {
-                                log.info("Cache HIT {}", key);
                                 pixelsCacheHit.inc();
                                 future.complete((Pixels) oos.readObject());
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
+                            } finally {
+                                timer.observeDuration();
                             }
                         } else {
                             try {
-                                log.info("Cache MISS {}", key);
                                 pixelsCacheMiss.inc();
                                 future.complete(loadPixels(
                                         request, requestHandler, key));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
+                            } finally {
+                                timer.observeDuration();
                             }
                         }
                     }, future);
                 } else {
                     try {
-                        log.info("Cache MISS {}", key);
                         pixelsCacheMiss.inc();
                         future.complete(loadPixels(
                                 request, requestHandler, key));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
+                    } finally {
+                        timer.observeDuration();
                     }
                 }
             } catch (Exception e) {
+                timer.observeDuration();
                 future.fail(e);
             }
         });
 
-        timer.observeDuration();
         return future;
     }
 
@@ -573,11 +553,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Pixels loadPixels(Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler, String key)
                     throws ServerError {
-        Summary.Timer timer = loadPixelsSummary.startTimer();
         Pixels pixels = request.get().execute(
                 requestHandler::loadPixels);
         ByteArrayOutputStream bos =
                 new ByteArrayOutputStream();
+        Summary.Timer timer = loadPixelsSummary.startTimer();
         try (ObjectOutputStream oos =
                 new ObjectOutputStream(bos)) {
             oos.writeObject(pixels);
@@ -593,9 +573,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (IOException e) {
             log.error("IO error serializing Pixels:{}",
                     pixels.getId(), e);
-            pixelSerializationErrorCounter.inc();
+        } finally {
+            timer.observeDuration();
         }
-        timer.observeDuration();
         return null;
     }
 
