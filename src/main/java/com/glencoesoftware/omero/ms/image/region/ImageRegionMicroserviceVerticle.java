@@ -168,24 +168,25 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
       
-        String prometheus_username =
-            config.getJsonObject("prometheus_auth").getString("username");
+        JsonObject prometheusAuth = config.getJsonObject("prometheus_auth");
+        if(prometheusAuth != null) {
+            String prometheus_username = prometheusAuth.getString("username");
 
-        String prometheus_password =
-            config.getJsonObject("prometheus_auth").getString("password");
+            String prometheus_password = prometheusAuth.getString("password");
 
-        if(prometheus_username != null
-            && prometheus_username != ""
-            && prometheus_password != null
-            && prometheus_password != ""){
-            log.info("Setting up metrics endpoint");
-
-
-            router.get("/metrics").handler(
-              new PrometheusAuthHandler(prometheus_username, 
-                  prometheus_password));
-            router.get("/metrics").handler(new MetricsHandler());
-        } else{
+            if(prometheus_username != null
+                && prometheus_username != ""
+                && prometheus_password != null
+                && prometheus_password != ""){
+                log.info("Setting up metrics endpoint");
+                router.get("/metrics").handler(
+                  new PrometheusAuthHandler(prometheus_username, 
+                      prometheus_password));
+                router.get("/metrics").handler(new MetricsHandler());
+            } else{
+                log.error("Metrics credentials not set - endpoint not accessible");
+            }
+        } else {
             log.error("Metrics credentials not set - endpoint not accessible");
         }
      
