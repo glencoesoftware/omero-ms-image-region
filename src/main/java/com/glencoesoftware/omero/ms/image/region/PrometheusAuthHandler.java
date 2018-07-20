@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Glencoe Software, Inc. All rights reserved.
+ * Copyright (C) 2018 Glencoe Software, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ import io.vertx.core.http.HttpServerRequest;
 class PrometheusAuthHandler implements Handler<RoutingContext> {
     private String correct_username;
     private String correct_password;
-    PrometheusAuthHandler(String username, String password){
+    PrometheusAuthHandler (String username, String password) {
         correct_username = username;
         correct_password = password;
     }
@@ -35,9 +35,9 @@ class PrometheusAuthHandler implements Handler<RoutingContext> {
     public void handle(RoutingContext r){
         HttpServerRequest request = r.request();
         String header = request.getHeader("Authorization");
-        if(header == null
+        if (header == null
             || header.isEmpty()
-            || header.indexOf("Basic") == -1){
+            || header.indexOf("Basic") == -1) {
             r.response()
             .setStatusCode(401)
             .putHeader("WWW-Authenticate",
@@ -50,12 +50,11 @@ class PrometheusAuthHandler implements Handler<RoutingContext> {
             new String(Base64.getDecoder().decode(base64Credentials));
         String username = authInfo.split(":",2)[0];
         String password = authInfo.split(":",2)[0];
-        if(!username.equals(correct_username)
-            || !password.equals(correct_password))
-        {
+        if (!username.equals(correct_username)
+            || !password.equals(correct_password)) {
             r.response().setStatusCode(403).end("Not authenticated");
         }
-        else{
+        else {
             r.next();
         }
     }

@@ -67,9 +67,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
 
-    public static final String PING_EVENT=
-            "omero.ping";
-
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
