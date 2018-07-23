@@ -105,6 +105,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private Cache<String, Boolean> canRead;
 
+    /** Whether or not the image region cache is enabled */
+    private boolean imageRegionCacheEnabled;
+
+    /** Whether or not the pixels metadata cache is enabled */
+    private boolean pixelsMetadataCacheEnabled;
+
     /** Available families */
     private List<Family> families;
 
@@ -222,6 +228,19 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 .maximumSize(maximumSize)
                 .expireAfterWrite(timeToLive, TimeUnit.SECONDS)
                 .build();
+
+        JsonObject imageRegionCacheConfig =
+                config().getJsonObject("image-region-cache", new JsonObject());
+        imageRegionCacheEnabled =
+                imageRegionCacheConfig.getBoolean("enabled", false);
+        log.info("Image region cache enabled? {}", imageRegionCacheEnabled);
+
+        JsonObject pixelsMetadataCacheConfig = config()
+                .getJsonObject("pixels-metadata-cache", new JsonObject());
+        pixelsMetadataCacheEnabled =
+                pixelsMetadataCacheConfig.getBoolean("enabled", false);
+        log.info("Pixels metadata cache enabled? {}",
+                pixelsMetadataCacheEnabled);
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
@@ -423,16 +442,22 @@ public class ImageRegionVerticle extends AbstractVerticle {
     }
 
     /**
-     * Get cached image region if available or retrieve it from the server.
+     * Get cached image region if available.
      * @param imageRegionCtx request context
      * @param request OMERO request based on the current context
      * @return Future which will be completed with the image region byte array.
      */
     private Future<byte[]> getCachedImageRegion(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request) {
-        Summary.Timer timer = getCachedImageRegionSummary.startTimer();
         Future<byte[]> future = Future.future();
 
+        // Fast exit if the image region cache is disabled
+        if (!imageRegionCacheEnabled) {
+            future.complete(null);
+            return future;
+        }
+
+        Summary.Timer timer = getCachedImageRegionSummary.startTimer();
         String key = imageRegionCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
@@ -488,52 +513,32 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         String key = String.format("%s:Image:%d",
                 Pixels.class.getName(), imageRegionCtx.imageId);
-        vertx.eventBus().<byte[]>send(
-                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-            try {
-                final byte[] serialized = result.succeeded()?
-                        result.result().body() : null;
-                if (serialized != null) {
-                    Future<Boolean> step1 =
-                            canRead(imageRegionCtx, request, requestHandler);
+        Future<Pixels> step1 = getCachedPixels(
+                imageRegionCtx, request, requestHandler, key);
 
-                    step1.compose(canRead -> {
-                        if (canRead) {
-                            try (ObjectInputStream oos = new ObjectInputStream(
-                                    new ByteArrayInputStream(serialized))) {
-                                pixelsCacheHit.inc();
-                                future.complete((Pixels) oos.readObject());
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                timer.observeDuration();
-                            }
-                        } else {
-                            try {
-                                pixelsCacheMiss.inc();
-                                future.complete(loadPixels(
-                                        request, requestHandler, key));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                timer.observeDuration();
-                            }
-                        }
-                    }, future);
+        step1.setHandler(result1 -> {
+            if (result1.succeeded()) {
+                // If the pixels metadata is in the cache complete and return
+                Pixels pixels = result1.result();
+                if (pixels != null) {
+                    timer.observeDuration();
+                    future.complete(pixels);
                 } else {
+                    // The pixels metadata  is not in the cache, we have to
+                    // load it from the server
                     try {
-                        pixelsCacheMiss.inc();
-                        future.complete(loadPixels(
-                                request, requestHandler, key));
+                        pixels = loadPixels(request, requestHandler, key);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     } finally {
                         timer.observeDuration();
                     }
                 }
-            } catch (Exception e) {
                 timer.observeDuration();
-                future.fail(e);
+                future.complete(pixels);
+            } else {
+                timer.observeDuration();
+                future.fail(result1.cause());
             }
         });
 
@@ -574,6 +579,66 @@ public class ImageRegionVerticle extends AbstractVerticle {
             timer.observeDuration();
         }
         return pixels;
+    }
+
+    /**
+     * Get cached {@link Pixels} metadata if available.
+     * @param imageRegionCtx request context
+     * @param request OMERO request based on the current context
+     * @param requestHandler OMERO image region request handler
+     * @param key Cache key for {@link Pixels} metadata
+     * @return Future which will be completed with the {@link Pixels} metadata.
+     */
+    private Future<Pixels> getCachedPixels(
+            ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
+            ImageRegionRequestHandler requestHandler, String key) {
+        Future<Pixels> future = Future.future();
+
+        // Fast exit if the pixels metadata cache is disabled
+        if (!pixelsMetadataCacheEnabled) {
+            future.complete(null);
+            return future;
+        }
+
+        Summary.Timer timer = getPixelsSummary.startTimer();
+        vertx.eventBus().<byte[]>send(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            try {
+                final byte[] serialized = result.succeeded()?
+                        result.result().body() : null;
+                if (serialized != null) {
+                    Future<Boolean> step1 =
+                            canRead(imageRegionCtx, request, requestHandler);
+
+                    step1.compose(canRead -> {
+                        if (canRead) {
+                            try (ObjectInputStream oos = new ObjectInputStream(
+                                    new ByteArrayInputStream(serialized))) {
+                                pixelsCacheHit.inc();
+                                future.complete((Pixels) oos.readObject());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                timer.observeDuration();
+                            }
+                        } else {
+                            pixelsCacheMiss.inc();
+                            timer.observeDuration();
+                            future.complete(null);
+                        }
+                    }, future);
+                } else {
+                    pixelsCacheMiss.inc();
+                    timer.observeDuration();
+                    future.complete(null);
+                }
+            } catch (Exception e) {
+                timer.observeDuration();
+                future.fail(e);
+            }
+        });
+
+        return future;
     }
 
     /**
@@ -640,7 +705,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private Future<Boolean> canRead(
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler)
-                    throws ServerError, ExecutionException {
+                    throws ServerError {
         Future<Boolean> future = Future.future();
 
         String key = String.format(

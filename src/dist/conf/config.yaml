@@ -25,6 +25,16 @@ redis:
 # session information as the LRU is instance wide.
 redis-cache:
     uri: "redis://password@localhost:7379/1"
+# Image region cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server when the same region has already been
+# rendered.
+image-region-cache:
+    enabled: false
+# Pixels metadata cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server to retrieve the same set of Pixels
+# metadata.
+pixels-metadata-cache:
+    enabled: false
 # In memory readability cache keyed off of OMERO session key and Image ID.
 # Enabling will speed up permissions lookups for a given OMERO session and Image
 # combination at the cost of a possibly elongated permissions window.  This
