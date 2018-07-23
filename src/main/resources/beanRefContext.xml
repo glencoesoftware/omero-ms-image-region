@@ -3,7 +3,7 @@
   "http://www.springframework.org/dtd/spring-beans.dtd">
 <beans>
   <description>
-        Defines the beans for the pixel data microservice.
+        Defines the beans for the image region microservice.
   </description>
 
   <bean name="filesystem"  abstract="true">
