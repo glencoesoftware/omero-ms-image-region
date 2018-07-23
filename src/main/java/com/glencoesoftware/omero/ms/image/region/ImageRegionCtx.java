@@ -35,6 +35,8 @@ import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
 import omero.constants.projection.ProjectionType;
 
+import io.prometheus.client.Summary;
+
 public class ImageRegionCtx extends OmeroRequestCtx {
 
     private static final org.slf4j.Logger log =
@@ -99,6 +101,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Cache key */
     public String cacheKey;
 
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary constructorSummary = Summary.build()
+      .name("image_region_ctx_constructor")
+      .help("Time spent in ImageRegionCtx constructor")
+      .register();
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -111,28 +119,33 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
-        this.omeroSessionKey = omeroSessionKey;
-        imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("theZ"));
-        t = Integer.parseInt(params.get("theT"));
-        getTileFromString(params.get("tile"));
-        getRegionFromString(params.get("region"));
-        getChannelInfoFromString(params.get("c"));
-        getColorModelFromString(params.get("m"));
-        getCompressionQualityFromString(params.get("q"));
-        getInvertedAxisFromString(params.get("ia"));
-        getProjectionFromString(params.get("p"));
-        String maps = params.get("maps");
-        if (maps != null) {
-            this.maps = Json.decodeValue(maps, List.class);
-        }
-        format = Optional.ofNullable(params.get("format")).orElse("jpeg");
-        cacheKey = createCacheKey(params);
+        Summary.Timer timer = constructorSummary.startTimer();
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            imageId = Long.parseLong(params.get("imageId"));
+            z = Integer.parseInt(params.get("theZ"));
+            t = Integer.parseInt(params.get("theT"));
+            getTileFromString(params.get("tile"));
+            getRegionFromString(params.get("region"));
+            getChannelInfoFromString(params.get("c"));
+            getColorModelFromString(params.get("m"));
+            getCompressionQualityFromString(params.get("q"));
+            getInvertedAxisFromString(params.get("ia"));
+            getProjectionFromString(params.get("p"));
+            String maps = params.get("maps");
+            if (maps != null) {
+                this.maps = Json.decodeValue(maps, List.class);
+            }
+            format = Optional.ofNullable(params.get("format")).orElse("jpeg");
+            cacheKey = createCacheKey(params);
 
-        log.debug(
-                "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
-                "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
-                windows, colors, m, format, cacheKey);
+            log.debug(
+                    "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
+                    "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
+                    windows, colors, m, format, cacheKey);
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     /**

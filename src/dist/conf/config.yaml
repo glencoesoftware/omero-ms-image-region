@@ -35,3 +35,6 @@ can-read-cache:
     # against the server again.  0 disables the cache entirely.
     time-to-live: 0
     maximum-size: 10000
+#prometheus-auth:
+#    username: "username"
+#    password: "password"
