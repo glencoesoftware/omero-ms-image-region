@@ -178,7 +178,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                   prometheus_password));
             router.get("/metrics").handler(new MetricsHandler());
         } else {
-            log.error("Metrics credentials not set - endpoint not accessible");
+            log.warn("Metrics credentials not set - endpoint not accessible");
         }
 
         // Cookie handler so we can pick up the OMERO.web session
