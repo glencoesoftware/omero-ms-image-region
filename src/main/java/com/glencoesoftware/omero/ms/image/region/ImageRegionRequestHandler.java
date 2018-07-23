@@ -748,6 +748,7 @@ public class ImageRegionRequestHandler {
      * @see #canReadAsync(omero.client)
      */
     public boolean canRead(omero.client client) {
+        log.debug("Checking readability for Image:{}", imageRegionCtx.imageId);
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
@@ -774,6 +775,8 @@ public class ImageRegionRequestHandler {
      * @see #canRead(omero.client)
      */
     public Future<Boolean> canReadAsync(omero.client client) {
+        log.debug("Checking readability for Image:{} asynchronously",
+                imageRegionCtx.imageId);
         Future<Boolean> future = Future.future();
 
         Map<String, String> ctx = new HashMap<String, String>();
