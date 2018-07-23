@@ -35,6 +35,8 @@ can-read-cache:
     # against the server again.  0 disables the cache entirely.
     time-to-live: 0
     maximum-size: 10000
+# Prometheus metric endpoint authentication configuration.  If left commented
+# out the endpoint will not be enabled.
 #prometheus-auth:
 #    username: "username"
 #    password: "password"
