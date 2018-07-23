@@ -168,18 +168,6 @@ public class ImageRegionRequestHandler {
       .help("Can Read time")
       .register();
 
-    /** Prometheus Cannot Find Image Counter*/
-    private static final Counter cannotFindImageCounter = Counter.build()
-      .name("cannot_find_image")
-      .help("Count times when image cannot be found in getRegion")
-      .register();
-
-    /** Prometheus render unknown format Counter*/
-    private static final Counter renderUnknownFormatCounter = Counter.build()
-      .name("render_unknown_format")
-      .help("Count unknown formats encountered in render")
-      .register();
-
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -219,7 +207,6 @@ public class ImageRegionRequestHandler {
                 return getRegion(pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
-            cannotFindImageCounter.inc();
         } catch (Exception e) {
             log.error("Exception while retrieving image region", e);
         } finally {
@@ -555,7 +542,6 @@ public class ImageRegionRequestHandler {
             return output.toByteArray();
         }
         log.error("Unknown format {}", imageRegionCtx.format);
-        renderUnknownFormatCounter.inc();
         return null;
     }
 
