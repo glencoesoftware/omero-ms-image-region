@@ -171,8 +171,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         JsonObject prometheusAuth = config.getJsonObject("prometheus-auth");
         if (prometheusAuth != null) {
             log.info("Setting up metrics endpoint");
-            String prometheus_username = prometheusAuth.getString("username", "");
-            String prometheus_password = prometheusAuth.getString("password", "");
+            String prometheus_username = prometheusAuth.getString(
+                    "username", "");
+            String prometheus_password = prometheusAuth.getString(
+                    "password", "");
             router.get("/metrics").handler(
               new PrometheusAuthHandler(prometheus_username, 
                   prometheus_password));
