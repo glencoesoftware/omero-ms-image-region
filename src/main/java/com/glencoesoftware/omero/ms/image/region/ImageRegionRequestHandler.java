@@ -176,7 +176,6 @@ public class ImageRegionRequestHandler {
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider) {
-        log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
         this.families = families;
