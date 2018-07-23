@@ -573,7 +573,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } finally {
             timer.observeDuration();
         }
-        return null;
+        return pixels;
     }
 
     /**
