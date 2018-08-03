@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.python.google.common.base.Throwables;
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -509,6 +511,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler) {
         Summary.Timer timer = getPixelsSummary.startTimer();
+        StopWatch t0 = new Slf4JStopWatch("getPixels");
         Future<Pixels> future = Future.future();
 
         String key = String.format("%s:Image:%d",
@@ -521,7 +524,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 // If the pixels metadata is in the cache complete and return
                 Pixels pixels = result1.result();
                 if (pixels != null) {
-                    timer.observeDuration();
+                    log.info(Double.toString(timer.observeDuration()));
+                    t0.stop();
                     future.complete(pixels);
                 } else {
                     // The pixels metadata  is not in the cache, we have to
@@ -531,13 +535,16 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     } finally {
-                        timer.observeDuration();
+                        log.info(Double.toString(timer.observeDuration()));
+                        t0.stop();
                     }
                 }
-                timer.observeDuration();
+                log.info(Double.toString(timer.observeDuration()));
+                t0.stop();
                 future.complete(pixels);
             } else {
-                timer.observeDuration();
+                log.info(Double.toString(timer.observeDuration()));
+                t0.stop();
                 future.fail(result1.cause());
             }
         });

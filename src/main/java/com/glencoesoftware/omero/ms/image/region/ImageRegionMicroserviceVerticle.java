@@ -19,6 +19,8 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import org.slf4j.LoggerFactory;
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -247,6 +249,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         Summary.Timer timer = renderImageRegionSummary.startTimer();
+        StopWatch t0 = new Slf4JStopWatch("renderImageRegionMs");
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
@@ -289,7 +292,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.end();
                 log.debug("Response ended");
                 callbackTimer.observeDuration();
-                timer.observeDuration();
+                log.info(Double.toString(timer.observeDuration()));
+                t0.stop();
             }
         });
     }

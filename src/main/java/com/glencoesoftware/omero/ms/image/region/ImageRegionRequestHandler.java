@@ -35,6 +35,8 @@ import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
 import org.slf4j.LoggerFactory;
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
@@ -201,6 +203,7 @@ public class ImageRegionRequestHandler {
     public byte[] renderImageRegion(omero.client client) {
         Summary.Timer renderImageRegionTimer =
             renderImageRegionSummary.startTimer();
+        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
             if (pixels != null) {
                 return getRegion(pixels);
@@ -209,7 +212,8 @@ public class ImageRegionRequestHandler {
         } catch (Exception e) {
             log.error("Exception while retrieving image region", e);
         } finally {
-            renderImageRegionTimer.observeDuration();
+            log.info(Double.toString(renderImageRegionTimer.observeDuration()));
+            t0.stop();
         }
         return null;
     }
