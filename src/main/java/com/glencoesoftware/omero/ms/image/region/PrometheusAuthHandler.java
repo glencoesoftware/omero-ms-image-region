@@ -49,7 +49,7 @@ class PrometheusAuthHandler implements Handler<RoutingContext> {
         String authInfo =
             new String(Base64.getDecoder().decode(base64Credentials));
         String username = authInfo.split(":",2)[0];
-        String password = authInfo.split(":",2)[0];
+        String password = authInfo.split(":",2)[1];
         if (!username.equals(correct_username)
             || !password.equals(correct_password)) {
             r.response().setStatusCode(403).end("Not authenticated");
