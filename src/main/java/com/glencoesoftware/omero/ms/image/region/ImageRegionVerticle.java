@@ -531,7 +531,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     // The pixels metadata  is not in the cache, we have to
                     // load it from the server
                     try {
-                        pixels = loadPixels(request, requestHandler, key);
+                        future.complete(
+                                loadPixels(request, requestHandler, key));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     } finally {
@@ -539,9 +540,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         t0.stop();
                     }
                 }
-                log.info(Double.toString(timer.observeDuration()));
-                t0.stop();
-                future.complete(pixels);
             } else {
                 log.info(Double.toString(timer.observeDuration()));
                 t0.stop();
