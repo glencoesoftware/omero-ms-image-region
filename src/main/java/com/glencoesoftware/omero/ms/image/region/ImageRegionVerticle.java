@@ -420,8 +420,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             "Cannot find Image:" + imageRegionCtx.imageId);
                 }
                 requestHandler.setPixels(pixels);
-                byte[] imageRegion = request.get().execute(
-                        requestHandler::renderImageRegion);
+                byte[] imageRegion = requestHandler.renderImageRegion();
                 if (imageRegion == null) {
                     throw new ObjectNotFoundException("Cannot render region");
                 }

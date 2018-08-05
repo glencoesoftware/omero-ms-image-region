@@ -194,13 +194,12 @@ public class ImageRegionRequestHandler {
      * Render Image region request handler.  {@link #setPixels(Pixels)} must be
      * called before calling this method either with pixels metadata loaded
      * using {@link #loadPixels(omero.client)} or from cache.
-     * @param client OMERO client to use for querying.
      * @return A response body in accordance with the initial settings
      * provided by <code>imageRegionCtx</code>.
      * @see #setPixels(Pixels)
      * @see #loadPixels(omero.client)
      */
-    public byte[] renderImageRegion(omero.client client) {
+    public byte[] renderImageRegion() {
         Summary.Timer renderImageRegionTimer =
             renderImageRegionSummary.startTimer();
         StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
