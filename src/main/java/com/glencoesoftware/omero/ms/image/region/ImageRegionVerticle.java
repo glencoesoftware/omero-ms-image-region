@@ -637,7 +637,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     future.complete(null);
                 }
             } catch (Exception e) {
-                log.error("Exception during cached pixels retrieval", e);
                 timer.observeDuration();
                 future.fail(e);
             }
