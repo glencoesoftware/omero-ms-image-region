@@ -19,8 +19,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import org.slf4j.LoggerFactory;
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -71,24 +69,36 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** Prometheus Summary for renderImageRegion */
     private static final Summary renderImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_image_region_ms")
       .help("Time spent in renderImageRegion in the microservice verticle")
       .register();
 
     /** Prometheus Summary for eventbus*/
     private static final Summary eventbusSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("event_bus_ms")
       .help("Time elapsed from message sent to event bus to repsonse received")
       .register();
 
     /** Prometheus Summary for renderImageRegion callback*/
     private static final Summary renderImageRegionCallbackSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_image_region_ms_callback")
       .help("Time spent in renderImageRegion's callback in the microservice verticle")
       .register();
 
     /** Prometheus Summary for renderShapeMask*/
     private static final Summary renderShapeMaskSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_shape_mask_ms")
       .help("Time spent in renderShapeMask in the microservice verticle")
       .register();
@@ -249,7 +259,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         Summary.Timer timer = renderImageRegionSummary.startTimer();
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegionMs");
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
@@ -292,8 +301,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.end();
                 log.debug("Response ended");
                 callbackTimer.observeDuration();
-                log.info(Double.toString(timer.observeDuration()));
-                t0.stop();
+                timer.observeDuration();
             }
         });
     }

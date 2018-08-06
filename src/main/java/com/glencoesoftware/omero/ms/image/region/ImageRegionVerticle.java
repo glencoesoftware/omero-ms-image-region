@@ -32,8 +32,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.python.google.common.base.Throwables;
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -121,48 +119,72 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Prometheus Summary for createOmeroRequest */
     private static final Summary createOmeroRequestSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("create_omero_request")
       .help("Time to create Omero request")
       .register();
 
     /** Prometheus Summary for getAllEnumerations*/
     private static final Summary getAllEnumerationsSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_all_enumerations")
       .help("Time to get all enumerations")
       .register();
 
     /** Prometheus Summary for renderImageRegion*/
     private static final Summary renderImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_image_region_irv")
       .help("Time spent in renderImageRegion in ImageRegionVerticle")
       .register();
 
     /** Prometheus Summary for getPixels*/
     private static final Summary getPixelsSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_pixels_irv")
       .help("Time spent in getPixels in ImageRegionVerticle")
       .register();
 
     /** Prometheus Summary for loadPixels*/
     private static final Summary loadPixelsSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("load_pixels_irv")
       .help("Time spent in loadPixels in ImageRegionVerticle")
       .register();
 
     /** Prometheus Summary for getImageRegion*/
     private static final Summary getImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_image_region")
       .help("Time spent in getImageRegion in ImageRegionVerticle")
       .register();
 
     /** Prometheus Summary for getCachedImageRegion*/
     private static final Summary getCachedImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_cached_image_region")
       .help("Time spent in getCachedImageRegion in ImageRegionVerticle")
       .register();
 
     /** Prometheus Summary for handleRenderImageRegion*/
     private static final Summary handleRenderImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("handle_render_image_region")
       .help("Time spent in handleRenderImageRegion in ImageRegionVerticle")
       .register();
@@ -510,7 +532,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, Supplier<OmeroRequest> request,
             ImageRegionRequestHandler requestHandler) {
         Summary.Timer timer = getPixelsSummary.startTimer();
-        StopWatch t0 = new Slf4JStopWatch("getPixels");
         Future<Pixels> future = Future.future();
 
         String key = String.format("%s:Image:%d",
@@ -523,8 +544,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 // If the pixels metadata is in the cache complete and return
                 Pixels pixels = result1.result();
                 if (pixels != null) {
-                    log.info(Double.toString(timer.observeDuration()));
-                    t0.stop();
+                    timer.observeDuration();
                     future.complete(pixels);
                 } else {
                     // The pixels metadata  is not in the cache, we have to
@@ -535,13 +555,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     } finally {
-                        log.info(Double.toString(timer.observeDuration()));
-                        t0.stop();
+                        timer.observeDuration();
                     }
                 }
             } else {
-                log.info(Double.toString(timer.observeDuration()));
-                t0.stop();
+                timer.observeDuration();
                 future.fail(result1.cause());
             }
         });

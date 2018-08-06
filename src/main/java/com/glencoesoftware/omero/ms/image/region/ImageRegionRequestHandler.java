@@ -35,8 +35,6 @@ import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
 import org.slf4j.LoggerFactory;
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
@@ -118,54 +116,81 @@ public class ImageRegionRequestHandler {
 
     /** Get Pixel Buffer Summary */
     private static final Summary getPixelBufferSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_pixel_buffer")
       .help("Get Pixel Buffer time")
       .register();
 
     /** Render As Int Summary */
     private static final Summary renderAsPackedIntSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_as_packed_int")
       .help("Render as packed int time")
       .register();
 
     /** Render Image Region Summary */
     private static final Summary renderImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render_image_region")
       .help("Render image region")
       .register();
 
     /** Load Pixels Summary */
     private static final Summary loadPixelsSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("load_pixels")
       .help("load pixles time")
       .register();
 
     /** Retrieve Pixel Description Summary */
     private static final Summary retrievePixSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("retrieve_pixels")
       .help("retrieve pixles time")
       .register();
 
     /** Render Summary */
     private static final Summary renderSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("render")
       .help("render time")
       .register();
 
     /** Get Pixels ID and Serise Summary */
     private static final Summary getPixIdAndSeriesSummary= Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("get_pix_id_and_series")
       .help("Get pixels ID and series time")
       .register();
 
     /** Project Stack Summary */
     private static final Summary projectStackSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("project_stack")
       .help("Project Stack time")
       .register();
 
     /** Can Read Async Summary */
     private static final Summary canReadAsyncSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
       .name("can_read_async_rh")
       .help("Can Read time")
       .register();
@@ -202,7 +227,6 @@ public class ImageRegionRequestHandler {
     public byte[] renderImageRegion() {
         Summary.Timer renderImageRegionTimer =
             renderImageRegionSummary.startTimer();
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         try {
             if (pixels != null) {
                 return getRegion(pixels);
@@ -211,8 +235,7 @@ public class ImageRegionRequestHandler {
         } catch (Exception e) {
             log.error("Exception while retrieving image region", e);
         } finally {
-            log.info(Double.toString(renderImageRegionTimer.observeDuration()));
-            t0.stop();
+            renderImageRegionTimer.observeDuration();
         }
         return null;
     }
