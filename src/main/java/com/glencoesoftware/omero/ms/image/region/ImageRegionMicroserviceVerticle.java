@@ -278,7 +278,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     if (t instanceof ReplyException) {
                         statusCode = ((ReplyException) t).failureCode();
                     }
-                    response.setStatusCode(statusCode);
+                    if (!response.closed()) {
+                        response.setStatusCode(statusCode).end();
+                    }
                     return;
                 }
                 byte[] imageRegion = result.result().body();
@@ -296,10 +298,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
-                response.write(Buffer.buffer(imageRegion));
+                if (!response.closed()) {
+                    response.end(Buffer.buffer(imageRegion));
+                }
             } finally {
-                response.end();
-                log.debug("Response ended");
                 callbackTimer.observeDuration();
                 timer.observeDuration();
             }
