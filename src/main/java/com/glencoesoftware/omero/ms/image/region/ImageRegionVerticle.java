@@ -658,22 +658,22 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
-                                timer.observeDuration();
+                                log.info("AA: {}", timer.observeDuration());
                             }
                         } else {
                             pixelsCacheMiss.inc();
-                            timer.observeDuration();
+                            log.info("BB: {}", timer.observeDuration());
                             future.complete(null);
                         }
                     }, future);
                 } else {
                     pixelsCacheMiss.inc();
-                    timer.observeDuration();
+                    log.info("CC: {}", timer.observeDuration());
                     future.complete(null);
                 }
             } catch (Exception e) {
                 log.error("Failure getting cached pixels", e);
-                timer.observeDuration();
+                log.info("DD: {}", timer.observeDuration());
                 future.fail(e);
             }
         });
