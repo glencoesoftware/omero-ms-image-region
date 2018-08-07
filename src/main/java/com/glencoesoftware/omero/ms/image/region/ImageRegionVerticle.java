@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.python.google.common.base.Throwables;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -635,9 +637,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
             return future;
         }
 
+        StopWatch t0 = new Slf4JStopWatch("getCachedPixelsStart");
         Summary.Timer timer = getCachedPixelsSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            t0.stop();
+            StopWatch t1 = new Slf4JStopWatch("getCachedPixelsRehydrate");
             try {
                 final byte[] serialized = result.succeeded()?
                         result.result().body() : null;
@@ -652,6 +657,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                                 pixelsCacheHit.inc();
                                 Pixels pixels = kryo.get()
                                         .readObject(input, Pixels.class);
+                                t1.stop();
                                 log.info("AA: {}", timer.observeDuration());
                                 future.complete(pixels);
                             } catch (Exception e) {
@@ -659,17 +665,20 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             }
                         } else {
                             pixelsCacheMiss.inc();
+                            t1.stop();
                             log.info("BB: {}", timer.observeDuration());
                             future.complete(null);
                         }
                     }, future);
                 } else {
                     pixelsCacheMiss.inc();
+                    t1.stop();
                     log.info("CC: {}", timer.observeDuration());
                     future.complete(null);
                 }
             } catch (Exception e) {
                 log.error("Failure getting cached pixels", e);
+                t1.stop();
                 log.info("DD: {}", timer.observeDuration());
                 future.fail(e);
             }
