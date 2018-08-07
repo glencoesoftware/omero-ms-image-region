@@ -596,14 +596,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
         Pixels pixels = request.get().execute(
                 requestHandler::loadPixels);
         Summary.Timer timer = loadPixelsSummary.startTimer();
-        try (Output output = new ByteBufferOutput()) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (Output output = new Output(bos)) {
             kryo.writeObject(output, pixels);
             output.flush();
 
             // Cache the pixels metadata and image region
             JsonObject setMessage = new JsonObject();
             setMessage.put("key", key);
-            setMessage.put("value", output.toBytes());
+            setMessage.put("value", bos.toByteArray());
             vertx.eventBus().send(
                     RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                     setMessage);
