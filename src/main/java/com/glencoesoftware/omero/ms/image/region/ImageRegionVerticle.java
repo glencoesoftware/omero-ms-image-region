@@ -393,6 +393,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 request.get().execute(this::updateRenderingModels);
             }
         } catch (Exception e) {
+            log.error("Failure getting image region", e);
             future.fail(e);
             timer.observeDuration();
             return future;
@@ -469,6 +470,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 timer.observeDuration();
                 future.complete(imageRegion);
             } catch (Exception e) {
+                log.error("Failure during render image region", e);
                 timer.observeDuration();
                 future.fail(e);
             }
@@ -525,6 +527,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     future.complete(null);
                 }
             } catch (Exception e) {
+                log.error("Failure getting cached image region", e);
                 timer.observeDuration();
                 future.fail(e);
             }
@@ -663,6 +666,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     future.complete(null);
                 }
             } catch (Exception e) {
+                log.error("Failure getting cached pixels", e);
                 timer.observeDuration();
                 future.fail(e);
             }
