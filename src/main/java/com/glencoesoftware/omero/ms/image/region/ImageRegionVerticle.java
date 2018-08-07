@@ -371,8 +371,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     }
                 }
             } finally {
-                cleanup.complete();
                 timer.observeDuration();
+                cleanup.complete();
             }
         });
     }
@@ -569,12 +569,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     // The pixels metadata  is not in the cache, we have to
                     // load it from the server
                     try {
-                        future.complete(
-                                loadPixels(request, requestHandler, key));
+                        pixels = loadPixels(request, requestHandler, key);
+                        log.info("B: {}", timer.observeDuration());
+                        future.complete(pixels);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
-                    } finally {
-                        log.info("B: {}", timer.observeDuration());
                     }
                 }
             } else {
@@ -651,12 +650,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             try (Input input = new Input(
                                     new ByteArrayInputStream(serialized))) {
                                 pixelsCacheHit.inc();
-                                future.complete(kryo.get()
-                                        .readObject(input, Pixels.class));
+                                Pixels pixels = kryo.get()
+                                        .readObject(input, Pixels.class);
+                                log.info("AA: {}", timer.observeDuration());
+                                future.complete(pixels);
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
-                            } finally {
-                                log.info("AA: {}", timer.observeDuration());
                             }
                         } else {
                             pixelsCacheMiss.inc();
