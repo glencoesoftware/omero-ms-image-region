@@ -21,13 +21,9 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -35,6 +31,9 @@ import org.python.google.common.base.Throwables;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
@@ -116,6 +115,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
+
+    /** Kryo serializer for Pixels metadata */
+    private static Kryo kryo = new Kryo();
 
     /** Prometheus Summary for createOmeroRequest */
     private static final Summary createOmeroRequestSummary = Summary.build()
@@ -591,9 +593,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
         ByteArrayOutputStream bos =
                 new ByteArrayOutputStream();
         Summary.Timer timer = loadPixelsSummary.startTimer();
-        try (ObjectOutputStream oos =
-                new ObjectOutputStream(bos)) {
-            oos.writeObject(pixels);
+        try (Output output = new Output(bos)) {
+            kryo.writeObject(output, pixels);
             byte[] serialized = bos.toByteArray();
 
             // Cache the pixels metadata and image region
@@ -603,9 +604,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             vertx.eventBus().send(
                     RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                     setMessage);
-        } catch (IOException e) {
-            log.error("IO error serializing Pixels:{}",
-                    pixels.getId(), e);
         } finally {
             timer.observeDuration();
         }
@@ -643,10 +641,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
                     step1.compose(canRead -> {
                         if (canRead) {
-                            try (ObjectInputStream oos = new ObjectInputStream(
+                            try (Input input = new Input(
                                     new ByteArrayInputStream(serialized))) {
                                 pixelsCacheHit.inc();
-                                future.complete((Pixels) oos.readObject());
+                                future.complete(
+                                        kryo.readObject(input, Pixels.class));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
