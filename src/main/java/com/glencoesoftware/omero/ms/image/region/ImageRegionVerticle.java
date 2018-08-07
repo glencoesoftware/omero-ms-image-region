@@ -553,7 +553,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 // If the pixels metadata is in the cache complete and return
                 Pixels pixels = result1.result();
                 if (pixels != null) {
-                    timer.observeDuration();
+                    log.info("A: {}", timer.observeDuration());
                     future.complete(pixels);
                 } else {
                     // The pixels metadata  is not in the cache, we have to
@@ -564,11 +564,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     } finally {
-                        timer.observeDuration();
+                        log.info("B: {}", timer.observeDuration());
                     }
                 }
             } else {
-                timer.observeDuration();
+                log.info("C: {}", timer.observeDuration());
                 future.fail(result1.cause());
             }
         });
