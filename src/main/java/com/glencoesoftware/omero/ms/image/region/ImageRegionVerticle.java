@@ -32,8 +32,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.ByteBufferInput;
-import com.esotericsoftware.kryo.io.ByteBufferOutput;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -650,8 +648,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
                     step1.compose(canRead -> {
                         if (canRead) {
-                            try (Input input =
-                                    new ByteBufferInput(serialized)) {
+                            try (Input input = new Input(
+                                    new ByteArrayInputStream(serialized))) {
                                 pixelsCacheHit.inc();
                                 future.complete(kryo.get()
                                         .readObject(input, Pixels.class));
