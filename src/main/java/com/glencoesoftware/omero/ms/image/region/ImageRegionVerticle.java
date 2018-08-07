@@ -153,6 +153,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
       .help("Time spent in getPixels in ImageRegionVerticle")
       .register();
 
+    /** Prometheus Summary for getCachedPixels*/
+    private static final Summary getCachedPixelsSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
+      .name("get_cached_pixels_irv")
+      .help("Time spent in getCachedPixels in ImageRegionVerticle")
+      .register();
+
     /** Prometheus Summary for loadPixels*/
     private static final Summary loadPixelsSummary = Summary.build()
       .quantile(0.5, 0.05)
@@ -622,7 +631,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             return future;
         }
 
-        Summary.Timer timer = getPixelsSummary.startTimer();
+        Summary.Timer timer = getCachedPixelsSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
             try {
