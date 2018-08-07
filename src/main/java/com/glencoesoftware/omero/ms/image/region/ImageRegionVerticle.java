@@ -119,7 +119,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private List<RenderingModel> renderingModels;
 
     /** Kryo serializer for Pixels metadata */
-    private static Kryo kryo = new Kryo();
+    private static final ThreadLocal<Kryo> kryo = new ThreadLocal<Kryo>() {
+        @Override
+        protected Kryo initialValue() {
+            return new Kryo();
+        }
+    };
 
     /** Prometheus Summary for createOmeroRequest */
     private static final Summary createOmeroRequestSummary = Summary.build()
@@ -598,7 +603,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         Summary.Timer timer = loadPixelsSummary.startTimer();
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (Output output = new Output(bos)) {
-            kryo.writeObject(output, pixels);
+            kryo.get().writeObject(output, pixels);
             output.flush();
 
             // Cache the pixels metadata and image region
@@ -648,8 +653,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             try (Input input =
                                     new ByteBufferInput(serialized)) {
                                 pixelsCacheHit.inc();
-                                future.complete(
-                                        kryo.readObject(input, Pixels.class));
+                                future.complete(kryo.get()
+                                        .readObject(input, Pixels.class));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
