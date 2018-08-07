@@ -631,9 +631,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
             return future;
         }
 
-        Summary.Timer timer = getCachedPixelsSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            Summary.Timer timer = getCachedPixelsSummary.startTimer();
             try {
                 final byte[] serialized = result.succeeded()?
                         result.result().body() : null;
