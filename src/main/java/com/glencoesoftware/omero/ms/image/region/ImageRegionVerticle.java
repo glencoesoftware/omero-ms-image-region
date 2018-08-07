@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.ByteBufferInput;
+import com.esotericsoftware.kryo.io.ByteBufferOutput;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -590,17 +592,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     throws ServerError {
         Pixels pixels = request.get().execute(
                 requestHandler::loadPixels);
-        ByteArrayOutputStream bos =
-                new ByteArrayOutputStream();
         Summary.Timer timer = loadPixelsSummary.startTimer();
-        try (Output output = new Output(bos)) {
+        try (Output output = new ByteBufferOutput()) {
             kryo.writeObject(output, pixels);
-            byte[] serialized = bos.toByteArray();
+            output.flush();
 
             // Cache the pixels metadata and image region
             JsonObject setMessage = new JsonObject();
             setMessage.put("key", key);
-            setMessage.put("value", serialized);
+            setMessage.put("value", output.toBytes());
             vertx.eventBus().send(
                     RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                     setMessage);
@@ -641,8 +641,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
                     step1.compose(canRead -> {
                         if (canRead) {
-                            try (Input input = new Input(
-                                    new ByteArrayInputStream(serialized))) {
+                            try (Input input =
+                                    new ByteBufferInput(serialized)) {
                                 pixelsCacheHit.inc();
                                 future.complete(
                                         kryo.readObject(input, Pixels.class));
