@@ -761,13 +761,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
         if (canRead != null) {
             future.complete(canRead);
         } else {
-            Future<Boolean> step1 = request.get()
-                    .execute(requestHandler::canReadAsync);
-
-            step1.compose(result -> {
-                this.canRead.put(key,  result);
-                future.complete(result);
-            }, future);
+            canRead = request.get().execute(requestHandler::canRead);
+            this.canRead.put(key, canRead);
+            future.complete(canRead);
         }
         return future;
     }
