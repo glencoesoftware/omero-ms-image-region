@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -259,8 +260,17 @@ public class ImageRegionRequestHandler {
         planeDef.setZ(imageRegionCtx.z);
         planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
 
-        List<List<Integer>> resolutionLevels =
-                pixelBuffer.getResolutionDescriptions();
+        // Avoid asking for resolution descriptions if there is no image
+        // pyramid.  This can be *very* expensive.
+        int countResolutionLevels = pixelBuffer.getResolutionLevels();
+        List<List<Integer>> resolutionLevels;
+        if (countResolutionLevels > 1) {
+            resolutionLevels = pixelBuffer.getResolutionDescriptions();
+        } else {
+            resolutionLevels = new ArrayList<List<Integer>>();
+            resolutionLevels.add(
+                    Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
+        }
         setResolutionLevel(renderer, resolutionLevels);
         if (imageRegionCtx.compressionQuality != null) {
             compressionSrv.setCompressionLevel(
