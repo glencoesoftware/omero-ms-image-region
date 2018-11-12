@@ -28,3 +28,33 @@ omero.web:
 # Redis instance that OMERO.web is using to store session information
 redis:
     uri: "redis://password@localhost:6379/1"
+# Redis instance that OMERO.web is using to store cache data.  It is strongly
+# recommended that this instance *not* be the same as the one used to store
+# session information as the LRU is instance wide.
+redis-cache:
+    uri: "redis://password@localhost:7379/1"
+# Image region cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server when the same region has already been
+# rendered.
+image-region-cache:
+    enabled: false
+# Pixels metadata cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server to retrieve the same set of Pixels
+# metadata.
+pixels-metadata-cache:
+    enabled: false
+# In memory readability cache keyed off of OMERO session key and Image ID.
+# Enabling will speed up permissions lookups for a given OMERO session and Image
+# combination at the cost of a possibly elongated permissions window.  This
+# elongated permissions window is in effect for the time to live when the user
+# the session belongs to is removed from the group the Image belongs to.
+can-read-cache:
+    # Time (in seconds) for a cache entry to live until the lookup is performed
+    # against the server again.  0 disables the cache entirely.
+    time-to-live: 0
+    maximum-size: 10000
+# Prometheus metric endpoint authentication configuration.  If left commented
+# out the endpoint will not be enabled.
+#prometheus-auth:
+#    username: "username"
+#    password: "password"

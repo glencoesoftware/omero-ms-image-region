@@ -36,8 +36,6 @@ import java.util.Optional;
 
 import javax.imageio.ImageIO;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import ome.util.PixelData;
@@ -48,6 +46,8 @@ import omero.api.IQueryPrx;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 
+import io.prometheus.client.Summary;
+
 public class ShapeMaskRequestHandler {
 
     private static final org.slf4j.Logger log =
@@ -55,6 +55,24 @@ public class ShapeMaskRequestHandler {
 
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
+
+    /** Prometheus Summary for renderShapeMask*/
+    private static final Summary renderShapeMaskSummary = Summary.build()
+      .name("render_shape_mask_rh")
+      .help("Time to render shape mask in request handler")
+      .register();
+
+    /** Prometheus Summary for canRead*/
+    private static final Summary canReadSummary = Summary.build()
+      .name("can_read_shape_mask_rh")
+      .help("Time to call canRead in shape mask request handler")
+      .register();
+
+    /** Prometheus Summary for getMask*/
+    private static final Summary getMaskSummary = Summary.build()
+      .name("get_mask_rh")
+      .help("Time to call getMask in shape mask request handler")
+      .register();
 
     /**
      * Default constructor.
@@ -128,7 +146,7 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
+        Summary.Timer timer = renderShapeMaskSummary.startTimer();
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
@@ -162,7 +180,7 @@ public class ShapeMaskRequestHandler {
             ImageIO.write(image, "png", output);
             return output.toByteArray();
         } finally {
-            t0.stop();
+            timer.observeDuration();
         }
     }
 
@@ -192,7 +210,7 @@ public class ShapeMaskRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(shapeMaskCtx.shapeId);
-        StopWatch t0 = new Slf4JStopWatch("canRead");
+        Summary.Timer timer = canReadSummary.startTimer();
         try {
             List<List<RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -204,7 +222,7 @@ public class ShapeMaskRequestHandler {
         } catch (Exception e) {
             log.error("Exception while checking shape mask readability", e);
         } finally {
-            t0.stop();
+            timer.observeDuration();
         }
         return false;
     }
@@ -236,14 +254,14 @@ public class ShapeMaskRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(shapeId);
-        StopWatch t0 = new Slf4JStopWatch("getMask");
+        Summary.Timer timer = getMaskSummary.startTimer();
         try {
             return (MaskI) iQuery.findByQuery(
                 "SELECT s FROM Shape as s " +
                 "WHERE s.id = :id", params, ctx
             );
         } finally {
-            t0.stop();
+            timer.observeDuration();
         }
     }
 }

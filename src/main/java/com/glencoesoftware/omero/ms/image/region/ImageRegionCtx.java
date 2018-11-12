@@ -18,19 +18,24 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
+import com.google.common.hash.Hashing;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
 import omero.constants.projection.ProjectionType;
+
+import io.prometheus.client.Summary;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -93,6 +98,15 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Rendering output format */
     public String format;
 
+    /** Cache key */
+    public String cacheKey;
+
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary constructorSummary = Summary.build()
+      .name("image_region_ctx_constructor")
+      .help("Time spent in ImageRegionCtx constructor")
+      .register();
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -105,27 +119,64 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
-        this.omeroSessionKey = omeroSessionKey;
-        imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("theZ"));
-        t = Integer.parseInt(params.get("theT"));
-        getTileFromString(params.get("tile"));
-        getRegionFromString(params.get("region"));
-        getChannelInfoFromString(params.get("c"));
-        getColorModelFromString(params.get("m"));
-        getCompressionQualityFromString(params.get("q"));
-        getInvertedAxisFromString(params.get("ia"));
-        getProjectionFromString(params.get("p"));
-        String maps = params.get("maps");
-        if (maps != null) {
-            this.maps = Json.decodeValue(maps, List.class);
-        }
-        format = Optional.ofNullable(params.get("format")).orElse("jpeg");
+        Summary.Timer timer = constructorSummary.startTimer();
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            imageId = Long.parseLong(params.get("imageId"));
+            z = Integer.parseInt(params.get("theZ"));
+            t = Integer.parseInt(params.get("theT"));
+            getTileFromString(params.get("tile"));
+            getRegionFromString(params.get("region"));
+            getChannelInfoFromString(params.get("c"));
+            getColorModelFromString(params.get("m"));
+            getCompressionQualityFromString(params.get("q"));
+            getInvertedAxisFromString(params.get("ia"));
+            getProjectionFromString(params.get("p"));
+            String maps = params.get("maps");
+            if (maps != null) {
+                this.maps = Json.decodeValue(maps, List.class);
+            }
+            format = Optional.ofNullable(params.get("format")).orElse("jpeg");
+            cacheKey = createCacheKey(params);
 
-        log.debug(
-                "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
-                "format: {}", imageId, z, t, tile, channels, windows, colors,
-                m, format);
+            log.debug(
+                    "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
+                    "format: {}, cacheKey: {}", imageId, z, t, tile, channels,
+                    windows, colors, m, format, cacheKey);
+        } finally {
+            timer.observeDuration();
+        }
+    }
+
+    /**
+     * Creates a cache key for the context using the class name and originally
+     * provided parameter map.
+     * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
+     * required for rendering an image region.
+     * @return A cache key as outlined above using the
+     * <a href="https://131002.net/siphash/">64-bit SipHash-2-4 algorithm</a>
+     * and default Guava seed value.
+     * @see {@link com.google.common.hash.Hashing#sipHash24()}
+     */
+    private String createCacheKey(MultiMap params) {
+        StringBuilder sb = new StringBuilder()
+                .append(ImageRegionCtx.class.getName());
+        for (Entry<String, String> entry : params) {
+            log.debug("Entry: {}", entry);
+            sb.append(String.format(
+                ":%s=%s", entry.getKey(), entry.getValue()));
+        }
+        return Hashing.sipHash24()
+                .hashString(sb, Charset.forName("UTF-8"))
+                .toString();
+    }
+
+    /**
+     * Gets the cache key for the context.
+     * @return See above.
+     */
+    public String cacheKey() {
+        return cacheKey;
     }
 
     /**

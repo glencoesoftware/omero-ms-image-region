@@ -44,7 +44,12 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
+
 import omero.model.Image;
+
+import io.prometheus.client.vertx.MetricsHandler;
+import io.prometheus.client.hotspot.DefaultExports;
+import io.prometheus.client.Summary;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -63,6 +68,42 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
+    /** Prometheus Summary for renderImageRegion */
+    private static final Summary renderImageRegionSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
+      .name("render_image_region_ms")
+      .help("Time spent in renderImageRegion in the microservice verticle")
+      .register();
+
+    /** Prometheus Summary for eventbus*/
+    private static final Summary eventbusSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
+      .name("event_bus_ms")
+      .help("Time elapsed from message sent to event bus to repsonse received")
+      .register();
+
+    /** Prometheus Summary for renderImageRegion callback*/
+    private static final Summary renderImageRegionCallbackSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
+      .name("render_image_region_ms_callback")
+      .help("Time spent in renderImageRegion's callback in the microservice verticle")
+      .register();
+
+    /** Prometheus Summary for renderShapeMask*/
+    private static final Summary renderShapeMaskSummary = Summary.build()
+      .quantile(0.5, 0.05)
+      .quantile(0.9, 0.01)
+      .quantile(0.99, 0.001)
+      .name("render_shape_mask_ms")
+      .help("Time spent in renderShapeMask in the microservice verticle")
+      .register();
+
     /**
      * Entry point method which starts the server event loop and initializes
      * our current OMERO.web session store.
@@ -70,6 +111,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> future) {
         log.info("Starting verticle");
+        DefaultExports.initialize();
 
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
@@ -152,6 +194,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
+      
+        JsonObject prometheusAuth = config.getJsonObject("prometheus-auth");
+        if (prometheusAuth != null) {
+            log.info("Setting up metrics endpoint");
+            String prometheus_username = prometheusAuth.getString(
+                    "username", "");
+            String prometheus_password = prometheusAuth.getString(
+                    "password", "");
+            router.get("/metrics").handler(
+              new PrometheusAuthHandler(prometheus_username, 
+                  prometheus_password));
+            router.get("/metrics").handler(new MetricsHandler());
+        } else {
+            log.warn("Metrics credentials not set - endpoint not accessible");
+        }
 
         // Cookie handler so we can pick up the OMERO.web session
         router.route().handler(CookieHandler.create());
@@ -216,14 +273,19 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
+        Summary.Timer timer = renderImageRegionSummary.startTimer();
         HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
                 request.params(), event.get("omero.session_key"));
 
         final HttpServerResponse response = event.response();
+        Summary.Timer eventbusTimer = eventbusSummary.startTimer();
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
+            eventbusTimer.observeDuration();
+            Summary.Timer callbackTimer =
+                renderImageRegionCallbackSummary.startTimer();
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
@@ -255,7 +317,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.end(Buffer.buffer(imageRegion));
                 }
             } finally {
-                log.debug("Response ended");
+                callbackTimer.observeDuration();
+                timer.observeDuration();
             }
         });
     }
@@ -270,6 +333,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderShapeMask(RoutingContext event) {
         log.info("Rendering shape mask");
+        Summary.Timer timer = renderShapeMaskSummary.startTimer();
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
@@ -297,6 +361,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 response.end();
                 log.debug("Response ended");
+                timer.observeDuration();
             }
         });
     }
