@@ -36,6 +36,7 @@ import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
@@ -177,7 +178,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setMultiThreaded(true)
                         .setConfig(config));
 
-        HttpServer server = vertx.createHttpServer();
+        HttpServerOptions options = new HttpServerOptions();
+        options.setMaxInitialLineLength(config.getInteger(
+            "max-initial-line-length",
+            HttpServerOptions.DEFAULT_MAX_INITIAL_LINE_LENGTH)
+        );
+        options.setMaxHeaderSize(config.getInteger(
+            "max-header-size",
+            HttpServerOptions.DEFAULT_MAX_HEADER_SIZE)
+        );
+        options.setMaxChunkSize(config.getInteger(
+            "max-chunk-size",
+            HttpServerOptions.DEFAULT_MAX_CHUNK_SIZE)
+        );
+
+        HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
       
         JsonObject prometheusAuth = config.getJsonObject("prometheus-auth");

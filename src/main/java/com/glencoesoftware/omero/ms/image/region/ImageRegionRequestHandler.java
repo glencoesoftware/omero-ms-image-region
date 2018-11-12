@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -421,31 +422,34 @@ public class ImageRegionRequestHandler {
                     QuantizationException {
         log.debug("Getting image region");
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+            renderer = new Renderer(
+                quantumFactory, renderingModels,
+                pixels, createRenderingDef(pixels),
+                pixelBuffer, lutProvider
+            );
+            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
+            planeDef.setZ(imageRegionCtx.z);
+            planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
 
-        renderer = new Renderer(
-            quantumFactory, renderingModels,
-            pixels, createRenderingDef(pixels),
-            pixelBuffer, lutProvider
-        );
-        PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
-        planeDef.setZ(imageRegionCtx.z);
-        planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
-
-        List<List<Integer>> resolutionLevels =
-                pixelBuffer.getResolutionDescriptions();
-        setResolutionLevel(renderer, resolutionLevels);
-        if (imageRegionCtx.compressionQuality != null) {
-            compressionSrv.setCompressionLevel(
-                    imageRegionCtx.compressionQuality);
-        }
-        updateSettings(renderer);
-        Summary.Timer timer = renderSummary.startTimer();
-        try {
-            // The actual act of rendering will close the provided pixel buffer
-            return render(renderer, resolutionLevels, pixels, planeDef);
-        } finally {
-            timer.observeDuration();
+            List<List<Integer>> resolutionLevels =
+                    pixelBuffer.getResolutionDescriptions();
+            setResolutionLevel(renderer, resolutionLevels);
+            if (imageRegionCtx.compressionQuality != null) {
+                compressionSrv.setCompressionLevel(
+                        imageRegionCtx.compressionQuality);
+            }
+            updateSettings(renderer);
+            Summary.Timer timer = renderSummary.startTimer();
+            try {
+                // The actual act of rendering will close the provided pixel
+                // buffer.  However, just in case an exception is thrown before
+                // reaching this point a double close may occur due to the
+                // surrounding try-with-resources block.
+                return render(renderer, resolutionLevels, pixels, planeDef);
+            } finally {
+                timer.observeDuration();
+            }
         }
     }
 

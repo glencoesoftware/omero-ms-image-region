@@ -1,5 +1,13 @@
 # The port that the microservice will listen on
 port: 8080
+# Configuration for request parsing limits
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxInitialLineLength-int-
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxHeaderSize-int-
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxChunkSize-int-
+#  * https://netty.io/4.0/api/io/netty/handler/codec/http/HttpRequestDecoder.html#HttpRequestDecoder--
+# max-initial-line-length: 4096
+# max-header-size: 8192
+# max-chunk-size: 8192
 # OMERO server that the microservice will communicate with (as a client)
 omero:
     host: "localhost"
