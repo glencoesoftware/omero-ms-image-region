@@ -249,40 +249,43 @@ public class ImageRegionRequestHandler {
             t0.stop();
         }
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+            renderer = new Renderer(
+                quantumFactory, renderingModels,
+                pixels, getRenderingDef(iPixels, pixels.getId()),
+                pixelBuffer, lutProvider
+            );
+            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
+            planeDef.setZ(imageRegionCtx.z);
+            planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
 
-        renderer = new Renderer(
-            quantumFactory, renderingModels,
-            pixels, getRenderingDef(iPixels, pixels.getId()),
-            pixelBuffer, lutProvider
-        );
-        PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
-        planeDef.setZ(imageRegionCtx.z);
-        planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
-
-        // Avoid asking for resolution descriptions if there is no image
-        // pyramid.  This can be *very* expensive.
-        int countResolutionLevels = pixelBuffer.getResolutionLevels();
-        List<List<Integer>> resolutionLevels;
-        if (countResolutionLevels > 1) {
-            resolutionLevels = pixelBuffer.getResolutionDescriptions();
-        } else {
-            resolutionLevels = new ArrayList<List<Integer>>();
-            resolutionLevels.add(
-                    Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
-        }
-        setResolutionLevel(renderer, resolutionLevels);
-        if (imageRegionCtx.compressionQuality != null) {
-            compressionSrv.setCompressionLevel(
-                    imageRegionCtx.compressionQuality);
-        }
-        updateSettings(renderer);
-        StopWatch t1 = new Slf4JStopWatch("render");
-        try {
-            // The actual act of rendering will close the provided pixel buffer
-            return render(renderer, resolutionLevels, pixels, planeDef);
-        } finally {
-            t1.stop();
+            // Avoid asking for resolution descriptions if there is no image
+            // pyramid.  This can be *very* expensive.
+            int countResolutionLevels = pixelBuffer.getResolutionLevels();
+            List<List<Integer>> resolutionLevels;
+            if (countResolutionLevels > 1) {
+                resolutionLevels = pixelBuffer.getResolutionDescriptions();
+            } else {
+                resolutionLevels = new ArrayList<List<Integer>>();
+                resolutionLevels.add(
+                        Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
+            }
+            setResolutionLevel(renderer, resolutionLevels);
+            if (imageRegionCtx.compressionQuality != null) {
+                compressionSrv.setCompressionLevel(
+                        imageRegionCtx.compressionQuality);
+            }
+            updateSettings(renderer);
+            StopWatch t1 = new Slf4JStopWatch("render");
+            try {
+                // The actual act of rendering will close the provided pixel
+                // buffer.  However, just in case an exception is thrown before
+                // reaching this point a double close may occur due to the
+                // surrounding try-with-resources block.
+                return render(renderer, resolutionLevels, pixels, planeDef);
+            } finally {
+                t1.stop();
+            }
         }
     }
 
