@@ -5,9 +5,9 @@ port: 8080
 #  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxHeaderSize-int-
 #  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxChunkSize-int-
 #  * https://netty.io/4.0/api/io/netty/handler/codec/http/HttpRequestDecoder.html#HttpRequestDecoder--
-# max-initial-line-length: 4096
-# max-header-size: 8192
-# max-chunk-size: 8192
+#max-initial-line-length: 4096
+#max-header-size: 8192
+#max-chunk-size: 8192
 # OMERO server that the microservice will communicate with (as a client)
 omero:
     host: "localhost"
@@ -28,3 +28,10 @@ omero.web:
 # Redis instance that OMERO.web is using to store session information
 redis:
     uri: "redis://password@localhost:6379/1"
+# Information about the session store.
+session-store:
+    #type is either "postgres" or "redis"
+    type: "postgres"
+    #synchronicity is either "sync" or "async"
+    synchronicity: "async"
+    db.url: "jdbc:postgresql://localhost:5432/omero_database?user=omero&password=omero"

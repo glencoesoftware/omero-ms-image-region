@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
@@ -158,14 +159,28 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
-        JsonObject redis = config.getJsonObject("redis");
-        if (redis == null) {
-            throw new IllegalArgumentException(
-                    "'redis' block missing from configuration");
+        JsonObject sessionStoreConfig = config.getJsonObject("session-store");
+        String sessionStoreType = sessionStoreConfig.getString("type");
+        if (sessionStoreType.equals("redis")){
+            JsonObject redis = config.getJsonObject("redis");
+            if (redis == null) {
+                throw new IllegalArgumentException(
+                        "'redis' block missing from configuration");
+            }
+            sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
         }
-        sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
+        else if (sessionStoreType.equals("postgres")){
+            String dbUrl = sessionStoreConfig.getString("db.url");
+            sessionStore = new OmeroWebJDBCSessionStore(
+                dbUrl,
+                vertx);
+        }
+        else{
+            throw new IllegalArgumentException(
+                "Missing/invalid value for 'sessionstore' in config");
+        }
         router.route().handler(
-                new OmeroWebSessionRequestHandler(config, sessionStore));
+                new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
 
         // ImageRegion request handlers
         router.get(
