@@ -160,6 +160,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
         JsonObject sessionStoreConfig = config.getJsonObject("session-store");
+        if (sessionStoreConfig == null) {
+            throw new IllegalArgumentException(
+                    "'session-store' block missing from configuration");
+        }
         String sessionStoreType = sessionStoreConfig.getString("type");
         if (sessionStoreType.equals("redis")){
             JsonObject redis = config.getJsonObject("redis");
