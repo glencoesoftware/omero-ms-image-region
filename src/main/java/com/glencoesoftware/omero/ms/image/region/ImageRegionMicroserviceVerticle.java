@@ -165,17 +165,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     "'session-store' block missing from configuration");
         }
         String sessionStoreType = sessionStoreConfig.getString("type");
+        String sessionStoreUri = sessionStoreConfig.getString("uri");
         if (sessionStoreType.equals("redis")){
-            JsonObject redis = config.getJsonObject("redis");
-            if (redis == null) {
-                throw new IllegalArgumentException(
-                        "'redis' block missing from configuration");
-            }
-            sessionStore = new OmeroWebRedisSessionStore(redis.getString("uri"));
+            sessionStore = new OmeroWebRedisSessionStore(sessionStoreUri);
         } else if (sessionStoreType.equals("postgres")) {
-            String dbUrl = sessionStoreConfig.getString("db.url");
             sessionStore = new OmeroWebJDBCSessionStore(
-                dbUrl,
+                sessionStoreUri,
                 vertx);
         } else {
             throw new IllegalArgumentException(
