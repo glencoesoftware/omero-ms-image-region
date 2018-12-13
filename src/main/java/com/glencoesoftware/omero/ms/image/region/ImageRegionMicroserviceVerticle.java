@@ -166,7 +166,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         String sessionStoreType = sessionStoreConfig.getString("type");
         String sessionStoreUri = sessionStoreConfig.getString("uri");
-        if (sessionStoreType.equals("redis")){
+        if (sessionStoreType.equals("redis")) {
             sessionStore = new OmeroWebRedisSessionStore(sessionStoreUri);
         } else if (sessionStoreType.equals("postgres")) {
             sessionStore = new OmeroWebJDBCSessionStore(
