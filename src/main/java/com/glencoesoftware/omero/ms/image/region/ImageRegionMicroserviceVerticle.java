@@ -179,7 +179,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 vertx);
         } else {
             throw new IllegalArgumentException(
-                "Missing/invalid value for 'sessionstore' in config");
+                "Missing/invalid value for 'session-store.type' in config");
         }
         router.route().handler(
                 new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
