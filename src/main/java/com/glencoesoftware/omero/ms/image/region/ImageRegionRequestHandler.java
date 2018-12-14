@@ -380,6 +380,8 @@ public class ImageRegionRequestHandler {
         RegionDef region = planeDef.getRegion();
         int sizeX = region != null? region.getWidth() : pixels.getSizeX();
         int sizeY = region != null? region.getHeight() : pixels.getSizeY();
+        buf = mirror(buf, sizeX, sizeY,
+                imageRegionCtx.mirrorX, imageRegionCtx.mirrorY);
         BufferedImage image = ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
         );
@@ -408,6 +410,37 @@ public class ImageRegionRequestHandler {
         }
         log.error("Unknown format {}", imageRegionCtx.format);
         return null;
+    }
+
+    /**
+     * Mirror an image over the X, Y or both axes.
+     * @param src source image buffer
+     * @param sizeX size of <code>src</code> in X (number of columns)
+     * @param sizeY size of <code>src</code> in Y (number of rows)
+     * @param mirrorX whether or not to mirror the image over the X axis
+     * @param mirrorY whether or not to mirror the image over the Y axis
+     * @return Newly allocated buffer with mirroring applied or <code>src</code>
+     * if no mirroring has been requested.
+     */
+    public static int[] mirror(
+            int[] src, int sizeX, int sizeY, boolean mirrorX, boolean mirrorY) {
+        if (!mirrorX && !mirrorY) {
+            return src;
+        }
+
+        int[] dest = new int[src.length];
+        int srcIndex, destIndex;
+        int xOffset = mirrorX? sizeX : 1;
+        int yOffset = mirrorY? sizeY : 1;
+        for (int x = 0; x < sizeX; x++) {
+            for (int y = 0; y < sizeY; y++) {
+                srcIndex = (y * sizeX) + x;
+                destIndex = Math.abs(((yOffset - y - 1) * sizeX))
+                        + Math.abs((xOffset - x - 1));
+                dest[destIndex] = src[srcIndex];
+            }
+        }
+        return dest;
     }
 
     /**

@@ -93,6 +93,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Rendering output format */
     public String format;
 
+    /** Whether or not to mirror over the X axis */
+    public boolean mirrorX;
+
+    /** Whether or not to mirror over the Y axis */
+    public boolean mirrorY;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -117,6 +123,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getInvertedAxisFromString(params.get("ia"));
         getProjectionFromString(params.get("p"));
         String maps = params.get("maps");
+        String mirror = Optional.ofNullable(params.get("mirror"))
+                .orElse("").toLowerCase();
+        mirrorX = mirror.contains("x");
+        mirrorY = mirror.contains("y");
         if (maps != null) {
             this.maps = Json.decodeValue(maps, List.class);
         }
