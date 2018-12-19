@@ -151,4 +151,21 @@ public class ImageRegionRequestHandlerTest {
         }
         testAllMirrors(src, sizeX, sizeY);
     }
+
+    @Test (expectedExceptions = IllegalArgumentException.class)
+    public void testMirrorNullImage() {
+        ImageRegionRequestHandler.mirror(null, 4, 4, true, true);
+    }
+
+    @Test (expectedExceptions = IllegalArgumentException.class)
+    public void testMirrorZeroXImage() {
+        int[] src = {1};
+        ImageRegionRequestHandler.mirror(src, 0, 4, true, true);
+    }
+
+    @Test (expectedExceptions = IllegalArgumentException.class)
+    public void testMirrorZeroYImage() {
+        int[] src = {1};
+        ImageRegionRequestHandler.mirror(src, 4, 0, true, true);
+    }
 }

@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import java.lang.IllegalArgumentException;
+
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.spi.IIORegistry;
@@ -426,6 +428,12 @@ public class ImageRegionRequestHandler {
             int[] src, int sizeX, int sizeY, boolean mirrorX, boolean mirrorY) {
         if (!mirrorX && !mirrorY) {
             return src;
+        }
+
+        if (src == null) {
+            throw new IllegalArgumentException("Attempted to mirror null image");
+        } else if (sizeX == 0 || sizeY == 0) {
+            throw new IllegalArgumentException("Attempted to mirror image with 0 size");
         }
 
         int[] dest = new int[src.length];
