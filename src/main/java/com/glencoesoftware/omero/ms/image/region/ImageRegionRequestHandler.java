@@ -553,6 +553,62 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    public static RegionDef getMirroredRegionDef(int pixelSizeX,
+        int pixelSizeY,
+        int tileSizeX,
+        int tileSizeY,
+        int x, //Tile X position
+        int y, //Tile Y position
+        boolean mirrorX,
+        boolean mirrorY) {
+        log.debug("Getting mirrored tile RegionDef");
+        RegionDef regionDef = new RegionDef();
+        int edgeSizeX = pixelSizeX % tileSizeX;
+        int edgeSizeY = pixelSizeY % tileSizeY;
+        //Calculate number of tiles
+        int numTilesX = pixelSizeX/tileSizeX;
+        if (edgeSizeX != 0)
+            numTilesX += 1;
+        int numTilesY = pixelSizeY/tileSizeY;
+        if (edgeSizeY != 0)
+            numTilesY += 1;
+        if (mirrorX) {
+            regionDef.setX(numTilesX - 1 - x);
+            //If post-mirror we will have the last tile, it may not be full
+            if (x == 0 && edgeSizeX != 0) {
+                regionDef.setWidth(pixelSizeX % tileSizeX);
+            } else { //Just a standard size tile
+                regionDef.setWidth(tileSizeX);
+            }
+        } else{
+            regionDef.setX(x);
+            //If it's the last tile, it may not be full
+            if (x == pixelSizeX/tileSizeX - 1 && edgeSizeX != 0) {
+                regionDef.setWidth(edgeSizeX);
+            } else {
+                regionDef.setWidth(tileSizeX);
+            }
+        }
+        if (mirrorY) {
+            regionDef.setY(numTilesY - 1 - y);
+            //If post-mirror we will have the last tile, it may not be full
+            if (y == 0 && edgeSizeY != 0) {
+                regionDef.setHeight(edgeSizeY);
+            } else { //Just a standard size tile
+                regionDef.setHeight(tileSizeY);
+            }
+        } else {
+            regionDef.setY(y);
+            //If it's the last tile, it may not be full
+            if (y == pixelSizeY/tileSizeY - 1 && edgeSizeY != 0) {
+                regionDef.setHeight(edgeSizeY);
+            } else {
+                regionDef.setHeight(tileSizeY);
+            }
+        }
+        return regionDef;
+    }
+
     /**
      * Returns RegionDef to read based on tile / region provided in
      * ImageRegionCtx.

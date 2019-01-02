@@ -26,6 +26,8 @@ import org.testng.annotations.Test;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 
+import omeis.providers.re.data.RegionDef;
+
 public class ImageRegionRequestHandlerTest {
 
     @BeforeMethod
@@ -167,5 +169,131 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorZeroYImage() {
         int[] src = {1};
         ImageRegionRequestHandler.mirror(src, 4, 0, true, true);
+    }
+
+    @Test
+    public void testGetMirroredRegionDef() {
+        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1024,
+            1024,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            false,
+            false);
+        Assert.assertEquals(1, finalDef.getX());
+        Assert.assertEquals(1, finalDef.getY());
+        Assert.assertEquals(256, finalDef.getWidth());
+        Assert.assertEquals(256, finalDef.getHeight());
+    }
+
+    @Test
+    public void testGetMirroredRegionDefX() {
+        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1024,
+            1024,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            true,
+            false);
+        Assert.assertEquals(2, finalDef.getX());
+        Assert.assertEquals(1, finalDef.getY());
+        Assert.assertEquals(256, finalDef.getWidth());
+        Assert.assertEquals(256, finalDef.getHeight());
+    }
+
+    @Test
+    public void testGetMirroredRegionDefY() {
+        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1024,
+            1024,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            false,
+            true);
+        Assert.assertEquals(finalDef.getX(), 1);
+        Assert.assertEquals(finalDef.getY(), 2);
+        Assert.assertEquals(finalDef.getWidth(), 256);
+        Assert.assertEquals(finalDef.getHeight(), 256);
+    }
+
+    @Test
+    public void testGetMirroredRegionDefXY() {
+        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1024,
+            1024,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            true,
+            true);
+        Assert.assertEquals(finalDef.getX(), 2);
+        Assert.assertEquals(finalDef.getY(), 2);
+        Assert.assertEquals(finalDef.getWidth(), 256);
+        Assert.assertEquals(finalDef.getHeight(), 256);
+    }
+
+    @Test
+    public void testGetMirroredRegionDefXEdge() {
+        RegionDef originalRegion = new RegionDef(0,1,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1023,
+            1024,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            true,
+            false);
+        Assert.assertEquals(finalDef.getX(), 3);
+        Assert.assertEquals(1, finalDef.getY(), 1);
+        Assert.assertEquals(finalDef.getWidth(), 255);
+        Assert.assertEquals(finalDef.getHeight(), 256);
+    }
+
+    @Test
+    public void testGetMirroredRegionDefYEdge() {
+        RegionDef originalRegion = new RegionDef(1,0,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1024,
+            1023,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            false,
+            true);
+        Assert.assertEquals(finalDef.getX(), 1);
+        Assert.assertEquals(finalDef.getY(), 3);
+        Assert.assertEquals(finalDef.getWidth(), 256);
+        Assert.assertEquals(finalDef.getHeight(), 255);
+    }
+
+    @Test
+    public void testGetMirroredRegionDefXYEdge() {
+        RegionDef originalRegion = new RegionDef(0,0,256,256);
+        RegionDef finalDef = ImageRegionRequestHandler.getMirroredRegionDef(
+            1023,
+            1023,
+            originalRegion.getWidth(),
+            originalRegion.getHeight(),
+            originalRegion.getX(),
+            originalRegion.getY(),
+            true,
+            true);
+        Assert.assertEquals(finalDef.getX(), 3);
+        Assert.assertEquals(finalDef.getY(), 3);
+        Assert.assertEquals(finalDef.getWidth(), 255);
+        Assert.assertEquals(finalDef.getHeight(), 255);
     }
 }
