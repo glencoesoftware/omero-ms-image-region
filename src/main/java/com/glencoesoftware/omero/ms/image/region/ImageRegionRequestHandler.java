@@ -118,7 +118,9 @@ public class ImageRegionRequestHandler {
     public ImageRegionRequestHandler(
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
-            LutProvider lutProvider) {
+            LutProvider lutProvider,
+            PixelsService pixService,
+            LocalCompress compSrv) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
@@ -126,10 +128,9 @@ public class ImageRegionRequestHandler {
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
 
-        pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        pixelsService = pixService;
         projectionService = new ProjectionService();
-        compressionSrv =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
+        compressionSrv = compSrv;
     }
 
     /**
@@ -553,7 +554,7 @@ public class ImageRegionRequestHandler {
         }
     }
 
-    public static RegionDef getMirroredRegionDef(int imageSizeX,
+    protected RegionDef getMirroredRegionDef(int imageSizeX,
         int imageSizeY,
         int tileSizeX,
         int tileSizeY,
@@ -573,7 +574,7 @@ public class ImageRegionRequestHandler {
         if (edgeSizeY != 0)
             numTilesY += 1;
         if (mirrorX) {
-            regionDef.setX(numTilesX - 1 - x);
+            regionDef.setX((numTilesX - 1 - x)*tileSizeX);
             //If post-mirror we will have the last tile, it may not be full
             if (x == 0 && edgeSizeX != 0) {
                 regionDef.setWidth(imageSizeX % tileSizeX);
@@ -581,7 +582,7 @@ public class ImageRegionRequestHandler {
                 regionDef.setWidth(tileSizeX);
             }
         } else{
-            regionDef.setX(x);
+            regionDef.setX(x*tileSizeX);
             //If it's the last tile, it may not be full
             if (x == imageSizeX/tileSizeX - 1 && edgeSizeX != 0) {
                 regionDef.setWidth(edgeSizeX);
@@ -590,7 +591,7 @@ public class ImageRegionRequestHandler {
             }
         }
         if (mirrorY) {
-            regionDef.setY(numTilesY - 1 - y);
+            regionDef.setY((numTilesY - 1 - y)*tileSizeY);
             //If post-mirror we will have the last tile, it may not be full
             if (y == 0 && edgeSizeY != 0) {
                 regionDef.setHeight(edgeSizeY);
@@ -598,7 +599,7 @@ public class ImageRegionRequestHandler {
                 regionDef.setHeight(tileSizeY);
             }
         } else {
-            regionDef.setY(y);
+            regionDef.setY(y*tileSizeY);
             //If it's the last tile, it may not be full
             if (y == imageSizeY/tileSizeY - 1 && edgeSizeY != 0) {
                 regionDef.setHeight(edgeSizeY);
@@ -618,7 +619,7 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @throws ServerError
      */
-    private RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
+    protected RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
             throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
@@ -638,6 +639,7 @@ public class ImageRegionRequestHandler {
             regionDef.setY(0);
             regionDef.setWidth(pixels.getSizeX());
             regionDef.setHeight(pixels.getSizeY());
+            return regionDef;
         }
         Dimension tileSize = pixelBuffer.getTileSize();
         regionDef = getMirroredRegionDef(pixels.getSizeX(),

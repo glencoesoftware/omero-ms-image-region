@@ -40,6 +40,8 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
 import ome.system.PreferenceContext;
+import ome.api.local.LocalCompress;
+import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
@@ -153,10 +155,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 request.execute(this::updateRenderingModels);
             }
 
+            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+            LocalCompress compressionService =
+                (LocalCompress) context.getBean("internal-ome.api.ICompress");
             byte[] imageRegion = request.execute(
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
-                            renderingModels, lutProvider)::renderImageRegion);
+                            renderingModels, lutProvider,
+                            pixelsService,
+                            compressionService)::renderImageRegion);
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
