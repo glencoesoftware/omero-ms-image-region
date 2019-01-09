@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
+import java.lang.Math;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -555,6 +556,22 @@ public class ImageRegionRequestHandler {
     }
 
     /**
+     * Update RegionDef to fit within the image boundaries.
+     * @param pixels pixels metadata
+     * @param regionDef region definition to truncate if required
+     * @throws IllegalArgumentException
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    protected void truncateRegionDef(
+            Pixels pixels, RegionDef regionDef) {
+        log.debug("Truncating RegionDef if required");
+        int sizeX = pixels.getSizeX();
+        int sizeY = pixels.getSizeY();
+        regionDef.setWidth(Math.min(regionDef.getWidth(), sizeX - regionDef.getX()));
+        regionDef.setHeight(Math.min(regionDef.getHeight(), sizeY - regionDef.getY()));
+    }
+
+    /**
      * Update RegionDef to be mirrored if required.
      * @param pixels pixels metadata
      * @param tileSize XY tile sizes of the underlying pixels
@@ -564,27 +581,17 @@ public class ImageRegionRequestHandler {
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
     protected void mirrorRegionDef(
-            Pixels pixels, Dimension tileSize, RegionDef regionDef) {
+            Pixels pixels, RegionDef regionDef) {
         log.debug("Mirroring tile RegionDef if required");
         int sizeX = pixels.getSizeX();
         int sizeY = pixels.getSizeY();
-        int edgeSizeX = sizeX % (int) tileSize.getWidth();
-        int edgeSizeY = sizeY % (int) tileSize.getHeight();
         if (imageRegionCtx.mirrorX) {
             regionDef.setX(
                     sizeX - regionDef.getWidth() - regionDef.getX());
-            //If post-mirror we will have the last tile, it may not be full
-            if (regionDef.getX() == 0 && edgeSizeX != 0) {
-                regionDef.setWidth(edgeSizeX);
-            }
         }
         if (imageRegionCtx.mirrorY) {
             regionDef.setY(
                     sizeY - regionDef.getHeight() - regionDef.getY());
-            //If post-mirror we will have the last tile, it may not be full
-            if (regionDef.getY() == 0 && edgeSizeY != 0) {
-                regionDef.setHeight(edgeSizeY);
-            }
         }
     }
 
@@ -619,7 +626,8 @@ public class ImageRegionRequestHandler {
             regionDef.setHeight(pixels.getSizeY());
             return regionDef;
         }
-        mirrorRegionDef(pixels, tileSize, regionDef);
+        truncateRegionDef(pixels, regionDef);
+        mirrorRegionDef(pixels, regionDef);
         return regionDef;
     }
 

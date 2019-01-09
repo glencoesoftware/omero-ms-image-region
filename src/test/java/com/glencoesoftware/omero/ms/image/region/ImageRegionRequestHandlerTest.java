@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import static org.mockito.Mockito.*;
+
 import java.awt.Dimension;
 import java.util.ArrayList;
 
@@ -28,10 +30,12 @@ import org.testng.annotations.Test;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.CaseInsensitiveHeaders;
 import ome.model.core.Pixels;
+import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.data.RegionDef;
 
+import omero.ServerError;
 
 public class ImageRegionRequestHandlerTest {
 
@@ -193,178 +197,226 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirrorNothing() {
-        RegionDef regionDef = new RegionDef(0, 0, 256, 256);
+    public void testGetRegionDefCtxTile()
+    throws IllegalArgumentException, ServerError {
+        int x = 2;
+        int y = 2;
+        imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(256, 256), regionDef);
-        Assert.assertEquals(regionDef.getX(), 0);
-        Assert.assertEquals(regionDef.getY(), 0);
-        Assert.assertEquals(regionDef.getWidth(), 256);
-        Assert.assertEquals(regionDef.getHeight(), 256);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 256;
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(tileSize, tileSize));
+        RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(rdef.getX(), x*tileSize);
+        Assert.assertEquals(rdef.getX(), y*tileSize);
+        Assert.assertEquals(rdef.getWidth(), tileSize);
+        Assert.assertEquals(rdef.getHeight(), tileSize);
     }
 
-
     @Test
-    public void testMirrorRegionDefMirrorX() {
-        RegionDef regionDef = new RegionDef(0, 0, 256, 256);
+    public void testGetRegionDefCtxRegion()
+    throws IllegalArgumentException, ServerError {
+        imageRegionCtx.tile = null;
+        imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
+        Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getY());
+        Assert.assertEquals(rdef.getWidth(), imageRegionCtx.region.getWidth());
+        Assert.assertEquals(rdef.getHeight(), imageRegionCtx.region.getHeight());
+    }
+
+    @Test
+    public void testGetRegionDefCtxNoTileOrRegion()
+    throws IllegalArgumentException, ServerError {
+        imageRegionCtx.tile = null;
+        imageRegionCtx.region = null;
+        Pixels pixels = new Pixels();
+        pixels.setSizeX(1024);
+        pixels.setSizeY(1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(rdef.getX(), 0);
+        Assert.assertEquals(rdef.getX(), 0);
+        Assert.assertEquals(rdef.getWidth(), 1024);
+        Assert.assertEquals(rdef.getHeight(), 1024);
+    }
+
+    @Test
+    public void testMirrorRegionDefMirrorX() throws ServerError{
+        Pixels pixels = new Pixels();
+        pixels.setSizeX(1024);
+        pixels.setSizeY(1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
+        imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
         imageRegionCtx.mirrorX = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(256, 256), regionDef);
-        Assert.assertEquals(regionDef.getX(), 768);
-        Assert.assertEquals(regionDef.getY(), 0);
-        Assert.assertEquals(regionDef.getWidth(), 256);
-        Assert.assertEquals(regionDef.getHeight(), 256);
+        imageRegionCtx.mirrorY = false;
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(regionDef.getX(), 624);
+        Assert.assertEquals(regionDef.getY(), 200);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
     }
 
     @Test
-    public void testMirrorRegionDefMirrorY() {
-        RegionDef regionDef = new RegionDef(0, 0, 256, 256);
+    public void testMirrorRegionDefMirrorY() throws ServerError{
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
+        imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
+        imageRegionCtx.mirrorX = false;
         imageRegionCtx.mirrorY = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(256, 256), regionDef);
-        Assert.assertEquals(regionDef.getX(), 0);
-        Assert.assertEquals(regionDef.getY(), 768);
-        Assert.assertEquals(regionDef.getWidth(), 256);
-        Assert.assertEquals(regionDef.getHeight(), 256);
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(regionDef.getX(), 100);
+        Assert.assertEquals(regionDef.getY(), 424);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
     }
 
     @Test
-    public void testMirrorRegionDefMirrorXY() {
-        RegionDef regionDef = new RegionDef(0, 0, 256, 256);
+    public void testMirrorRegionDefMirrorXY() throws ServerError{
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
+        imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
         imageRegionCtx.mirrorX = true;
         imageRegionCtx.mirrorY = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(256, 256), regionDef);
-        Assert.assertEquals(regionDef.getX(), 768);
-        Assert.assertEquals(regionDef.getY(), 768);
-        Assert.assertEquals(regionDef.getWidth(), 256);
-        Assert.assertEquals(regionDef.getHeight(), 256);
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(regionDef.getX(), 624);
+        Assert.assertEquals(regionDef.getY(), 424);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
     }
 
     @Test
-    public void testMirrorRegionDefMirorXEdge() {
+    public void testMirrorRegionDefMirorXEdge() throws ServerError{
         // Tile 0, 0
-        RegionDef regionDef = new RegionDef(0, 0, 512, 512);
+        imageRegionCtx.region = new RegionDef(0, 0, 1024, 1024);
         Pixels pixels = new Pixels();
         pixels.setSizeX(768);
         pixels.setSizeY(768);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512,512));
         imageRegionCtx.mirrorX = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
-        Assert.assertEquals(regionDef.getX(), 256);
+        imageRegionCtx.mirrorY = false;
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
+        Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
-        Assert.assertEquals(regionDef.getWidth(), 512);
-        Assert.assertEquals(regionDef.getHeight(), 512);
+        Assert.assertEquals(regionDef.getWidth(), 768);
+        Assert.assertEquals(regionDef.getHeight(), 768);
 
         // Tile 1, 0
-        regionDef = new RegionDef(512, 0, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 256);
         Assert.assertEquals(regionDef.getHeight(), 512);
 
         // Tile 0, 1
-        regionDef = new RegionDef(0, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 512);
         Assert.assertEquals(regionDef.getWidth(), 512);
-        Assert.assertEquals(regionDef.getHeight(), 512);
-        // ^^ Will be confined to the image sizeY by the rendering operation
+        Assert.assertEquals(regionDef.getHeight(), 256);
 
         // Tile 1, 1
-        regionDef = new RegionDef(512, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 512);
         Assert.assertEquals(regionDef.getWidth(), 256);
-        Assert.assertEquals(regionDef.getHeight(), 512);
-        // ^^ Will be confined to the image sizeY by the rendering operation
+        Assert.assertEquals(regionDef.getHeight(), 256);
     }
 
     @Test
-    public void testMirrorRegionDefMirorYEdge() {
+    public void testMirrorRegionDefMirorYEdge() throws ServerError{
         // Tile 0, 0
-        RegionDef regionDef = new RegionDef(0, 0, 512, 512);
+        imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         Pixels pixels = new Pixels();
         pixels.setSizeX(768);
         pixels.setSizeY(768);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512,512));
         imageRegionCtx.mirrorY = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 512);
         Assert.assertEquals(regionDef.getHeight(), 512);
 
         // Tile 1, 0
-        regionDef = new RegionDef(512, 0, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 512);
         Assert.assertEquals(regionDef.getY(), 256);
-        Assert.assertEquals(regionDef.getWidth(), 512);
-        // ^^ Will be confined to the image sizeX by the rendering operation
+        Assert.assertEquals(regionDef.getWidth(), 256);
         Assert.assertEquals(regionDef.getHeight(), 512);
 
         // Tile 0, 1
-        regionDef = new RegionDef(0, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 512);
         Assert.assertEquals(regionDef.getHeight(), 256);
 
         // Tile 1, 1
-        regionDef = new RegionDef(512, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 512);
         Assert.assertEquals(regionDef.getY(), 0);
-        Assert.assertEquals(regionDef.getWidth(), 512);
-        // ^^ Will be confined to the image sizeX by the rendering operation
+        Assert.assertEquals(regionDef.getWidth(), 256);
         Assert.assertEquals(regionDef.getHeight(), 256);
     }
 
     @Test
-    public void testMirrorRegionDefMirorXYEdge() {
+    public void testMirrorRegionDefMirorXYEdge() throws ServerError{
         // Tile 0, 0
-        RegionDef regionDef = new RegionDef(0, 0, 512, 512);
+        imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         Pixels pixels = new Pixels();
         pixels.setSizeX(768);
         pixels.setSizeY(768);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512,512));
         imageRegionCtx.mirrorX = true;
         imageRegionCtx.mirrorY = true;
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 512);
         Assert.assertEquals(regionDef.getHeight(), 512);
 
         // Tile 1, 0
-        regionDef = new RegionDef(512, 0, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 256);
         Assert.assertEquals(regionDef.getHeight(), 512);
 
         // Tile 0, 1
-        regionDef = new RegionDef(0, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 512);
         Assert.assertEquals(regionDef.getHeight(), 256);
 
         // Tile 1, 1
-        regionDef = new RegionDef(512, 512, 512, 512);
-        reqHandler.mirrorRegionDef(pixels, new Dimension(512, 512), regionDef);
+        imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 256);
