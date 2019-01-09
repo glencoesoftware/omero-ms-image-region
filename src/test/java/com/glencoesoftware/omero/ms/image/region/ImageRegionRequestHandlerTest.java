@@ -55,11 +55,7 @@ public class ImageRegionRequestHandlerTest {
         params.add("imageId", "1");
         params.add("theZ", "0");
         params.add("theT", "0");
-        params.add("tile", "0,0,0");
-        params.add("region","0,0,1,1");
-        params.add("c", "-1|0:65535$0000FF,2|1755:51199$00FF00,3|3218:26623$FF0000");
-        params.add("m", "");
-        params.add("mirror", "");
+        params.add("m", "rgb");
 
         imageRegionCtx = new ImageRegionCtx(params, "");
         reqHandler = new ImageRegionRequestHandler(
@@ -357,7 +353,6 @@ public class ImageRegionRequestHandlerTest {
     @Test
     public void testGetRegionDefCtxRegion()
         throws IllegalArgumentException, ServerError {
-        imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
@@ -374,8 +369,6 @@ public class ImageRegionRequestHandlerTest {
     @Test
     public void testGetRegionDefCtxNoTileOrRegion()
         throws IllegalArgumentException, ServerError {
-        imageRegionCtx.tile = null;
-        imageRegionCtx.region = null;
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
