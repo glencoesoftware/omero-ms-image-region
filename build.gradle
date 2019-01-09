@@ -81,7 +81,6 @@ dependencies {
         exclude group: 'org.testng', module: 'testng'
     }
     testCompile 'org.testng:testng:6.10'
-    testCompile 'org.mockito:mockito-core:2.+'
 }
 
 jar {

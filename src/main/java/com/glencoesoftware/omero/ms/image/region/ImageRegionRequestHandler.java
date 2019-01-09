@@ -554,60 +554,38 @@ public class ImageRegionRequestHandler {
         }
     }
 
-    protected RegionDef getMirroredRegionDef(int imageSizeX,
-        int imageSizeY,
-        int tileSizeX,
-        int tileSizeY,
-        int x, //Tile X position
-        int y, //Tile Y position
-        boolean mirrorX,
-        boolean mirrorY) {
-        log.debug("Getting mirrored tile RegionDef");
-        RegionDef regionDef = new RegionDef();
-        int edgeSizeX = imageSizeX % tileSizeX;
-        int edgeSizeY = imageSizeY % tileSizeY;
-        //Calculate number of tiles
-        int numTilesX = imageSizeX/tileSizeX;
-        if (edgeSizeX != 0)
-            numTilesX += 1;
-        int numTilesY = imageSizeY/tileSizeY;
-        if (edgeSizeY != 0)
-            numTilesY += 1;
-        if (mirrorX) {
-            regionDef.setX((numTilesX - 1 - x)*tileSizeX);
+    /**
+     * Update RegionDef to be mirrored if required.
+     * @param pixels pixels metadata
+     * @param tileSize XY tile sizes of the underlying pixels
+     * @param regionDef region definition to mirror if required
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    protected void mirrorRegionDef(
+            Pixels pixels, Dimension tileSize, RegionDef regionDef) {
+        log.debug("Mirroring tile RegionDef if required");
+        int sizeX = pixels.getSizeX();
+        int sizeY = pixels.getSizeY();
+        int edgeSizeX = sizeX % (int) tileSize.getWidth();
+        int edgeSizeY = sizeY % (int) tileSize.getHeight();
+        if (imageRegionCtx.mirrorX) {
+            regionDef.setX(
+                    sizeX - regionDef.getWidth() - regionDef.getX());
             //If post-mirror we will have the last tile, it may not be full
-            if (x == 0 && edgeSizeX != 0) {
-                regionDef.setWidth(imageSizeX % tileSizeX);
-            } else { //Just a standard size tile
-                regionDef.setWidth(tileSizeX);
-            }
-        } else{
-            regionDef.setX(x*tileSizeX);
-            //If it's the last tile, it may not be full
-            if (x == imageSizeX/tileSizeX - 1 && edgeSizeX != 0) {
+            if (regionDef.getX() == 0 && edgeSizeX != 0) {
                 regionDef.setWidth(edgeSizeX);
-            } else {
-                regionDef.setWidth(tileSizeX);
             }
         }
-        if (mirrorY) {
-            regionDef.setY((numTilesY - 1 - y)*tileSizeY);
+        if (imageRegionCtx.mirrorY) {
+            regionDef.setY(
+                    sizeY - regionDef.getHeight() - regionDef.getY());
             //If post-mirror we will have the last tile, it may not be full
-            if (y == 0 && edgeSizeY != 0) {
+            if (regionDef.getY() == 0 && edgeSizeY != 0) {
                 regionDef.setHeight(edgeSizeY);
-            } else { //Just a standard size tile
-                regionDef.setHeight(tileSizeY);
-            }
-        } else {
-            regionDef.setY(y*tileSizeY);
-            //If it's the last tile, it may not be full
-            if (y == imageSizeY/tileSizeY - 1 && edgeSizeY != 0) {
-                regionDef.setHeight(edgeSizeY);
-            } else {
-                regionDef.setHeight(tileSizeY);
             }
         }
-        return regionDef;
     }
 
     /**
@@ -623,8 +601,8 @@ public class ImageRegionRequestHandler {
             throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
+        Dimension tileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
-            Dimension tileSize = pixelBuffer.getTileSize();
             regionDef.setWidth((int) tileSize.getWidth());
             regionDef.setHeight((int) tileSize.getHeight());
             regionDef.setX(imageRegionCtx.tile.getX() * regionDef.getWidth());
@@ -641,15 +619,7 @@ public class ImageRegionRequestHandler {
             regionDef.setHeight(pixels.getSizeY());
             return regionDef;
         }
-        Dimension tileSize = pixelBuffer.getTileSize();
-        regionDef = getMirroredRegionDef(pixels.getSizeX(),
-            pixels.getSizeX(),
-            (int) tileSize.getWidth(),
-            (int) tileSize.getHeight(),
-            regionDef.getX() / regionDef.getWidth(), //Tile X position
-            regionDef.getY() / regionDef.getHeight(), //Tile Y position
-            imageRegionCtx.mirrorX,
-            imageRegionCtx.mirrorY);
+        mirrorRegionDef(pixels, tileSize, regionDef);
         return regionDef;
     }
 
