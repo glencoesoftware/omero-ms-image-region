@@ -21,7 +21,6 @@ package com.glencoesoftware.omero.ms.image.region;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
-import java.lang.Integer;
 import java.awt.Dimension;
 
 import io.vertx.core.MultiMap;
@@ -341,13 +340,13 @@ public class ImageRegionRequestHandlerTest {
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        int tileSide = 256;
-        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(tileSide, tileSide));
+        int tileSize = 256;
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(tileSize, tileSize));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
-        Assert.assertEquals(rdef.getX(), x*tileSide);
-        Assert.assertEquals(rdef.getX(), y*tileSide);
-        Assert.assertEquals(rdef.getWidth(), tileSide);
-        Assert.assertEquals(rdef.getHeight(), tileSide);
+        Assert.assertEquals(rdef.getX(), x * tileSize);
+        Assert.assertEquals(rdef.getX(), y * tileSize);
+        Assert.assertEquals(rdef.getWidth(), tileSize);
+        Assert.assertEquals(rdef.getHeight(), tileSize);
     }
 
     @Test
