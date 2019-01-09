@@ -20,25 +20,21 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import static org.mockito.Mockito.*;
 
-import java.util.ArrayList;
 import java.awt.Dimension;
-
-import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
-
-import org.testng.annotations.Test;
+import java.util.ArrayList;
 
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-import omeis.providers.re.data.RegionDef;
+import io.vertx.core.MultiMap;
+import io.vertx.core.http.CaseInsensitiveHeaders;
+import omero.ServerError;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-
-import omero.ServerError;
-
+import omeis.providers.re.data.RegionDef;
 
 
 public class ImageRegionRequestHandlerTest {
@@ -67,12 +63,10 @@ public class ImageRegionRequestHandlerTest {
                 null); //PixelsService pixService);
     }
 
-    private void testMirror(int[] src,
-        int sizeX,
-        int sizeY,
-        boolean mirrorX,
-        boolean mirrorY) {
-        int[] mirrored = ImageRegionRequestHandler.mirror(src, sizeX, sizeY, mirrorX, mirrorY);
+    private void testMirror(
+            int[] src, int sizeX, int sizeY, boolean mirrorX, boolean mirrorY) {
+        int[] mirrored = ImageRegionRequestHandler.mirror(
+                src, sizeX, sizeY, mirrorX, mirrorY);
         for (int n = 0; n < sizeX*sizeY; n++){
             int new_col;
             if (mirrorX) {
@@ -90,13 +84,11 @@ public class ImageRegionRequestHandlerTest {
             else {
                 new_row = n / sizeX;
             }
-            Assert.assertEquals(mirrored[new_row*sizeX + new_col], n);
+            Assert.assertEquals(mirrored[new_row * sizeX + new_col], n);
         }
     }
 
-    private void testAllMirrors(int[] src,
-        int sizeX,
-        int sizeY) {
+    private void testAllMirrors(int[] src, int sizeX, int sizeY) {
         boolean mirrorX = false;
         boolean mirrorY = true;
         testMirror(src, sizeX, sizeY, mirrorX, mirrorY);
@@ -114,8 +106,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorEvenSquare2() {
         int sizeX = 4;
         int sizeY = 4;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -125,8 +117,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorOddSquare(){
         int sizeX = 5;
         int sizeY = 5;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -136,8 +128,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorWideRectangle() {
         int sizeX = 7;
         int sizeY = 4;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -147,8 +139,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorTallRectangle() {
         int sizeX = 4;
         int sizeY = 7;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -158,8 +150,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorSingleWidthRectangle() {
         int sizeX = 7;
         int sizeY = 1;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -169,8 +161,8 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorSingleHeightRectangle() {
         int sizeX = 1;
         int sizeY = 7;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
@@ -180,25 +172,25 @@ public class ImageRegionRequestHandlerTest {
     public void testMirrorSingleEntry() {
         int sizeX = 1;
         int sizeY = 1;
-        int[] src = new int[sizeX*sizeY];
-        for (int n = 0; n < sizeX*sizeY; n++){
+        int[] src = new int[sizeX * sizeY];
+        for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
         testAllMirrors(src, sizeX, sizeY);
     }
 
-    @Test (expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMirrorNullImage() {
         ImageRegionRequestHandler.mirror(null, 4, 4, true, true);
     }
 
-    @Test (expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMirrorZeroXImage() {
         int[] src = {1};
         ImageRegionRequestHandler.mirror(src, 0, 4, true, true);
     }
 
-    @Test (expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMirrorZeroYImage() {
         int[] src = {1};
         ImageRegionRequestHandler.mirror(src, 4, 0, true, true);
@@ -206,7 +198,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDef() {
-        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef originalRegion = new RegionDef(1, 1, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1024,
             1024,
@@ -224,7 +216,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefX() {
-        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef originalRegion = new RegionDef(1, 1, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1024,
             1024,
@@ -242,7 +234,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefY() {
-        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef originalRegion = new RegionDef(1, 1, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1024,
             1024,
@@ -260,7 +252,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefXY() {
-        RegionDef originalRegion = new RegionDef(1,1,256,256);
+        RegionDef originalRegion = new RegionDef(1, 1, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1024,
             1024,
@@ -278,7 +270,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefXEdge() {
-        RegionDef originalRegion = new RegionDef(0,1,256,256);
+        RegionDef originalRegion = new RegionDef(0, 1, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1023,
             1024,
@@ -296,7 +288,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefYEdge() {
-        RegionDef originalRegion = new RegionDef(1,0,256,256);
+        RegionDef originalRegion = new RegionDef(1, 0, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1024,
             1023,
@@ -314,7 +306,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetMirroredRegionDefXYEdge() {
-        RegionDef originalRegion = new RegionDef(0,0,256,256);
+        RegionDef originalRegion = new RegionDef(0, 0, 256, 256);
         RegionDef finalDef = reqHandler.getMirroredRegionDef(
             1023,
             1023,
@@ -332,7 +324,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxTile()
-        throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException, ServerError {
         int x = 2;
         int y = 2;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
@@ -341,7 +333,8 @@ public class ImageRegionRequestHandlerTest {
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         int tileSize = 256;
-        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * tileSize);
         Assert.assertEquals(rdef.getY(), y * tileSize);
@@ -351,28 +344,29 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxRegion()
-        throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException, ServerError {
         imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
         Assert.assertEquals(rdef.getY(), imageRegionCtx.region.getY());
         Assert.assertEquals(rdef.getWidth(), imageRegionCtx.region.getWidth());
-        Assert.assertEquals(rdef.getHeight(), imageRegionCtx.region.getHeight());
+        Assert.assertEquals(
+                rdef.getHeight(), imageRegionCtx.region.getHeight());
     }
 
     @Test
     public void testGetRegionDefCtxNoTileOrRegion()
-        throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException, ServerError {
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(rdef.getX(), 0);
         Assert.assertEquals(rdef.getY(), 0);
