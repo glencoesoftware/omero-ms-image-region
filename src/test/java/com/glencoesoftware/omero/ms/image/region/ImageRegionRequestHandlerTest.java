@@ -20,8 +20,6 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import static org.mockito.Mockito.*;
 
-import java.io.IOException;
-import java.util.Map;
 import java.util.ArrayList;
 import java.lang.Integer;
 import java.awt.Dimension;
