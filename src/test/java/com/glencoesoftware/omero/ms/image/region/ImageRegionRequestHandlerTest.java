@@ -44,8 +44,9 @@ import omero.ServerError;
 
 public class ImageRegionRequestHandlerTest {
 
-    private ImageRegionCtx imageRegionCtx = null;
-    private ImageRegionRequestHandler reqHandler = null;
+    private ImageRegionCtx imageRegionCtx;
+
+    private ImageRegionRequestHandler reqHandler;
 
     @BeforeMethod
     public void setUp() {
