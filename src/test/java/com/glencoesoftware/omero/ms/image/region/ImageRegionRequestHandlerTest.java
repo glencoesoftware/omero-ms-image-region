@@ -340,9 +340,9 @@ public class ImageRegionRequestHandlerTest {
         int x = 2;
         int y = 2;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
-        Pixels pixels = mock(Pixels.class);
-        when(pixels.getSizeX()).thenReturn(new Integer(1024));
-        when(pixels.getSizeY()).thenReturn(new Integer(1024));
+        Pixels pixels = new Pixels();
+        pixels.setSizeX(1024);
+        pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         int tileSide = 256;
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(tileSide, tileSide));
@@ -358,9 +358,9 @@ public class ImageRegionRequestHandlerTest {
         throws IllegalArgumentException, ServerError {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
-        Pixels pixels = mock(Pixels.class);
-        when(pixels.getSizeX()).thenReturn(new Integer(1024));
-        when(pixels.getSizeY()).thenReturn(new Integer(1024));
+        Pixels pixels = new Pixels();
+        pixels.setSizeX(1024);
+        pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
@@ -375,9 +375,9 @@ public class ImageRegionRequestHandlerTest {
         throws IllegalArgumentException, ServerError {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = null;
-        Pixels pixels = mock(Pixels.class);
-        when(pixels.getSizeX()).thenReturn(new Integer(1024));
-        when(pixels.getSizeY()).thenReturn(new Integer(1024));
+        Pixels pixels = new Pixels();
+        pixels.setSizeX(1024);
+        pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256,256));
         RegionDef rdef = reqHandler.getRegionDef(pixels, pixelBuffer);
