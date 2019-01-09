@@ -35,6 +35,8 @@ import org.testng.annotations.BeforeMethod;
 import omeis.providers.re.data.RegionDef;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
+import ome.model.enums.Family;
+import ome.model.enums.RenderingModel;
 
 import omero.ServerError;
 
@@ -62,8 +64,8 @@ public class ImageRegionRequestHandlerTest {
         reqHandler = new ImageRegionRequestHandler(
                 imageRegionCtx,
                 null, //ApplicationContext context,
-                new ArrayList(), //List<Family> families,
-                new ArrayList(), //List<RenderingModel> renderingModels,
+                new ArrayList<Family>(),
+                new ArrayList<RenderingModel>(),
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
                 null); //PixelsService pixService);
