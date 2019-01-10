@@ -562,13 +562,12 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void truncateRegionDef(
-            Pixels pixels, RegionDef regionDef) {
+    protected void truncateRegionDef(Pixels pixels, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
-        int sizeX = pixels.getSizeX();
-        int sizeY = pixels.getSizeY();
-        regionDef.setWidth(Math.min(regionDef.getWidth(), sizeX - regionDef.getX()));
-        regionDef.setHeight(Math.min(regionDef.getHeight(), sizeY - regionDef.getY()));
+        regionDef.setWidth(Math.min(
+                regionDef.getWidth(), pixels.getSizeX() - regionDef.getX()));
+        regionDef.setHeight(Math.min(
+                regionDef.getHeight(), pixels.getSizeY() - regionDef.getY()));
     }
 
     /**
@@ -580,8 +579,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void mirrorRegionDef(
-            Pixels pixels, RegionDef regionDef) {
+    protected void mirrorRegionDef(Pixels pixels, RegionDef regionDef) {
         log.debug("Mirroring tile RegionDef if required");
         int sizeX = pixels.getSizeX();
         int sizeY = pixels.getSizeY();
