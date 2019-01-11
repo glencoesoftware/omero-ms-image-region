@@ -384,8 +384,8 @@ public class ImageRegionRequestHandler {
         RegionDef region = planeDef.getRegion();
         int sizeX = region != null? region.getWidth() : pixels.getSizeX();
         int sizeY = region != null? region.getHeight() : pixels.getSizeY();
-        buf = mirror(buf, sizeX, sizeY,
-                imageRegionCtx.mirrorX, imageRegionCtx.mirrorY);
+        buf = flip(buf, sizeX, sizeY,
+                imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
         BufferedImage image = ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
         );
@@ -417,31 +417,31 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Mirror an image over the X, Y or both axes.
+     * Flip an image horizontally, vertically, or both.
      * @param src source image buffer
      * @param sizeX size of <code>src</code> in X (number of columns)
      * @param sizeY size of <code>src</code> in Y (number of rows)
-     * @param mirrorX whether or not to mirror the image over the X axis
-     * @param mirrorY whether or not to mirror the image over the Y axis
-     * @return Newly allocated buffer with mirroring applied or <code>src</code>
-     * if no mirroring has been requested.
+     * @param flipHorizontal whether or not to flip the image horizontally
+     * @param flipVertical whether or not to flip the image vertically
+     * @return Newly allocated buffer with flipping applied or <code>src</code>
+     * if no flipping has been requested.
      */
-    public static int[] mirror(
-            int[] src, int sizeX, int sizeY, boolean mirrorX, boolean mirrorY) {
-        if (!mirrorX && !mirrorY) {
+    public static int[] flip(
+            int[] src, int sizeX, int sizeY, boolean flipHorizontal, boolean flipVertical) {
+        if (!flipHorizontal && !flipVertical) {
             return src;
         }
 
         if (src == null) {
-            throw new IllegalArgumentException("Attempted to mirror null image");
+            throw new IllegalArgumentException("Attempted to flip null image");
         } else if (sizeX == 0 || sizeY == 0) {
-            throw new IllegalArgumentException("Attempted to mirror image with 0 size");
+            throw new IllegalArgumentException("Attempted to flip image with 0 size");
         }
 
         int[] dest = new int[src.length];
         int srcIndex, destIndex;
-        int xOffset = mirrorX? sizeX : 1;
-        int yOffset = mirrorY? sizeY : 1;
+        int xOffset = flipHorizontal? sizeX : 1;
+        int yOffset = flipVertical? sizeY : 1;
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {
                 srcIndex = (y * sizeX) + x;
@@ -571,23 +571,23 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Update RegionDef to be mirrored if required.
+     * Update RegionDef to be flipped if required.
      * @param pixels pixels metadata
      * @param tileSize XY tile sizes of the underlying pixels
-     * @param regionDef region definition to mirror if required
+     * @param regionDef region definition to flip if required
      * @throws IllegalArgumentException
      * @throws ServerError
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void mirrorRegionDef(Pixels pixels, RegionDef regionDef) {
-        log.debug("Mirroring tile RegionDef if required");
+    protected void flipRegionDef(Pixels pixels, RegionDef regionDef) {
+        log.debug("Flipping tile RegionDef if required");
         int sizeX = pixels.getSizeX();
         int sizeY = pixels.getSizeY();
-        if (imageRegionCtx.mirrorX) {
+        if (imageRegionCtx.flipHorizontal) {
             regionDef.setX(
                     sizeX - regionDef.getWidth() - regionDef.getX());
         }
-        if (imageRegionCtx.mirrorY) {
+        if (imageRegionCtx.flipVertical) {
             regionDef.setY(
                     sizeY - regionDef.getHeight() - regionDef.getY());
         }
@@ -625,7 +625,7 @@ public class ImageRegionRequestHandler {
             return regionDef;
         }
         truncateRegionDef(pixels, regionDef);
-        mirrorRegionDef(pixels, regionDef);
+        flipRegionDef(pixels, regionDef);
         return regionDef;
     }
 

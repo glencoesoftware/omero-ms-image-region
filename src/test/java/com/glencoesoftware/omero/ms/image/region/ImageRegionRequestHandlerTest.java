@@ -63,135 +63,135 @@ public class ImageRegionRequestHandlerTest {
                 null); //PixelsService pixService);
     }
 
-    private void testMirror(
-            int[] src, int sizeX, int sizeY, boolean mirrorX, boolean mirrorY) {
-        int[] mirrored = ImageRegionRequestHandler.mirror(
-                src, sizeX, sizeY, mirrorX, mirrorY);
+    private void testFlip(
+            int[] src, int sizeX, int sizeY, boolean flipHorizontal, boolean flipVertical) {
+        int[] flipped = ImageRegionRequestHandler.flip(
+                src, sizeX, sizeY, flipHorizontal, flipVertical);
         for (int n = 0; n < sizeX * sizeY; n++){
             int new_col;
-            if (mirrorX) {
+            if (flipHorizontal) {
                 int old_col = n % sizeX;
                 new_col = sizeX - 1 - old_col;
             } else {
                 new_col = n % sizeX;
             }
             int new_row;
-            if (mirrorY) {
+            if (flipVertical) {
                 int old_row = n / sizeX;
                 new_row = sizeY - 1 - old_row;
             } else {
                 new_row = n / sizeX;
             }
-            Assert.assertEquals(mirrored[new_row * sizeX + new_col], n);
+            Assert.assertEquals(flipped[new_row * sizeX + new_col], n);
         }
     }
 
-    private void testAllMirrors(int[] src, int sizeX, int sizeY) {
-        boolean mirrorX = false;
-        boolean mirrorY = true;
-        testMirror(src, sizeX, sizeY, mirrorX, mirrorY);
+    private void testAllFlips(int[] src, int sizeX, int sizeY) {
+        boolean flipHorizontal = false;
+        boolean flipVertical = true;
+        testFlip(src, sizeX, sizeY, flipHorizontal, flipVertical);
 
-        mirrorX = true; 
-        mirrorY = false;
-        testMirror(src, sizeX, sizeY, mirrorX, mirrorY);
+        flipHorizontal = true;
+        flipVertical = false;
+        testFlip(src, sizeX, sizeY, flipHorizontal, flipVertical);
 
-        mirrorX = true; 
-        mirrorY = true;
-        testMirror(src, sizeX, sizeY, mirrorX, mirrorY);
+        flipHorizontal = true;
+        flipVertical = true;
+        testFlip(src, sizeX, sizeY, flipHorizontal, flipVertical);
     }
 
     @Test
-    public void testMirrorEvenSquare2() {
+    public void testFlipEvenSquare2() {
         int sizeX = 4;
         int sizeY = 4;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorOddSquare(){
+    public void testFlipOddSquare(){
         int sizeX = 5;
         int sizeY = 5;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorWideRectangle() {
+    public void testFlipWideRectangle() {
         int sizeX = 7;
         int sizeY = 4;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorTallRectangle() {
+    public void testFlipTallRectangle() {
         int sizeX = 4;
         int sizeY = 7;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorSingleWidthRectangle() {
+    public void testFlipSingleWidthRectangle() {
         int sizeX = 7;
         int sizeY = 1;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorSingleHeightRectangle() {
+    public void testFlipSingleHeightRectangle() {
         int sizeX = 1;
         int sizeY = 7;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test
-    public void testMirrorSingleEntry() {
+    public void testFlipSingleEntry() {
         int sizeX = 1;
         int sizeY = 1;
         int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
             src[n] = n;
         }
-        testAllMirrors(src, sizeX, sizeY);
+        testAllFlips(src, sizeX, sizeY);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMirrorNullImage() {
-        ImageRegionRequestHandler.mirror(null, 4, 4, true, true);
+    public void testFlipNullImage() {
+        ImageRegionRequestHandler.flip(null, 4, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMirrorZeroXImage() {
+    public void testFlipZeroXImage() {
         int[] src = {1};
-        ImageRegionRequestHandler.mirror(src, 0, 4, true, true);
+        ImageRegionRequestHandler.flip(src, 0, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMirrorZeroYImage() {
+    public void testFlipZeroYImage() {
         int[] src = {1};
-        ImageRegionRequestHandler.mirror(src, 4, 0, true, true);
+        ImageRegionRequestHandler.flip(src, 4, 0, true, true);
     }
 
     @Test
@@ -363,17 +363,17 @@ public class ImageRegionRequestHandlerTest {
                 rdef.getHeight(), 1024 - rdef.getY());
     }
 
-//Test Mirroring
+//Test Flipping
     @Test
-    public void testMirrorRegionDefMirrorX() throws ServerError{
+    public void testFlipRegionDefFlipH() throws ServerError{
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
-        imageRegionCtx.mirrorX = true;
-        imageRegionCtx.mirrorY = false;
+        imageRegionCtx.flipHorizontal = true;
+        imageRegionCtx.flipVertical = false;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 624);
         Assert.assertEquals(regionDef.getY(), 200);
@@ -382,15 +382,15 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirrorY() throws ServerError{
+    public void testFlipRegionDefFlipV() throws ServerError{
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
-        imageRegionCtx.mirrorX = false;
-        imageRegionCtx.mirrorY = true;
+        imageRegionCtx.flipHorizontal = false;
+        imageRegionCtx.flipVertical = true;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 100);
         Assert.assertEquals(regionDef.getY(), 424);
@@ -399,15 +399,15 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirrorXY() throws ServerError{
+    public void testFlipRegionDefFlipHV() throws ServerError{
         Pixels pixels = new Pixels();
         pixels.setSizeX(1024);
         pixels.setSizeY(1024);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
-        imageRegionCtx.mirrorX = true;
-        imageRegionCtx.mirrorY = true;
+        imageRegionCtx.flipHorizontal = true;
+        imageRegionCtx.flipVertical = true;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 624);
         Assert.assertEquals(regionDef.getY(), 424);
@@ -416,7 +416,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirorXEdge() throws ServerError{
+    public void testFlipRegionDefMirorXEdge() throws ServerError{
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 1024, 1024);
         Pixels pixels = new Pixels();
@@ -424,8 +424,8 @@ public class ImageRegionRequestHandlerTest {
         pixels.setSizeY(768);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
-        imageRegionCtx.mirrorX = true;
-        imageRegionCtx.mirrorY = false;
+        imageRegionCtx.flipHorizontal = true;
+        imageRegionCtx.flipVertical = false;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
@@ -458,7 +458,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirorYEdge() throws ServerError{
+    public void testFlipRegionDefMirorYEdge() throws ServerError{
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         Pixels pixels = new Pixels();
@@ -466,7 +466,7 @@ public class ImageRegionRequestHandlerTest {
         pixels.setSizeY(768);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
-        imageRegionCtx.mirrorY = true;
+        imageRegionCtx.flipVertical = true;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 256);
@@ -499,7 +499,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testMirrorRegionDefMirorXYEdge() throws ServerError{
+    public void testFlipRegionDefMirorXYEdge() throws ServerError{
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         Pixels pixels = new Pixels();
@@ -507,8 +507,8 @@ public class ImageRegionRequestHandlerTest {
         pixels.setSizeY(768);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
-        imageRegionCtx.mirrorX = true;
-        imageRegionCtx.mirrorY = true;
+        imageRegionCtx.flipHorizontal = true;
+        imageRegionCtx.flipVertical = true;
         RegionDef regionDef = reqHandler.getRegionDef(pixels, pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 256);
