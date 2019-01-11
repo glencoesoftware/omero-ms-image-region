@@ -112,9 +112,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
-        imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("theZ"));
-        t = Integer.parseInt(params.get("theT"));
+        getImageIdFromString(getCheckedParam(params, "imageId"));
+        z = getIntegerFromString(getCheckedParam(params, "theZ"));
+        t = getIntegerFromString(getCheckedParam(params, "theT"));
         getTileFromString(params.get("tile"));
         getRegionFromString(params.get("region"));
         getChannelInfoFromString(params.get("c"));
@@ -136,6 +136,46 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}", imageId, z, t, tile, channels, windows, colors,
                 m, format);
+    }
+
+    private String getCheckedParam(MultiMap params, String key)
+        throws IllegalArgumentException {
+        String value = params.get(key);
+        if (null == value) {
+            throw new IllegalArgumentException("Missing parameter '"
+                + key + "'");
+        }
+        return value;
+    }
+
+    /**
+     * Parse a string to Long and set ast the image ID.
+     * @param imageIdString string
+     */
+    private void getImageIdFromString(String imageIdString)
+        throws IllegalArgumentException{
+        try {
+            imageId = Long.parseLong(imageIdString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Incorrect format for "
+                + "imageid parameter '" + imageIdString + "'");
+        }
+    }
+
+    /**
+     * Parse a string to Integer and return it
+     * @param imageIdString string
+     */
+    private Integer getIntegerFromString(String intString)
+        throws IllegalArgumentException{
+        Integer i = null;
+        try {
+            i = Integer.parseInt(intString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Incorrect format for "
+                + "parameter value '" + intString + "'");
+        }
+        return i;
     }
 
     /**
