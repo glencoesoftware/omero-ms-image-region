@@ -112,6 +112,13 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
+        assignParams(params);
+    }
+
+    ImageRegionCtx(String omeroSessionKey){
+    }
+
+    public void assignParams(MultiMap params) throws IllegalArgumentException {
         getImageIdFromString(getCheckedParam(params, "imageId"));
         z = getIntegerFromString(getCheckedParam(params, "theZ"));
         t = getIntegerFromString(getCheckedParam(params, "theT"));
@@ -204,12 +211,22 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             return;
         }
         String[] regionSplit = regionString.split(",", -1);
-        region = new RegionDef(
-            Integer.parseInt(regionSplit[0]),
-            Integer.parseInt(regionSplit[1]),
-            Integer.parseInt(regionSplit[2]),
-            Integer.parseInt(regionSplit[3])
-        );
+        if (regionSplit.length != 4) {
+            throw new IllegalArgumentException("Region string format incorrect. "
+                + "Should be 'x,y,w,h'");
+        }
+        try {
+            region = new RegionDef(
+                Integer.parseInt(regionSplit[0]),
+                Integer.parseInt(regionSplit[1]),
+                Integer.parseInt(regionSplit[2]),
+                Integer.parseInt(regionSplit[3])
+            );
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Improper number formatting "
+                + "in region string " + regionString);
+        }
     }
 
     /**

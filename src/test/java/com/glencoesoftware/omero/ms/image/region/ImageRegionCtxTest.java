@@ -118,6 +118,7 @@ public class ImageRegionCtxTest {
         missingParams.add("imageId", "1");
         missingParams.add("theZ", "1");
         missingParams.add("theT", "1");
+        missingParams.add("region", "1,2,3,4");
 
         ImageRegionCtx imageCtx = new ImageRegionCtx(missingParams, "");
     }
@@ -130,11 +131,45 @@ public class ImageRegionCtxTest {
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testImageIdFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("imageId", "abc");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMissingTheZ()
             throws JsonParseException, JsonMappingException, IOException {
-        MultiMap missingParams = MultiMap.caseInsensitiveMultiMap();
+        params.remove("theZ");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
 
-        ImageRegionCtx imageCtx = new ImageRegionCtx(missingParams, "");
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTheZFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("theZ", "abc");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMissingTheT()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("theT");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTheTFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("theT", "abc");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testRegionFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("region", "1,2,3,abc");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
     }
 
     @Test
