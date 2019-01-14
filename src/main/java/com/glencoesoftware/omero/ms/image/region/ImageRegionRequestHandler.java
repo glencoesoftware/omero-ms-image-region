@@ -427,7 +427,8 @@ public class ImageRegionRequestHandler {
      * if no flipping has been requested.
      */
     public static int[] flip(
-            int[] src, int sizeX, int sizeY, boolean flipHorizontal, boolean flipVertical) {
+            int[] src, int sizeX, int sizeY,
+            boolean flipHorizontal, boolean flipVertical) {
         if (!flipHorizontal && !flipVertical) {
             return src;
         }

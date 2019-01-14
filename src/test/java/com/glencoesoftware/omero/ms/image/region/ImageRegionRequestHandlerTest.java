@@ -64,7 +64,8 @@ public class ImageRegionRequestHandlerTest {
     }
 
     private void testFlip(
-            int[] src, int sizeX, int sizeY, boolean flipHorizontal, boolean flipVertical) {
+            int[] src, int sizeX, int sizeY,
+            boolean flipHorizontal, boolean flipVertical) {
         int[] flipped = ImageRegionRequestHandler.flip(
                 src, sizeX, sizeY, flipHorizontal, flipVertical);
         for (int n = 0; n < sizeX * sizeY; n++){
