@@ -93,6 +93,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Rendering output format */
     public String format;
 
+    /** Whether or not to flip horizontally */
+    public boolean flipHorizontal;
+
+    /** Whether or not to flip vertically */
+    public boolean flipVertical;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -117,6 +123,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getInvertedAxisFromString(params.get("ia"));
         getProjectionFromString(params.get("p"));
         String maps = params.get("maps");
+        String flip = Optional.ofNullable(params.get("flip"))
+                .orElse("").toLowerCase();
+        flipHorizontal = flip.contains("h");
+        flipVertical = flip.contains("v");
         if (maps != null) {
             this.maps = Json.decodeValue(maps, List.class);
         }

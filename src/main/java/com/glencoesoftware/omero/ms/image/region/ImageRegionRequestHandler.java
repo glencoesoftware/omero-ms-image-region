@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import java.lang.IllegalArgumentException;
+import java.lang.Math;
+
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.spi.IIORegistry;
@@ -52,7 +55,6 @@ import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
-import ome.model.enums.ProjectionType;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
@@ -117,7 +119,9 @@ public class ImageRegionRequestHandler {
     public ImageRegionRequestHandler(
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
-            LutProvider lutProvider) {
+            LutProvider lutProvider,
+            PixelsService pixService,
+            LocalCompress compSrv) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
@@ -125,10 +129,9 @@ public class ImageRegionRequestHandler {
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
 
-        pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        pixelsService = pixService;
         projectionService = new ProjectionService();
-        compressionSrv =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
+        compressionSrv = compSrv;
     }
 
     /**
@@ -381,6 +384,8 @@ public class ImageRegionRequestHandler {
         RegionDef region = planeDef.getRegion();
         int sizeX = region != null? region.getWidth() : pixels.getSizeX();
         int sizeY = region != null? region.getHeight() : pixels.getSizeY();
+        buf = flip(buf, sizeX, sizeY,
+                imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
         BufferedImage image = ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
         );
@@ -409,6 +414,44 @@ public class ImageRegionRequestHandler {
         }
         log.error("Unknown format {}", imageRegionCtx.format);
         return null;
+    }
+
+    /**
+     * Flip an image horizontally, vertically, or both.
+     * @param src source image buffer
+     * @param sizeX size of <code>src</code> in X (number of columns)
+     * @param sizeY size of <code>src</code> in Y (number of rows)
+     * @param flipHorizontal whether or not to flip the image horizontally
+     * @param flipVertical whether or not to flip the image vertically
+     * @return Newly allocated buffer with flipping applied or <code>src</code>
+     * if no flipping has been requested.
+     */
+    public static int[] flip(
+            int[] src, int sizeX, int sizeY,
+            boolean flipHorizontal, boolean flipVertical) {
+        if (!flipHorizontal && !flipVertical) {
+            return src;
+        }
+
+        if (src == null) {
+            throw new IllegalArgumentException("Attempted to flip null image");
+        } else if (sizeX == 0 || sizeY == 0) {
+            throw new IllegalArgumentException("Attempted to flip image with 0 size");
+        }
+
+        int[] dest = new int[src.length];
+        int srcIndex, destIndex;
+        int xOffset = flipHorizontal? sizeX : 1;
+        int yOffset = flipVertical? sizeY : 1;
+        for (int x = 0; x < sizeX; x++) {
+            for (int y = 0; y < sizeY; y++) {
+                srcIndex = (y * sizeX) + x;
+                destIndex = Math.abs(((yOffset - y - 1) * sizeX))
+                        + Math.abs((xOffset - x - 1));
+                dest[destIndex] = src[srcIndex];
+            }
+        }
+        return dest;
     }
 
     /**
@@ -514,6 +557,44 @@ public class ImageRegionRequestHandler {
     }
 
     /**
+     * Update RegionDef to fit within the image boundaries.
+     * @param pixels pixels metadata
+     * @param regionDef region definition to truncate if required
+     * @throws IllegalArgumentException
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    protected void truncateRegionDef(Pixels pixels, RegionDef regionDef) {
+        log.debug("Truncating RegionDef if required");
+        regionDef.setWidth(Math.min(
+                regionDef.getWidth(), pixels.getSizeX() - regionDef.getX()));
+        regionDef.setHeight(Math.min(
+                regionDef.getHeight(), pixels.getSizeY() - regionDef.getY()));
+    }
+
+    /**
+     * Update RegionDef to be flipped if required.
+     * @param pixels pixels metadata
+     * @param tileSize XY tile sizes of the underlying pixels
+     * @param regionDef region definition to flip if required
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    protected void flipRegionDef(Pixels pixels, RegionDef regionDef) {
+        log.debug("Flipping tile RegionDef if required");
+        int sizeX = pixels.getSizeX();
+        int sizeY = pixels.getSizeY();
+        if (imageRegionCtx.flipHorizontal) {
+            regionDef.setX(
+                    sizeX - regionDef.getWidth() - regionDef.getX());
+        }
+        if (imageRegionCtx.flipVertical) {
+            regionDef.setY(
+                    sizeY - regionDef.getHeight() - regionDef.getY());
+        }
+    }
+
+    /**
      * Returns RegionDef to read based on tile / region provided in
      * ImageRegionCtx.
      * @param pixels pixels metadata
@@ -522,12 +603,12 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @throws ServerError
      */
-    private RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
+    protected RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
             throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
+        Dimension tileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
-            Dimension tileSize = pixelBuffer.getTileSize();
             regionDef.setWidth((int) tileSize.getWidth());
             regionDef.setHeight((int) tileSize.getHeight());
             regionDef.setX(imageRegionCtx.tile.getX() * regionDef.getWidth());
@@ -542,7 +623,10 @@ public class ImageRegionRequestHandler {
             regionDef.setY(0);
             regionDef.setWidth(pixels.getSizeX());
             regionDef.setHeight(pixels.getSizeY());
+            return regionDef;
         }
+        truncateRegionDef(pixels, regionDef);
+        flipRegionDef(pixels, regionDef);
         return regionDef;
     }
 

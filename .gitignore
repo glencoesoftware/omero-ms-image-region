@@ -10,3 +10,6 @@ target
 
 .DS_Store
 */.DS_Store
+
+#vim
+*.swp
