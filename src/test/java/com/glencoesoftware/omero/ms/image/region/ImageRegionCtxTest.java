@@ -111,18 +111,6 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1]);
     }
 
-    @Test
-    public void testArgParsing()
-            throws JsonParseException, JsonMappingException, IOException {
-        MultiMap missingParams = MultiMap.caseInsensitiveMultiMap();
-        missingParams.add("imageId", "1");
-        missingParams.add("theZ", "1");
-        missingParams.add("theT", "1");
-        missingParams.add("region", "1,2,3,4");
-
-        ImageRegionCtx imageCtx = new ImageRegionCtx(missingParams, "");
-    }
-
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMissingImageId()
             throws JsonParseException, JsonMappingException, IOException {
@@ -169,6 +157,34 @@ public class ImageRegionCtxTest {
     public void testRegionFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.add("region", "1,2,3,abc");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormatActive()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormatRange()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("c", "-1|0:65535$0000FF,1|abc:51199$00FF00,3|3218:26623$FF0000");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testQualityFormat()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.add("q", "abc");
         ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
     }
 

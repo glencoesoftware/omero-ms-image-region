@@ -244,36 +244,41 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         windows = new ArrayList<Float[]>();
         colors = new ArrayList<String>();
         for (String channel : channelArray) {
-            // chan  1|12:1386r$0000FF
-            // temp ['1', '12:1386r$0000FF']
-            String[] temp = channel.split("\\|", 2);
-            String active = temp[0];
-            String color = null;
-            Float[] range = new Float[2];
-            String window = null;
-            // temp = '1'
-            // Not normally used...
-            if (active.indexOf("$") >= 0) {
-                String[] split = active.split("\\$", -1);
-                active = split[0];
-                color = split[1];
-            }
-            channels.add(Integer.parseInt(active));
-            if (temp.length > 1) {
-                if (temp[1].indexOf("$") >= 0) {
-                    window = temp[1].split("\\$")[0];
-                    color = temp[1].split("\\$")[1];
+            try {
+                // chan  1|12:1386r$0000FF
+                // temp ['1', '12:1386r$0000FF']
+                String[] temp = channel.split("\\|", 2);
+                String active = temp[0];
+                String color = null;
+                Float[] range = new Float[2];
+                String window = null;
+                // temp = '1'
+                // Not normally used...
+                if (active.indexOf("$") >= 0) {
+                    String[] split = active.split("\\$", -1);
+                    active = split[0];
+                    color = split[1];
                 }
-                String[] rangeStr = window.split(":");
-                if (rangeStr.length > 1) {
-                    range[0] = Float.parseFloat(rangeStr[0]);
-                    range[1] = Float.parseFloat(rangeStr[1]);
+                channels.add(Integer.parseInt(active));
+                if (temp.length > 1) {
+                    if (temp[1].indexOf("$") >= 0) {
+                        window = temp[1].split("\\$")[0];
+                        color = temp[1].split("\\$")[1];
+                    }
+                    String[] rangeStr = window.split(":");
+                    if (rangeStr.length > 1) {
+                        range[0] = Float.parseFloat(rangeStr[0]);
+                        range[1] = Float.parseFloat(rangeStr[1]);
+                    }
                 }
+                colors.add(color);
+                windows.add(range);
+                log.debug("Adding channel: {}, color: {}, window: {}",
+                        active, color, window);
+            } catch (Exception e)  {
+                throw new IllegalArgumentException("Failed to parse channel '"
+                    + channel + "'");
             }
-            colors.add(color);
-            windows.add(range);
-            log.debug("Adding channel: {}, color: {}, window: {}",
-                    active, color, window);
         }
     }
 
