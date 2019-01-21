@@ -260,7 +260,6 @@ public class ImageRegionRequestHandler {
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
             planeDef.setZ(imageRegionCtx.z);
-            planeDef.setRegion(getRegionDef(pixels, pixelBuffer));
 
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
@@ -273,6 +272,7 @@ public class ImageRegionRequestHandler {
                 resolutionLevels.add(
                         Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
             }
+            planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
             setResolutionLevel(renderer, resolutionLevels);
             if (imageRegionCtx.compressionQuality != null) {
                 compressionSrv.setCompressionLevel(
@@ -558,32 +558,33 @@ public class ImageRegionRequestHandler {
 
     /**
      * Update RegionDef to fit within the image boundaries.
-     * @param pixels pixels metadata
+     * @param sizeX width of the image at the current resolution
+     * @param sizeY height of the image at the current resolution
      * @param regionDef region definition to truncate if required
      * @throws IllegalArgumentException
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void truncateRegionDef(Pixels pixels, RegionDef regionDef) {
+    protected void truncateRegionDef(
+            int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
         regionDef.setWidth(Math.min(
-                regionDef.getWidth(), pixels.getSizeX() - regionDef.getX()));
+                regionDef.getWidth(), sizeX - regionDef.getX()));
         regionDef.setHeight(Math.min(
-                regionDef.getHeight(), pixels.getSizeY() - regionDef.getY()));
+                regionDef.getHeight(), sizeY - regionDef.getY()));
     }
 
     /**
      * Update RegionDef to be flipped if required.
-     * @param pixels pixels metadata
+     * @param sizeX width of the image at the current resolution
+     * @param sizeY height of the image at the current resolution
      * @param tileSize XY tile sizes of the underlying pixels
      * @param regionDef region definition to flip if required
      * @throws IllegalArgumentException
      * @throws ServerError
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void flipRegionDef(Pixels pixels, RegionDef regionDef) {
+    protected void flipRegionDef(int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Flipping tile RegionDef if required");
-        int sizeX = pixels.getSizeX();
-        int sizeY = pixels.getSizeY();
         if (imageRegionCtx.flipHorizontal) {
             regionDef.setX(
                     sizeX - regionDef.getWidth() - regionDef.getX());
@@ -597,15 +598,20 @@ public class ImageRegionRequestHandler {
     /**
      * Returns RegionDef to read based on tile / region provided in
      * ImageRegionCtx.
-     * @param pixels pixels metadata
+     * @param resolutionLevels complete definition of all resolution levels
      * @param pixelBuffer raw pixel data access buffer
      * @return RegionDef {@link RegionDef} describing image region to read
      * @throws IllegalArgumentException
      * @throws ServerError
      */
-    protected RegionDef getRegionDef(Pixels pixels, PixelBuffer pixelBuffer)
-            throws IllegalArgumentException, ServerError {
+    protected RegionDef getRegionDef(
+            List<List<Integer>> resolutionLevels, PixelBuffer pixelBuffer)
+                    throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
+        int resolution =
+                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
+        int sizeX = resolutionLevels.get(resolution).get(0);
+        int sizeY = resolutionLevels.get(resolution).get(1);
         RegionDef regionDef = new RegionDef();
         Dimension tileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
@@ -621,12 +627,12 @@ public class ImageRegionRequestHandler {
         } else {
             regionDef.setX(0);
             regionDef.setY(0);
-            regionDef.setWidth(pixels.getSizeX());
-            regionDef.setHeight(pixels.getSizeY());
+            regionDef.setWidth(sizeX);
+            regionDef.setHeight(sizeY);
             return regionDef;
         }
-        truncateRegionDef(pixels, regionDef);
-        flipRegionDef(pixels, regionDef);
+        truncateRegionDef(sizeX, sizeY, regionDef);
+        flipRegionDef(sizeX, sizeY, regionDef);
         return regionDef;
     }
 
