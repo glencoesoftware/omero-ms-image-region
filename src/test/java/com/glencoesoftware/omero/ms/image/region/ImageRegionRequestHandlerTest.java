@@ -571,4 +571,31 @@ public class ImageRegionRequestHandlerTest {
         Assert.assertEquals(regionDef.getHeight(), 256);
     }
 
+//Test Resolution Selection
+    @Test
+    public void testSelectResolution()
+            throws IllegalArgumentException, ServerError {
+        int x = 100;
+        int y = 200;
+        imageRegionCtx.tile = null;
+        imageRegionCtx.region = new RegionDef(x, y, 400, 500);
+        imageRegionCtx.resolution = 1;
+        List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
+        List<Integer> resolutionLevel =
+                Arrays.asList(new Integer[] { 1024, 1024 });
+        resolutionLevels.add(resolutionLevel);
+        resolutionLevel = Arrays.asList(new Integer[] {256, 512});
+        resolutionLevels.add(resolutionLevel);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 800;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        RegionDef rdef = reqHandler.getRegionDef(
+                resolutionLevels, pixelBuffer);
+        Assert.assertEquals(rdef.getX(), x);
+        Assert.assertEquals(rdef.getY(), y);
+        Assert.assertEquals(rdef.getWidth(), 256 - rdef.getX());
+        Assert.assertEquals(rdef.getHeight(), 512 - rdef.getY());
+    }
+
 }
