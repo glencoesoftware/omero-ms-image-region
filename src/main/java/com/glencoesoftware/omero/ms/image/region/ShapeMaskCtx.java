@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
@@ -39,6 +41,12 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
     /** Display color */ 
     public String color;
 
+    /** Whether or not to flip horizontally */
+    public boolean flipHorizontal;
+
+    /** Whether or not to flip vertically */
+    public boolean flipVertical;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -54,8 +62,13 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
         this.omeroSessionKey = omeroSessionKey;
         shapeId = Long.parseLong(params.get("shapeId"));
         color = params.get("color");
+        String flip = Optional.ofNullable(params.get("flip"))
+                .orElse("").toLowerCase();
+        flipHorizontal = flip.contains("h");
+        flipVertical = flip.contains("v");
 
-        log.debug("Shape:{}, color: {}", shapeId, color);
+
+        log.debug("Shape:{}, color: {}, flip: {}", shapeId, color, flip);
     }
 
     /**
