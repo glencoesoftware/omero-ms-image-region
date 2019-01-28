@@ -5,9 +5,9 @@ port: 8080
 #  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxHeaderSize-int-
 #  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxChunkSize-int-
 #  * https://netty.io/4.0/api/io/netty/handler/codec/http/HttpRequestDecoder.html#HttpRequestDecoder--
-#max-initial-line-length: 4096
-#max-header-size: 8192
-#max-chunk-size: 8192
+# max-initial-line-length: 4096
+# max-header-size: 8192
+# max-chunk-size: 8192
 # OMERO server that the microservice will communicate with (as a client)
 omero:
     host: "localhost"
@@ -33,5 +33,7 @@ session-store:
     #synchronicity is either "sync" or "async"
     synchronicity: "async"
     #uri for either postgres db or redis
+    # * https://jdbc.postgresql.org/documentation/80/connect.html
+    # * https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details
     uri: "jdbc:postgresql://localhost:5432/omero_database?user=omero&password=omero"
-#    uri: "redis://password@localhost:6379/1"
+    # uri: "redis://:password@localhost:6379/1"
