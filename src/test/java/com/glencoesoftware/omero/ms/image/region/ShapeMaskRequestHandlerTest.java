@@ -21,7 +21,6 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.CaseInsensitiveHeaders;
@@ -87,7 +86,7 @@ public class ShapeMaskRequestHandlerTest {
             byte[] src, int sizeX, int sizeY,
             boolean flipHorizontal, boolean flipVertical) {
         byte[] flipped = ShapeMaskRequestHandler.flip(
-                ByteBuffer.wrap(src), sizeX, sizeY, flipHorizontal, flipVertical).array();
+                src, sizeX, sizeY, flipHorizontal, flipVertical);
         for (int n = 0; n < sizeX * sizeY; n++){
             int new_col;
             if (flipHorizontal) {
@@ -200,20 +199,20 @@ public class ShapeMaskRequestHandlerTest {
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipNullImage() {
-        ByteBuffer nullArray = null;
-        ImageRegionRequestHandler.flip(nullArray, 4, 4, true, true);
+        byte[] nullArray = null;
+        ShapeMaskRequestHandler.flip(nullArray, 4, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipZeroXImage() {
         byte[] src = {1};
-        ImageRegionRequestHandler.flip(ByteBuffer.wrap(src), 0, 4, true, true);
+        ShapeMaskRequestHandler.flip(src, 0, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipZeroYImage() {
         byte[] src = {1};
-        ImageRegionRequestHandler.flip(ByteBuffer.wrap(src), 4, 0, true, true);
+        ShapeMaskRequestHandler.flip(src, 4, 0, true, true);
     }
 
 }
