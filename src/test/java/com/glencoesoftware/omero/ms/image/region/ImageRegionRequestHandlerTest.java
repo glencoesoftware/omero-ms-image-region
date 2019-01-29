@@ -182,7 +182,8 @@ public class ImageRegionRequestHandlerTest {
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipNullImage() {
-        ImageRegionRequestHandler.flip(null, 4, 4, true, true);
+        int[] nullArray = null;
+        ImageRegionRequestHandler.flip(nullArray, 4, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

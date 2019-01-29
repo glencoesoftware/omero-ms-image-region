@@ -117,6 +117,45 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
+     * Flip an image horizontally, vertically, or both.
+     * @param src source image buffer
+     * @param sizeX size of <code>src</code> in X (number of columns)
+     * @param sizeY size of <code>src</code> in Y (number of rows)
+     * @param flipHorizontal whether or not to flip the image horizontally
+     * @param flipVertical whether or not to flip the image vertically
+     * @return Newly allocated buffer with flipping applied or <code>src</code>
+     * if no flipping has been requested.
+     */
+    public static byte[] flip(
+            byte[] src, int sizeX, int sizeY,
+            boolean flipHorizontal, boolean flipVertical) {
+        if (!flipHorizontal && !flipVertical) {
+            return src;
+        }
+
+        if (src == null) {
+            throw new IllegalArgumentException("Attempted to flip null image");
+        } else if (sizeX == 0 || sizeY == 0) {
+            throw new IllegalArgumentException("Attempted to flip image with 0 size");
+        }
+
+        byte[] dest = new byte[src.length];
+        int srcIndex, destIndex;
+        int xOffset = flipHorizontal? sizeX : 1;
+        int yOffset = flipVertical? sizeY : 1;
+        for (int x = 0; x < sizeX; x++) {
+            for (int y = 0; y < sizeY; y++) {
+                srcIndex = (y * sizeX) + x;
+                destIndex = Math.abs(((yOffset - y - 1) * sizeX))
+                        + Math.abs((xOffset - x - 1));
+                dest[destIndex] = src[srcIndex];
+            }
+        }
+        return dest;
+    }
+
+
+    /**
      * Render shape mask.
      * @param fillColor fill color to use for the mask
      * @param bytes mask bytes to render
@@ -139,6 +178,9 @@ public class ShapeMaskRequestHandler {
                 bytes = convertBitsToBytes(bytes, width * height);
                 bitsPerPixel = 8;
             }
+            bytes = flip(bytes, width, height,
+                    shapeMaskCtx.flipHorizontal,
+                    shapeMaskCtx.flipVertical);
             log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
                     "Size:{}", width, height, bitsPerPixel, bytes.length);
             // Create buffered image
