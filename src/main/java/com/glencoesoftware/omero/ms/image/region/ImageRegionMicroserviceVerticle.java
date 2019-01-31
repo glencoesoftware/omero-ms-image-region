@@ -179,6 +179,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.route().handler(
                 new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
 
+        // Get ImageRegion Microservice Information
+        router.options().handler(this::getMicroserviceDetails);
+
         // ImageRegion request handlers
         router.get(
                 "/webgateway/render_image_region/:imageId/:theZ/:theT*")
@@ -216,6 +219,18 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
+    }
+
+    /**
+     * Get information about microservice.
+     * Confirms that this is a microservice
+     * @param event Current routing context.
+     */
+    private void getMicroserviceDetails(RoutingContext event) {
+        log.info("Getting Microservice Details");
+        JsonObject resData = new JsonObject()
+                        .put("is_microservice", "true");
+        event.response().end(resData.encodePrettily());
     }
 
     /**
