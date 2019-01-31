@@ -229,7 +229,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void getMicroserviceDetails(RoutingContext event) {
         log.info("Getting Microservice Details");
         JsonObject resData = new JsonObject()
-                        .put("is_microservice", "true");
+                        .put("is_microservice", "true")
+                        .put("microservice_name", "ImageRegionMicroservice");
         event.response().end(resData.encodePrettily());
     }
 
