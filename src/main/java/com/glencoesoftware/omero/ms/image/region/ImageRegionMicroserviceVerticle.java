@@ -154,6 +154,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+        // Get ImageRegion Microservice Information
+        router.options().handler(this::getMicroserviceDetails);
+
         // Cookie handler so we can pick up the OMERO.web session
         router.route().handler(CookieHandler.create());
 
@@ -178,9 +181,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         router.route().handler(
                 new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
-
-        // Get ImageRegion Microservice Information
-        router.options().handler(this::getMicroserviceDetails);
 
         // ImageRegion request handlers
         router.get(
