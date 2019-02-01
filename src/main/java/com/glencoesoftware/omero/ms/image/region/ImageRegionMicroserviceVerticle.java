@@ -44,6 +44,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
@@ -234,10 +235,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             this.getClass().getPackage().getImplementationVersion()
         ).orElse("development");
         JsonObject resData = new JsonObject()
-                .put("is_microservice", "true")
-                .put("microservice_name", "ImageRegionMicroservice")
-                .put("version", version);
-        event.response().end(resData.encodePrettily());
+                .put("provider", "ImageRegionMicroservice")
+                .put("version", version)
+                .put("features", new JsonArray()
+                                     .add("flip")
+                                     .add("mask-color")
+                                     .add("png-tiles"));
+        event.response()
+            .putHeader("content-type", "application/json")
+            .end(resData.encodePrettily());
     }
 
     /**
