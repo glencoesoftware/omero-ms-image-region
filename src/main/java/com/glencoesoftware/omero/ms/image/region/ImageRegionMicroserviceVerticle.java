@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -228,9 +230,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void getMicroserviceDetails(RoutingContext event) {
         log.info("Getting Microservice Details");
+        String version = Optional.ofNullable(
+            this.getClass().getPackage().getImplementationVersion()
+        ).orElse("development");
         JsonObject resData = new JsonObject()
-                        .put("is_microservice", "true")
-                        .put("microservice_name", "ImageRegionMicroservice");
+                .put("is_microservice", "true")
+                .put("microservice_name", "ImageRegionMicroservice")
+                .put("version", version);
         event.response().end(resData.encodePrettily());
     }
 

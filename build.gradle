@@ -88,7 +88,8 @@ jar {
     manifest {
         attributes(
             "Main-Class": mainClassName,
-            "Main-Verticle": "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle"
+            "Main-Verticle": "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle",
+            "Implementation-Version": version
         )
     }
 }
