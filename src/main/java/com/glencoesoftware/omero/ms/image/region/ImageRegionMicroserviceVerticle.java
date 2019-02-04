@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Optional;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -42,6 +44,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
@@ -154,6 +157,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+        // Get ImageRegion Microservice Information
+        router.options().handler(this::getMicroserviceDetails);
+
         // Cookie handler so we can pick up the OMERO.web session
         router.route().handler(CookieHandler.create());
 
@@ -216,6 +222,28 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
+    }
+
+    /**
+     * Get information about microservice.
+     * Confirms that this is a microservice
+     * @param event Current routing context.
+     */
+    private void getMicroserviceDetails(RoutingContext event) {
+        log.info("Getting Microservice Details");
+        String version = Optional.ofNullable(
+            this.getClass().getPackage().getImplementationVersion()
+        ).orElse("development");
+        JsonObject resData = new JsonObject()
+                .put("provider", "ImageRegionMicroservice")
+                .put("version", version)
+                .put("features", new JsonArray()
+                                     .add("flip")
+                                     .add("mask-color")
+                                     .add("png-tiles"));
+        event.response()
+            .putHeader("content-type", "application/json")
+            .end(resData.encodePrettily());
     }
 
     /**
