@@ -257,8 +257,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
         HttpServerRequest request = event.request();
-        final ImageRegionCtx imageRegionCtx = new ImageRegionCtx(
-                request.params(), event.get("omero.session_key"));
+        ImageRegionCtx imageRegionCtx =
+            new ImageRegionCtx(event.get("omero.session_key"));
+        try {
+            imageRegionCtx.assignParams(request.params());
+        } catch (IllegalArgumentException e) {
+            HttpServerResponse response = event.response();
+            response.setStatusCode(400).end(e.getMessage());
+            return;
+        }
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(

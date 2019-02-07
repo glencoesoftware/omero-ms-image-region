@@ -112,9 +112,16 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
-        imageId = Long.parseLong(params.get("imageId"));
-        z = Integer.parseInt(params.get("theZ"));
-        t = Integer.parseInt(params.get("theT"));
+        assignParams(params);
+    }
+
+    ImageRegionCtx(String omeroSessionKey){
+    }
+
+    public void assignParams(MultiMap params) throws IllegalArgumentException {
+        getImageIdFromString(getCheckedParam(params, "imageId"));
+        z = getIntegerFromString(getCheckedParam(params, "theZ"));
+        t = getIntegerFromString(getCheckedParam(params, "theT"));
         getTileFromString(params.get("tile"));
         getRegionFromString(params.get("region"));
         getChannelInfoFromString(params.get("c"));
@@ -136,6 +143,46 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}", imageId, z, t, tile, channels, windows, colors,
                 m, format);
+    }
+
+    private String getCheckedParam(MultiMap params, String key)
+        throws IllegalArgumentException {
+        String value = params.get(key);
+        if (null == value) {
+            throw new IllegalArgumentException("Missing parameter '"
+                + key + "'");
+        }
+        return value;
+    }
+
+    /**
+     * Parse a string to Long and set ast the image ID.
+     * @param imageIdString string
+     */
+    private void getImageIdFromString(String imageIdString)
+        throws IllegalArgumentException{
+        try {
+            imageId = Long.parseLong(imageIdString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Incorrect format for "
+                + "imageid parameter '" + imageIdString + "'");
+        }
+    }
+
+    /**
+     * Parse a string to Integer and return it
+     * @param imageIdString string
+     */
+    private Integer getIntegerFromString(String intString)
+        throws IllegalArgumentException{
+        Integer i = null;
+        try {
+            i = Integer.parseInt(intString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Incorrect format for "
+                + "parameter value '" + intString + "'");
+        }
+        return i;
     }
 
     /**
@@ -164,12 +211,22 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             return;
         }
         String[] regionSplit = regionString.split(",", -1);
-        region = new RegionDef(
-            Integer.parseInt(regionSplit[0]),
-            Integer.parseInt(regionSplit[1]),
-            Integer.parseInt(regionSplit[2]),
-            Integer.parseInt(regionSplit[3])
-        );
+        if (regionSplit.length != 4) {
+            throw new IllegalArgumentException("Region string format incorrect. "
+                + "Should be 'x,y,w,h'");
+        }
+        try {
+            region = new RegionDef(
+                Integer.parseInt(regionSplit[0]),
+                Integer.parseInt(regionSplit[1]),
+                Integer.parseInt(regionSplit[2]),
+                Integer.parseInt(regionSplit[3])
+            );
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Improper number formatting "
+                + "in region string " + regionString);
+        }
     }
 
     /**
@@ -187,36 +244,41 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         windows = new ArrayList<Float[]>();
         colors = new ArrayList<String>();
         for (String channel : channelArray) {
-            // chan  1|12:1386r$0000FF
-            // temp ['1', '12:1386r$0000FF']
-            String[] temp = channel.split("\\|", 2);
-            String active = temp[0];
-            String color = null;
-            Float[] range = new Float[2];
-            String window = null;
-            // temp = '1'
-            // Not normally used...
-            if (active.indexOf("$") >= 0) {
-                String[] split = active.split("\\$", -1);
-                active = split[0];
-                color = split[1];
-            }
-            channels.add(Integer.parseInt(active));
-            if (temp.length > 1) {
-                if (temp[1].indexOf("$") >= 0) {
-                    window = temp[1].split("\\$")[0];
-                    color = temp[1].split("\\$")[1];
+            try {
+                // chan  1|12:1386r$0000FF
+                // temp ['1', '12:1386r$0000FF']
+                String[] temp = channel.split("\\|", 2);
+                String active = temp[0];
+                String color = null;
+                Float[] range = new Float[2];
+                String window = null;
+                // temp = '1'
+                // Not normally used...
+                if (active.indexOf("$") >= 0) {
+                    String[] split = active.split("\\$", -1);
+                    active = split[0];
+                    color = split[1];
                 }
-                String[] rangeStr = window.split(":");
-                if (rangeStr.length > 1) {
-                    range[0] = Float.parseFloat(rangeStr[0]);
-                    range[1] = Float.parseFloat(rangeStr[1]);
+                channels.add(Integer.parseInt(active));
+                if (temp.length > 1) {
+                    if (temp[1].indexOf("$") >= 0) {
+                        window = temp[1].split("\\$")[0];
+                        color = temp[1].split("\\$")[1];
+                    }
+                    String[] rangeStr = window.split(":");
+                    if (rangeStr.length > 1) {
+                        range[0] = Float.parseFloat(rangeStr[0]);
+                        range[1] = Float.parseFloat(rangeStr[1]);
+                    }
                 }
+                colors.add(color);
+                windows.add(range);
+                log.debug("Adding channel: {}, color: {}, window: {}",
+                        active, color, window);
+            } catch (Exception e)  {
+                throw new IllegalArgumentException("Failed to parse channel '"
+                    + channel + "'");
             }
-            colors.add(color);
-            windows.add(range);
-            log.debug("Adding channel: {}, color: {}, window: {}",
-                    active, color, window);
         }
     }
 
