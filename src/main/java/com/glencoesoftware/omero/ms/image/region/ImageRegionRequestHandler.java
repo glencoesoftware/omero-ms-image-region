@@ -20,14 +20,17 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
@@ -46,6 +49,9 @@ import org.springframework.context.ApplicationContext;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.json.Json;
+import io.vertx.core.Vertx;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
@@ -78,6 +84,27 @@ public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
+
+    public static final String IS_SESSION_VALID_EVENT =
+            "omero.is_session_valid";
+
+    public static final String CAN_READ_EVENT =
+            "omero.can_read";
+
+    public static final String GET_OBJECT_EVENT =
+            "omero.get_object";
+
+    public static final String GET_ALL_ENUMERATIONS_EVENT =
+            "omero.get_all_enumerations";
+
+    public static final String GET_PIXELS_ID_AND_SERIES_EVENT =
+            "omero.get_pixels_id_and_series";
+
+    public static final String GET_RENDERING_SETTINGS_EVENT =
+            "omero.get_rendering_settings";
+
+    public static final String GET_PIXELS_EVENT =
+            "omero.get_pixels";
 
     /** OMERO server Spring application context. */
     private final ApplicationContext context;
@@ -112,6 +139,9 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Handle on Vertx for event bus work*/
+    private Vertx vertx;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -121,17 +151,36 @@ public class ImageRegionRequestHandler {
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             PixelsService pixService,
-            LocalCompress compSrv) {
+            LocalCompress compSrv,
+            Vertx vertx) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
+        this.vertx = vertx;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
         compressionSrv = compSrv;
+    }
+
+    public CompletableFuture<byte[]> renderImageRegionAsync(omero.client client) {
+        String sessionKey = client.getSessionId();
+        return getPixelsIdAndSeries(sessionKey, imageRegionCtx.imageId)
+                .thenApply(pixelsIdAndSeries -> {
+                    if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
+                        try {
+                            ServiceFactoryPrx sf = client.getSession();
+                            IPixelsPrx iPixels = sf.getPixelsService();
+                            return getRegion(iPixels, pixelsIdAndSeries);
+                        } catch (Exception e) {
+                            log.error(e.getMessage());
+                        }
+                    }
+                    return null;
+                });
     }
 
     /**
@@ -149,7 +198,7 @@ public class ImageRegionRequestHandler {
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+                return getRegion(iPixels, pixelsIdAndSeries);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -158,6 +207,36 @@ public class ImageRegionRequestHandler {
             t0.stop();
         }
         return null;
+    }
+
+    private CompletableFuture<List<RType>> getPixelsIdAndSeries(String sessionKey, Long imageId)
+    {
+        CompletableFuture<List<RType>> promise = new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("imageId", imageId);
+        vertx.eventBus().<byte[]>send(
+                GET_PIXELS_ID_AND_SERIES_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    log.error("Request failed", t);
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                Object o = ois.readObject();
+                List<List<RType>> res = (List<List<RType>>) o;
+                promise.complete(res.get(0));
+            } catch (IOException | ClassNotFoundException e) {
+                promise.completeExceptionally(e);
+                log.error("Exception while decoding object in response", e);
+            }
+        });
+        return promise;
     }
 
     /**
@@ -227,8 +306,7 @@ public class ImageRegionRequestHandler {
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
+    private byte[] getRegion(IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");

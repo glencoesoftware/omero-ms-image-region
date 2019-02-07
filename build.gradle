@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.4.1'
+version = '0.5.0-SNAPSHOT'
 
 mainClassName = 'io.vertx.core.Starter'
 
@@ -77,6 +77,7 @@ dependencies {
     }
     compile 'io.vertx:vertx-config:3.5.3'
     compile 'io.vertx:vertx-config-yaml:3.5.3'
+    compile 'io.vertx:vertx-hazelcast:3.5.3'
     compile ('omero:blitz:5.4.10-ice36-b105') {
         exclude group: 'org.testng', module: 'testng'
     }

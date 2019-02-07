@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
@@ -158,12 +159,14 @@ public class ImageRegionVerticle extends AbstractVerticle {
             PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
             LocalCompress compressionService =
                 (LocalCompress) context.getBean("internal-ome.api.ICompress");
-            byte[] imageRegion = request.execute(
+            CompletableFuture<byte[]> imageRegionFuture = request.execute(
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
                             renderingModels, lutProvider,
                             pixelsService,
-                            compressionService)::renderImageRegion);
+                            compressionService,
+                            vertx)::renderImageRegionAsync);
+            byte[] imageRegion = imageRegionFuture.get();
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
