@@ -106,17 +106,6 @@ public class ImageRegionRequestHandler {
     public static final String GET_PIXELS_EVENT =
             "omero.get_pixels";
 
-    /** OMERO server Spring application context. */
-    private final ApplicationContext context;
-
-    /** OMERO server pixels service. */
-    private final PixelsService pixelsService;
-
-    /** Reference to the compression service. */
-    private final LocalCompress compressionSrv;
-
-    /** Reference to the projection service. */
-    private final ProjectionService projectionService;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
@@ -139,6 +128,8 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    private final ProjectionService projectionService;
+
     /** Handle on Vertx for event bus work*/
     private Vertx vertx;
 
@@ -150,64 +141,32 @@ public class ImageRegionRequestHandler {
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
-            PixelsService pixService,
             LocalCompress compSrv,
             Vertx vertx) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
-        this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
         this.vertx = vertx;
 
-        pixelsService = pixService;
         projectionService = new ProjectionService();
-        compressionSrv = compSrv;
     }
 
-    public CompletableFuture<byte[]> renderImageRegionAsync(omero.client client) {
-        String sessionKey = client.getSessionId();
+    public CompletableFuture<byte[]> renderImageRegionAsync(String sessionKey) {
         return getPixelsIdAndSeries(sessionKey, imageRegionCtx.imageId)
-                .thenApply(pixelsIdAndSeries -> {
-                    if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                        try {
-                            ServiceFactoryPrx sf = client.getSession();
-                            IPixelsPrx iPixels = sf.getPixelsService();
-                            return getRegion(iPixels, pixelsIdAndSeries);
-                        } catch (Exception e) {
-                            log.error(e.getMessage());
-                        }
+            .thenCompose(pixelsIdAndSeries -> {
+                if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
+                    try {
+                        return getRegion(pixelsIdAndSeries);
+                    } catch (Exception e) {
+                        log.error(e.getMessage());
                     }
-                    return null;
-                });
+                }
+                return null;
+            });
     }
 
-    /**
-     * Render Image region request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>imageRegionCtx</code>.
-     */
-    public byte[] renderImageRegion(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
-        try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iPixels, pixelsIdAndSeries);
-            }
-            log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
-        } catch (Exception e) {
-            log.error("Exception while retrieving image region", e);
-        } finally {
-            t0.stop();
-        }
-        return null;
-    }
 
     private CompletableFuture<List<RType>> getPixelsIdAndSeries(String sessionKey, Long imageId)
     {
@@ -240,133 +199,113 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
-     * the server for a given {@link Image} or <code>null</code> if no such
-     * identifier exists or the user does not have permissions to access it.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param imageId {@link Image} identifier to query for.
-     * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
-     */
-    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
-        try {
-            List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels as p " +
-                    "WHERE p.image.id = :id",
-                    params, ctx
-                );
-            if (data.size() < 1) {
-                return null;
-            }
-            return data.get(0);  // The first row
-        } finally {
-            t0.stop();
-        }
-    }
-
-    /**
      * Retrieves the rendering settings corresponding to the specified pixels
      * set.
      * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
+    /*
+    private CompletableFuture<Void> getRenderingDef(
+            final long pixelsId, RenderingDef renderingDef) throws ServerError {
+        CompletableFuture<Void> promise = new CompletableFuture<>();
         Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
+        (RenderingDef) mapper.reverse(
                 iPixels.retrieveRndSettings(pixelsId, ctx));
+        return promise;
+    }
+    */
+
+    private CompletableFuture<RenderingDef> getRenderingDef(String sessionKey,
+            Long pixelsId){
+        CompletableFuture<RenderingDef> promise = new CompletableFuture<RenderingDef>();
+        return promise;
     }
 
-    private PixelBuffer getPixelBuffer(Pixels pixels)
-            throws ApiUsageException {
-        StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
-        try {
-            return pixelsService.getPixelBuffer(pixels, false);
-        } finally {
-            t0.stop();
-        }
+
+    private CompletableFuture<Void> getPixelBuffer(Pixels pixels, PixelBuffer pixelBuffer) {
+        CompletableFuture<Void> promise = new CompletableFuture<Void>();
+        //Get the pixel buffer from backbone and assign pixelBuffer
+        return promise;
     }
 
-    /**
-     * Retrieves a single region from the server in the requested format as
-     * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
-     * @return Image region as a byte array.
-     * @throws QuantizationException
-     */
-    private byte[] getRegion(IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
+    private CompletableFuture<Void> retrievePixDescription(long pixelsId,
+            Map<String,
+            String> ctx,
+            Pixels pixels) {
+        CompletableFuture<Void> promise = new CompletableFuture<>();
+        //Get the pixel description from backbone and assign it to pixels
+        return promise;
+    }
+
+    private CompletableFuture<byte[]> getRegion(List<RType> pixelsIdAndSeries)
+    {
+        CompletableFuture<byte[]> promise = new CompletableFuture<byte[]>();
         log.debug("Getting image region");
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch(
                 "PixelsService.retrievePixDescription");
-        Pixels pixels;
+        Pixels pixels = null;
+        PixelBuffer pixelBuffer = null;
+        /*
+         * retrievePixDescription*/
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            pixels = (Pixels) mapper.reverse(
-                    iPixels.retrievePixDescription(pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
-            pixels.setImage(image);
+            return retrievePixDescription(pixelsId, ctx, pixels)
+            .thenCompose((myVoid) -> {
+                Image image = new Image(pixels.getImage().getId(), true);
+                image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
+                pixels.setImage(image);
+                return getPixelBuffer(pixels, pixelBuffer);
+            })
+            .thenCompose((myVoid) -> {return getRenderingDef(imageRegionCtx.omeroSessionKey, pixels.getId());})
+            .thenApply((renderingDef) -> {
+                try {
+                    QuantumFactory quantumFactory = new QuantumFactory(families);
+                    RenderingDef myDef = renderingDef;
+                    renderer = new Renderer(
+                        quantumFactory, renderingModels,
+                        pixels, renderingDef,
+                        pixelBuffer, lutProvider
+                    );
+                    PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
+                    planeDef.setZ(imageRegionCtx.z);
+
+                    // Avoid asking for resolution descriptions if there is no image
+                    // pyramid.  This can be *very* expensive.
+                    int countResolutionLevels = pixelBuffer.getResolutionLevels();
+                    List<List<Integer>> resolutionLevels;
+                    if (countResolutionLevels > 1) {
+                        resolutionLevels = pixelBuffer.getResolutionDescriptions();
+                    } else {
+                        resolutionLevels = new ArrayList<List<Integer>>();
+                        resolutionLevels.add(
+                                Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
+                    }
+                    planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
+                    setResolutionLevel(renderer, resolutionLevels);
+                    //TODO: Add compression
+                    /**
+                     * if (imageRegionCtx.compressionQuality != null) {
+                        compressionSrv.setCompressionLevel(
+                        imageRegionCtx.compressionQuality);
+                    }
+                     */
+                    updateSettings(renderer);
+                    // The actual act of rendering will close the provided pixel
+                    // buffer.  However, just in case an exception is thrown before
+                    // reaching this point a double close may occur due to the
+                    // surrounding try-with-resources block.
+                    return render(renderer, resolutionLevels, pixels, planeDef, pixelBuffer);
+                } catch (Exception e) {
+                    log.error(e.getMessage());
+                    return null;
+                }
+            });
         } finally {
             t0.stop();
-        }
-        QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-            renderer = new Renderer(
-                quantumFactory, renderingModels,
-                pixels, getRenderingDef(iPixels, pixels.getId()),
-                pixelBuffer, lutProvider
-            );
-            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
-            planeDef.setZ(imageRegionCtx.z);
-
-            // Avoid asking for resolution descriptions if there is no image
-            // pyramid.  This can be *very* expensive.
-            int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            List<List<Integer>> resolutionLevels;
-            if (countResolutionLevels > 1) {
-                resolutionLevels = pixelBuffer.getResolutionDescriptions();
-            } else {
-                resolutionLevels = new ArrayList<List<Integer>>();
-                resolutionLevels.add(
-                        Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
-            }
-            planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
-            setResolutionLevel(renderer, resolutionLevels);
-            if (imageRegionCtx.compressionQuality != null) {
-                compressionSrv.setCompressionLevel(
-                        imageRegionCtx.compressionQuality);
-            }
-            updateSettings(renderer);
-            StopWatch t1 = new Slf4JStopWatch("render");
-            try {
-                // The actual act of rendering will close the provided pixel
-                // buffer.  However, just in case an exception is thrown before
-                // reaching this point a double close may occur due to the
-                // surrounding try-with-resources block.
-                return render(renderer, resolutionLevels, pixels, planeDef);
-            } finally {
-                t1.stop();
-            }
         }
     }
 
@@ -385,7 +324,7 @@ public class ImageRegionRequestHandler {
      */
     private byte[] render(
             Renderer renderer, List<List<Integer>> resolutionLevels,
-            Pixels pixels, PlaneDef planeDef)
+            Pixels pixels, PlaneDef planeDef, PixelBuffer pixelBuffer)
                     throws ServerError, IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
@@ -398,7 +337,7 @@ public class ImageRegionRequestHandler {
                 int projectedSizeC = 0;
                 ChannelBinding[] channelBindings =
                         renderer.getChannelBindings();
-                PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+                //PixelBuffer pixelBuffer = getPixelBuffer(pixels);
                 int start = Optional
                         .ofNullable(imageRegionCtx.projectionStart)
                         .orElse(0);

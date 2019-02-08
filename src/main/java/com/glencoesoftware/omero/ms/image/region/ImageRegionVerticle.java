@@ -18,11 +18,15 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
@@ -31,12 +35,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.json.Json;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
@@ -146,33 +151,40 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         log.debug(
             "Render image region request with data: {}", message.body());
-        try (OmeroRequest request = new OmeroRequest(
-                 host, port, imageRegionCtx.omeroSessionKey))
-        {
-            if (families == null) {
-                request.execute(this::updateFamilies);
-            }
-            if (renderingModels == null) {
-                request.execute(this::updateRenderingModels);
-            }
 
-            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-            LocalCompress compressionService =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
-            CompletableFuture<byte[]> imageRegionFuture = request.execute(
+        if (families == null) {
+            try {
+                families = getFamilies(imageRegionCtx.omeroSessionKey).get();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        String sessionKey = imageRegionCtx.omeroSessionKey;
+        CompletableFuture<Void> myPromise =  updateFamilies(sessionKey)
+        .thenCompose((myVoid) -> {return updateRenderingModels(sessionKey);});
+        myPromise.thenCompose((myOtherVoid) -> {
+            ImageRegionRequestHandler imageRegionRequestHander =
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
                             renderingModels, lutProvider,
-                            pixelsService,
-                            compressionService,
-                            vertx)::renderImageRegionAsync);
-            byte[] imageRegion = imageRegionFuture.get();
+                            null, vertx);
+            CompletableFuture<byte[]> imageRegionFuture =
+                    imageRegionRequestHander.renderImageRegionAsync(sessionKey);
+            return imageRegionFuture;
+            })
+        .thenAccept((imageRegion) -> {
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
             } else {
                 message.reply(imageRegion);
             }
+        });
+        /*
         } catch (PermissionDeniedException
                 | CannotCreateSessionException e) {
             String v = "Permission denied";
@@ -187,24 +199,106 @@ public class ImageRegionVerticle extends AbstractVerticle {
             log.error(v, e);
             message.fail(500, v);
         }
+        */
     }
 
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
      */
-    private Void updateFamilies(omero.client client) {
-        families = getAllEnumerations(client, Family.class);
-        return null;
+    private CompletableFuture<Void> updateFamilies(String sessionKey) {
+        CompletableFuture<Void> promise = new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("type", Family.class.getName());
+        vertx.eventBus().<byte[]>send(
+                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    promise.completeExceptionally(t);
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                families = (List<Family>) ois.readObject();
+                promise.complete(null);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                promise.completeExceptionally(e);
+
+            }
+        });
+        return promise;
+    }
+    
+    /**
+     * Updates the available enumerations from the server.
+     * @param client valid client to use to perform actions
+     */
+    private CompletableFuture<Void> updateRenderingModels(String sessionKey) {
+        CompletableFuture<Void> promise = new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("type", RenderingModel.class.getName());
+        vertx.eventBus().<byte[]>send(
+                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    promise.completeExceptionally(t);
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                renderingModels = (List<RenderingModel>) ois.readObject();
+                promise.complete(null);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                promise.completeExceptionally(e);
+
+            }
+        });
+        return promise;
     }
 
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
      */
-    private Void updateRenderingModels(omero.client client) {
-        renderingModels = getAllEnumerations(client, RenderingModel.class);
-        return null;
+    private CompletableFuture<List<Family>> getFamilies(String sessionKey) {
+        CompletableFuture<List<Family>> promise = new CompletableFuture<List<Family>>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("type", Family.class.getName());
+        vertx.eventBus().<byte[]>send(
+                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    promise.completeExceptionally(t);
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                List<Family> families = (List<Family>) ois.readObject();
+                promise.complete(families);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                promise.completeExceptionally(e);
+
+            }
+        });
+        return promise;
     }
 
     /**
