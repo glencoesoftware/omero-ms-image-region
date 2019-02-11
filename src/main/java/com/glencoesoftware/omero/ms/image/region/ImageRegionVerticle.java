@@ -149,12 +149,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
             message.fail(400, v);
             return;
         }
-        log.debug(
+        log.info(
             "Render image region request with data: {}", message.body());
+        log.info("Session Key: {}", imageRegionCtx.omeroSessionKey);
 
         if (families == null) {
             try {
-                families = getFamilies(imageRegionCtx.omeroSessionKey).get();
+                families = getFamilies(imageRegionCtx.omeroSessionKey).get();//TODO; This is blocking
             } catch (InterruptedException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -164,14 +165,19 @@ public class ImageRegionVerticle extends AbstractVerticle {
             }
         }
         String sessionKey = imageRegionCtx.omeroSessionKey;
-        CompletableFuture<Void> myPromise =  updateFamilies(sessionKey)
-        .thenCompose((myVoid) -> {return updateRenderingModels(sessionKey);});
-        myPromise.thenCompose((myOtherVoid) -> {
+        updateFamilies(sessionKey)
+        .thenCompose((myVoid) -> {return updateRenderingModels(sessionKey);})
+        .thenCompose((myOtherVoid) -> {
+            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+            LocalCompress compressionService =
+                    (LocalCompress) context.getBean("internal-ome.api.ICompress");
             ImageRegionRequestHandler imageRegionRequestHander =
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
                             renderingModels, lutProvider,
-                            null, vertx);
+                            pixelsService,                            
+                            compressionService,
+                            vertx);
             CompletableFuture<byte[]> imageRegionFuture =
                     imageRegionRequestHander.renderImageRegionAsync(sessionKey);
             return imageRegionFuture;

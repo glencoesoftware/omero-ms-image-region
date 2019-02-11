@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.CompletionException;
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -46,6 +46,7 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
+import com.google.common.base.Stopwatch;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
@@ -105,6 +106,16 @@ public class ImageRegionRequestHandler {
 
     public static final String GET_PIXELS_EVENT =
             "omero.get_pixels";
+    
+    public static final String GET_PIXELS_DESCRIPTION_EVENT =
+            "omero.get_pixels_description";
+    
+    
+    /** OMERO server pixels service. */
+    private final PixelsService pixelsService;
+    
+    /** Reference to the compression service. */
+    private final LocalCompress compressionSrv;
 
 
     /** Lookup table provider. */
@@ -141,6 +152,7 @@ public class ImageRegionRequestHandler {
             ImageRegionCtx imageRegionCtx, ApplicationContext context,
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
+            PixelsService pixService,
             LocalCompress compSrv,
             Vertx vertx) {
         log.info("Setting up handler");
@@ -150,7 +162,9 @@ public class ImageRegionRequestHandler {
         this.lutProvider = lutProvider;
         this.vertx = vertx;
 
+        pixelsService = pixService;
         projectionService = new ProjectionService();
+        compressionSrv = compSrv;
     }
 
     public CompletableFuture<byte[]> renderImageRegionAsync(String sessionKey) {
@@ -205,36 +219,80 @@ public class ImageRegionRequestHandler {
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    /*
-    private CompletableFuture<Void> getRenderingDef(
-            final long pixelsId, RenderingDef renderingDef) throws ServerError {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-        Map<String, String> ctx = new HashMap<String, String>();
-        (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
-        return promise;
-    }
-    */
 
     private CompletableFuture<RenderingDef> getRenderingDef(String sessionKey,
             Long pixelsId){
         CompletableFuture<RenderingDef> promise = new CompletableFuture<RenderingDef>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("pixelsId", pixelsId);
+        vertx.eventBus().<byte[]>send(
+                GET_RENDERING_SETTINGS_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    promise.completeExceptionally(t);
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                RenderingDef rd = (RenderingDef) ois.readObject();
+                promise.complete(rd);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                promise.completeExceptionally(e);
+            }
+        });
+
         return promise;
+    }
+    
+    private CompletableFuture<RendererInfo> getRendererInfo(String sessionKey,
+            Long pixelsId, Pixels pixels, PixelBuffer pixelBuffer) {
+        return getRenderingDef(sessionKey, pixelsId)
+        .thenApply((renderingDef) -> {
+            return new RendererInfo(pixels, pixelBuffer, renderingDef);            
+        });
     }
 
 
-    private CompletableFuture<Void> getPixelBuffer(Pixels pixels, PixelBuffer pixelBuffer) {
-        CompletableFuture<Void> promise = new CompletableFuture<Void>();
-        //Get the pixel buffer from backbone and assign pixelBuffer
-        return promise;
+    private PixelBuffer getPixelBuffer(Pixels pixels)
+            throws ApiUsageException {
+        Slf4JStopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
+        try {
+            return pixelsService.getPixelBuffer(pixels,false);
+        } finally {
+            t0.stop();
+        }
     }
 
-    private CompletableFuture<Void> retrievePixDescription(long pixelsId,
-            Map<String,
-            String> ctx,
-            Pixels pixels) {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-        //Get the pixel description from backbone and assign it to pixels
+    private CompletableFuture<Pixels> retrievePixDescription(String sessionKey, long pixelsId) {
+        CompletableFuture<Pixels> promise = new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("pixelsId", pixelsId);
+        vertx.eventBus().<byte[]>send(
+                GET_PIXELS_DESCRIPTION_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            try {
+                if (result.failed()) {
+                    Throwable t = result.cause();
+                    promise.completeExceptionally(t);
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                Pixels pixels = (Pixels) ois.readObject();
+                promise.complete(pixels);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                promise.completeExceptionally(e);
+            }
+        });
+
         return promise;
     }
 
@@ -246,25 +304,34 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         StopWatch t0 = new Slf4JStopWatch(
                 "PixelsService.retrievePixDescription");
-        Pixels pixels = null;
-        PixelBuffer pixelBuffer = null;
         /*
          * retrievePixDescription*/
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            return retrievePixDescription(pixelsId, ctx, pixels)
-            .thenCompose((myVoid) -> {
+            return retrievePixDescription(imageRegionCtx.omeroSessionKey, pixelsId)
+            .thenCompose((pixels) -> {
                 Image image = new Image(pixels.getImage().getId(), true);
                 image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
                 pixels.setImage(image);
-                return getPixelBuffer(pixels, pixelBuffer);
-            })
-            .thenCompose((myVoid) -> {return getRenderingDef(imageRegionCtx.omeroSessionKey, pixels.getId());})
-            .thenApply((renderingDef) -> {
+                PixelBuffer pixelBuffer;
+                try {
+                    pixelBuffer = getPixelBuffer(pixels);
+                } catch (ApiUsageException e1) {
+                    log.error(e1.getMessage());
+                    throw new CompletionException("ApiUsageException in getPixelBuffer",
+                            e1);
+                }
+                return getRendererInfo(imageRegionCtx.omeroSessionKey,
+                        pixels.getId(),
+                        pixels,
+                        pixelBuffer);})
+            .thenApply((rendererInfo) -> {
                 try {
                     QuantumFactory quantumFactory = new QuantumFactory(families);
-                    RenderingDef myDef = renderingDef;
+                    RenderingDef renderingDef = rendererInfo.renderingDef;
+                    Pixels pixels = rendererInfo.pixels;
+                    PixelBuffer pixelBuffer = rendererInfo.PixelBuffer;
                     renderer = new Renderer(
                         quantumFactory, renderingModels,
                         pixels, renderingDef,
@@ -286,13 +353,10 @@ public class ImageRegionRequestHandler {
                     }
                     planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
                     setResolutionLevel(renderer, resolutionLevels);
-                    //TODO: Add compression
-                    /**
-                     * if (imageRegionCtx.compressionQuality != null) {
+                    if (imageRegionCtx.compressionQuality != null) {
                         compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
                     }
-                     */
                     updateSettings(renderer);
                     // The actual act of rendering will close the provided pixel
                     // buffer.  However, just in case an exception is thrown before
@@ -303,6 +367,9 @@ public class ImageRegionRequestHandler {
                     log.error(e.getMessage());
                     return null;
                 }
+            }).exceptionally((e) -> {
+                log.error(e.getMessage());
+                return null;                
             });
         } finally {
             t0.stop();
