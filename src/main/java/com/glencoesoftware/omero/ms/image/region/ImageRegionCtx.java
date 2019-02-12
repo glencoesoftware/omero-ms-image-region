@@ -115,9 +115,6 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         assignParams(params);
     }
 
-    ImageRegionCtx(String omeroSessionKey){
-    }
-
     public void assignParams(MultiMap params) throws IllegalArgumentException {
         getImageIdFromString(getCheckedParam(params, "imageId"));
         z = getIntegerFromString(getCheckedParam(params, "theZ"));
