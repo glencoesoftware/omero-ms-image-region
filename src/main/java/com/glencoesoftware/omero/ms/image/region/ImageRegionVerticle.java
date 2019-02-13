@@ -138,6 +138,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void renderImageRegion(Message<String> message) {
+        log.info("In ImageRegionVerticle::renderImageRegion");
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -164,6 +165,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 e.printStackTrace();
             }
         }
+        log.info("After getFamilies");
         String sessionKey = imageRegionCtx.omeroSessionKey;
         updateFamilies(sessionKey)
         .thenCompose((myVoid) -> {return updateRenderingModels(sessionKey);})

@@ -273,12 +273,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 Json.encode(imageRegionCtx), result -> {
             try {
                 if (result.failed()) {
+                    log.info("RenderImageRegionEvent result failed");
                     Throwable t = result.cause();
+                    log.error(t.getMessage());
                     int statusCode = 404;
                     if (t instanceof ReplyException) {
+                        log.info("t is instanceOf ReplyException");
                         statusCode = ((ReplyException) t).failureCode();
                     }
                     if (!response.closed()) {
+                        log.info("" + statusCode);
                         response.setStatusCode(statusCode).end();
                     }
                     return;

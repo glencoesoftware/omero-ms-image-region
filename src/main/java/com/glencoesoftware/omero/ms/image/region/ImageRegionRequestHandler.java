@@ -168,8 +168,10 @@ public class ImageRegionRequestHandler {
     }
 
     public CompletableFuture<byte[]> renderImageRegionAsync(String sessionKey) {
+        log.info("ImageRegionRequestHandler::renderImageRegionAsync");
         return getPixelsIdAndSeries(sessionKey, imageRegionCtx.imageId)
             .thenCompose(pixelsIdAndSeries -> {
+                log.info("About to getRegion");
                 if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                     try {
                         return getRegion(pixelsIdAndSeries);
@@ -184,26 +186,34 @@ public class ImageRegionRequestHandler {
 
     private CompletableFuture<List<RType>> getPixelsIdAndSeries(String sessionKey, Long imageId)
     {
+        log.info("getPixelsIdAndSeries");
         CompletableFuture<List<RType>> promise = new CompletableFuture<>();
         final Map<String, Object> data = new HashMap<String, Object>();
         data.put("sessionKey", sessionKey);
         data.put("imageId", imageId);
+        log.info(data.toString());
         vertx.eventBus().<byte[]>send(
                 GET_PIXELS_ID_AND_SERIES_EVENT,
                 Json.encode(data), result -> {
+            log.info("get_pixels_id_and_series_callback");
             String s = "";
             try {
                 if (result.failed()) {
+                    log.error("Failure in get_pixels_id_and_series");
                     Throwable t = result.cause();
                     log.error("Request failed", t);
+                    promise.completeExceptionally(t);
                     return;
                 }
+                log.info("Processing get_pixels_id_and_series result");
                 ByteArrayInputStream bais =
                         new ByteArrayInputStream(result.result().body());
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Object o = ois.readObject();
                 List<List<RType>> res = (List<List<RType>>) o;
+                log.info("About to complete promise");
                 promise.complete(res.get(0));
+                log.info("Promise completed");
             } catch (IOException | ClassNotFoundException e) {
                 promise.completeExceptionally(e);
                 log.error("Exception while decoding object in response", e);
