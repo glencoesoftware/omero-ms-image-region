@@ -168,8 +168,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
         log.info("After getFamilies");
         String sessionKey = imageRegionCtx.omeroSessionKey;
         updateFamilies(sessionKey)
-        .thenCompose((myVoid) -> {return updateRenderingModels(sessionKey);})
-        .thenCompose((myOtherVoid) -> {
+        .thenCompose((v) -> {return updateRenderingModels(sessionKey);})
+        .thenCompose((v) -> {
             PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
             LocalCompress compressionService =
                     (LocalCompress) context.getBean("internal-ome.api.ICompress");
@@ -177,13 +177,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     new ImageRegionRequestHandler(
                             imageRegionCtx, context, families,
                             renderingModels, lutProvider,
-                            pixelsService,                            
+                            pixelsService,
                             compressionService,
                             vertx);
-            CompletableFuture<byte[]> imageRegionFuture =
-                    imageRegionRequestHander.renderImageRegionAsync(sessionKey);
-            return imageRegionFuture;
-            })
+            return imageRegionRequestHander.renderImageRegion();
+        })
         .thenAccept((imageRegion) -> {
             if (imageRegion == null) {
                 message.fail(
@@ -191,6 +189,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
             } else {
                 message.reply(imageRegion);
             }
+        })
+        .exceptionally((e) -> {
+            log.error("Failed to retrieve region", e);
+            message.fail(500, e.getMessage());
+            return null;
         });
         /*
         } catch (PermissionDeniedException
