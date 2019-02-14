@@ -62,7 +62,8 @@ public class ImageRegionRequestHandlerTest {
                 new ArrayList<RenderingModel>(),
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
-                null); //PixelsService pixService);
+                null, //PixelsService pixService
+                null); //Vertx instance
     }
 
     private void testFlip(

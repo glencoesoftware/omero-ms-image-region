@@ -154,18 +154,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
             "Render image region request with data: {}", message.body());
         log.info("Session Key: {}", imageRegionCtx.omeroSessionKey);
 
-        if (families == null) {
-            try {
-                families = getFamilies(imageRegionCtx.omeroSessionKey).get();//TODO; This is blocking
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } catch (ExecutionException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
-        log.info("After getFamilies");
         String sessionKey = imageRegionCtx.omeroSessionKey;
         updateFamilies(sessionKey)
         .thenCompose((v) -> {return updateRenderingModels(sessionKey);})
@@ -222,27 +210,31 @@ public class ImageRegionVerticle extends AbstractVerticle {
         final Map<String, Object> data = new HashMap<String, Object>();
         data.put("sessionKey", sessionKey);
         data.put("type", Family.class.getName());
-        vertx.eventBus().<byte[]>send(
-                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
-                Json.encode(data), result -> {
-            String s = "";
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    promise.completeExceptionally(t);
-                    return;
+        if( families == null ) {
+            vertx.eventBus().<byte[]>send(
+                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                    Json.encode(data), result -> {
+                String s = "";
+                try {
+                    if (result.failed()) {
+                        Throwable t = result.cause();
+                        promise.completeExceptionally(t);
+                        return;
+                    }
+                    ByteArrayInputStream bais =
+                            new ByteArrayInputStream(result.result().body());
+                    ObjectInputStream ois = new ObjectInputStream(bais);
+                    families = (List<Family>) ois.readObject();
+                    promise.complete(null);
+                } catch (IOException | ClassNotFoundException e) {
+                    log.error("Exception while decoding object in response", e);
+                    promise.completeExceptionally(e);
                 }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
-                ObjectInputStream ois = new ObjectInputStream(bais);
-                families = (List<Family>) ois.readObject();
-                promise.complete(null);
-            } catch (IOException | ClassNotFoundException e) {
-                log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-
-            }
-        });
+            });
+        }
+        else {
+            promise.complete(null);
+        }
         return promise;
     }
     
@@ -255,27 +247,31 @@ public class ImageRegionVerticle extends AbstractVerticle {
         final Map<String, Object> data = new HashMap<String, Object>();
         data.put("sessionKey", sessionKey);
         data.put("type", RenderingModel.class.getName());
-        vertx.eventBus().<byte[]>send(
-                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
-                Json.encode(data), result -> {
-            String s = "";
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    promise.completeExceptionally(t);
-                    return;
+        if (renderingModels == null) {
+            vertx.eventBus().<byte[]>send(
+                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                    Json.encode(data), result -> {
+                String s = "";
+                try {
+                    if (result.failed()) {
+                        Throwable t = result.cause();
+                        promise.completeExceptionally(t);
+                        return;
+                    }
+                    ByteArrayInputStream bais =
+                            new ByteArrayInputStream(result.result().body());
+                    ObjectInputStream ois = new ObjectInputStream(bais);
+                    renderingModels = (List<RenderingModel>) ois.readObject();
+                    promise.complete(null);
+                } catch (IOException | ClassNotFoundException e) {
+                    log.error("Exception while decoding object in response", e);
+                    promise.completeExceptionally(e);
                 }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
-                ObjectInputStream ois = new ObjectInputStream(bais);
-                renderingModels = (List<RenderingModel>) ois.readObject();
-                promise.complete(null);
-            } catch (IOException | ClassNotFoundException e) {
-                log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-
-            }
-        });
+            });
+        }
+        else {
+            promise.complete(null);
+        }
         return promise;
     }
 
