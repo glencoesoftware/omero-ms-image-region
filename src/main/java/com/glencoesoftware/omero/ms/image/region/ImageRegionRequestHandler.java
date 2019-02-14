@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -153,7 +154,9 @@ public class ImageRegionRequestHandler {
      * Render Image region request handler.
      */
     public CompletableFuture<byte[]> renderImageRegion() {
-        return getRegion();
+        return retrievePixDescription()
+                .thenCompose(this::getRendererInfo)
+                .thenApply(this::getRegion);
     }
 
     /**
@@ -243,55 +246,50 @@ public class ImageRegionRequestHandler {
         return promise;
     }
 
-    private CompletableFuture<byte[]> getRegion() {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        return retrievePixDescription()
-        .thenCompose(this::getRendererInfo)
-        .thenApply((rendererInfo) -> {
-            try {
-                QuantumFactory quantumFactory = new QuantumFactory(families);
-                RenderingDef renderingDef = rendererInfo.renderingDef;
-                Pixels pixels = rendererInfo.pixels;
-                PixelBuffer pixelBuffer = rendererInfo.PixelBuffer;
-                renderer = new Renderer(
-                    quantumFactory, renderingModels,
-                    pixels, renderingDef,
-                    pixelBuffer, lutProvider
-                );
-                PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
-                planeDef.setZ(imageRegionCtx.z);
+    private byte[] getRegion(RendererInfo rendererInfo) {
+        try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            QuantumFactory quantumFactory = new QuantumFactory(families);
+            RenderingDef renderingDef = rendererInfo.renderingDef;
+            Pixels pixels = rendererInfo.pixels;
+            PixelBuffer pixelBuffer = rendererInfo.PixelBuffer;
+            renderer = new Renderer(
+                quantumFactory, renderingModels,
+                pixels, renderingDef,
+                pixelBuffer, lutProvider
+            );
+            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
+            planeDef.setZ(imageRegionCtx.z);
 
-                // Avoid asking for resolution descriptions if there is no image
-                // pyramid.  This can be *very* expensive.
-                int countResolutionLevels = pixelBuffer.getResolutionLevels();
-                List<List<Integer>> resolutionLevels;
-                if (countResolutionLevels > 1) {
-                    resolutionLevels = pixelBuffer.getResolutionDescriptions();
-                } else {
-                    resolutionLevels = new ArrayList<List<Integer>>();
-                    resolutionLevels.add(
-                            Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
-                }
-                planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
-                setResolutionLevel(renderer, resolutionLevels);
-                if (imageRegionCtx.compressionQuality != null) {
-                    compressionSrv.setCompressionLevel(
-                    imageRegionCtx.compressionQuality);
-                }
-                updateSettings(renderer);
-                // The actual act of rendering will close the provided pixel
-                // buffer.  However, just in case an exception is thrown before
-                // reaching this point a double close may occur due to the
-                // surrounding try-with-resources block.
-                return render(
-                        renderer, resolutionLevels, pixels, planeDef,
-                        pixelBuffer);
-            } catch (Exception e) {
-                log.error("Error while rendering", e);
-                return null;
+            // Avoid asking for resolution descriptions if there is no image
+            // pyramid.  This can be *very* expensive.
+            int countResolutionLevels = pixelBuffer.getResolutionLevels();
+            List<List<Integer>> resolutionLevels;
+            if (countResolutionLevels > 1) {
+                resolutionLevels = pixelBuffer.getResolutionDescriptions();
+            } else {
+                resolutionLevels = new ArrayList<List<Integer>>();
+                resolutionLevels.add(
+                        Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
             }
-        });
+            planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
+            setResolutionLevel(renderer, resolutionLevels);
+            if (imageRegionCtx.compressionQuality != null) {
+                compressionSrv.setCompressionLevel(
+                imageRegionCtx.compressionQuality);
+            }
+            updateSettings(renderer);
+            // The actual act of rendering will close the provided pixel
+            // buffer.  However, just in case an exception is thrown before
+            // reaching this point a double close may occur due to the
+            // surrounding try-with-resources block.
+            return render(
+                    renderer, resolutionLevels, pixels, planeDef,
+                    pixelBuffer);
+        } catch (IOException | QuantizationException e) {
+            throw new CompletionException(e);
+        }
     }
 
     /**
