@@ -93,55 +93,38 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         String key = shapeMaskCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                try (OmeroRequest request = new OmeroRequest(
-                         host, port, shapeMaskCtx.omeroSessionKey))
-                {
-                    byte[] shapeMask =
-                            result.succeeded()? result.result().body() : null;
-                    ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx);
+                byte[] shapeMask =
+                        result.succeeded()? result.result().body() : null;
+                ShapeMaskRequestHandler requestHandler =
+                        new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
-                    // If the PNG is in the cache, check we have permissions
-                    // to access it and assign and return
-                    if (shapeMask != null
-                            && request.execute(requestHandler::canRead)) {
+                requestHandler.canRead(shapeMaskCtx.omeroSessionKey)
+                .thenAccept(readable -> {
+                    if (shapeMask != null && readable) {
                         message.reply(shapeMask);
                         return;
                     }
 
-                    // The PNG is not in the cache we have to create it
-                    shapeMask = request.execute(
-                            requestHandler::renderShapeMask);
-                    if (shapeMask == null) {
-                        message.fail(404, "Cannot render Mask:" +
-                                shapeMaskCtx.shapeId);
-                        return;
-                    }
-                    message.reply(shapeMask);
+                    requestHandler.renderShapeMask(shapeMaskCtx.omeroSessionKey)
+                    .thenAccept(mask -> {
+                        if (shapeMask == null) {
+                            message.fail(404, "Cannot render Mask:" +
+                                    shapeMaskCtx.shapeId);
+                            return;
+                        }
+                        message.reply(shapeMask);
 
-                    // Cache the PNG if the color was explicitly set
-                   if (shapeMaskCtx.color != null) {
-                        JsonObject setMessage = new JsonObject();
-                        setMessage.put("key", key);
-                        setMessage.put("value", shapeMask);
-                        vertx.eventBus().send(
-                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                setMessage);
-                    }
-                } catch (PermissionDeniedException
-                        | CannotCreateSessionException e) {
-                    String v = "Permission denied";
-                    log.debug(v);
-                    message.fail(403, v);
-                } catch (IllegalArgumentException e) {
-                    log.debug(
-                        "Illegal argument received while retrieving shape mask", e);
-                    message.fail(400, e.getMessage());
-                } catch (Exception e) {
-                    String v = "Exception while retrieving shape mask";
-                    log.error(v, e);
-                    message.fail(500, v);
-                }
+                        // Cache the PNG if the color was explicitly set
+                        if (shapeMaskCtx.color != null) {
+                            JsonObject setMessage = new JsonObject();
+                            setMessage.put("key", key);
+                            setMessage.put("value", shapeMask);
+                            vertx.eventBus().send(
+                                    RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                    setMessage);
+                        }
+                    });
+                });
             }
         );
     }

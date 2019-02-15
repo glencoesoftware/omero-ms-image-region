@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import javax.imageio.ImageIO;
 
@@ -40,12 +41,16 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.json.Json;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.model.MaskI;
+import omero.model.Shape;
 import omero.sys.ParametersI;
 
 public class ShapeMaskRequestHandler {
@@ -53,16 +58,31 @@ public class ShapeMaskRequestHandler {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskRequestHandler.class);
 
+    private static final String CAN_READ_EVENT =
+            "omero.can_read";
+
+
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
+
+    /** Vertx reference */
+    private final Vertx vertx;
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx,
+            Vertx vertx) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
+        this.vertx = vertx;
+    }
+
+    public CompletableFuture<byte[]> renderShapeMask(String sessionKey) {
+        CompletableFuture<byte[]> promise = new CompletableFuture<byte[]>();
+        //TODO: everything
+        return promise;
     }
 
     /**
@@ -220,6 +240,29 @@ public class ShapeMaskRequestHandler {
             bytes[i] = (byte) bitData.getPixelValue(i);
         }
         return bytes;
+    }
+
+    public CompletableFuture<Boolean> canRead(String sessionKey) {
+        CompletableFuture<Boolean> promise = new CompletableFuture<Boolean>();
+        String type = Shape.class.getName();
+        long id = shapeMaskCtx.shapeId;
+        log.debug("Type: {} Id: {}", type, id);
+
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", sessionKey);
+        data.put("type", type);
+        data.put("id", id);
+        vertx.eventBus().<Boolean>send(
+                CAN_READ_EVENT,
+                Json.encode(data), result -> {
+            String s = "";
+            if (result.failed()) {
+                promise.completeExceptionally(result.cause());
+                return;
+            }
+            promise.complete(result.result().body());
+        });
+        return promise;
     }
 
     /**
