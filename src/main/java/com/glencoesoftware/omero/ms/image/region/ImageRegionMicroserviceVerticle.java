@@ -127,8 +127,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.deployVerticle(new RedisCacheVerticle(),
                 new DeploymentOptions()
                         .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(
-                omero.getString("host"), omero.getInteger("port"), context),
+        vertx.deployVerticle(new ImageRegionVerticle(context),
                 new DeploymentOptions()
                         .setWorker(true)
                         .setMultiThreaded(true)

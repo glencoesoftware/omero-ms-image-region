@@ -43,24 +43,20 @@ import ome.system.PreferenceContext;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
-import omero.util.IceMapper;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
 
+    public static final String GET_ALL_ENUMERATIONS_EVENT =
+            "omero.get_all_enumerations";
+
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
     public static final String RENDER_IMAGE_REGION_PNG_EVENT =
             "omero.render_image_region_png";
-
-    /** OMERO server host */
-    private final String host;
-
-    /** OMERO server port */
-    private final int port;
 
     /** OMERO server Spring application context. */
     private ApplicationContext context;
@@ -76,12 +72,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /** Path to the script repository root. */
     private final String scriptRepoRoot;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
 
     /** Available families */
     private List<Family> families;
@@ -100,11 +90,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param host OMERO server host.
      * @param port OMERO server port.
      */
-    public ImageRegionVerticle(
-            String host, int port, ApplicationContext context)
+    public ImageRegionVerticle(ApplicationContext context)
     {
-        this.host = host;
-        this.port = port;
         this.context = context;
         this.preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
@@ -210,7 +197,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         data.put("type", Family.class.getName());
         if (families == null) {
             vertx.eventBus().<byte[]>send(
-                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                    GET_ALL_ENUMERATIONS_EVENT,
                     Json.encode(data), result -> {
                 try {
                     if (result.failed()) {
@@ -248,7 +235,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         data.put("type", RenderingModel.class.getName());
         if (renderingModels == null) {
             vertx.eventBus().<byte[]>send(
-                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
+                    GET_ALL_ENUMERATIONS_EVENT,
                     Json.encode(data), result -> {
                 try {
                     if (result.failed()) {
