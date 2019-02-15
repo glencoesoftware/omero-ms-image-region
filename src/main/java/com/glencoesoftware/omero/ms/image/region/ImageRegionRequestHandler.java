@@ -44,7 +44,6 @@ import javax.imageio.stream.ImageOutputStream;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
@@ -55,7 +54,6 @@ import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
@@ -70,7 +68,6 @@ import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
-import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler {
 
@@ -95,20 +92,14 @@ public class ImageRegionRequestHandler {
     public static final String GET_PIXELS_DESCRIPTION_EVENT =
             "omero.get_pixels_description";
 
-    /** OMERO server pixels service. */
+    /** OMERO server pixels service */
     private final PixelsService pixelsService;
-    
-    /** Reference to the compression service. */
+
+    /** Reference to the compression service */
     private final LocalCompress compressionSrv;
 
-    /** Lookup table provider. */
+    /** Lookup table provider */
     private final LutProvider lutProvider;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
 
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
@@ -132,8 +123,9 @@ public class ImageRegionRequestHandler {
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx, ApplicationContext context,
-            List<Family> families, List<RenderingModel> renderingModels,
+            ImageRegionCtx imageRegionCtx,
+            List<Family> families,
+            List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             PixelsService pixService,
             LocalCompress compSrv,
