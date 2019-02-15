@@ -127,7 +127,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void getImageRegion(Message<String> message) {
-        log.info("In ImageRegionVerticle::renderImageRegion");
+        StopWatch t0 = new Slf4JStopWatch("getImageRegion");
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -136,12 +136,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
+            t0.stop();
             message.fail(400, v);
             return;
         }
-        log.info(
-            "Render image region request with data: {}", message.body());
-        log.info("Session Key: {}", imageRegionCtx.omeroSessionKey);
+        log.debug("Render image region request with data: {}", message.body());
 
         updateFamilies(imageRegionCtx)
         .thenCompose(this::updateRenderingModels)
@@ -150,6 +149,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             if (t != null) {
                 if (t instanceof ReplyException) {
                     // Downstream event handling failure, propagate it
+                    t0.stop();
                     message.fail(
                         ((ReplyException) t).failureCode(), t.getMessage());
                 } else {
@@ -158,9 +158,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     message.fail(500, s);
                 }
             } else if (imageRegion == null) {
+                t0.stop();
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
             } else {
+                t0.stop();
                 message.reply(imageRegion);
             }
         });
@@ -174,6 +176,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private CompletableFuture<byte[]> renderImageRegion(
             ImageRegionCtx imageRegionCtx) {
+        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         ImageRegionRequestHandler imageRegionRequestHander =
                 new ImageRegionRequestHandler(
                         imageRegionCtx, families,
