@@ -197,7 +197,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx) {
         if (families == null) {
             return getAllEnumerations(
-                    imageRegionCtx, RenderingModel.class.getName())
+                    imageRegionCtx, Family.class.getName())
                         .thenApply(enumerations -> {
                             families = (List<Family>) enumerations;
                             return imageRegionCtx;
