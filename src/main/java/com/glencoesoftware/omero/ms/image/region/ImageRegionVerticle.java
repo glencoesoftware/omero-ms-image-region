@@ -90,8 +90,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
     public ImageRegionVerticle(ApplicationContext context)
     {
