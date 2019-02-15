@@ -44,7 +44,6 @@ import javax.imageio.stream.ImageOutputStream;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
@@ -55,9 +54,9 @@ import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -68,26 +67,14 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
+import omeis.providers.re.metadata.StatsFactory;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
-import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
-
-    public static final String IS_SESSION_VALID_EVENT =
-            "omero.is_session_valid";
-
-    public static final String CAN_READ_EVENT =
-            "omero.can_read";
-
-    public static final String GET_OBJECT_EVENT =
-            "omero.get_object";
-
-    public static final String GET_ALL_ENUMERATIONS_EVENT =
-            "omero.get_all_enumerations";
 
     public static final String GET_RENDERING_SETTINGS_EVENT =
             "omero.get_rendering_settings";
@@ -95,20 +82,14 @@ public class ImageRegionRequestHandler {
     public static final String GET_PIXELS_DESCRIPTION_EVENT =
             "omero.get_pixels_description";
 
-    /** OMERO server pixels service. */
+    /** OMERO server pixels service */
     private final PixelsService pixelsService;
-    
-    /** Reference to the compression service. */
-    private final LocalCompress compressionSrv;
 
-    /** Lookup table provider. */
+    /** Reference to the compression service */
+    private final LocalCompress compressionService;
+
+    /** Lookup table provider */
     private final LutProvider lutProvider;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
 
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
@@ -132,77 +113,83 @@ public class ImageRegionRequestHandler {
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx, ApplicationContext context,
-            List<Family> families, List<RenderingModel> renderingModels,
+            ImageRegionCtx imageRegionCtx,
+            List<Family> families,
+            List<RenderingModel> renderingModels,
             LutProvider lutProvider,
-            PixelsService pixService,
-            LocalCompress compSrv,
+            PixelsService pixelsService,
+            LocalCompress compressionService,
             Vertx vertx) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
+        this.pixelsService = pixelsService;
+        this.compressionService = compressionService;
         this.vertx = vertx;
 
-        pixelsService = pixService;
         projectionService = new ProjectionService();
-        compressionSrv = compSrv;
     }
 
     /**
      * Render Image region request handler.
      */
     public CompletableFuture<byte[]> renderImageRegion() {
-        return retrievePixDescription()
-                .thenCompose(this::getRendererInfo)
+        return getPixelsDescription()
+                .thenApply(this::createRenderingDef)
                 .thenApply(this::getRegion);
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param pixelsId The identifier of the pixels.
+     * Creates a new set of rendering settings corresponding to the specified
+     * pixels set.  Most values will be overwritten during
+     * {@link #updateSettings(Renderer)} usage.
+     * @param pixels pixels metadata
      * @return See above.
      */
-    private CompletableFuture<RenderingDef> getRenderingDef(Long pixelsId) {
-        CompletableFuture<RenderingDef> promise =
-                new CompletableFuture<RenderingDef>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
-        data.put("pixelsId", pixelsId);
-        StopWatch t0 = new Slf4JStopWatch(GET_RENDERING_SETTINGS_EVENT);
-        vertx.eventBus().<byte[]>send(
-                GET_RENDERING_SETTINGS_EVENT,
-                Json.encode(data), result -> {
-            String s = "";
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    promise.completeExceptionally(t);
-                }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
-                ObjectInputStream ois = new ObjectInputStream(bais);
-                RenderingDef rd = (RenderingDef) ois.readObject();
-                promise.complete(rd);
-            } catch (IOException | ClassNotFoundException e) {
-                log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-            } finally {
-                t0.stop();
+    private RenderingDef createRenderingDef(Pixels pixels) {
+        QuantumFactory quantumFactory = new QuantumFactory(families);
+        StatsFactory statsFactory = new StatsFactory();
+
+        RenderingDef renderingDef = new RenderingDef();
+        renderingDef.setPixels(pixels);
+        // Model will be reset during updateSettings()
+        renderingModels.forEach(model -> {
+            if (model.getValue().equals(Renderer.MODEL_GREYSCALE)) {
+                renderingDef.setModel(model);
             }
         });
-
-        return promise;
-    }
-
-    private CompletableFuture<RendererInfo> getRendererInfo(Pixels pixels) {
-        return getRenderingDef(pixels.getId())
-        .thenApply((renderingDef) -> {
-            PixelBuffer pixelBuffer = getPixelBuffer(pixels);
-            return new RendererInfo(pixels, pixelBuffer, renderingDef);
-        });
+        // QuantumDef defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetDefaults().  These *will not*
+        // be reset by updateSettings().
+        QuantumDef quantumDef = new QuantumDef();
+        quantumDef.setCdStart(0);
+        quantumDef.setCdEnd(QuantumFactory.DEPTH_8BIT);
+        quantumDef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        renderingDef.setQuantization(quantumDef);
+        // ChannelBinding defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetChannelBindings().  All *will*
+        // be reset by updateSettings() unless otherwise denoted.
+        for (int c = 0; c < pixels.sizeOfChannels(); c++) {
+            double[] range = statsFactory.initPixelsRange(pixels);
+            ChannelBinding cb = new ChannelBinding();
+            // Will *not* be reset by updateSettings()
+            cb.setCoefficient(1.0);
+            // Will *not* be reset by updateSettings()
+            cb.setNoiseReduction(false);
+            // Will *not* be reset by updateSettings()
+            cb.setFamily(quantumFactory.getFamily(Family.VALUE_LINEAR));
+            cb.setInputStart(range[0]);
+            cb.setInputEnd(range[1]);
+            cb.setActive(c < 3);
+            cb.setRed(255);
+            cb.setBlue(0);
+            cb.setGreen(0);
+            cb.setAlpha(255);
+            renderingDef.addChannelBinding(cb);
+        }
+        return renderingDef;
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels) {
@@ -214,7 +201,7 @@ public class ImageRegionRequestHandler {
         }
     }
 
-    private CompletableFuture<Pixels> retrievePixDescription() {
+    private CompletableFuture<Pixels> getPixelsDescription() {
         CompletableFuture<Pixels> promise = new CompletableFuture<>();
         final Map<String, Object> data = new HashMap<String, Object>();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
@@ -223,37 +210,35 @@ public class ImageRegionRequestHandler {
         vertx.eventBus().<byte[]>send(
                 GET_PIXELS_DESCRIPTION_EVENT,
                 Json.encode(data), result -> {
-            String s = "";
             try {
                 if (result.failed()) {
-                    Throwable t = result.cause();
-                    promise.completeExceptionally(t);
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
                     return;
                 }
                 ByteArrayInputStream bais =
                         new ByteArrayInputStream(result.result().body());
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Pixels pixels = (Pixels) ois.readObject();
+                t0.stop();
                 promise.complete(pixels);
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-            } finally {
                 t0.stop();
+                promise.completeExceptionally(e);
             }
         });
 
         return promise;
     }
 
-    private byte[] getRegion(RendererInfo rendererInfo) {
+    private byte[] getRegion(RenderingDef renderingDef) {
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
             QuantumFactory quantumFactory = new QuantumFactory(families);
-            RenderingDef renderingDef = rendererInfo.renderingDef;
-            Pixels pixels = rendererInfo.pixels;
-            PixelBuffer pixelBuffer = rendererInfo.PixelBuffer;
+            Pixels pixels = renderingDef.getPixels();
+            PixelBuffer pixelBuffer = getPixelBuffer(pixels);
             renderer = new Renderer(
                 quantumFactory, renderingModels,
                 pixels, renderingDef,
@@ -276,7 +261,7 @@ public class ImageRegionRequestHandler {
             planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
             setResolutionLevel(renderer, resolutionLevels);
             if (imageRegionCtx.compressionQuality != null) {
-                compressionSrv.setCompressionLevel(
+                compressionService.setCompressionLevel(
                 imageRegionCtx.compressionQuality);
             }
             updateSettings(renderer);
@@ -390,7 +375,7 @@ public class ImageRegionRequestHandler {
         );
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         if (format.equals("jpeg")) {
-            compressionSrv.compressToStream(image, output);
+            compressionService.compressToStream(image, output);
             return output.toByteArray();
         } else if (format.equals("png") || format.equals("tif")) {
             if (format.equals("tif")) {

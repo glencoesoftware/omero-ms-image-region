@@ -26,8 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -36,12 +34,11 @@ import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import Glacier2.CannotCreateSessionException;
-import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.Json;
+import ome.model.IEnum;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
@@ -49,26 +46,20 @@ import ome.system.PreferenceContext;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
-import omero.ApiUsageException;
-import omero.ServerError;
-import omero.util.IceMapper;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
 
+    public static final String GET_ALL_ENUMERATIONS_EVENT =
+            "omero.get_all_enumerations";
+
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
     public static final String RENDER_IMAGE_REGION_PNG_EVENT =
             "omero.render_image_region_png";
-
-    /** OMERO server host */
-    private final String host;
-
-    /** OMERO server port */
-    private final int port;
 
     /** OMERO server Spring application context. */
     private ApplicationContext context;
@@ -85,31 +76,29 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Path to the script repository root. */
     private final String scriptRepoRoot;
 
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
     /** Available families */
     private List<Family> families;
 
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
+    /** OMERO server pixels service */
+    private final PixelsService pixelsService;
+
+    /** Reference to the compression service */
+    private final LocalCompress compressionService;
+
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
-    public ImageRegionVerticle(
-            String host, int port, ApplicationContext context)
+    public ImageRegionVerticle(ApplicationContext context)
     {
-        this.host = host;
-        this.port = port;
         this.context = context;
         this.preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
+        pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        compressionService =
+                (LocalCompress) context.getBean("internal-ome.api.ICompress");
         scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
         lutType = (ScriptFileType) context.getBean("LUTScripts");
         lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
@@ -124,7 +113,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
-                    renderImageRegion(event);
+                    getImageRegion(event);
                 });
     }
 
@@ -137,8 +126,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param event Current routing context.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
-    private void renderImageRegion(Message<String> message) {
-        log.info("In ImageRegionVerticle::renderImageRegion");
+    private void getImageRegion(Message<String> message) {
+        StopWatch t0 = new Slf4JStopWatch("getImageRegion");
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -147,199 +136,133 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
+            t0.stop();
             message.fail(400, v);
             return;
         }
-        log.info(
-            "Render image region request with data: {}", message.body());
-        log.info("Session Key: {}", imageRegionCtx.omeroSessionKey);
+        log.debug("Render image region request with data: {}", message.body());
 
-        String sessionKey = imageRegionCtx.omeroSessionKey;
-        updateFamilies(sessionKey)
-        .thenCompose((v) -> {return updateRenderingModels(sessionKey);})
-        .thenCompose((v) -> {
-            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-            LocalCompress compressionService =
-                    (LocalCompress) context.getBean("internal-ome.api.ICompress");
-            ImageRegionRequestHandler imageRegionRequestHander =
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx, context, families,
-                            renderingModels, lutProvider,
-                            pixelsService,
-                            compressionService,
-                            vertx);
-            return imageRegionRequestHander.renderImageRegion();
-        })
-        .thenAccept((imageRegion) -> {
-            if (imageRegion == null) {
+        updateFamilies(imageRegionCtx)
+        .thenCompose(this::updateRenderingModels)
+        .thenCompose(this::renderImageRegion)
+        .whenComplete((imageRegion, t) -> {
+            if (t != null) {
+                if (t instanceof ReplyException) {
+                    // Downstream event handling failure, propagate it
+                    t0.stop();
+                    message.fail(
+                        ((ReplyException) t).failureCode(), t.getMessage());
+                } else {
+                    String s = "Internal error";
+                    log.error(s, t);
+                    message.fail(500, s);
+                }
+            } else if (imageRegion == null) {
+                t0.stop();
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
             } else {
+                t0.stop();
                 message.reply(imageRegion);
             }
-        })
-        .exceptionally((e) -> {
-            log.error("Failed to retrieve region", e);
-            message.fail(500, e.getMessage());
-            return null;
         });
-        /*
-        } catch (PermissionDeniedException
-                | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (IllegalArgumentException e) {
-            log.debug(
-                "Illegal argument received while retrieving image region", e);
-            message.fail(400, e.getMessage());
-        } catch (Exception e) {
-            String v = "Exception while retrieving image region";
-            log.error(v, e);
-            message.fail(500, v);
-        }
-        */
+    }
+
+    /**
+     * Synchronously performs the action of rendering an image region
+     * @param imageRegionCtx {@link ImageRegionCtx} object
+     * @return A new CompletionStage that, when this stage completes normally,
+     * will provide the rendered image region
+     */
+    private CompletableFuture<byte[]> renderImageRegion(
+            ImageRegionCtx imageRegionCtx) {
+        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
+        ImageRegionRequestHandler imageRegionRequestHander =
+                new ImageRegionRequestHandler(
+                        imageRegionCtx, families,
+                        renderingModels, lutProvider,
+                        pixelsService,
+                        compressionService,
+                        vertx);
+        return imageRegionRequestHander.renderImageRegion();
     }
 
     /**
      * Updates the available enumerations from the server.
-     * @param client valid client to use to perform actions
+     * @param imageRegionCtx valid image region context used to perform actions
+     * @return A new CompletionStage that, when this stage completes normally,
+     * will provide the <code>imageRegionCtx</code>
      */
-    private CompletableFuture<Void> updateFamilies(String sessionKey) {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", sessionKey);
-        data.put("type", Family.class.getName());
-        if( families == null ) {
-            vertx.eventBus().<byte[]>send(
-                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
-                    Json.encode(data), result -> {
-                String s = "";
-                try {
-                    if (result.failed()) {
-                        Throwable t = result.cause();
-                        promise.completeExceptionally(t);
-                        return;
-                    }
-                    ByteArrayInputStream bais =
-                            new ByteArrayInputStream(result.result().body());
-                    ObjectInputStream ois = new ObjectInputStream(bais);
-                    families = (List<Family>) ois.readObject();
-                    promise.complete(null);
-                } catch (IOException | ClassNotFoundException e) {
-                    log.error("Exception while decoding object in response", e);
-                    promise.completeExceptionally(e);
-                }
-            });
+    private CompletableFuture<ImageRegionCtx> updateFamilies(
+            ImageRegionCtx imageRegionCtx) {
+        if (families == null) {
+            return getAllEnumerations(
+                    imageRegionCtx, Family.class.getName())
+                        .thenApply(enumerations -> {
+                            families = (List<Family>) enumerations;
+                            return imageRegionCtx;
+                        });
         }
-        else {
-            promise.complete(null);
-        }
-        return promise;
+        return CompletableFuture.completedFuture(imageRegionCtx);
     }
-    
+
     /**
      * Updates the available enumerations from the server.
-     * @param client valid client to use to perform actions
+     * @param imageRegionCtx valid image region context used to perform actions
+     * @return A new CompletionStage that, when this stage completes normally,
+     * will provide the <code>imageRegionCtx</code>
      */
-    private CompletableFuture<Void> updateRenderingModels(String sessionKey) {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", sessionKey);
-        data.put("type", RenderingModel.class.getName());
+    private CompletableFuture<ImageRegionCtx> updateRenderingModels(
+            ImageRegionCtx imageRegionCtx) {
         if (renderingModels == null) {
-            vertx.eventBus().<byte[]>send(
-                    ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
-                    Json.encode(data), result -> {
-                String s = "";
-                try {
-                    if (result.failed()) {
-                        Throwable t = result.cause();
-                        promise.completeExceptionally(t);
-                        return;
-                    }
-                    ByteArrayInputStream bais =
-                            new ByteArrayInputStream(result.result().body());
-                    ObjectInputStream ois = new ObjectInputStream(bais);
-                    renderingModels = (List<RenderingModel>) ois.readObject();
-                    promise.complete(null);
-                } catch (IOException | ClassNotFoundException e) {
-                    log.error("Exception while decoding object in response", e);
-                    promise.completeExceptionally(e);
-                }
-            });
+            return getAllEnumerations(
+                    imageRegionCtx, RenderingModel.class.getName())
+                        .thenApply(enumerations -> {
+                            renderingModels =
+                                    (List<RenderingModel>) enumerations;
+                            return imageRegionCtx;
+                        });
         }
-        else {
-            promise.complete(null);
-        }
-        return promise;
-    }
-
-    /**
-     * Updates the available enumerations from the server.
-     * @param client valid client to use to perform actions
-     */
-    private CompletableFuture<List<Family>> getFamilies(String sessionKey) {
-        CompletableFuture<List<Family>> promise = new CompletableFuture<List<Family>>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", sessionKey);
-        data.put("type", Family.class.getName());
-        vertx.eventBus().<byte[]>send(
-                ImageRegionRequestHandler.GET_ALL_ENUMERATIONS_EVENT,
-                Json.encode(data), result -> {
-            String s = "";
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    promise.completeExceptionally(t);
-                    return;
-                }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
-                ObjectInputStream ois = new ObjectInputStream(bais);
-                List<Family> families = (List<Family>) ois.readObject();
-                promise.complete(families);
-            } catch (IOException | ClassNotFoundException e) {
-                log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-
-            }
-        });
-        return promise;
+        return CompletableFuture.completedFuture(imageRegionCtx);
     }
 
     /**
      * Retrieves a list of all enumerations from the server of a particular
      * class.
      * @param client valid client to use to perform actions
-     * @param klass enumeration class to retrieve.
+     * @param type enumeration class to retrieve.
      * @return See above.
      */
-    private <T> List<T> getAllEnumerations(
-            omero.client client, Class<T> klass) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
-        try {
-            return (List<T>) client
-                    .getSession()
-                    .getPixelsService()
-                    .getAllEnumerations(klass.getName(), ctx)
-                    .stream()
-                    .map(x -> {
-                        try {
-                            return (T) mapper.reverse(x);
-                        } catch (ApiUsageException e) {
-                            // *Should* never happen
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(Collectors.toList());
-        } catch (ServerError e) {
-            // *Should* never happen
-            throw new RuntimeException(e);
-        } finally {
-            t0.stop();
-        }
+    private CompletableFuture<List<? extends IEnum>> getAllEnumerations(
+            ImageRegionCtx imageRegionCtx, String type) {
+        CompletableFuture<List<? extends IEnum>> promise =
+                new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
+        data.put("type", type);
+        StopWatch t0 = new Slf4JStopWatch(GET_ALL_ENUMERATIONS_EVENT);
+        vertx.eventBus().<byte[]>send(
+                GET_ALL_ENUMERATIONS_EVENT,
+                Json.encode(data), result -> {
+            try {
+                if (result.failed()) {
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                List<? extends IEnum> enumerations =
+                        (List<? extends IEnum>) ois.readObject();
+                t0.stop();
+                promise.complete(enumerations);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                t0.stop();
+                promise.completeExceptionally(e);
+            }
+        });
+        return promise;
     }
 }

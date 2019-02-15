@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.CaseInsensitiveHeaders;
-import ome.model.core.Pixels;
 import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -57,7 +56,6 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx = new ImageRegionCtx(params, "");
         reqHandler = new ImageRegionRequestHandler(
                 imageRegionCtx,
-                null, //ApplicationContext context,
                 new ArrayList<Family>(),
                 new ArrayList<RenderingModel>(),
                 null, //LutProvider lutProvider,
