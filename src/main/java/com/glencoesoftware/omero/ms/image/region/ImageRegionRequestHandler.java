@@ -56,6 +56,7 @@ import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -66,6 +67,7 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
+import omeis.providers.re.metadata.StatsFactory;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 
@@ -135,48 +137,59 @@ public class ImageRegionRequestHandler {
      */
     public CompletableFuture<byte[]> renderImageRegion() {
         return getPixelsDescription()
-                .thenCompose(this::getRenderingSettings)
+                .thenApply(this::createRenderingDef)
                 .thenApply(this::getRegion);
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param pixels the Pixels metadata
+     * Creates a new set of rendering settings corresponding to the specified
+     * pixels set.  Most values will be overwritten during
+     * {@link #updateSettings(Renderer)} usage.
+     * @param pixels pixels metadata
      * @return See above.
      */
-    private CompletableFuture<RenderingDef> getRenderingSettings(
-            Pixels pixels) {
-        CompletableFuture<RenderingDef> promise =
-                new CompletableFuture<RenderingDef>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
-        data.put("pixelsId", pixels.getId());
-        StopWatch t0 = new Slf4JStopWatch(GET_RENDERING_SETTINGS_EVENT);
-        vertx.eventBus().<byte[]>send(
-                GET_RENDERING_SETTINGS_EVENT,
-                Json.encode(data), result -> {
-            try {
-                if (result.failed()) {
-                    t0.stop();
-                    promise.completeExceptionally(result.cause());
-                    return;
-                }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
-                ObjectInputStream ois = new ObjectInputStream(bais);
-                RenderingDef rd = (RenderingDef) ois.readObject();
-                rd.setPixels(pixels);
-                t0.stop();
-                promise.complete(rd);
-            } catch (IOException | ClassNotFoundException e) {
-                log.error("Exception while decoding object in response", e);
-                t0.stop();
-                promise.completeExceptionally(e);
+    private RenderingDef createRenderingDef(Pixels pixels) {
+        QuantumFactory quantumFactory = new QuantumFactory(families);
+        StatsFactory statsFactory = new StatsFactory();
+
+        RenderingDef renderingDef = new RenderingDef();
+        renderingDef.setPixels(pixels);
+        // Model will be reset during updateSettings()
+        renderingModels.forEach(model -> {
+            if (model.getValue().equals(Renderer.MODEL_GREYSCALE)) {
+                renderingDef.setModel(model);
             }
         });
-
-        return promise;
+        // QuantumDef defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetDefaults().  These *will not*
+        // be reset by updateSettings().
+        QuantumDef quantumDef = new QuantumDef();
+        quantumDef.setCdStart(0);
+        quantumDef.setCdEnd(QuantumFactory.DEPTH_8BIT);
+        quantumDef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        renderingDef.setQuantization(quantumDef);
+        // ChannelBinding defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetChannelBindings().  All *will*
+        // be reset by updateSettings() unless otherwise denoted.
+        for (int c = 0; c < pixels.sizeOfChannels(); c++) {
+            double[] range = statsFactory.initPixelsRange(pixels);
+            ChannelBinding cb = new ChannelBinding();
+            // Will *not* be reset by updateSettings()
+            cb.setCoefficient(1.0);
+            // Will *not* be reset by updateSettings()
+            cb.setNoiseReduction(false);
+            // Will *not* be reset by updateSettings()
+            cb.setFamily(quantumFactory.getFamily(Family.VALUE_LINEAR));
+            cb.setInputStart(range[0]);
+            cb.setInputEnd(range[1]);
+            cb.setActive(c < 3);
+            cb.setRed(255);
+            cb.setBlue(0);
+            cb.setGreen(0);
+            cb.setAlpha(255);
+            renderingDef.addChannelBinding(cb);
+        }
+        return renderingDef;
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels) {
