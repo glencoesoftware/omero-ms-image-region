@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -36,6 +38,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.Json;
+import ome.model.IEnum;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.services.scripts.ScriptFileType;
@@ -191,36 +194,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private CompletableFuture<ImageRegionCtx> updateFamilies(
             ImageRegionCtx imageRegionCtx) {
-        CompletableFuture<ImageRegionCtx> promise = new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
-        data.put("type", Family.class.getName());
         if (families == null) {
-            vertx.eventBus().<byte[]>send(
-                    GET_ALL_ENUMERATIONS_EVENT,
-                    Json.encode(data), result -> {
-                try {
-                    if (result.failed()) {
-                        Throwable t = result.cause();
-                        promise.completeExceptionally(t);
-                        return;
-                    }
-                    ByteArrayInputStream bais =
-                            new ByteArrayInputStream(result.result().body());
-                    ObjectInputStream ois = new ObjectInputStream(bais);
-                    families = (List<Family>) ois.readObject();
-                    promise.complete(imageRegionCtx);
-                } catch (IOException | ClassNotFoundException e) {
-                    log.error("Exception while decoding object in response", e);
-                    promise.completeExceptionally(e);
-                }
-            });
-        } else {
-            promise.complete(imageRegionCtx);
+            return getAllEnumerations(
+                    imageRegionCtx, RenderingModel.class.getName())
+                        .thenApply(enumerations -> {
+                            families = (List<Family>) enumerations;
+                            return imageRegionCtx;
+                        });
         }
-        return promise;
+        return CompletableFuture.completedFuture(imageRegionCtx);
     }
-    
+
     /**
      * Updates the available enumerations from the server.
      * @param imageRegionCtx valid image region context used to perform actions
@@ -229,34 +213,55 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private CompletableFuture<ImageRegionCtx> updateRenderingModels(
             ImageRegionCtx imageRegionCtx) {
-        CompletableFuture<ImageRegionCtx> promise = new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
-        data.put("type", RenderingModel.class.getName());
         if (renderingModels == null) {
-            vertx.eventBus().<byte[]>send(
-                    GET_ALL_ENUMERATIONS_EVENT,
-                    Json.encode(data), result -> {
-                try {
-                    if (result.failed()) {
-                        Throwable t = result.cause();
-                        promise.completeExceptionally(t);
-                        return;
-                    }
-                    ByteArrayInputStream bais =
-                            new ByteArrayInputStream(result.result().body());
-                    ObjectInputStream ois = new ObjectInputStream(bais);
-                    renderingModels = (List<RenderingModel>) ois.readObject();
-                    promise.complete(imageRegionCtx);
-                } catch (IOException | ClassNotFoundException e) {
-                    log.error("Exception while decoding object in response", e);
-                    promise.completeExceptionally(e);
-                }
-            });
-        } else {
-            promise.complete(imageRegionCtx);
+            return getAllEnumerations(
+                    imageRegionCtx, RenderingModel.class.getName())
+                        .thenApply(enumerations -> {
+                            renderingModels =
+                                    (List<RenderingModel>) enumerations;
+                            return imageRegionCtx;
+                        });
         }
-        return promise;
+        return CompletableFuture.completedFuture(imageRegionCtx);
     }
 
+    /**
+     * Retrieves a list of all enumerations from the server of a particular
+     * class.
+     * @param client valid client to use to perform actions
+     * @param type enumeration class to retrieve.
+     * @return See above.
+     */
+    private CompletableFuture<List<? extends IEnum>> getAllEnumerations(
+            ImageRegionCtx imageRegionCtx, String type) {
+        CompletableFuture<List<? extends IEnum>> promise =
+                new CompletableFuture<>();
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
+        data.put("type", type);
+        StopWatch t0 = new Slf4JStopWatch(GET_ALL_ENUMERATIONS_EVENT);
+        vertx.eventBus().<byte[]>send(
+                GET_ALL_ENUMERATIONS_EVENT,
+                Json.encode(data), result -> {
+            try {
+                if (result.failed()) {
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                List<? extends IEnum> enumerations =
+                        (List<? extends IEnum>) ois.readObject();
+                t0.stop();
+                promise.complete(enumerations);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                t0.stop();
+                promise.completeExceptionally(e);
+            }
+        });
+        return promise;
+    }
 }
