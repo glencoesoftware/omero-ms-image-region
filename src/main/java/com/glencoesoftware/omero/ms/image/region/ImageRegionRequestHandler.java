@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
-import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
@@ -75,9 +75,6 @@ public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
-
-    public static final String GET_RENDERING_SETTINGS_EVENT =
-            "omero.get_rendering_settings";
 
     public static final String GET_PIXELS_DESCRIPTION_EVENT =
             "omero.get_pixels_description";
@@ -203,13 +200,12 @@ public class ImageRegionRequestHandler {
 
     private CompletableFuture<Pixels> getPixelsDescription() {
         CompletableFuture<Pixels> promise = new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
+        final JsonObject data = new JsonObject();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("imageId", imageRegionCtx.imageId);
         StopWatch t0 = new Slf4JStopWatch(GET_PIXELS_DESCRIPTION_EVENT);
         vertx.eventBus().<byte[]>send(
-                GET_PIXELS_DESCRIPTION_EVENT,
-                Json.encode(data), result -> {
+                GET_PIXELS_DESCRIPTION_EVENT, data, result -> {
             try {
                 if (result.failed()) {
                     t0.stop();

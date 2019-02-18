@@ -38,6 +38,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import ome.model.IEnum;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -237,13 +238,12 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx, String type) {
         CompletableFuture<List<? extends IEnum>> promise =
                 new CompletableFuture<>();
-        final Map<String, Object> data = new HashMap<String, Object>();
+        final JsonObject data = new JsonObject();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("type", type);
         StopWatch t0 = new Slf4JStopWatch(GET_ALL_ENUMERATIONS_EVENT);
         vertx.eventBus().<byte[]>send(
-                GET_ALL_ENUMERATIONS_EVENT,
-                Json.encode(data), result -> {
+                GET_ALL_ENUMERATIONS_EVENT, data, result -> {
             try {
                 if (result.failed()) {
                     t0.stop();
