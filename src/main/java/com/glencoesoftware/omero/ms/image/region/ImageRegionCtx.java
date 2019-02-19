@@ -47,8 +47,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     public Integer t;
 
     /**
-     * Region descriptor (tile); only X and Y are used at this stage and
-     * represent the <b>tile</b> offset rather than the pixel offset
+     * Region descriptor (tile); only X, Y, and tile width and height are used
+     * at this stage and represent the <b>tile</b> offset, respecting the
+     * provided tile size, rather than the pixel offset; tile width and height
+     * will be 0 if not provided
      */
     public RegionDef tile;
 
@@ -195,6 +197,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         tile = new RegionDef();
         tile.setX(Integer.parseInt(tileArray[1]));
         tile.setY(Integer.parseInt(tileArray[2]));
+        if (tileArray.length == 5) {
+            tile.setWidth(Integer.parseInt(tileArray[3]));
+            tile.setHeight(Integer.parseInt(tileArray[4]));
+        }
         resolution = Integer.parseInt(tileArray[0]);
     }
 

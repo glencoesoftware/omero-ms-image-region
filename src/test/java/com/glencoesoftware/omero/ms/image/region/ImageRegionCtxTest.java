@@ -45,7 +45,7 @@ public class ImageRegionCtxTest {
     final private int tileX = 0;
     final private int tileY = 1;
     final private String tile = String.format(
-            "%d,%d,%d,1024,1024", resolution, tileX, tileY);
+            "%d,%d,%d,1024,2048", resolution, tileX, tileY);
     // region
     final private int regionX = 1;
     final private int regionY = 2;
@@ -189,6 +189,28 @@ public class ImageRegionCtxTest {
     }
 
     @Test
+    public void testTileShortParameters()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("region");
+        params.add("tile", String.format("%d,%d,%d", resolution, tileX, tileY));
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+
+        Assert.assertNull(imageCtxDecoded.region);
+        Assert.assertNotNull(imageCtxDecoded.tile);
+        Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
+        Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
+        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 0);
+        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 0);
+        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
+        assertChannelInfo(imageCtxDecoded);
+    }
+
+    @Test
     public void testTileParameters()
             throws JsonParseException, JsonMappingException, IOException {
         params.remove("region");
@@ -204,8 +226,8 @@ public class ImageRegionCtxTest {
         Assert.assertNotNull(imageCtxDecoded.tile);
         Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
         Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
-        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 0);
-        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 0);
+        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 1024);
+        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 2048);
         Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
         assertChannelInfo(imageCtxDecoded);
     }
