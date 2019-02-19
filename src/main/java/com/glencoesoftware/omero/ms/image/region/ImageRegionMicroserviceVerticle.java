@@ -48,6 +48,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
+import ome.system.PreferenceContext;
 import omero.model.Image;
 
 /**
@@ -63,6 +64,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** OMERO server Spring application context. */
     private ApplicationContext context;
+
+    /** OMERO server wide preference context. */
+    private PreferenceContext preferences;
 
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
@@ -117,6 +121,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
                 "classpath*:beanRefContext.xml");
+        preferences =
+                (PreferenceContext) this.context.getBean("preferenceContext");
 
         // Deploy our dependency verticles
         JsonObject omero = config.getJsonObject("omero");
@@ -234,13 +240,20 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         String version = Optional.ofNullable(
             this.getClass().getPackage().getImplementationVersion()
         ).orElse("development");
+        int maxTileLength = Integer.parseInt(
+                Optional.ofNullable(
+                    preferences.getProperty("omero.pixeldata.max_tile_length")
+                ).orElse("1024").toLowerCase()
+            );
         JsonObject resData = new JsonObject()
                 .put("provider", "ImageRegionMicroservice")
                 .put("version", version)
                 .put("features", new JsonArray()
-                                     .add("flip")
-                                     .add("mask-color")
-                                     .add("png-tiles"));
+                                 .add("flip")
+                                 .add("mask-color")
+                                 .add("png-tiles"))
+                .put("options",new JsonObject()
+                               .put("maxTileLength", maxTileLength));
         event.response()
             .putHeader("content-type", "application/json")
             .end(resData.encodePrettily());

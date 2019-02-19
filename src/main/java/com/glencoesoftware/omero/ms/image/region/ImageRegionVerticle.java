@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.perf4j.StopWatch;
@@ -91,6 +92,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
+    /** Configured maximum size size in either dimension */
+    private final int maxTileLength;
+
     /**
      * Default constructor.
      * @param host OMERO server host.
@@ -107,6 +111,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
         scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
         lutType = (ScriptFileType) context.getBean("LUTScripts");
         lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
+        maxTileLength = Integer.parseInt(
+            Optional.ofNullable(
+                preferences.getProperty("omero.pixeldata.max_tile_length")
+            ).orElse("1024").toLowerCase()
+        );
     }
 
     /* (non-Javadoc)
@@ -163,7 +172,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             imageRegionCtx, context, families,
                             renderingModels, lutProvider,
                             pixelsService,
-                            compressionService)::renderImageRegion);
+                            compressionService,
+                            maxTileLength)::renderImageRegion);
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
