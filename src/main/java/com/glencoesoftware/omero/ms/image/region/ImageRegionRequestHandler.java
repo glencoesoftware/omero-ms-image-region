@@ -112,6 +112,9 @@ public class ImageRegionRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Configured maximum size size in either dimension */
+    private final int maxTileLength;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -121,13 +124,15 @@ public class ImageRegionRequestHandler {
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             PixelsService pixService,
-            LocalCompress compSrv) {
+            LocalCompress compSrv,
+            int maxTileLength) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
@@ -613,12 +618,26 @@ public class ImageRegionRequestHandler {
         int sizeX = resolutionLevels.get(resolution).get(0);
         int sizeY = resolutionLevels.get(resolution).get(1);
         RegionDef regionDef = new RegionDef();
-        Dimension tileSize = pixelBuffer.getTileSize();
+        Dimension defaultTileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
-            regionDef.setWidth((int) tileSize.getWidth());
-            regionDef.setHeight((int) tileSize.getHeight());
-            regionDef.setX(imageRegionCtx.tile.getX() * regionDef.getWidth());
-            regionDef.setY(imageRegionCtx.tile.getY() * regionDef.getHeight());
+            int tileSizeX = imageRegionCtx.tile.getWidth();
+            int tileSizeY = imageRegionCtx.tile.getHeight();
+            if (tileSizeX == 0) {
+                tileSizeX = (int) defaultTileSize.getWidth();
+            }
+            if (tileSizeX > maxTileLength) {
+                tileSizeX = maxTileLength;
+            }
+            if (tileSizeY == 0) {
+                tileSizeY = (int) defaultTileSize.getHeight();
+            }
+            if (tileSizeY > maxTileLength) {
+                tileSizeY = maxTileLength;
+            }
+            regionDef.setWidth(tileSizeX);
+            regionDef.setHeight(tileSizeY);
+            regionDef.setX(imageRegionCtx.tile.getX() * tileSizeX);
+            regionDef.setY(imageRegionCtx.tile.getY() * tileSizeY);
         } else if (imageRegionCtx.region != null) {
             regionDef.setX(imageRegionCtx.region.getX());
             regionDef.setY(imageRegionCtx.region.getY());
