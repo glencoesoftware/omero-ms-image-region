@@ -618,18 +618,18 @@ public class ImageRegionRequestHandler {
         int sizeX = resolutionLevels.get(resolution).get(0);
         int sizeY = resolutionLevels.get(resolution).get(1);
         RegionDef regionDef = new RegionDef();
-        Dimension defaultTileSize = pixelBuffer.getTileSize();
+        Dimension imageTileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
             int tileSizeX = imageRegionCtx.tile.getWidth();
             int tileSizeY = imageRegionCtx.tile.getHeight();
             if (tileSizeX == 0) {
-                tileSizeX = (int) defaultTileSize.getWidth();
+                tileSizeX = (int) imageTileSize.getWidth();
             }
             if (tileSizeX > maxTileLength) {
                 tileSizeX = maxTileLength;
             }
             if (tileSizeY == 0) {
-                tileSizeY = (int) defaultTileSize.getHeight();
+                tileSizeY = (int) imageTileSize.getHeight();
             }
             if (tileSizeY > maxTileLength) {
                 tileSizeY = maxTileLength;
