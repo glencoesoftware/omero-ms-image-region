@@ -340,9 +340,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(shapeMask.length));
-                response.write(Buffer.buffer(shapeMask));
+                if (!response.closed()) {
+                    response.end(Buffer.buffer(shapeMask));
+                }
             } finally {
-                response.end();
                 log.debug("Response ended");
             }
         });
