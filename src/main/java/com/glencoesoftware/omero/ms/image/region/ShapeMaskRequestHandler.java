@@ -52,8 +52,8 @@ import ome.xml.model.primitives.Color;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
-import omero.model.MaskI;
-import omero.model.Shape;
+import ome.model.roi.Mask;
+import ome.model.roi.Shape;
 import omero.sys.ParametersI;
 
 public class ShapeMaskRequestHandler {
@@ -106,10 +106,10 @@ public class ShapeMaskRequestHandler {
      * @param mask mask to render
      * @return <code>image/png</code> encoded mask
      */
-    protected byte[] renderShapeMask(MaskI mask) {
+    protected byte[] renderShapeMask(Mask mask) {
         try {
             Color fillColor = Optional.ofNullable(mask.getFillColor())
-                .map(x -> new Color(x.getValue()))
+                .map(x -> new Color(x))
                 .orElse(new Color(255, 255, 0, 255));
             if (shapeMaskCtx.color != null) {
                 // Color came from the request so we override the default
@@ -124,8 +124,8 @@ public class ShapeMaskRequestHandler {
                 fillColor.getBlue(), fillColor.getAlpha()
             );
             byte[] bytes = mask.getBytes();
-            int width = (int) mask.getWidth().getValue();
-            int height = (int) mask.getHeight().getValue();
+            int width = (int) mask.getWidth().intValue();
+            int height = (int) mask.getHeight().intValue();
             return renderShapeMask(fillColor, bytes, width, height);
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
@@ -241,30 +241,31 @@ public class ShapeMaskRequestHandler {
 
     public CompletableFuture<Boolean> canRead(String sessionKey) {
         CompletableFuture<Boolean> promise = new CompletableFuture<Boolean>();
-        String type = Shape.class.getName();
+        String type = "Mask";
         long id = shapeMaskCtx.shapeId;
-        log.debug("Type: {} Id: {}", type, id);
+        log.info("Type: {} Id: {}", type, id);
 
-        final Map<String, Object> data = new HashMap<String, Object>();
+        final JsonObject data = new JsonObject();
         data.put("sessionKey", sessionKey);
         data.put("type", type);
         data.put("id", id);
         vertx.eventBus().<Boolean>send(
                 CAN_READ_EVENT,
-                Json.encode(data), result -> {
+                data, result -> {
             String s = "";
             if (result.failed()) {
                 promise.completeExceptionally(result.cause());
                 return;
             }
+            log.info(result.result().body().toString());//TODO: Why is this necessary?
             promise.complete(result.result().body());
         });
         return promise;
     }
 
-    protected CompletableFuture<MaskI> getMask(String sessionKey, Long shapeId) {
-        CompletableFuture<MaskI> promise = new CompletableFuture<MaskI>();
-        String type = Shape.class.getName();
+    protected CompletableFuture<Mask> getMask(String sessionKey, Long shapeId) {
+        CompletableFuture<Mask> promise = new CompletableFuture<Mask>();
+        String type = "Mask";
         //Get the mask
         final JsonObject data = new JsonObject();
         data.put("sessionKey", sessionKey);
@@ -280,7 +281,8 @@ public class ShapeMaskRequestHandler {
                 ByteArrayInputStream bais =
                         new ByteArrayInputStream(result.result().body());
                 ObjectInputStream ois = new ObjectInputStream(bais);
-                MaskI mask = (MaskI) ois.readObject();
+                Mask mask = (Mask) ois.readObject();
+                promise.complete(mask);
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
                 promise.completeExceptionally(e);

@@ -132,8 +132,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setWorker(true)
                         .setMultiThreaded(true)
                         .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(
-                omero.getString("host"), omero.getInteger("port")),
+        vertx.deployVerticle(new ShapeMaskVerticle(),
                 new DeploymentOptions()
                         .setWorker(true)
                         .setMultiThreaded(true)
@@ -331,9 +330,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
+                    log.error(t.getMessage());
                     int statusCode = 404;
                     if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
+                        //statusCode = ((ReplyException) t).failureCode();
                     }
                     response.setStatusCode(statusCode);
                     return;
@@ -350,5 +350,4 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
         });
     }
-
 }

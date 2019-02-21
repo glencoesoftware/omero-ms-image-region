@@ -38,22 +38,11 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     public static final String RENDER_SHAPE_MASK_EVENT =
             "omero.render_shape_mask";
 
-    /** OMERO server host */
-    private final String host;
-
-    /** OMERO server port */
-    private final int port;
-
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
-    public ShapeMaskVerticle(String host, int port)
-    {
-        this.host = host;
-        this.port = port;
-    }
+    public ShapeMaskVerticle()
+    {}
 
     /* (non-Javadoc)
      * @see io.vertx.core.AbstractVerticle#start()
@@ -107,12 +96,13 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
                     requestHandler.renderShapeMask(shapeMaskCtx.omeroSessionKey)
                     .thenAccept(mask -> {
-                        if (shapeMask == null) {
+                        log.info(mask.toString());
+                        if (mask == null) {
                             message.fail(404, "Cannot render Mask:" +
                                     shapeMaskCtx.shapeId);
                             return;
                         }
-                        message.reply(shapeMask);
+                        message.reply(mask);
 
                         // Cache the PNG if the color was explicitly set
                         if (shapeMaskCtx.color != null) {

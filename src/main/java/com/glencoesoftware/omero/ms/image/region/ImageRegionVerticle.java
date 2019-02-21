@@ -37,7 +37,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import ome.model.IEnum;
 import ome.model.enums.Family;
