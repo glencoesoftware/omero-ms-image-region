@@ -225,7 +225,7 @@ public class ShapeMaskRequestHandler {
         CompletableFuture<Boolean> promise = new CompletableFuture<Boolean>();
         String type = "Mask";
         long id = shapeMaskCtx.shapeId;
-        log.info("Type: {} Id: {}", type, id);
+        log.info("canRead Type: {} Id: {}", type, id);
 
         final JsonObject data = new JsonObject();
         data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
@@ -253,6 +253,7 @@ public class ShapeMaskRequestHandler {
         data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
         data.put("type", type);
         data.put("id", id);
+        log.info("getMask Type: {} Id: {}", type, id);
         StopWatch t0 = new Slf4JStopWatch("getMask");
         vertx.eventBus().<byte[]>send(GET_OBJECT_EVENT, data, result -> {
             try {

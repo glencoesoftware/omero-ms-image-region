@@ -271,16 +271,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 Json.encode(imageRegionCtx), result -> {
             try {
                 if (result.failed()) {
-                    log.info("RenderImageRegionEvent result failed");
                     Throwable t = result.cause();
-                    log.error(t.getMessage());
                     int statusCode = 404;
                     if (t instanceof ReplyException) {
-                        log.info("t is instanceOf ReplyException");
                         statusCode = ((ReplyException) t).failureCode();
                     }
                     if (!response.closed()) {
-                        log.info("" + statusCode);
                         response.setStatusCode(statusCode).end();
                     }
                     return;
@@ -330,12 +326,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             try {
                 if (result.failed()) {
                     Throwable t = result.cause();
-                    log.error(t.getMessage());
                     int statusCode = 404;
                     if (t instanceof ReplyException) {
-                        //statusCode = ((ReplyException) t).failureCode();
+                        statusCode = ((ReplyException) t).failureCode();
                     }
-                    response.setStatusCode(statusCode);
+                    if (!response.closed()) {
+                        response.setStatusCode(statusCode).end();
+                    }
                     return;
                 }
                 byte[] shapeMask = result.result().body();
