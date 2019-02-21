@@ -27,6 +27,7 @@ import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
 
 public class ShapeMaskVerticle extends AbstractVerticle {
@@ -82,7 +83,23 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                         new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
                 requestHandler.canRead()
-                .thenAccept(readable -> {
+                .whenComplete((readable, throwable) -> {
+                    if (throwable != null) {
+                        if (throwable instanceof ReplyException) {
+                            // Downstream event handling failure, propagate it
+                            t0.stop();
+                            message.fail(
+                                ((ReplyException) throwable).failureCode(),
+                                throwable.getMessage());
+                        } else {
+                            String s = "Internal error";
+                            log.error(s, throwable);
+                            t0.stop();
+                            message.fail(500, s);
+                        }
+                        return;
+                    }
+
                     if (cachedMask != null && readable) {
                         t0.stop();
                         message.reply(cachedMask);
@@ -90,10 +107,11 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     }
 
                     requestHandler.renderShapeMask()
-                    .whenComplete((rendereredMask, t) -> {
+                    .whenComplete((rendereredMask, renderThrowable) -> {
                         if (rendereredMask == null) {
-                            if (t != null) {
-                                log.error("Exception while rendering mask", t);
+                            if (renderThrowable != null) {
+                                log.error("Exception while rendering mask",
+                                          renderThrowable);
                             }
                             t0.stop();
                             message.fail(404, "Cannot render Mask:" +
