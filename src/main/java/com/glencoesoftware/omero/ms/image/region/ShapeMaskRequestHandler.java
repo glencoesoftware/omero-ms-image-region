@@ -31,9 +31,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -44,17 +41,10 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
-import omero.RType;
-import omero.ServerError;
-import omero.api.IQueryPrx;
 import ome.model.roi.Mask;
-import ome.model.roi.Shape;
-import omero.sys.ParametersI;
 
 public class ShapeMaskRequestHandler {
 
@@ -66,7 +56,6 @@ public class ShapeMaskRequestHandler {
 
     private static final String GET_OBJECT_EVENT =
             "omero.get_object";
-
 
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
@@ -105,32 +94,28 @@ public class ShapeMaskRequestHandler {
      * Render shape mask.
      * @param mask mask to render
      * @return <code>image/png</code> encoded mask
+     * @throws IOException
      */
-    protected byte[] renderShapeMask(Mask mask) {
-        try {
-            Color fillColor = Optional.ofNullable(mask.getFillColor())
-                .map(x -> new Color(x))
-                .orElse(new Color(255, 255, 0, 255));
-            if (shapeMaskCtx.color != null) {
-                // Color came from the request so we override the default
-                // color the mask was assigned.
-                int[] rgba = ImageRegionRequestHandler
-                        .splitHTMLColor(shapeMaskCtx.color);
-                fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-            }
-            log.debug(
-                "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
-                fillColor.getRed(), fillColor.getGreen(),
-                fillColor.getBlue(), fillColor.getAlpha()
-            );
-            byte[] bytes = mask.getBytes();
-            int width = (int) mask.getWidth().intValue();
-            int height = (int) mask.getHeight().intValue();
-            return renderShapeMask(fillColor, bytes, width, height);
-        } catch (IOException e) {
-            log.error("Exception while rendering shape mask", e);
+    protected byte[] renderShapeMask(Mask mask) throws IOException {
+        Color fillColor = Optional.ofNullable(mask.getFillColor())
+            .map(x -> new Color(x))
+            .orElse(new Color(255, 255, 0, 255));
+        if (shapeMaskCtx.color != null) {
+            // Color came from the request so we override the default
+            // color the mask was assigned.
+            int[] rgba = ImageRegionRequestHandler
+                    .splitHTMLColor(shapeMaskCtx.color);
+            fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
         }
-        return null;
+        log.debug(
+            "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+            fillColor.getRed(), fillColor.getGreen(),
+            fillColor.getBlue(), fillColor.getAlpha()
+        );
+        byte[] bytes = mask.getBytes();
+        int width = (int) mask.getWidth().intValue();
+        int height = (int) mask.getHeight().intValue();
+        return renderShapeMask(fillColor, bytes, width, height);
     }
 
     /**
@@ -249,15 +234,14 @@ public class ShapeMaskRequestHandler {
         data.put("sessionKey", sessionKey);
         data.put("type", type);
         data.put("id", id);
-        vertx.eventBus().<Boolean>send(
-                CAN_READ_EVENT,
-                data, result -> {
-            String s = "";
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        vertx.eventBus().<Boolean>send(CAN_READ_EVENT, data, result -> {
             if (result.failed()) {
+                t0.stop();
                 promise.completeExceptionally(result.cause());
                 return;
             }
-            log.info(result.result().body().toString());//TODO: Why is this necessary?
+            t0.stop();
             promise.complete(result.result().body());
         });
         return promise;
@@ -275,6 +259,7 @@ public class ShapeMaskRequestHandler {
         vertx.eventBus().<byte[]>send(GET_OBJECT_EVENT, data, result -> {
             try {
                 if (result.failed()) {
+                    t0.stop();
                     promise.completeExceptionally(result.cause());
                     return;
                 }
@@ -282,12 +267,12 @@ public class ShapeMaskRequestHandler {
                         new ByteArrayInputStream(result.result().body());
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Mask mask = (Mask) ois.readObject();
+                t0.stop();
                 promise.complete(mask);
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
-                promise.completeExceptionally(e);
-            } finally {
                 t0.stop();
+                promise.completeExceptionally(e);
             }
         });
         return promise;
