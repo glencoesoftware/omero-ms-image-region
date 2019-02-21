@@ -43,8 +43,6 @@ public class ShapeMaskVerticle extends AbstractVerticle {
      */
     @Override
     public void start() {
-        log.info("Starting verticle");
-
         vertx.eventBus().<String>consumer(
                 RENDER_SHAPE_MASK_EVENT, event -> {
                     getShapeMask(event);

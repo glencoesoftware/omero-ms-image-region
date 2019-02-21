@@ -67,6 +67,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
+    public final static int DEFAULT_WORKER_POOL_SIZE =
+            Runtime.getRuntime().availableProcessors() * 2;
+
     /**
      * Entry point method which starts the server event loop and initializes
      * our current OMERO.web session store.
@@ -119,11 +122,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "classpath*:beanRefContext.xml");
 
         // Deploy our dependency verticles
-        JsonObject omero = config.getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
-        }
+        int workerPoolSize = Optional.ofNullable(
+            config.getInteger("worker_pool_size")
+        ).orElse(DEFAULT_WORKER_POOL_SIZE);
         vertx.deployVerticle(new RedisCacheVerticle(),
                 new DeploymentOptions()
                         .setConfig(config));
@@ -132,10 +133,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setWorker(true)
                         .setMultiThreaded(true)
                         .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(),
+        vertx.deployVerticle(ShapeMaskVerticle.class.getName(),
                 new DeploymentOptions()
                         .setWorker(true)
-                        .setMultiThreaded(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();
