@@ -86,8 +86,11 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     }
 
                     requestHandler.renderShapeMask()
-                    .thenAccept(rendereredMask -> {
+                    .whenComplete((rendereredMask, t) -> {
                         if (rendereredMask == null) {
+                            if (t != null) {
+                                log.error("Exception while rendering mask", t);
+                            }
                             message.fail(404, "Cannot render Mask:" +
                                     shapeMaskCtx.shapeId);
                             return;

@@ -68,7 +68,6 @@ public class ShapeMaskRequestHandler {
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
     public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, Vertx vertx) {
-        log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.vertx = vertx;
     }
@@ -81,7 +80,7 @@ public class ShapeMaskRequestHandler {
                     promise.complete(renderShapeMask(mask));
                 }
             } catch (Exception e) {
-                log.error("Exception while retrieving shape mask", e);
+                log.error("Exception while rendering shape mask", e);
                 promise.completeExceptionally(e);
             }
         });
