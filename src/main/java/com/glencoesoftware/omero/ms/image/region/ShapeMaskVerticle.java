@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,7 +46,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
         vertx.eventBus().<String>consumer(
                 RENDER_SHAPE_MASK_EVENT, event -> {
-                    renderShapeMask(event);
+                    getShapeMask(event);
                 });
     }
 
@@ -55,7 +57,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
      * does not exist or the user does not have permissions to access it.
      * @param message JSON encoded {@link ShapeMaskCtx} object.
      */
-    private void renderShapeMask(Message<String> message) {
+    private void getShapeMask(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ShapeMaskCtx shapeMaskCtx;
         try {
@@ -71,6 +73,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
+        StopWatch t0 = new Slf4JStopWatch("getShapeMask");
         vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
                 byte[] cachedMask =
@@ -81,6 +84,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                 requestHandler.canRead()
                 .thenAccept(readable -> {
                     if (cachedMask != null && readable) {
+                        t0.stop();
                         message.reply(cachedMask);
                         return;
                     }
@@ -91,10 +95,12 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                             if (t != null) {
                                 log.error("Exception while rendering mask", t);
                             }
+                            t0.stop();
                             message.fail(404, "Cannot render Mask:" +
                                     shapeMaskCtx.shapeId);
                             return;
                         }
+                        t0.stop();
                         message.reply(rendereredMask);
 
                         // Cache the PNG if the color was explicitly set
