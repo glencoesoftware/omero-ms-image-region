@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import org.perf4j.StopWatch;
@@ -86,6 +87,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Reference to the compression service */
     private final LocalCompress compressionService;
 
+    /** Configured maximum size size in either dimension */
+    private final int maxTileLength;
+
     /**
      * Default constructor.
      */
@@ -100,6 +104,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
         scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
         lutType = (ScriptFileType) context.getBean("LUTScripts");
         lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
+        maxTileLength = Integer.parseInt(
+            Optional.ofNullable(
+                preferences.getProperty("omero.pixeldata.max_tile_length")
+            ).orElse("1024").toLowerCase()
+        );
     }
 
     /* (non-Javadoc)
@@ -181,7 +190,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         renderingModels, lutProvider,
                         pixelsService,
                         compressionService,
-                        vertx);
+                        vertx,
+                        maxTileLength);
         return imageRegionRequestHander.renderImageRegion();
     }
 

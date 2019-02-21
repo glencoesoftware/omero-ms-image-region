@@ -60,8 +60,9 @@ public class ImageRegionRequestHandlerTest {
                 new ArrayList<RenderingModel>(),
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
-                null, //PixelsService pixService
-                null); //Vertx instance
+                null, //Vertx instance
+                null, //PixelsService pixService,
+                1024); //maxTileLength);
     }
 
     private void testFlip(
@@ -216,6 +217,26 @@ public class ImageRegionRequestHandlerTest {
         Assert.assertEquals(rdef.getY(), y * tileSize);
         Assert.assertEquals(rdef.getWidth(), tileSize);
         Assert.assertEquals(rdef.getHeight(), tileSize);
+    }
+
+    @Test
+    public void testGetRegionDefCtxTileWithWidthAndHeight()
+            throws IllegalArgumentException, ServerError {
+        int x = 2;
+        int y = 2;
+        imageRegionCtx.tile = new RegionDef(x, y, 64, 128);
+        List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
+        List<Integer> resolutionLevel =
+                Arrays.asList(new Integer[] { 1024, 1024 });
+        resolutionLevels.add(resolutionLevel);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(64, 128));
+        RegionDef rdef = reqHandler.getRegionDef(resolutionLevels, pixelBuffer);
+        Assert.assertEquals(rdef.getX(), x * 64);
+        Assert.assertEquals(rdef.getY(), y * 128);
+        Assert.assertEquals(rdef.getWidth(), 64);
+        Assert.assertEquals(rdef.getHeight(), 128);
     }
 
     @Test
