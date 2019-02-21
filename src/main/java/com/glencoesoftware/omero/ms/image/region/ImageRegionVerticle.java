@@ -176,7 +176,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     private CompletableFuture<byte[]> renderImageRegion(
             ImageRegionCtx imageRegionCtx) {
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
         ImageRegionRequestHandler imageRegionRequestHander =
                 new ImageRegionRequestHandler(
                         imageRegionCtx, families,
