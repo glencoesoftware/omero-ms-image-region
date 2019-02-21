@@ -153,6 +153,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 } else {
                     String s = "Internal error";
                     log.error(s, t);
+                    t0.stop();
                     message.fail(500, s);
                 }
             } else if (imageRegion == null) {
