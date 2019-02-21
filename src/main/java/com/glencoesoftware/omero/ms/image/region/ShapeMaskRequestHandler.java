@@ -67,17 +67,15 @@ public class ShapeMaskRequestHandler {
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx,
-            Vertx vertx) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, Vertx vertx) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.vertx = vertx;
     }
 
-    public CompletableFuture<byte[]> renderShapeMask(String sessionKey) {
+    public CompletableFuture<byte[]> renderShapeMask() {
         CompletableFuture<byte[]> promise = new CompletableFuture<byte[]>();
-        getMask(sessionKey, shapeMaskCtx.shapeId)
-        .thenAccept(mask -> {
+        getMask().thenAccept(mask -> {
             try {
                 if (mask != null) {
                     promise.complete(renderShapeMask(mask));
@@ -224,14 +222,14 @@ public class ShapeMaskRequestHandler {
         return bytes;
     }
 
-    public CompletableFuture<Boolean> canRead(String sessionKey) {
+    public CompletableFuture<Boolean> canRead() {
         CompletableFuture<Boolean> promise = new CompletableFuture<Boolean>();
         String type = "Mask";
         long id = shapeMaskCtx.shapeId;
         log.info("Type: {} Id: {}", type, id);
 
         final JsonObject data = new JsonObject();
-        data.put("sessionKey", sessionKey);
+        data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
         data.put("type", type);
         data.put("id", id);
         StopWatch t0 = new Slf4JStopWatch("canRead");
@@ -247,14 +245,15 @@ public class ShapeMaskRequestHandler {
         return promise;
     }
 
-    protected CompletableFuture<Mask> getMask(String sessionKey, Long shapeId) {
+    protected CompletableFuture<Mask> getMask() {
         CompletableFuture<Mask> promise = new CompletableFuture<Mask>();
         String type = "Mask";
+        long id = shapeMaskCtx.shapeId;
         //Get the mask
         final JsonObject data = new JsonObject();
-        data.put("sessionKey", sessionKey);
+        data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
         data.put("type", type);
-        data.put("id", shapeId);
+        data.put("id", id);
         StopWatch t0 = new Slf4JStopWatch("getMask");
         vertx.eventBus().<byte[]>send(GET_OBJECT_EVENT, data, result -> {
             try {

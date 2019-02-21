@@ -21,11 +21,8 @@ package com.glencoesoftware.omero.ms.image.region;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
-import Glacier2.CannotCreateSessionException;
-import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
@@ -37,12 +34,6 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
     public static final String RENDER_SHAPE_MASK_EVENT =
             "omero.render_shape_mask";
-
-    /**
-     * Default constructor.
-     */
-    public ShapeMaskVerticle()
-    {}
 
     /* (non-Javadoc)
      * @see io.vertx.core.AbstractVerticle#start()
@@ -82,33 +73,32 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         String key = shapeMaskCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                byte[] shapeMask =
+                byte[] cachedMask =
                         result.succeeded()? result.result().body() : null;
                 ShapeMaskRequestHandler requestHandler =
                         new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
-                requestHandler.canRead(shapeMaskCtx.omeroSessionKey)
+                requestHandler.canRead()
                 .thenAccept(readable -> {
-                    if (shapeMask != null && readable) {
-                        message.reply(shapeMask);
+                    if (cachedMask != null && readable) {
+                        message.reply(cachedMask);
                         return;
                     }
 
-                    requestHandler.renderShapeMask(shapeMaskCtx.omeroSessionKey)
-                    .thenAccept(mask -> {
-                        log.info(mask.toString());
-                        if (mask == null) {
+                    requestHandler.renderShapeMask()
+                    .thenAccept(rendereredMask -> {
+                        if (rendereredMask == null) {
                             message.fail(404, "Cannot render Mask:" +
                                     shapeMaskCtx.shapeId);
                             return;
                         }
-                        message.reply(mask);
+                        message.reply(rendereredMask);
 
                         // Cache the PNG if the color was explicitly set
                         if (shapeMaskCtx.color != null) {
                             JsonObject setMessage = new JsonObject();
                             setMessage.put("key", key);
-                            setMessage.put("value", shapeMask);
+                            setMessage.put("value", rendereredMask);
                             vertx.eventBus().send(
                                     RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                                     setMessage);
