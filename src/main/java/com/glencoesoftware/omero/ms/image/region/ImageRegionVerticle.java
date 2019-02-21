@@ -114,7 +114,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         maxTileLength = Integer.parseInt(
             Optional.ofNullable(
                 preferences.getProperty("omero.pixeldata.max_tile_length")
-            ).orElse("1024").toLowerCase()
+            ).orElse("2048").toLowerCase()
         );
     }
 
