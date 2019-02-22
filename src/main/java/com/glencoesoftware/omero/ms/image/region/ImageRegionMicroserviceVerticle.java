@@ -253,7 +253,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("mask-color")
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
-                               .put("maxTileLength", maxTileLength));
+                               .put("maxTileLength", maxTileLength)
+                               .put("cacheControl", "private, max-age=3600"));
         event.response()
             .putHeader("content-type", "application/json")
             .end(resData.encodePrettily());
