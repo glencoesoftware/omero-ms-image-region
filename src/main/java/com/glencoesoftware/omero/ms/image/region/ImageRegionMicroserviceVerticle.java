@@ -130,6 +130,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
+        verticleFactory = new OmeroVerticleFactory();
+
         vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
@@ -140,7 +142,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.deployVerticle("omero-ms-image-region-verticle",
                 new DeploymentOptions()
                 .setWorker(true)
-                .setMultiThreaded(true)
+                .setInstances(workerPoolSize)
+                .setWorkerPoolSize(workerPoolSize)
                 .setConfig(config));
         vertx.deployVerticle("omero-ms-shape-mask-verticle",
                 new DeploymentOptions()

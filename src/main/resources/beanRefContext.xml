@@ -77,7 +77,7 @@
   </bean>
 
   <bean id="omero-ms-redis-cache-verticle"
-        class="com.glencoesoftware.omero.ms.image.region.RedisCacheVerticle">
+        class="com.glencoesoftware.omero.ms.core.RedisCacheVerticle">
   </bean>
 
 </beans>
