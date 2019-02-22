@@ -60,9 +60,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public static final String RENDER_IMAGE_REGION_PNG_EVENT =
             "omero.render_image_region_png";
 
-    /** OMERO server Spring application context. */
-    private ApplicationContext context;
-
     /** OMERO server wide preference context. */
     private final PreferenceContext preferences;
 
@@ -93,16 +90,16 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Default constructor.
      */
-    public ImageRegionVerticle(ApplicationContext context)
+    public ImageRegionVerticle(PreferenceContext preferences,
+            PixelsService pixelsService,
+            LocalCompress compressionService,
+            ScriptFileType lutType)
     {
-        this.context = context;
-        this.preferences =
-                (PreferenceContext) this.context.getBean("preferenceContext");
-        pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-        compressionService =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
+        this.preferences = preferences;
+        this.pixelsService = pixelsService;
+        this.compressionService = compressionService;
+        this.lutType = lutType;
         scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
-        lutType = (ScriptFileType) context.getBean("LUTScripts");
         lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
         maxTileLength = Integer.parseInt(
             Optional.ofNullable(

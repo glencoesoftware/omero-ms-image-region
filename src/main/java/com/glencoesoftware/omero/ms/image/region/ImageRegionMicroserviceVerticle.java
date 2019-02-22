@@ -24,11 +24,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
-import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -43,8 +43,8 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
@@ -70,6 +70,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
+
+    /** VerticleFactory */
+    private OmeroVerticleFactory verticleFactory;
 
     public final static int DEFAULT_WORKER_POOL_SIZE =
             Runtime.getRuntime().availableProcessors() * 2;
@@ -127,24 +130,25 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
+        vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
-            config.getInteger("worker_pool_size")
-        ).orElse(DEFAULT_WORKER_POOL_SIZE);
-        vertx.deployVerticle(new RedisCacheVerticle(),
+                config.getInteger("worker_pool_size")
+            ).orElse(DEFAULT_WORKER_POOL_SIZE);
+        vertx.deployVerticle("omero-ms-redis-cache-verticle",
+                new DeploymentOptions().setConfig(config));
+        vertx.deployVerticle("omero-ms-image-region-verticle",
                 new DeploymentOptions()
-                        .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(context),
+                .setWorker(true)
+                .setMultiThreaded(true)
+                .setConfig(config));
+        vertx.deployVerticle("omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
-                        .setMultiThreaded(true)
-                        .setConfig(config));
-        vertx.deployVerticle(ShapeMaskVerticle.class.getName(),
-                new DeploymentOptions()
-                        .setWorker(true)
-                        .setInstances(workerPoolSize)
-                        .setWorkerPoolSize(workerPoolSize)
-                        .setConfig(config));
+                    .setWorker(true)
+                    .setInstances(workerPoolSize)
+                    .setWorkerPoolSize(workerPoolSize)
+                    .setConfig(config));
+
 
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxInitialLineLength(config.getInteger(
