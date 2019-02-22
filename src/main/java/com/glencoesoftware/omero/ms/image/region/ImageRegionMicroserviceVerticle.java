@@ -131,21 +131,22 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
         verticleFactory = new OmeroVerticleFactory();
+        verticleFactory.setApplicationContext(context);
 
         vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
                 config.getInteger("worker_pool_size")
             ).orElse(DEFAULT_WORKER_POOL_SIZE);
-        vertx.deployVerticle("omero-ms-redis-cache-verticle",
+        vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
                 new DeploymentOptions().setConfig(config));
-        vertx.deployVerticle("omero-ms-image-region-verticle",
+        vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
                 .setWorker(true)
                 .setInstances(workerPoolSize)
                 .setWorkerPoolSize(workerPoolSize)
                 .setConfig(config));
-        vertx.deployVerticle("omero-ms-shape-mask-verticle",
+        vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
                     .setWorker(true)
                     .setInstances(workerPoolSize)
