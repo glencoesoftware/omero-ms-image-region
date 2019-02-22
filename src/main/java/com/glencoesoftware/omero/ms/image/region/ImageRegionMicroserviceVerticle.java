@@ -311,6 +311,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
+                response.headers().set("Cache-Control", "private, max-age=3600");
                 if (!response.closed()) {
                     response.end(Buffer.buffer(imageRegion));
                 }
