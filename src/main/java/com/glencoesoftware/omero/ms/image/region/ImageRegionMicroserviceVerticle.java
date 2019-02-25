@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
@@ -34,9 +35,12 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -96,11 +100,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 vertx, new ConfigRetrieverOptions()
                         .setIncludeDefaultStores(true)
                         .addStore(store));
-        retriever.getConfig(ar -> {
-            try {
-                deploy(ar.result(), future);
-            } catch (Exception e) {
-                future.fail(e);
+        retriever.getConfig(new Handler<AsyncResult<JsonObject>>() {
+            @Override
+            public void handle(AsyncResult<JsonObject> ar) {
+                try {
+                    deploy(ar.result(), future);
+                } catch (Exception e) {
+                    future.fail(e);
+                }
             }
         });
     }
@@ -119,9 +126,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             throw new IllegalArgumentException(
                     "'omero.server' block missing from configuration");
         }
-        omeroServer.forEach(entry -> {
+        for(Map.Entry<String, Object> entry : omeroServer) {
             System.setProperty(entry.getKey(), (String) entry.getValue());
-        });
+        }
 
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
@@ -218,15 +225,22 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
+
+
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
-        server.requestHandler(router::accept).listen(port, result -> {
-            if (result.succeeded()) {
-                future.complete();
-            } else {
-                future.fail(result.cause());
+        server.requestHandler(router::accept).listen(port,
+            new Handler<AsyncResult<HttpServer>>() {
+                @Override
+                public void handle(AsyncResult<HttpServer> result) {
+                    if (result.succeeded()) {
+                        future.complete();
+                    } else {
+                        future.fail(result.cause());
+                    }
+                }
             }
-        });
+        );
     }
 
     /**
@@ -291,41 +305,45 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-                Json.encode(imageRegionCtx), result -> {
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
+                Json.encode(imageRegionCtx), new Handler<AsyncResult<Message<byte[]>>>() {
+                    @Override
+                    public void handle(AsyncResult<Message<byte[]>> result) {
+                        try {
+                            if (result.failed()) {
+                                Throwable t = result.cause();
+                                int statusCode = 404;
+                                if (t instanceof ReplyException) {
+                                    statusCode = ((ReplyException) t).failureCode();
+                                }
+                                if (!response.closed()) {
+                                    response.setStatusCode(statusCode).end();
+                                }
+                                return;
+                            }
+                            byte[] imageRegion = result.result().body();
+                            String contentType = "application/octet-stream";
+                            if (imageRegionCtx.format.equals("jpeg")) {
+                                contentType = "image/jpeg";
+                            }
+                            if (imageRegionCtx.format.equals("png")) {
+                                contentType = "image/png";
+                            }
+                            if (imageRegionCtx.format.equals("tif")) {
+                                contentType = "image/tiff";
+                            }
+                            response.headers().set("Content-Type", contentType);
+                            response.headers().set(
+                                    "Content-Length",
+                                    String.valueOf(imageRegion.length));
+                            if (!response.closed()) {
+                                response.end(Buffer.buffer(imageRegion));
+                            }
+                        } finally {
+                            log.debug("Response ended");
+                        }
                     }
-                    if (!response.closed()) {
-                        response.setStatusCode(statusCode).end();
-                    }
-                    return;
                 }
-                byte[] imageRegion = result.result().body();
-                String contentType = "application/octet-stream";
-                if (imageRegionCtx.format.equals("jpeg")) {
-                    contentType = "image/jpeg";
-                }
-                if (imageRegionCtx.format.equals("png")) {
-                    contentType = "image/png";
-                }
-                if (imageRegionCtx.format.equals("tif")) {
-                    contentType = "image/tiff";
-                }
-                response.headers().set("Content-Type", contentType);
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(imageRegion.length));
-                if (!response.closed()) {
-                    response.end(Buffer.buffer(imageRegion));
-                }
-            } finally {
-                log.debug("Response ended");
-            }
-        });
+            );
     }
 
     /**
@@ -344,31 +362,35 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
-                ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
-                Json.encode(shapeMaskCtx), result -> {
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
+            ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
+            Json.encode(shapeMaskCtx), new Handler<AsyncResult<Message<byte[]>>>() {
+                @Override
+                public void handle(AsyncResult<Message<byte[]>> result){
+                    try {
+                        if (result.failed()) {
+                            Throwable t = result.cause();
+                            int statusCode = 404;
+                            if (t instanceof ReplyException) {
+                                statusCode = ((ReplyException) t).failureCode();
+                            }
+                            if (!response.closed()) {
+                                response.setStatusCode(statusCode).end();
+                            }
+                            return;
+                        }
+                        byte[] shapeMask = result.result().body();
+                        response.headers().set("Content-Type", "image/png");
+                        response.headers().set(
+                                "Content-Length",
+                                String.valueOf(shapeMask.length));
+                        if (!response.closed()) {
+                            response.end(Buffer.buffer(shapeMask));
+                        }
+                    } finally {
+                        log.debug("Response ended");
                     }
-                    if (!response.closed()) {
-                        response.setStatusCode(statusCode).end();
-                    }
-                    return;
                 }
-                byte[] shapeMask = result.result().body();
-                response.headers().set("Content-Type", "image/png");
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(shapeMask.length));
-                if (!response.closed()) {
-                    response.end(Buffer.buffer(shapeMask));
-                }
-            } finally {
-                log.debug("Response ended");
             }
-        });
+        );
     }
 }

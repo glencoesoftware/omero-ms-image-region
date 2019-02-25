@@ -56,9 +56,6 @@
     <constructor-arg index="1" value="text/x-lut"/>
   </bean>
 
-  <bean id="omero-ms-backbone-verticlefactory"
-       class="com.glencoesoftware.omero.ms.core.OmeroVerticleFactory"/>
-
   <bean id="omero-ms-image-region-microservice-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle">
   </bean>
@@ -76,8 +73,5 @@
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle">
   </bean>
 
-  <bean id="omero-ms-redis-cache-verticle"
-        class="com.glencoesoftware.omero.ms.core.RedisCacheVerticle">
-  </bean>
 
 </beans>
