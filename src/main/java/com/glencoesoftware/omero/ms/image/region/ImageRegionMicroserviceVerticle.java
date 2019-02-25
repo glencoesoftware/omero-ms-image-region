@@ -137,9 +137,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
-        verticleFactory = new OmeroVerticleFactory();
-        verticleFactory.setApplicationContext(context);
-
+        verticleFactory = (OmeroVerticleFactory) this.context.getBean("omero-ms-backbone-verticlefactory");
         vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
