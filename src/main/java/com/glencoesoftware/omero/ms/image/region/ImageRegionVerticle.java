@@ -63,6 +63,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
+    /** Available Enumerations (Families and RenderingModels) */
+    private OmeroEnumerations enumerations;
+
     /** Available families */
     private List<Family> families;
 
@@ -85,11 +88,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
             PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            int maxTileLength) {
+            int maxTileLength,
+            OmeroEnumerations enumerations) {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        this.enumerations = enumerations;
     }
 
     /* (non-Javadoc)
@@ -204,15 +209,21 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private CompletableFuture<ImageRegionCtx> updateFamilies(
             ImageRegionCtx imageRegionCtx) {
         if (families == null) {
-            return getAllEnumerations(
-                imageRegionCtx, Family.class.getName()
-            ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                @Override
-                public ImageRegionCtx apply(List<? extends IEnum> enumerations) {
-                    families = (List<Family>) enumerations;
-                    return imageRegionCtx;
-                }
-            });
+            List<Family> enumerationFamilies = enumerations.getFamilies();
+            if(enumerationFamilies != null) {
+                families = enumerationFamilies;
+                return CompletableFuture.completedFuture(imageRegionCtx);
+            } else {
+                return getAllEnumerations(imageRegionCtx, Family.class.getName())
+                    .thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
+                        @Override
+                        public ImageRegionCtx apply(List<? extends IEnum> serverEnumerations) {
+                            enumerations.setFamilies((List<Family>) serverEnumerations);
+                            families = enumerations.getFamilies();
+                            return imageRegionCtx;
+                        }
+                    });
+            }
         }
         return CompletableFuture.completedFuture(imageRegionCtx);
     }
@@ -226,17 +237,23 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private CompletableFuture<ImageRegionCtx> updateRenderingModels(
             ImageRegionCtx imageRegionCtx) {
         if (renderingModels == null) {
-            return getAllEnumerations(
-                imageRegionCtx, RenderingModel.class.getName()
-            ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                @Override
-                public ImageRegionCtx apply(
-                        List<? extends IEnum> enumerations) {
-                    renderingModels =
-                            (List<RenderingModel>) enumerations;
-                    return imageRegionCtx;
-                }
-            });
+            List<RenderingModel> enumerationModels = enumerations.getRenderingModels();
+            if(enumerationModels != null) {
+                renderingModels = enumerationModels;
+                return CompletableFuture.completedFuture(imageRegionCtx);
+            } else {
+                return getAllEnumerations(
+                    imageRegionCtx, RenderingModel.class.getName()
+                ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
+                    @Override
+                    public ImageRegionCtx apply(
+                            List<? extends IEnum> serverEnumerations) {
+                        enumerations.setRenderingModels((List<RenderingModel>) serverEnumerations);
+                        renderingModels = enumerations.getRenderingModels();
+                        return imageRegionCtx;
+                    }
+                });
+            }
         }
         return CompletableFuture.completedFuture(imageRegionCtx);
     }

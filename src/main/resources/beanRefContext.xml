@@ -65,6 +65,10 @@
      <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
   </bean>
 
+  <bean id="omero-ms-enumerations"
+        class="com.glencoesoftware.omero.ms.image.region.OmeroEnumerations">
+  </bean>
+
   <bean id="omero-ms-image-region-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
         singleton="false">
@@ -72,6 +76,7 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg ref="maxTileLength" />
+    <constructor-arg ref="omero-ms-enumerations" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
