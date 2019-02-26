@@ -82,72 +82,75 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         String key = shapeMaskCtx.cacheKey();
         StopWatch t0 = new Slf4JStopWatch("getShapeMask");
         vertx.eventBus().<byte[]>send(
-            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, new Handler<AsyncResult<Message<byte[]>>>() {
-                @Override
-                public void handle(AsyncResult<Message<byte[]>> result) {
-                    byte[] cachedMask =
-                            result.succeeded()? result.result().body() : null;
-                    ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key,
+                new Handler<AsyncResult<Message<byte[]>>>() {
+            @Override
+            public void handle(AsyncResult<Message<byte[]>> result) {
+                byte[] cachedMask =
+                        result.succeeded()? result.result().body() : null;
+                ShapeMaskRequestHandler requestHandler =
+                        new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
-                    requestHandler.canRead()
-                    .whenComplete(new BiConsumer<Boolean, Throwable>() {
-                        @Override
-                        public void accept(Boolean readable, Throwable throwable) {
-                            if (throwable != null) {
-                                if (throwable instanceof ReplyException) {
-                                    // Downstream event handling failure, propagate it
-                                    t0.stop();
-                                    message.fail(
-                                        ((ReplyException) throwable).failureCode(),
-                                        throwable.getMessage());
-                                } else {
-                                    String s = "Internal error";
-                                    log.error(s, throwable);
-                                    t0.stop();
-                                    message.fail(500, s);
-                                }
-                                return;
-                            }
-
-                            if (cachedMask != null && readable) {
+                requestHandler.canRead()
+                .whenComplete(new BiConsumer<Boolean, Throwable>() {
+                    @Override
+                    public void accept(Boolean readable, Throwable throwable) {
+                        if (throwable != null) {
+                            if (throwable instanceof ReplyException) {
+                                // Downstream event handling failure,
+                                // propagate it
                                 t0.stop();
-                                message.reply(cachedMask);
-                                return;
+                                message.fail(
+                                    ((ReplyException) throwable).failureCode(),
+                                    throwable.getMessage());
+                            } else {
+                                String s = "Internal error";
+                                log.error(s, throwable);
+                                t0.stop();
+                                message.fail(500, s);
                             }
+                            return;
+                        }
 
-                            requestHandler.renderShapeMask()
-                            .whenComplete(new BiConsumer<byte[], Throwable>() {
-                                @Override
-                                public void accept(byte[] renderedMask, Throwable renderThrowable) {
-                                    if (renderedMask == null) {
-                                        if (renderThrowable != null) {
-                                            log.error("Exception while rendering mask",
-                                                      renderThrowable);
-                                        }
-                                        t0.stop();
-                                        message.fail(404, "Cannot render Mask:" +
-                                                shapeMaskCtx.shapeId);
-                                        return;
+                        if (cachedMask != null && readable) {
+                            t0.stop();
+                            message.reply(cachedMask);
+                            return;
+                        }
+
+                        requestHandler.renderShapeMask()
+                        .whenComplete(new BiConsumer<byte[], Throwable>() {
+                            @Override
+                            public void accept(byte[] renderedMask,
+                                               Throwable renderThrowable) {
+                                if (renderedMask == null) {
+                                    if (renderThrowable != null) {
+                                        log.error(
+                                            "Exception while rendering mask",
+                                            renderThrowable);
                                     }
                                     t0.stop();
-                                    message.reply(renderedMask);
-
-                                    // Cache the PNG if the color was explicitly set
-                                    if (shapeMaskCtx.color != null) {
-                                        JsonObject setMessage = new JsonObject();
-                                        setMessage.put("key", key);
-                                        setMessage.put("value", renderedMask);
-                                        vertx.eventBus().send(
-                                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                                setMessage);
-                                    }
+                                    message.fail(404, "Cannot render Mask:" +
+                                            shapeMaskCtx.shapeId);
+                                    return;
                                 }
-                            });
-                        };
-                    });
-                }
+                                t0.stop();
+                                message.reply(renderedMask);
+
+                                // Cache the PNG if the color was explicitly set
+                                if (shapeMaskCtx.color != null) {
+                                    JsonObject setMessage = new JsonObject();
+                                    setMessage.put("key", key);
+                                    setMessage.put("value", renderedMask);
+                                    vertx.eventBus().send(
+                                        RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                        setMessage);
+                                }
+                            }
+                        });
+                    };
+                });
             }
-        );
+        });
     }
 }

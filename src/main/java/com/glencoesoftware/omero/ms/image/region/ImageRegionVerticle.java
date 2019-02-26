@@ -205,14 +205,14 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx) {
         if (families == null) {
             return getAllEnumerations(
-                    imageRegionCtx, Family.class.getName())
-                        .thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                            @Override
-                            public ImageRegionCtx apply(List<? extends IEnum> enumerations) {
-                                families = (List<Family>) enumerations;
-                                return imageRegionCtx;
-                            }
-                        });
+                imageRegionCtx, Family.class.getName()
+            ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
+                @Override
+                public ImageRegionCtx apply(List<? extends IEnum> enumerations) {
+                    families = (List<Family>) enumerations;
+                    return imageRegionCtx;
+                }
+            });
         }
         return CompletableFuture.completedFuture(imageRegionCtx);
     }
@@ -227,15 +227,16 @@ public class ImageRegionVerticle extends AbstractVerticle {
             ImageRegionCtx imageRegionCtx) {
         if (renderingModels == null) {
             return getAllEnumerations(
-                    imageRegionCtx, RenderingModel.class.getName())
-                        .thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                            @Override
-                            public ImageRegionCtx apply(List<? extends IEnum> enumerations) {
-                                renderingModels =
-                                        (List<RenderingModel>) enumerations;
-                                return imageRegionCtx;
-                            }
-                        });
+                imageRegionCtx, RenderingModel.class.getName()
+            ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
+                @Override
+                public ImageRegionCtx apply(
+                        List<? extends IEnum> enumerations) {
+                    renderingModels =
+                            (List<RenderingModel>) enumerations;
+                    return imageRegionCtx;
+                }
+            });
         }
         return CompletableFuture.completedFuture(imageRegionCtx);
     }
@@ -256,30 +257,31 @@ public class ImageRegionVerticle extends AbstractVerticle {
         data.put("type", type);
         StopWatch t0 = new Slf4JStopWatch(GET_ALL_ENUMERATIONS_EVENT);
         vertx.eventBus().<byte[]>send(
-                GET_ALL_ENUMERATIONS_EVENT, data,
-                new Handler<AsyncResult<Message<byte[]>>>() {
-                    @Override
-                    public void handle(AsyncResult<Message<byte[]>> result) {
-                        try {
-                            if (result.failed()) {
-                                t0.stop();
-                                promise.completeExceptionally(result.cause());
-                                return;
-                            }
-                            ByteArrayInputStream bais =
-                                    new ByteArrayInputStream(result.result().body());
-                            ObjectInputStream ois = new ObjectInputStream(bais);
-                            List<? extends IEnum> enumerations =
-                                    (List<? extends IEnum>) ois.readObject();
+            GET_ALL_ENUMERATIONS_EVENT, data,
+            new Handler<AsyncResult<Message<byte[]>>>() {
+                @Override
+                public void handle(AsyncResult<Message<byte[]>> result) {
+                    try {
+                        if (result.failed()) {
                             t0.stop();
-                            promise.complete(enumerations);
-                        } catch (IOException | ClassNotFoundException e) {
-                            log.error("Exception while decoding object in response", e);
-                            t0.stop();
-                            promise.completeExceptionally(e);
+                            promise.completeExceptionally(result.cause());
+                            return;
                         }
+                        ByteArrayInputStream bais =
+                            new ByteArrayInputStream(result.result().body());
+                        ObjectInputStream ois = new ObjectInputStream(bais);
+                        List<? extends IEnum> enumerations =
+                                (List<? extends IEnum>) ois.readObject();
+                        t0.stop();
+                        promise.complete(enumerations);
+                    } catch (IOException | ClassNotFoundException e) {
+                        log.error(
+                            "Exception while decoding object in response", e);
+                        t0.stop();
+                        promise.completeExceptionally(e);
                     }
-                });
+                }
+            });
         return promise;
     }
 }
