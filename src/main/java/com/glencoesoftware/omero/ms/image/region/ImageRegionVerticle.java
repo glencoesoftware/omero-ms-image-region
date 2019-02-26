@@ -25,13 +25,13 @@ import java.io.ObjectInputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -155,8 +155,18 @@ public class ImageRegionVerticle extends AbstractVerticle {
         log.debug("Render image region request with data: {}", message.body());
 
         updateFamilies(imageRegionCtx)
-        .thenCompose(this::updateRenderingModels)
-        .thenCompose(this::renderImageRegion)
+        .thenCompose(new Function<ImageRegionCtx, CompletionStage<ImageRegionCtx>>() {
+            @Override
+            public CompletionStage<ImageRegionCtx> apply(ImageRegionCtx ctx) {
+                return updateRenderingModels(ctx);
+            }
+        })
+        .thenCompose(new Function<ImageRegionCtx, CompletionStage<byte[]>>() {
+            @Override
+            public CompletionStage<byte[]> apply(ImageRegionCtx ctx) {
+                return renderImageRegion(ctx);
+            }
+        })
         .whenComplete(new BiConsumer<byte[], Throwable>() {
             @Override
             public void accept(byte[] imageRegion, Throwable t) {
