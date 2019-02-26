@@ -52,7 +52,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
-import ome.system.PreferenceContext;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -67,9 +66,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** OMERO server Spring application context. */
     private ApplicationContext context;
-
-    /** OMERO server wide preference context. */
-    private PreferenceContext preferences;
 
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
@@ -132,11 +128,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
+                "classpath:ome/services/service-ome.api.ICompress.xml",
                 "classpath*:beanRefContext.xml");
-        preferences =
-                (PreferenceContext) this.context.getBean("preferenceContext");
 
-        verticleFactory = (OmeroVerticleFactory) this.context.getBean("omero-ms-backbone-verticlefactory");
+        verticleFactory = (OmeroVerticleFactory)
+                context.getBean("omero-ms-backbone-verticlefactory");
         vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
@@ -156,7 +152,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .setInstances(workerPoolSize)
                     .setWorkerPoolSize(workerPoolSize)
                     .setConfig(config));
-
 
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxInitialLineLength(config.getInteger(
@@ -222,8 +217,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
-
-
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
         server.requestHandler(router::accept).listen(port,
@@ -259,11 +252,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         String version = Optional.ofNullable(
             this.getClass().getPackage().getImplementationVersion()
         ).orElse("development");
-        int maxTileLength = Integer.parseInt(
-                Optional.ofNullable(
-                    preferences.getProperty("omero.pixeldata.max_tile_length")
-                ).orElse("1024").toLowerCase()
-            );
+        int maxTileLength = (Integer) context.getBean("maxTileLength");
         JsonObject resData = new JsonObject()
                 .put("provider", "ImageRegionMicroservice")
                 .put("version", version)

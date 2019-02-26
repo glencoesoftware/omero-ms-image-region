@@ -19,11 +19,9 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
@@ -44,8 +42,6 @@ import io.vertx.core.json.JsonObject;
 import ome.model.IEnum;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.services.scripts.ScriptFileType;
-import ome.system.PreferenceContext;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
@@ -64,17 +60,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public static final String RENDER_IMAGE_REGION_PNG_EVENT =
             "omero.render_image_region_png";
 
-    /** OMERO server wide preference context. */
-    private final PreferenceContext preferences;
-
     /** Lookup table provider. */
     private final LutProvider lutProvider;
-
-    /** Lookup table OMERO script file type */
-    private final ScriptFileType lutType;
-
-    /** Path to the script repository root. */
-    private final String scriptRepoRoot;
 
     /** Available families */
     private List<Family> families;
@@ -94,22 +81,15 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /**
      * Default constructor.
      */
-    public ImageRegionVerticle(PreferenceContext preferences,
+    public ImageRegionVerticle(
             PixelsService pixelsService,
             LocalCompress compressionService,
-            ScriptFileType lutType)
-    {
-        this.preferences = preferences;
+            LutProvider lutProvider,
+            int maxTileLength) {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
-        this.lutType = lutType;
-        scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
-        lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
-        maxTileLength = Integer.parseInt(
-            Optional.ofNullable(
-                preferences.getProperty("omero.pixeldata.max_tile_length")
-            ).orElse("1024").toLowerCase()
-        );
+        this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
     }
 
     /* (non-Javadoc)
@@ -117,8 +97,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     @Override
     public void start() {
-        log.info("Starting verticle");
-
         vertx.eventBus().<String>consumer(
             RENDER_IMAGE_REGION_EVENT,new Handler<Message<String>>() {
                 @Override
@@ -127,6 +105,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 }
             }
         );
+    }
+
+    public int getMaxTileLength() {
+        return maxTileLength;
     }
 
     /**
