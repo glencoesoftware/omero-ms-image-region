@@ -324,7 +324,7 @@ public class ImageRegionRequestHandler {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
                                 pixelBuffer,
-                                imageRegionCtx.projection.ordinal(),
+                                imageRegionCtx.projection,
                                 imageRegionCtx.t,
                                 i,  // Channel index
                                 1,  // Stepping 1 in ImageWrapper.renderJpeg()

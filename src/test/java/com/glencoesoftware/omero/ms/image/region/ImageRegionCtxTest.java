@@ -32,7 +32,7 @@ import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
-import omero.constants.projection.ProjectionType;
+import ome.api.IProjection;
 
 public class ImageRegionCtxTest {
 
@@ -281,7 +281,8 @@ public class ImageRegionCtxTest {
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
-                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+                imageCtxDecoded.projection,
+                new Integer(IProjection.MAXIMUM_INTENSITY));
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
     }
@@ -296,7 +297,8 @@ public class ImageRegionCtxTest {
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
-                imageCtxDecoded.projection, ProjectionType.MEANINTENSITY);
+                imageCtxDecoded.projection,
+                new Integer(IProjection.MEAN_INTENSITY));
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
     }
@@ -311,7 +313,8 @@ public class ImageRegionCtxTest {
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
-                imageCtxDecoded.projection, ProjectionType.SUMINTENSITY);
+                imageCtxDecoded.projection,
+                new Integer(IProjection.SUM_INTENSITY));
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
     }
@@ -340,7 +343,8 @@ public class ImageRegionCtxTest {
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
-                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+                imageCtxDecoded.projection,
+                new Integer(IProjection.MAXIMUM_INTENSITY));
         Assert.assertEquals(imageCtxDecoded.projectionStart, new Integer(0));
         Assert.assertEquals(imageCtxDecoded.projectionEnd, new Integer(1));
     }
@@ -355,7 +359,8 @@ public class ImageRegionCtxTest {
         ImageRegionCtx imageCtxDecoded = mapper.readValue(
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
-                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+                imageCtxDecoded.projection,
+                new Integer(IProjection.MAXIMUM_INTENSITY));
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
     }

@@ -29,8 +29,8 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.api.IProjection;
 import omeis.providers.re.data.RegionDef;
-import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -78,7 +78,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     public Float compressionQuality;
 
     /** Projection */
-    public ProjectionType projection;
+    public Integer projection;
 
     /** Projection start */
     public Integer projectionStart;
@@ -335,15 +335,15 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         String[] parts = projection.split("\\|", -1);
         switch(parts[0]) {
             case "intmax": {
-                this.projection = ProjectionType.MAXIMUMINTENSITY;
+                this.projection = IProjection.MAXIMUM_INTENSITY;
                 break;
             }
             case "intmean": {
-                this.projection = ProjectionType.MEANINTENSITY;
+                this.projection = IProjection.MEAN_INTENSITY;
                 break;
             }
             case "intsum": {
-                this.projection = ProjectionType.SUMINTENSITY;
+                this.projection = IProjection.SUM_INTENSITY;
                 break;
             }
         }

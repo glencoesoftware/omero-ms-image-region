@@ -53,7 +53,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import ome.system.PreferenceContext;
-import omero.model.Image;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.

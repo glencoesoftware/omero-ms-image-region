@@ -36,8 +36,6 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.data.RegionDef;
 
-import omero.ServerError;
-
 public class ImageRegionRequestHandlerTest {
 
     private ImageRegionCtx imageRegionCtx;
@@ -199,8 +197,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testGetRegionDefCtxTile()
-            throws IllegalArgumentException, ServerError {
+    public void testGetRegionDefCtxTile() throws IllegalArgumentException {
         int x = 2;
         int y = 2;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
@@ -221,7 +218,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxTileWithWidthAndHeight()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         int x = 2;
         int y = 2;
         imageRegionCtx.tile = new RegionDef(x, y, 64, 128);
@@ -240,8 +237,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testGetRegionDefCtxRegion()
-            throws IllegalArgumentException, ServerError {
+    public void testGetRegionDefCtxRegion() throws IllegalArgumentException {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -260,7 +256,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxNoTileOrRegion()
-    throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = null;
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -279,7 +275,7 @@ public class ImageRegionRequestHandlerTest {
 //Test Truncating logic
     @Test
     public void testGetRegionDefCtxTileTruncX()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         int x = 1;
         int y = 0;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
@@ -301,7 +297,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxTileTruncY()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         int x = 0;
         int y = 1;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
@@ -323,7 +319,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxTileTruncXY()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         int x = 1;
         int y = 1;
         imageRegionCtx.tile = new RegionDef(x, y, 0, 0);
@@ -345,7 +341,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxRegionTruncX()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(800, 100, 300, 400);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -365,7 +361,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxRegionTruncY()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(100, 800, 300, 400);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -385,7 +381,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Test
     public void testGetRegionDefCtxRegionTruncXY()
-            throws IllegalArgumentException, ServerError {
+            throws IllegalArgumentException {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(800, 800, 300, 400);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -405,7 +401,7 @@ public class ImageRegionRequestHandlerTest {
 
 //Test Flipping
     @Test
-    public void testFlipRegionDefFlipH() throws ServerError{
+    public void testFlipRegionDefFlipH() {
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
         List<Integer> resolutionLevel =
                 Arrays.asList(new Integer[] { 1024, 1024 });
@@ -424,7 +420,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testFlipRegionDefFlipV() throws ServerError{
+    public void testFlipRegionDefFlipV() {
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
         List<Integer> resolutionLevel =
                 Arrays.asList(new Integer[] { 1024, 1024 });
@@ -443,7 +439,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testFlipRegionDefFlipHV() throws ServerError{
+    public void testFlipRegionDefFlipHV() {
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
         List<Integer> resolutionLevel =
                 Arrays.asList(new Integer[] { 1024, 1024 });
@@ -462,7 +458,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testFlipRegionDefMirorXEdge() throws ServerError{
+    public void testFlipRegionDefMirorXEdge() {
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 1024, 1024);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -506,7 +502,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testFlipRegionDefMirorYEdge() throws ServerError{
+    public void testFlipRegionDefMirorYEdge() {
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -549,7 +545,7 @@ public class ImageRegionRequestHandlerTest {
     }
 
     @Test
-    public void testFlipRegionDefMirorXYEdge() throws ServerError{
+    public void testFlipRegionDefMirorXYEdge() {
         // Tile 0, 0
         imageRegionCtx.region = new RegionDef(0, 0, 512, 512);
         List<List<Integer>> resolutionLevels = new ArrayList<List<Integer>>();
@@ -594,8 +590,7 @@ public class ImageRegionRequestHandlerTest {
 
 //Test Resolution Selection
     @Test
-    public void testSelectResolution()
-            throws IllegalArgumentException, ServerError {
+    public void testSelectResolution() throws IllegalArgumentException {
         int x = 100;
         int y = 200;
         imageRegionCtx.tile = null;
