@@ -21,6 +21,7 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -63,14 +64,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
-    /** Available Enumerations (Families and RenderingModels) */
-    private OmeroEnumerations enumerations;
-
     /** Available families */
-    private List<Family> families;
+    private List<Family> families = Arrays.asList(
+            new Family(Family.VALUE_EXPONENTIAL),
+            new Family(Family.VALUE_LINEAR),
+            new Family(Family.VALUE_LOGARITHMIC),
+            new Family(Family.VALUE_POLYNOMIAL));
 
     /** Available rendering models */
-    private List<RenderingModel> renderingModels;
+    private List<RenderingModel> renderingModels = Arrays.asList(
+            new RenderingModel(RenderingModel.VALUE_GREYSCALE),
+            new RenderingModel(RenderingModel.VALUE_RGB));
 
     /** OMERO server pixels service */
     private final PixelsService pixelsService;
@@ -88,13 +92,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
             PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            int maxTileLength,
-            OmeroEnumerations enumerations) {
+            int maxTileLength) {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
-        this.enumerations = enumerations;
     }
 
     /* (non-Javadoc)
@@ -141,19 +143,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         }
         log.debug("Render image region request with data: {}", message.body());
 
-        updateFamilies(imageRegionCtx)
-        .thenCompose(new Function<ImageRegionCtx, CompletionStage<ImageRegionCtx>>() {
-            @Override
-            public CompletionStage<ImageRegionCtx> apply(ImageRegionCtx ctx) {
-                return updateRenderingModels(ctx);
-            }
-        })
-        .thenCompose(new Function<ImageRegionCtx, CompletionStage<byte[]>>() {
-            @Override
-            public CompletionStage<byte[]> apply(ImageRegionCtx ctx) {
-                return renderImageRegion(ctx);
-            }
-        })
+        renderImageRegion(imageRegionCtx)
         .whenComplete(new BiConsumer<byte[], Throwable>() {
             @Override
             public void accept(byte[] imageRegion, Throwable t) {
@@ -198,107 +188,5 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         vertx,
                         maxTileLength);
         return imageRegionRequestHander.renderImageRegion();
-    }
-
-    /**
-     * Updates the available enumerations from the server.
-     * @param imageRegionCtx valid image region context used to perform actions
-     * @return A new CompletionStage that, when this stage completes normally,
-     * will provide the <code>imageRegionCtx</code>
-     */
-    private CompletableFuture<ImageRegionCtx> updateFamilies(
-            ImageRegionCtx imageRegionCtx) {
-        if (families == null) {
-            List<Family> enumerationFamilies = enumerations.getFamilies();
-            if(enumerationFamilies != null) {
-                families = enumerationFamilies;
-                return CompletableFuture.completedFuture(imageRegionCtx);
-            } else {
-                return getAllEnumerations(imageRegionCtx, Family.class.getName())
-                    .thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                        @Override
-                        public ImageRegionCtx apply(List<? extends IEnum> serverEnumerations) {
-                            enumerations.setFamilies((List<Family>) serverEnumerations);
-                            families = enumerations.getFamilies();
-                            return imageRegionCtx;
-                        }
-                    });
-            }
-        }
-        return CompletableFuture.completedFuture(imageRegionCtx);
-    }
-
-    /**
-     * Updates the available enumerations from the server.
-     * @param imageRegionCtx valid image region context used to perform actions
-     * @return A new CompletionStage that, when this stage completes normally,
-     * will provide the <code>imageRegionCtx</code>
-     */
-    private CompletableFuture<ImageRegionCtx> updateRenderingModels(
-            ImageRegionCtx imageRegionCtx) {
-        if (renderingModels == null) {
-            List<RenderingModel> enumerationModels = enumerations.getRenderingModels();
-            if(enumerationModels != null) {
-                renderingModels = enumerationModels;
-                return CompletableFuture.completedFuture(imageRegionCtx);
-            } else {
-                return getAllEnumerations(
-                    imageRegionCtx, RenderingModel.class.getName()
-                ).thenApply(new Function<List<? extends IEnum>, ImageRegionCtx>() {
-                    @Override
-                    public ImageRegionCtx apply(
-                            List<? extends IEnum> serverEnumerations) {
-                        enumerations.setRenderingModels((List<RenderingModel>) serverEnumerations);
-                        renderingModels = enumerations.getRenderingModels();
-                        return imageRegionCtx;
-                    }
-                });
-            }
-        }
-        return CompletableFuture.completedFuture(imageRegionCtx);
-    }
-
-    /**
-     * Retrieves a list of all enumerations from the server of a particular
-     * class.
-     * @param client valid client to use to perform actions
-     * @param type enumeration class to retrieve.
-     * @return See above.
-     */
-    private CompletableFuture<List<? extends IEnum>> getAllEnumerations(
-            ImageRegionCtx imageRegionCtx, String type) {
-        CompletableFuture<List<? extends IEnum>> promise =
-                new CompletableFuture<>();
-        final JsonObject data = new JsonObject();
-        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
-        data.put("type", type);
-        StopWatch t0 = new Slf4JStopWatch(GET_ALL_ENUMERATIONS_EVENT);
-        vertx.eventBus().<byte[]>send(
-            GET_ALL_ENUMERATIONS_EVENT, data,
-            new Handler<AsyncResult<Message<byte[]>>>() {
-                @Override
-                public void handle(AsyncResult<Message<byte[]>> result) {
-                    try {
-                        if (result.failed()) {
-                            t0.stop();
-                            promise.completeExceptionally(result.cause());
-                            return;
-                        }
-                        ByteArrayInputStream bais =
-                            new ByteArrayInputStream(result.result().body());
-                        ObjectInputStream ois = new ObjectInputStream(bais);
-                        List<? extends IEnum> enumerations =
-                                (List<? extends IEnum>) ois.readObject();
-                        t0.stop();
-                        promise.complete(enumerations);
-                    } catch (IOException | ClassNotFoundException e) {
-                        log.error(
-                            "Exception while decoding object in response", e);
-                        t0.stop();
-                        promise.completeExceptionally(e);
-                    }
-                }
-            });
-        return promise;
     }
 }
