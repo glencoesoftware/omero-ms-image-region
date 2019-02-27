@@ -20,6 +20,9 @@ Workflow
 The microservice server endpoint for OMERO.web relies on the following
 workflow::
 
+1. Setup of OMERO backbone microservice infrastructure within your OMERO
+server deployment
+
 1. Setup of OMERO.web to use Redis backed sessions
 
 1. Configuring the microservice endpoint
@@ -27,7 +30,7 @@ workflow::
 1. Ensure the microservice can communicate with your PostgreSQL instance
 
 1. Ensure the microservice has read-write access to your OMERO server binary
-repository.
+repository
 
 1. Running the microservice endpoint for OMERO.web
 
@@ -54,7 +57,7 @@ Filesystem backed sessions **are not** supported.
 
 1. Start the server::
 
-        omero-ms-image-region
+        omero-ms-image-region -cluster
 
 Configuring Logging
 -------------------
@@ -171,9 +174,17 @@ Eclipse Configuration
         cp src/dist/conf/config.yaml conf/
         # Edit as appropriate
 
-1. Add a new Run Configuration with a main class of `io.vertx.core.Starter`::
+1. Add a new Run Configuration with a main class of `io.vertx.core.Launcher`::
 
-        run "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle"
+        run "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle" -cluster
+
+1. Add Java VM arguments::
+
+        -Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory -Dhazelcast.logging.type=slf4j
+
+Depending on your environment, clustering arguments such as "-cluster-host"
+may be required and you also may wish to set up a custom logging configuration
+as outlined above.
 
 Running Tests
 =============
@@ -185,6 +196,7 @@ Using Gradle run the unit tests:
 Reference
 =========
 
+* https://github.com/glencoesoftware/omero-ms-backbone
 * https://github.com/glencoesoftware/omero-ms-core
 * https://lettuce.io/
 * http://vertx.io/
