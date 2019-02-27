@@ -13,7 +13,7 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
-	mavenLocal()
+    mavenLocal()
     jcenter()
     maven {
         name 'Unidata'
