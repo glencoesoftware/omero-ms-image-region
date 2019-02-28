@@ -45,6 +45,7 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
@@ -79,6 +80,9 @@ public class ImageRegionRequestHandler {
     public static final String GET_PIXELS_DESCRIPTION_EVENT =
             "omero.get_pixels_description";
 
+    public static final String CAN_READ_EVENT =
+            "omero.can_read";
+
     /** OMERO server pixels service */
     private final PixelsService pixelsService;
 
@@ -106,6 +110,9 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Whether or not the image region cache is enabled */
+    private final boolean imageRegionCacheEnabled;
+
     /** Handle on Vertx for event bus work*/
     private Vertx vertx;
 
@@ -121,7 +128,8 @@ public class ImageRegionRequestHandler {
             PixelsService pixelsService,
             LocalCompress compressionService,
             Vertx vertx,
-            int maxTileLength) {
+            int maxTileLength,
+            boolean imageRegionCacheEnabled) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
@@ -131,6 +139,7 @@ public class ImageRegionRequestHandler {
         this.compressionService = compressionService;
         this.vertx = vertx;
         this.maxTileLength = maxTileLength;
+        this.imageRegionCacheEnabled = imageRegionCacheEnabled;
 
         projectionService = new ProjectionService();
     }
@@ -139,9 +148,86 @@ public class ImageRegionRequestHandler {
      * Render Image region request handler.
      */
     public CompletableFuture<byte[]> renderImageRegion() {
-        return getPixelsDescription()
-                .thenApply(this::createRenderingDef)
-                .thenApply(this::getRegion);
+        return getCachedImageRegion().thenCompose(result1 -> {
+            if (result1 != null) {
+                log.debug("Image region cache hit");
+                return CompletableFuture.completedFuture(result1);
+            }
+            log.debug("Image region cache miss");
+
+            return getPixelsDescription()
+                    .thenApply(this::createRenderingDef)
+                    .thenApply(this::getRegion);
+        });
+    }
+
+    /**
+     * Whether or not the current OMERO session can read the metadata required
+     * to fulfill the request.
+     * @return Future which will be completed with the readability.
+     */
+    private CompletableFuture<Boolean> canRead() {
+        CompletableFuture<Boolean> promise = new CompletableFuture<>();
+
+        final JsonObject data = new JsonObject();
+        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
+        data.put("type", "Image");
+        data.put("id", imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch("canRead");
+        vertx.eventBus().<Boolean>send(
+            CAN_READ_EVENT, data, result -> {
+                if (result.failed()) {
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
+                    return;
+                }
+                t0.stop();
+                promise.complete(result.result().body());
+            }
+        );
+
+        return promise;
+    }
+
+    /**
+     * Get cached image region if available.
+     * @return Future which will be completed with the image region byte array.
+     */
+    private CompletableFuture<byte[]> getCachedImageRegion() {
+        CompletableFuture<byte[]> future = new CompletableFuture<>();
+
+         // Fast exit if the image region cache is disabled
+        if (!imageRegionCacheEnabled) {
+            future.complete(null);
+            return future;
+        }
+
+        String key = imageRegionCtx.cacheKey();
+        vertx.eventBus().<byte[]>send(
+            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+                 try {
+                     byte[] imageRegion =
+                             result.succeeded()? result.result().body() : null;
+                     if (imageRegion != null) {
+                         CompletableFuture<Boolean> step1 = canRead();
+
+                         step1.thenAccept(canRead -> {
+                             if (canRead) {
+                                 future.complete(imageRegion);
+                             } else {
+                                 future.complete(null);
+                             }
+                         });
+                     } else {
+                         future.complete(null);
+                     }
+                 } catch (Exception e) {
+                     log.error("Failure getting cached image region", e);
+                     future.completeExceptionally(e);
+                 }
+             });
+
+         return future;
     }
 
     /**
@@ -271,9 +357,19 @@ public class ImageRegionRequestHandler {
             // buffer.  However, just in case an exception is thrown before
             // reaching this point a double close may occur due to the
             // surrounding try-with-resources block.
-            return render(
+            byte[] region = render(
                     renderer, resolutionLevels, pixels, planeDef,
                     pixelBuffer);
+            // Cache the image region
+            if (imageRegionCacheEnabled) {
+                JsonObject setMessage = new JsonObject();
+                setMessage.put("key", imageRegionCtx.cacheKey);
+                setMessage.put("value", region);
+                vertx.eventBus().send(
+                    RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                    setMessage);
+            }
+            return region;
         } catch (IOException | QuantizationException e) {
             throw new CompletionException(e);
         }

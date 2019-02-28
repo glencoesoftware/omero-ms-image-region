@@ -28,11 +28,13 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
@@ -49,6 +51,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
+
+    /** Whether or not the image region cache is enabled */
+    private boolean imageRegionCacheEnabled;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
@@ -93,8 +98,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     @Override
     public void start() {
+        JsonObject imageRegionCacheConfig =
+                config().getJsonObject("image-region-cache", new JsonObject());
+        imageRegionCacheEnabled =
+                imageRegionCacheConfig.getBoolean("enabled", false);
+
         vertx.eventBus().<String>consumer(
-            RENDER_IMAGE_REGION_EVENT,new Handler<Message<String>>() {
+            RENDER_IMAGE_REGION_EVENT, new Handler<Message<String>>() {
                 @Override
                 public void handle(Message<String> event){
                     getImageRegion(event);
@@ -171,7 +181,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         pixelsService,
                         compressionService,
                         vertx,
-                        maxTileLength);
+                        maxTileLength,
+                        imageRegionCacheEnabled);
         return imageRegionRequestHander.renderImageRegion();
     }
 }

@@ -46,3 +46,9 @@ session-store:
 # session information as the LRU is instance wide.
 redis-cache:
     uri: "redis://password@localhost:7379/1"
+
+# Image region cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server when the same region has already been
+# rendered.
+image-region-cache:
+    enabled: false
