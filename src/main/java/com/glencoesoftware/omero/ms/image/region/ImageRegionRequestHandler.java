@@ -218,31 +218,31 @@ public class ImageRegionRequestHandler {
         CompletableFuture<byte[]> future = new CompletableFuture<>();
         String key = imageRegionCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
-            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                if (result.failed()) {
-                    future.completeExceptionally(result.cause());
-                    return;
-                }
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            if (result.failed()) {
+                future.completeExceptionally(result.cause());
+                return;
+            }
 
-                try {
-                     byte[] imageRegion =
-                             result.succeeded()? result.result().body() : null;
-                     if (imageRegion != null) {
-                         canRead().thenAccept(canRead -> {
-                             if (canRead) {
-                                 future.complete(imageRegion);
-                             } else {
-                                 future.complete(null);
-                             }
-                         });
+             byte[] body =
+                     result.succeeded()? result.result().body() : null;
+             if (body != null) {
+                 canRead().whenComplete((canRead, t) -> {
+                     if (t != null) {
+                         future.completeExceptionally(t);
+                         return;
+                     }
+
+                     if (canRead) {
+                         future.complete(body);
                      } else {
                          future.complete(null);
                      }
-                 } catch (Exception e) {
-                     log.error("Failure getting cached image region", e);
-                     future.completeExceptionally(e);
-                 }
-             });
+                 });
+             } else {
+                 future.complete(null);
+             }
+         });
          return future;
     }
 
@@ -387,27 +387,40 @@ public class ImageRegionRequestHandler {
 
         CompletableFuture<Pixels> future = new CompletableFuture<>();
         vertx.eventBus().<byte[]>send(
-            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                if (result.failed()) {
-                    future.completeExceptionally(result.cause());
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            if (result.failed()) {
+                future.completeExceptionally(result.cause());
+                return;
+            }
+
+            byte[] data = result.result().body();
+            if (data == null) {
+                future.complete(null);
+                return;
+            }
+            canRead().whenComplete((canRead, t) -> {
+                if (t != null) {
+                    future.completeExceptionally(t);
                     return;
                 }
 
-                try {
-                    byte[] data = result.result().body();
-                    if (data == null) {
-                        future.complete(null);
-                        return;
+                if (canRead) {
+                    try {
+                        ByteArrayInputStream bais =
+                                new ByteArrayInputStream(data);
+                        ObjectInputStream ois = new ObjectInputStream(bais);
+                        Pixels pixels = (Pixels) ois.readObject();
+                        future.complete(pixels);
+                    } catch (IOException | ClassNotFoundException e) {
+                        log.error(
+                            "Exception while decoding object in response", e);
+                        future.completeExceptionally(e);
                     }
-                    ByteArrayInputStream bais = new ByteArrayInputStream(data);
-                    ObjectInputStream ois = new ObjectInputStream(bais);
-                    Pixels pixels = (Pixels) ois.readObject();
-                    future.complete(pixels);
-                } catch (IOException | ClassNotFoundException e) {
-                    log.error("Exception while decoding object in response", e);
-                    future.completeExceptionally(e);
+                } else {
+                    future.complete(null);
                 }
             });
+        });
         return future;
     }
 
