@@ -106,10 +106,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
         );
     }
 
-    public int getMaxTileLength() {
-        return maxTileLength;
-    }
-
     /**
      * Render Image region event handler. Responds with a
      * request body on success based on the <code>format</code>
