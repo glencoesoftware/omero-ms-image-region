@@ -60,7 +60,9 @@ public class ImageRegionRequestHandlerTest {
                 null, //LocalCompress compSrv,
                 null, //Vertx instance
                 null, //PixelsService pixService,
-                1024); //maxTileLength);
+                1024, //maxTileLength
+                false, //imageRegionCacheEnabled
+                false); //pixelsMetadataCacheEnabled);
     }
 
     private void testFlip(
