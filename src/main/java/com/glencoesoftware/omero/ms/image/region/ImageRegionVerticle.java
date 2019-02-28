@@ -18,15 +18,10 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -35,12 +30,9 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.json.JsonObject;
-import ome.model.IEnum;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
