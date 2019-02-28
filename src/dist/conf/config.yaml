@@ -52,3 +52,9 @@ redis-cache:
 # rendered.
 image-region-cache:
     enabled: false
+
+# Pixels metadata cache configuration.  Uses the "redis-cache" configured above
+# to avoid round trips to the server to retrieve the same set of Pixels
+# metadata.
+pixels-metadata-cache:
+    enabled: false

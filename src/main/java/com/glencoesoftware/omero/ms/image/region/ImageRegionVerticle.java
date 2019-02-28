@@ -55,6 +55,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Whether or not the image region cache is enabled */
     private boolean imageRegionCacheEnabled;
 
+    /** Whether or not the pixels metadata cache is enabled */
+    private boolean pixelsMetadataCacheEnabled;
+
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
@@ -102,6 +105,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 config().getJsonObject("image-region-cache", new JsonObject());
         imageRegionCacheEnabled =
                 imageRegionCacheConfig.getBoolean("enabled", false);
+        JsonObject pixelsMetadataCacheConfig = config()
+                .getJsonObject("pixels-metadata-cache", new JsonObject());
+        pixelsMetadataCacheEnabled =
+                 pixelsMetadataCacheConfig.getBoolean("enabled", false);
 
         vertx.eventBus().<String>consumer(
             RENDER_IMAGE_REGION_EVENT, new Handler<Message<String>>() {
@@ -182,7 +189,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         compressionService,
                         vertx,
                         maxTileLength,
-                        imageRegionCacheEnabled);
+                        imageRegionCacheEnabled,
+                        pixelsMetadataCacheEnabled);
         return imageRegionRequestHander.renderImageRegion();
     }
 }

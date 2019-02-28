@@ -113,6 +113,9 @@ public class ImageRegionRequestHandler {
     /** Whether or not the image region cache is enabled */
     private final boolean imageRegionCacheEnabled;
 
+    /** Whether or not the pixels metadata cache is enabled */
+    private final boolean pixelsMetadataCacheEnabled;
+
     /** Handle on Vertx for event bus work*/
     private Vertx vertx;
 
@@ -129,7 +132,8 @@ public class ImageRegionRequestHandler {
             LocalCompress compressionService,
             Vertx vertx,
             int maxTileLength,
-            boolean imageRegionCacheEnabled) {
+            boolean imageRegionCacheEnabled,
+            boolean pixelsMetadataCacheEnabled) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
@@ -140,6 +144,7 @@ public class ImageRegionRequestHandler {
         this.vertx = vertx;
         this.maxTileLength = maxTileLength;
         this.imageRegionCacheEnabled = imageRegionCacheEnabled;
+        this.pixelsMetadataCacheEnabled = pixelsMetadataCacheEnabled;
 
         projectionService = new ProjectionService();
     }
@@ -148,10 +153,10 @@ public class ImageRegionRequestHandler {
      * Render Image region request handler.
      */
     public CompletableFuture<byte[]> renderImageRegion() {
-        return getCachedImageRegion().thenCompose(result1 -> {
-            if (result1 != null) {
+        return getCachedImageRegion().thenCompose(result -> {
+            if (result != null) {
                 log.debug("Image region cache hit");
-                return CompletableFuture.completedFuture(result1);
+                return CompletableFuture.completedFuture(result);
             }
             log.debug("Image region cache miss");
 
@@ -194,24 +199,25 @@ public class ImageRegionRequestHandler {
      * @return Future which will be completed with the image region byte array.
      */
     private CompletableFuture<byte[]> getCachedImageRegion() {
-        CompletableFuture<byte[]> future = new CompletableFuture<>();
-
-         // Fast exit if the image region cache is disabled
+        // Fast exit if the image region cache is disabled
         if (!imageRegionCacheEnabled) {
-            future.complete(null);
-            return future;
+            return CompletableFuture.completedFuture(null);
         }
 
+        CompletableFuture<byte[]> future = new CompletableFuture<>();
         String key = imageRegionCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                 try {
+                if (result.failed()) {
+                    future.completeExceptionally(result.cause());
+                    return;
+                }
+
+                try {
                      byte[] imageRegion =
                              result.succeeded()? result.result().body() : null;
                      if (imageRegion != null) {
-                         CompletableFuture<Boolean> step1 = canRead();
-
-                         step1.thenAccept(canRead -> {
+                         canRead().thenAccept(canRead -> {
                              if (canRead) {
                                  future.complete(imageRegion);
                              } else {
@@ -226,7 +232,6 @@ public class ImageRegionRequestHandler {
                      future.completeExceptionally(e);
                  }
              });
-
          return future;
     }
 
@@ -290,8 +295,35 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    /**
+     * Get cached {@link Pixels} metadata if available or retrieve it from the
+     * server.
+     * @return Future which will be completed with the {@link Pixels} metadata.
+     */
     private CompletableFuture<Pixels> getPixelsDescription() {
+        String key = String.format("%s:Image:%d",
+                Pixels.class.getName(), imageRegionCtx.imageId);
+        return getCachedPixelsDescription(key).thenCompose(result -> {
+            if (result != null) {
+                log.debug("Pixels description cache hit");
+                return CompletableFuture.completedFuture(result);
+            }
+            log.debug("Pixels description cache miss");
+
+            return loadPixelsDescription(key);
+        });
+    }
+
+    /**
+     * Load {@link Pixels} from the server.
+     * @param request OMERO request based on the current context
+     * @param requestHandler OMERO image region request handler
+     * @param key Cache key for {@link Pixels} metadata
+     * @return See above.
+     */
+    private CompletableFuture<Pixels> loadPixelsDescription(String key) {
         CompletableFuture<Pixels> promise = new CompletableFuture<>();
+
         final JsonObject data = new JsonObject();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("imageId", imageRegionCtx.imageId);
@@ -304,12 +336,23 @@ public class ImageRegionRequestHandler {
                     promise.completeExceptionally(result.cause());
                     return;
                 }
-                ByteArrayInputStream bais =
-                        new ByteArrayInputStream(result.result().body());
+
+                byte[] body = result.result().body();
+                ByteArrayInputStream bais = new ByteArrayInputStream(body);
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Pixels pixels = (Pixels) ois.readObject();
                 t0.stop();
                 promise.complete(pixels);
+
+                // Cache the pixels metadata
+                if (pixelsMetadataCacheEnabled) {
+                    JsonObject setMessage = new JsonObject();
+                    setMessage.put("key", key);
+                    setMessage.put("value", body);
+                    vertx.eventBus().send(
+                            RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                            setMessage);
+                }
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
                 t0.stop();
@@ -318,6 +361,43 @@ public class ImageRegionRequestHandler {
         });
 
         return promise;
+    }
+
+    /**
+     * Get cached {@link Pixels} metadata if available.
+     * @param key Cache key for {@link Pixels} metadata
+     * @return Future which will be completed with the {@link Pixels} metadata.
+     */
+    private CompletableFuture<Pixels> getCachedPixelsDescription(String key) {
+        // Fast exit if the pixels metadata cache is disabled
+        if (!pixelsMetadataCacheEnabled) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Pixels> future = new CompletableFuture<>();
+        vertx.eventBus().<byte[]>send(
+            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+                if (result.failed()) {
+                    future.completeExceptionally(result.cause());
+                    return;
+                }
+
+                try {
+                    byte[] data = result.result().body();
+                    if (data == null) {
+                        future.complete(null);
+                        return;
+                    }
+                    ByteArrayInputStream bais = new ByteArrayInputStream(data);
+                    ObjectInputStream ois = new ObjectInputStream(bais);
+                    Pixels pixels = (Pixels) ois.readObject();
+                    future.complete(pixels);
+                } catch (IOException | ClassNotFoundException e) {
+                    log.error("Exception while decoding object in response", e);
+                    future.completeExceptionally(e);
+                }
+            });
+        return future;
     }
 
     private byte[] getRegion(RenderingDef renderingDef) {
