@@ -50,9 +50,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
-    public static final String RENDER_IMAGE_REGION_PNG_EVENT =
-            "omero.render_image_region_png";
-
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
