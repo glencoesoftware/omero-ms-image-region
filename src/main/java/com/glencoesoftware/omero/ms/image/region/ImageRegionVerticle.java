@@ -22,6 +22,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.Map;
+import java.util.Set;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -29,17 +31,21 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
+import com.hazelcast.core.HazelcastInstance;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
+import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
+
+import com.hazelcast.core.Hazelcast;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
@@ -51,6 +57,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
 
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
+
+    private static final String CAN_READ_CACHE_NAME =
+            "omero.can_read_cache";
 
     /** Whether or not the image region cache is enabled */
     private boolean imageRegionCacheEnabled;
@@ -82,6 +91,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Distributed map for can read caching */
+    private Map<String, Boolean> canReadCache;
+
     /**
      * Default constructor.
      */
@@ -94,6 +106,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        Set<HazelcastInstance> instances = Hazelcast.getAllHazelcastInstances();
+        HazelcastInstance hazelcastInstance = instances.stream().findFirst().get();
+        canReadCache = hazelcastInstance.getMap(CAN_READ_CACHE_NAME);
+
     }
 
     /* (non-Javadoc)
@@ -190,7 +206,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                         vertx,
                         maxTileLength,
                         imageRegionCacheEnabled,
-                        pixelsMetadataCacheEnabled);
+                        pixelsMetadataCacheEnabled,
+                        canReadCache);
         return imageRegionRequestHander.renderImageRegion();
     }
 }

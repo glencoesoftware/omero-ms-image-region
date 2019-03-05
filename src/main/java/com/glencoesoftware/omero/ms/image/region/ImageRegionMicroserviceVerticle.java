@@ -18,6 +18,11 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +35,8 @@ import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.XmlConfigBuilder;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -378,5 +385,29 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 }
             }
         );
+    }
+
+    /**
+     * Retrieves the Hazelcast configuration either from the OMERO
+     * configuration directory or Hazelcast defaults.
+     */
+    private Config getHazelcastConfig() {
+        File configFile =
+                new File(new File(new File("."), "etc"), "hazelcast.xml");
+        Config config = new Config();
+        if (configFile.exists()) {
+            log.info("Loading Hazelcast configuration: {}",
+                     configFile.getAbsolutePath());
+            try (InputStream is = new FileInputStream(configFile);
+                 InputStream bis = new BufferedInputStream(is)) {
+                config = new XmlConfigBuilder(bis).build();
+            } catch (IOException e) {
+                log.error("Failed to read Hazelcast configuration", e);
+            }
+        } else {
+            log.debug("Hazelcast configuration file {} not found",
+                      configFile.getAbsolutePath());
+        }
+        return config;
     }
 }

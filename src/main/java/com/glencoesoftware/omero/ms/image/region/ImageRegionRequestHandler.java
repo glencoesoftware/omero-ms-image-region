@@ -46,6 +46,7 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
+import com.hazelcast.core.HazelcastInstance;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
@@ -116,6 +117,11 @@ public class ImageRegionRequestHandler {
     /** Whether or not the pixels metadata cache is enabled */
     private final boolean pixelsMetadataCacheEnabled;
 
+    /** Handle on Hazelcast Instance */
+    //private HazelcastInstance hazelcastInstance;
+
+    private Map<String, Boolean> canReadCache;
+
     /** Handle on Vertx for event bus work*/
     private Vertx vertx;
 
@@ -133,7 +139,8 @@ public class ImageRegionRequestHandler {
             Vertx vertx,
             int maxTileLength,
             boolean imageRegionCacheEnabled,
-            boolean pixelsMetadataCacheEnabled) {
+            boolean pixelsMetadataCacheEnabled,
+            Map<String, Boolean> canReadCache) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
@@ -145,6 +152,8 @@ public class ImageRegionRequestHandler {
         this.maxTileLength = maxTileLength;
         this.imageRegionCacheEnabled = imageRegionCacheEnabled;
         this.pixelsMetadataCacheEnabled = pixelsMetadataCacheEnabled;
+        //this.hazelcastInstance = hazelcastInstance;
+        this.canReadCache = canReadCache;
 
         projectionService = new ProjectionService();
     }
@@ -178,20 +187,26 @@ public class ImageRegionRequestHandler {
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("type", "Image");
         data.put("id", imageRegionCtx.imageId);
-        StopWatch t0 = new Slf4JStopWatch("canRead");
-        vertx.eventBus().<Boolean>send(
-            CAN_READ_EVENT, data, result -> {
-                if (result.failed()) {
+        if (canReadCache.containsKey(imageRegionCtx.cacheKey)) {
+            log.info("Getting data from the cache!");
+            return CompletableFuture.completedFuture(canReadCache.get(imageRegionCtx.cacheKey));
+        }
+        else {
+            StopWatch t0 = new Slf4JStopWatch("canRead");
+            vertx.eventBus().<Boolean>send(
+                CAN_READ_EVENT, data, result -> {
+                    if (result.failed()) {
+                        t0.stop();
+                        promise.completeExceptionally(result.cause());
+                        return;
+                    }
                     t0.stop();
-                    promise.completeExceptionally(result.cause());
-                    return;
+                    promise.complete(result.result().body());
                 }
-                t0.stop();
-                promise.complete(result.result().body());
-            }
-        );
+            );
 
-        return promise;
+            return promise;
+        }
     }
 
     /**
@@ -672,8 +687,8 @@ public class ImageRegionRequestHandler {
 
             if (isActive) {
                 if (imageRegionCtx.windows != null) {
-                    double min = (double) imageRegionCtx.windows.get(idx)[0];
-                    double max = (double) imageRegionCtx.windows.get(idx)[1];
+                    double min = imageRegionCtx.windows.get(idx)[0];
+                    double max = imageRegionCtx.windows.get(idx)[1];
                     log.debug("\tMin-Max: [{}, {}]", min, max);
                     renderer.setChannelWindow(c, min, max);
                 }
