@@ -72,6 +72,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
 
+    /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
     /**
@@ -259,7 +260,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength));
-        if(!cacheControlHeader.equals("")) {
+        if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
         event.response()
