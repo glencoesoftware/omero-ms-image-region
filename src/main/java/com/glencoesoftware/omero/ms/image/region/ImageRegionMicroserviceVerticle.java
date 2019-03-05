@@ -36,6 +36,7 @@ import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
@@ -70,6 +71,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
+
+    /** The string which will be used as Cache-Control header in responses */
+    private String cacheControlHeader;
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -163,6 +167,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+        cacheControlHeader = config.getString("cache-control-header", "");
+
         // Get ImageRegion Microservice Information
         router.options().handler(this::getMicroserviceDetails);
 
@@ -254,6 +260,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength));
+        if (!cacheControlHeader.equals("")) {
+            resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
+         }
         event.response()
             .putHeader("content-type", "application/json")
             .end(resData.encodePrettily());
@@ -311,6 +320,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
+                if(!cacheControlHeader.equals("")) {
+                    response.headers().set("Cache-Control", cacheControlHeader);
+                }
                 if (!response.closed()) {
                     response.end(Buffer.buffer(imageRegion));
                 }
