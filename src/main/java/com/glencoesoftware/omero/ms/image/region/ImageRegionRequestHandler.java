@@ -46,7 +46,6 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
-import com.hazelcast.core.HazelcastInstance;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
@@ -117,9 +116,6 @@ public class ImageRegionRequestHandler {
     /** Whether or not the pixels metadata cache is enabled */
     private final boolean pixelsMetadataCacheEnabled;
 
-    /** Handle on Hazelcast Instance */
-    //private HazelcastInstance hazelcastInstance;
-
     private Map<String, Boolean> canReadCache;
 
     /** Handle on Vertx for event bus work*/
@@ -152,7 +148,6 @@ public class ImageRegionRequestHandler {
         this.maxTileLength = maxTileLength;
         this.imageRegionCacheEnabled = imageRegionCacheEnabled;
         this.pixelsMetadataCacheEnabled = pixelsMetadataCacheEnabled;
-        //this.hazelcastInstance = hazelcastInstance;
         this.canReadCache = canReadCache;
 
         projectionService = new ProjectionService();
@@ -188,7 +183,6 @@ public class ImageRegionRequestHandler {
         data.put("type", "Image");
         data.put("id", imageRegionCtx.imageId);
         if (canReadCache.containsKey(imageRegionCtx.cacheKey)) {
-            log.info("Getting data from the cache!");
             return CompletableFuture.completedFuture(canReadCache.get(imageRegionCtx.cacheKey));
         }
         else {
@@ -201,6 +195,8 @@ public class ImageRegionRequestHandler {
                         return;
                     }
                     t0.stop();
+                    //Put the result in the cache
+                    canReadCache.put(imageRegionCtx.cacheKey, result.result().body());
                     promise.complete(result.result().body());
                 }
             );

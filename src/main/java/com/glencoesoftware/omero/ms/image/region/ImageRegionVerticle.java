@@ -30,7 +30,6 @@ import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.hazelcast.core.HazelcastInstance;
 
 import io.vertx.core.AbstractVerticle;
@@ -38,7 +37,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
-import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
