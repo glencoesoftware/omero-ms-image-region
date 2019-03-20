@@ -1,0 +1,81 @@
+- hosts: localhost
+  vars:
+    omero_ms_dir: /opt/omero/ms
+    omero_server_dir: /opt/omero/server
+    omero_ms_link_name: image-region
+    omero_ms_home: "{{ omero_ms_dir }}/{{ omero_ms_link_name }}"
+    omero_ms_user: oms-imageregion
+    omero_ms_group: oms-imageregion
+    omero_ms_port: 8080
+    omero_host: localhost
+    omero_port: 4064
+    omero_data_dir: /OMERO
+    omero_db_host: localhost
+    omero_db_name: omero
+    omero_db_port: 5432
+    omero_db_user: omero
+    omero_db_pass: omero
+    omero_script_repo_root: "{{ omero_server_dir }}/OMERO.server/lib/scripts"
+    redis_password: redis
+    redis_host: localhost
+    redis_port: 6379
+    omero_redis_connect_uri: "redis://:{{ redis_password }}@{{ redis_host }}:{{ redis_port }}/1"
+  pre_tasks:
+    - name: create ms user
+      user:
+        name: "{{ omero_ms_user }}"
+        comment: "OMERO Microservice User"
+        shell: /bin/bash
+
+    - name: create ms directory
+      file:
+        state: directory
+        path: "{{ omero_ms_dir }}"
+        owner: "{{ omero_ms_user }}"
+        group: "{{ omero_ms_group }}"
+
+    - name: create server directory for scripts
+      file:
+        state: directory
+        path: "{{ omero_server_dir }}"
+        owner: "{{ omero_ms_user }}"
+        group: "{{ omero_ms_group }}"
+
+    - name: install pip
+      yum:
+        name: python-pip
+        state: present
+
+  tasks:
+    - name: install omego
+      pip:
+          name: omego
+          state: present
+
+    - name: download omero.server for component
+      command: omego download OMERO.server --sym auto
+      args:
+        chdir: "{{ omero_server_dir }}"
+        creates: "{{ omero_script_repo_root }}"
+      become_user: "{{ omero_ms_user }}"
+        
+    - name: install java
+      yum:
+        name: java-1.8.0-openjdk-1.8.0.191.b12
+        state: present
+
+    - name: update java alternatives
+      command: alternatives --auto java
+
+    - name: chown everything to the ms user
+      file:
+        state: directory
+        path: "{{ omero_ms_home }}"
+        owner: "{{ omero_ms_user }}"
+        group: "{{ omero_ms_group }}"
+        recurse: yes
+
+    - name: setup config
+      template:
+        dest: "{{ omero_ms_home }}/conf/config.yaml"
+        src: ms-config.yaml.j2
