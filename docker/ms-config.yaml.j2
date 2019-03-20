@@ -1,0 +1,35 @@
+# The port that the microservice will listen on
+port: {{ omero_ms_port }}
+# Configuration for request parsing limits
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxInitialLineLength-int-
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxHeaderSize-int-
+#  * https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerOptions.html#setMaxChunkSize-int-
+#  * https://netty.io/4.0/api/io/netty/handler/codec/http/HttpRequestDecoder.html#HttpRequestDecoder--
+# max-initial-line-length: 4096
+# max-header-size: 8192
+# max-chunk-size: 8192
+# OMERO server that the microservice will communicate with (as a client)
+omero:
+    host: "{{ omero_host }}"
+    port: {{ omero_port }}
+# Copy of the OMERO server configuration which will be reused
+omero.server:
+    omero.data.dir: "{{ omero_data_dir }}"
+    omero.db.host: "{{ omero_db_host }}"
+    omero.db.name: "{{ omero_db_name }}"
+    omero.db.port: "{{ omero_db_port }}"
+    omero.db.user: "{{ omero_db_user }}"
+    omero.db.pass: "{{ omero_db_pass }}"
+    # OMERO_HOME/lib/scripts
+    omero.script_repo_root: "{{ omero_script_repo_root }}"
+# OMERO.web configuration
+omero.web:
+    session_cookie_name: "sessionid"
+
+# Information about the session store.
+session-store:
+    #type is either "postgres" or "redis"
+    type: "redis"
+    #synchronicity is either "sync" or "async"
+    synchronicity: "async"
+    uri: "{{ omero_redis_connect_uri }}"
