@@ -1,0 +1,7 @@
+language: python
+services:
+  - docker
+
+script:
+  - ./gradlew distTar
+  - cd docker && ./build.sh
