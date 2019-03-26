@@ -1,7 +1,15 @@
 language: python
 services:
-  - docker
-
+- docker
 script:
-  - ./gradlew distTar
-  - cd docker && ./build.sh
+- "./gradlew distTar"
+- cd docker && ./build.sh
+deploy:
+  provider: script
+  script: bash docker_push
+  on:
+    branch: docker-build
+env:
+  matrix:
+  - secure: PbsU6B/hFW8K1hEtdFY9hwgLDICaSDNZJtiva6AhiVxvu/lazz4ytnyDNqXsc49U1lALS4HqTQwPsh4zM4I8dWAVoriNtWfm/3TXqu9Qq+p6ZcYuRs5hR7HncOjFJRkXIr4d3Ivc/K9jXZUd2eCBpRP2RQyBqZPFU+jne7rOtiCGkYa4u0NKKuwuSVccfZLhW5bORWj45zj/2uJYldjDK0tFfXsIjTl/NGiSU79w9aXDAZEw5QkjNzL47nQ9+2WDdrELssZTqOkKHSrrOBzNg0gQO7+PS6QKglduT7QIV/Upu9pcNdvKtoWUjoeuqxVLv/qtJ1JwiMNqi+sh8ivvWKPiPPSVUNrlwY6zkOG6Q3ctaWVSzuxtW+TclMT5PUZN2oQFImJnKziBJ3bBtSZpol5bMhDwjcWnRM/R8oyBZRCy+mc4Ys8j6E/KCV9UeF0v1rVeHXtC/+So7ohwbCvMFLts86wu87gE6DkXceL6DBvU9A7weQrafKr9avF/dOJCyVPCZV1WGYpwWYXHl7QwqDpSe6bMbgepYFsec4iA7uH3MNOdozS0LVc3/XC+kCFzWPu14ErSMHN2RX+OcEyyUhRWVCQmrQuhW2n3NO/sBCLjH4VGO1Z/OP9my04b17EOJr5JWXuoPNXeT9PAnpi5rE88+pROOfmvdFnXN2kS48U=
+  - secure: P87JK6ru2ZkvhJYWb63IPpfFnYbo6ha9UOeT4rb5jVudMyPKapzhgly8NBBwkijg+ewoX/NNCLQXs3ZXDEk7tdjVtoYF5SidCntAFbSVwERzXdwfwpyuMyA9kEAdgvRJrvSFIyuX8pOYj65EBviXy8zOonU/+viXTBvTgHHku2nf2ddan4njvOk1RM7wvKdxKvAb72IBMFvkSC/wF/Sf02PEMPAvFDSK+00e//7IXNa2gKB73puZOjqVyLoI0mxzWS5WOGm/HLCPXFPJsdEfjajKGu6FHVJ08pN15ofhpx/fA9xrGQK+B6TDL+ETkWM+g8sTx9wssxuRE5UVA2hdowjduOW2IdbpO+mwG0iUddSXyv3j+MqkKhHyzsFm96n4BE/FMZL5NiiEVWrG0WOMhfD+SugAq+tK+wLH8Fou+tABXmjAgalzb2av3qS3noCN/kCTRO6K6uzswed7AIHggBE+XdrhSTUdr+5LlDUvzTWb8j0Oza4JzQPOO/wfPJFsE9dTolrNFOVQ23jJYuy9SFC5m++lCiq9q5XoFtBfZjZIKxE0JKk8SSSGykBpZbSwNpQVEcBR9V8HLsW2qGC/0OBrjhBh4RLjAcG4fswoCo2hKrcmNI2d9b+DO/LzNYU/RBg8xLA2OoHl9hCxGJBs3rs6CxKQwXkJYWxO5hP2FJI=
