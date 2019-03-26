@@ -6,7 +6,9 @@ script:
 - cd docker && ./build.sh
 deploy:
   provider: script
-  script: bash docker_push
+  script:
+    - ls -la
+    - bash docker_push
   on:
     branch: docker-build
 env:
