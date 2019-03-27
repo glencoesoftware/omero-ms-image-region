@@ -1,3 +1,8 @@
 #!/bin/bash
+set -e
+IMAGE=omero-ms-image-region
+[ -z "${DOCKER_USERNAME}" ] && echo "missing DOCKER_USERNAME!" && exit 1
+[ -z "${DOCKER_PASSWORD}" ] && echo "missing DOCKER_PASSWORD!" && exit 1
 echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-docker push glencoesoftware/omero-ms-image-region
+docker tag ${IMAGE} ${DOCKER_USERNAME}/${IMAGE}
+docker push ${DOCKER_USERNAME}/${IMAGE}
