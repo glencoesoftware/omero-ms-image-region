@@ -4,8 +4,8 @@ services:
 script:
 - "./gradlew distTar"
 - cd docker && ./build.sh
-- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-- docker push $DOCKER_USERNAME/omero-ms-image-region
+- env
+- bash docker_push
 env:
   global:
   - secure: XT1NKV1Az/qlVfpz+dytzNnSl8YYCR4L5f8Pq9i4qiE+TbF3huLg0f7RbvD55Ac3DR7+VdkDkVPih4di/qNRAHSZNiJ0xrSfL2VjeRd3wXwiv2tyV1woUcL3xQurZ50uX86C79FTyZ1Zt479M3UARvfr83wcuUj0MUsZ1n+QkLp0Ln9NBG6EO4CVflBq4t5nNfixlLKNt+XmLwHF70P3lB9Cbs3qEB/RYWfvFCqVsIIcOkaAElqHxTVr67omoEGJZX2KsrhJlJ8384pE0Jiq50QCEPVcUMMQooEGC6QhaIYuAV8x+AeFUR4EWWUI+wagruf5Wl8VvHKasTf3maieu6HAJI7IkuqUV0o8/VKECluYX07T/HIEIiU55/a917y+0XxPg+zeyjqaFVxJxS/aSVyz5d47MiuDcDceDBGCcmmSQm5lYyFpz3I8o0xmKbMEPFXR8lMsrgwbHKcJs3Yo1g01V1cOeoPEAXCrdjIMsKHivIHGVtOThWgUcfltKIBZl5JGW4i7Nwmcsl5ZdFf1DJPJqe00fpM7vdamyubK2BUktbxkWTje6+9K1DsWkIRdQFAXgbPpQUl0kK//GDQJksH6y8wwoYX5neE+q18NDD/8UzghmBIYTpKYwnOt1GuS6uHjK6OM9jL4QpDr0JB/+rKEKTzXxpZukYJJ7Kaa+E4=
