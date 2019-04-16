@@ -62,7 +62,8 @@ public class ImageRegionRequestHandlerTest {
                 null, //PixelsService pixService,
                 1024, //maxTileLength
                 false, //imageRegionCacheEnabled
-                false); //pixelsMetadataCacheEnabled);
+                false, //pixelsMetadataCacheEnabled
+                null); //canReadCache
     }
 
     private void testFlip(
