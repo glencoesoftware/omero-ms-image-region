@@ -58,3 +58,5 @@ image-region-cache:
 # metadata.
 pixels-metadata-cache:
     enabled: false
+#The string to be used as the Cache-Control header provided in responses
+cache-control-header: "private, max-age=3600"

@@ -82,6 +82,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     public final static int DEFAULT_WORKER_POOL_SIZE =
             Runtime.getRuntime().availableProcessors() * 2;
+    /** The string which will be used as Cache-Control header in responses */
+    private String cacheControlHeader;
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -177,6 +179,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+        cacheControlHeader = config.getString("cache-control-header", "");
+
         // Get ImageRegion Microservice Information
         router.options().handler(this::getMicroserviceDetails);
 
@@ -269,6 +273,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength));
+        if (!cacheControlHeader.equals("")) {
+            resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
+         }
         event.response()
             .putHeader("content-type", "application/json")
             .end(resData.encodePrettily());
@@ -297,46 +304,49 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
-                ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-                Json.encode(imageRegionCtx), new Handler<AsyncResult<Message<byte[]>>>() {
-                    @Override
-                    public void handle(AsyncResult<Message<byte[]>> result) {
-                        try {
-                            if (result.failed()) {
-                                Throwable t = result.cause();
-                                int statusCode = 404;
-                                if (t instanceof ReplyException) {
-                                    statusCode = ((ReplyException) t).failureCode();
-                                }
-                                if (!response.closed()) {
-                                    response.setStatusCode(statusCode).end();
-                                }
-                                return;
+            ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
+            Json.encode(imageRegionCtx), new Handler<AsyncResult<Message<byte[]>>>() {
+                @Override
+                public void handle(AsyncResult<Message<byte[]>> result) {
+                    try {
+                        if (result.failed()) {
+                            Throwable t = result.cause();
+                            int statusCode = 404;
+                            if (t instanceof ReplyException) {
+                                statusCode = ((ReplyException) t).failureCode();
                             }
-                            byte[] imageRegion = result.result().body();
-                            String contentType = "application/octet-stream";
-                            if (imageRegionCtx.format.equals("jpeg")) {
-                                contentType = "image/jpeg";
-                            }
-                            if (imageRegionCtx.format.equals("png")) {
-                                contentType = "image/png";
-                            }
-                            if (imageRegionCtx.format.equals("tif")) {
-                                contentType = "image/tiff";
-                            }
-                            response.headers().set("Content-Type", contentType);
-                            response.headers().set(
-                                    "Content-Length",
-                                    String.valueOf(imageRegion.length));
                             if (!response.closed()) {
-                                response.end(Buffer.buffer(imageRegion));
+                                response.setStatusCode(statusCode).end();
                             }
-                        } finally {
-                            log.debug("Response ended");
+                            return;
                         }
+                        byte[] imageRegion = result.result().body();
+                        String contentType = "application/octet-stream";
+                        if (imageRegionCtx.format.equals("jpeg")) {
+                            contentType = "image/jpeg";
+                        }
+                        if (imageRegionCtx.format.equals("png")) {
+                            contentType = "image/png";
+                        }
+                        if (imageRegionCtx.format.equals("tif")) {
+                            contentType = "image/tiff";
+                        }
+                        response.headers().set("Content-Type", contentType);
+                        response.headers().set(
+                                "Content-Length",
+                                String.valueOf(imageRegion.length));
+                        if(!cacheControlHeader.equals("")) {
+                            response.headers().set("Cache-Control", cacheControlHeader);
+                        }
+                        if (!response.closed()) {
+                            response.end(Buffer.buffer(imageRegion));
+                        }
+                    } finally {
+                        log.debug("Response ended");
                     }
                 }
-            );
+            }
+        );
     }
 
     /**
