@@ -456,7 +456,7 @@ public class ImageRegionRequestHandler {
             setResolutionLevel(renderer, resolutionLevels);
             if (imageRegionCtx.compressionQuality != null) {
                 compressionService.setCompressionLevel(
-                imageRegionCtx.compressionQuality);
+                        imageRegionCtx.compressionQuality);
             }
             updateSettings(renderer);
             // The actual act of rendering will close the provided pixel
@@ -508,7 +508,6 @@ public class ImageRegionRequestHandler {
                 int projectedSizeC = 0;
                 ChannelBinding[] channelBindings =
                         renderer.getChannelBindings();
-                //PixelBuffer pixelBuffer = getPixelBuffer(pixels);
                 int start = Optional
                         .ofNullable(imageRegionCtx.projectionStart)
                         .orElse(0);

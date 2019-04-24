@@ -104,10 +104,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
-        Set<HazelcastInstance> instances = Hazelcast.getAllHazelcastInstances();
-        HazelcastInstance hazelcastInstance = instances.stream().findFirst().get();
+        Set<HazelcastInstance> instances =
+                Hazelcast.getAllHazelcastInstances();
+        HazelcastInstance hazelcastInstance =
+                instances.stream().findFirst().get();
         canReadCache = hazelcastInstance.getMap(CAN_READ_CACHE_NAME);
-
     }
 
     /* (non-Javadoc)

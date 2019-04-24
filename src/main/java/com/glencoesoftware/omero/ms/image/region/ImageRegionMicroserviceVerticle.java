@@ -132,7 +132,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             throw new IllegalArgumentException(
                     "'omero.server' block missing from configuration");
         }
-        for(Map.Entry<String, Object> entry : omeroServer) {
+        for (Map.Entry<String, Object> entry : omeroServer) {
             System.setProperty(entry.getKey(), (String) entry.getValue());
         }
 
@@ -147,8 +147,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
         int workerPoolSize = Optional.ofNullable(
-                config.getInteger("worker_pool_size")
-            ).orElse(DEFAULT_WORKER_POOL_SIZE);
+            config.getInteger("worker_pool_size")
+        ).orElse(DEFAULT_WORKER_POOL_SIZE);
         vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
                 new DeploymentOptions().setConfig(config));
         vertx.deployVerticle("omero:omero-ms-image-region-verticle",

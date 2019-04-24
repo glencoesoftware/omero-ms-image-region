@@ -161,7 +161,6 @@ public class ShapeMaskRequestHandler {
      * @param width width of the mask
      * @param height height of the mask
      * @return <code>image/png</code> encoded mask
-     * @see {@link #NotByteAligned(Color, byte[], int, int)}
      */
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)

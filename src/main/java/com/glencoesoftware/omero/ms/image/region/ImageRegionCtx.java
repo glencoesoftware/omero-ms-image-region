@@ -281,7 +281,6 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             return;
         }
         String[] channelArray = channelInfo.split(",", -1);
-        log.info(Integer.toString(channelArray.length));
         channels = new ArrayList<Integer>();
         windows = new ArrayList<Float[]>();
         colors = new ArrayList<String>();
