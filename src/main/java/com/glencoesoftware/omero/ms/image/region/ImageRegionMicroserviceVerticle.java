@@ -80,8 +80,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** VerticleFactory */
     private OmeroVerticleFactory verticleFactory;
 
-    public final static int DEFAULT_WORKER_POOL_SIZE =
+    /** Default number of workers (core count * 2) */
+    public final int DEFAULT_WORKER_POOL_SIZE =
             Runtime.getRuntime().availableProcessors() * 2;
+
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
