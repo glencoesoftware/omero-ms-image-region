@@ -176,17 +176,18 @@ public class ImageRegionRequestHandler {
      * @return Future which will be completed with the readability.
      */
     private CompletableFuture<Boolean> canRead() {
-        CompletableFuture<Boolean> promise = new CompletableFuture<>();
-
         final JsonObject data = new JsonObject();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("type", "Image");
         data.put("id", imageRegionCtx.imageId);
-        if (canReadCache.containsKey(imageRegionCtx.cacheKey)) {
-            return CompletableFuture.completedFuture(canReadCache.get(imageRegionCtx.cacheKey));
-        }
-        else {
+        Boolean canRead = canReadCache.get(imageRegionCtx.cacheKey);
+        if (canRead != null) {
+            log.debug("Can read {} cache hit", imageRegionCtx.cacheKey);
+            return CompletableFuture.completedFuture(canRead);
+        } else {
+            log.debug("Can read {} cache miss", imageRegionCtx.cacheKey);
             StopWatch t0 = new Slf4JStopWatch("canRead");
+            CompletableFuture<Boolean> promise = new CompletableFuture<>();
             vertx.eventBus().<Boolean>send(
                 CAN_READ_EVENT, data, result -> {
                     if (result.failed()) {
@@ -196,8 +197,9 @@ public class ImageRegionRequestHandler {
                     }
                     t0.stop();
                     //Put the result in the cache
-                    canReadCache.put(imageRegionCtx.cacheKey, result.result().body());
-                    promise.complete(result.result().body());
+                    Boolean v = result.result().body();
+                    canReadCache.put(imageRegionCtx.cacheKey, v);
+                    promise.complete(v);
                 }
             );
 
