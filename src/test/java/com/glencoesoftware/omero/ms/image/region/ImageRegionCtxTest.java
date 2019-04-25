@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.testng.annotations.Test;
 
@@ -369,5 +370,26 @@ public class ImageRegionCtxTest {
                 new Integer(IProjection.MAXIMUM_INTENSITY));
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testCreateCacheKeyOrderInsensitivity() {
+        MultiMap params2 = MultiMap.caseInsensitiveMultiMap();
+
+        //MultiMap key order when iterating appears to be insertion order
+        params2.add("maps", maps);
+        params2.add("c", c);
+        params2.add("region", region);
+        params2.add("tile", tile);
+        params2.add("q", String.valueOf(q));
+        params2.add("theT", String.valueOf(t));
+        params2.add("theZ", String.valueOf(z));
+        params2.add("imageId", String.valueOf(imageId));
+
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ImageRegionCtx ctx2 = new ImageRegionCtx(params2, "");
+
+        Assert.assertEquals(ctx.cacheKey, ctx2.cacheKey);
+
     }
 }

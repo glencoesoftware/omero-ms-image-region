@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TreeSet;
 
 import org.slf4j.LoggerFactory;
 
@@ -162,12 +163,17 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @see {@link com.google.common.hash.Hashing#sipHash24()}
      */
     private String createCacheKey(MultiMap params) {
-        StringBuilder sb = new StringBuilder()
-                .append(ImageRegionCtx.class.getName());
+        TreeSet<String> orderedKeys = new TreeSet<String>();
+        //Get an ordered set of keys
         for (Entry<String, String> entry : params) {
             log.debug("Entry: {}", entry);
+            orderedKeys.add(entry.getKey());
+        }
+        StringBuilder sb = new StringBuilder()
+                .append(ImageRegionCtx.class.getName());
+        for (String key : orderedKeys) {
             sb.append(String.format(
-                ":%s=%s", entry.getKey(), entry.getValue()));
+                ":%s=%s", key, params.get(key)));
         }
         return Hashing.sipHash24()
                 .hashString(sb, Charset.forName("UTF-8"))
