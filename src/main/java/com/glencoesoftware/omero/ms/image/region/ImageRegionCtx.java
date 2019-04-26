@@ -163,12 +163,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @see {@link com.google.common.hash.Hashing#sipHash24()}
      */
     private String createCacheKey(MultiMap params) {
-        TreeSet<String> orderedKeys = new TreeSet<String>();
         //Get an ordered set of keys
-        for (Entry<String, String> entry : params) {
-            log.debug("Entry: {}", entry);
-            orderedKeys.add(entry.getKey());
-        }
+        TreeSet<String> orderedKeys = new TreeSet<String>(params.names());
         StringBuilder sb = new StringBuilder()
                 .append(ImageRegionCtx.class.getName());
         for (String key : orderedKeys) {
