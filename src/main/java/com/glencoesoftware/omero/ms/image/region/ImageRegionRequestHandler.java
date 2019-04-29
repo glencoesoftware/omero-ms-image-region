@@ -20,15 +20,18 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -41,18 +44,20 @@ import javax.imageio.stream.ImageOutputStream;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.Vertx;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -63,42 +68,32 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
+import omeis.providers.re.metadata.StatsFactory;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
-import omero.ApiUsageException;
-import omero.RType;
-import omero.ServerError;
-import omero.api.IPixelsPrx;
-import omero.api.IQueryPrx;
-import omero.api.ServiceFactoryPrx;
-import omero.sys.ParametersI;
-import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
-    /** OMERO server Spring application context. */
-    private final ApplicationContext context;
+    public static final String GET_PIXELS_DESCRIPTION_EVENT =
+            "omero.get_pixels_description";
 
-    /** OMERO server pixels service. */
+    public static final String CAN_READ_EVENT =
+            "omero.can_read";
+
+    /** OMERO server pixels service */
     private final PixelsService pixelsService;
 
-    /** Reference to the compression service. */
-    private final LocalCompress compressionSrv;
+    /** Reference to the compression service */
+    private final LocalCompress compressionService;
 
-    /** Reference to the projection service. */
+    /** Reference to the projection service */
     private final ProjectionService projectionService;
 
-    /** Lookup table provider. */
+    /** Lookup table provider */
     private final LutProvider lutProvider;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
 
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
@@ -115,152 +110,332 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Whether or not the image region cache is enabled */
+    private final boolean imageRegionCacheEnabled;
+
+    /** Whether or not the pixels metadata cache is enabled */
+    private final boolean pixelsMetadataCacheEnabled;
+
+    private Map<String, Boolean> canReadCache;
+
+    /** Handle on Vertx for event bus work*/
+    private Vertx vertx;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx, ApplicationContext context,
-            List<Family> families, List<RenderingModel> renderingModels,
+            ImageRegionCtx imageRegionCtx,
+            List<Family> families,
+            List<RenderingModel> renderingModels,
             LutProvider lutProvider,
-            PixelsService pixService,
-            LocalCompress compSrv,
-            int maxTileLength) {
+            PixelsService pixelsService,
+            LocalCompress compressionService,
+            Vertx vertx,
+            int maxTileLength,
+            boolean imageRegionCacheEnabled,
+            boolean pixelsMetadataCacheEnabled,
+            Map<String, Boolean> canReadCache) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
-        this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
+        this.pixelsService = pixelsService;
+        this.compressionService = compressionService;
+        this.vertx = vertx;
         this.maxTileLength = maxTileLength;
+        this.imageRegionCacheEnabled = imageRegionCacheEnabled;
+        this.pixelsMetadataCacheEnabled = pixelsMetadataCacheEnabled;
+        this.canReadCache = canReadCache;
 
-        pixelsService = pixService;
         projectionService = new ProjectionService();
-        compressionSrv = compSrv;
     }
 
     /**
      * Render Image region request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>imageRegionCtx</code>.
      */
-    public byte[] renderImageRegion(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
-        try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+    public CompletableFuture<byte[]> renderImageRegion() {
+        return getCachedImageRegion().thenCompose(result -> {
+            if (result != null) {
+                log.debug("Image region cache hit");
+                return CompletableFuture.completedFuture(result);
             }
-            log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
-        } catch (Exception e) {
-            log.error("Exception while retrieving image region", e);
-        } finally {
-            t0.stop();
-        }
-        return null;
+            log.debug("Image region cache miss");
+
+            return getPixelsDescription()
+                    .thenApply(this::createRenderingDef)
+                    .thenApply(this::getRegion);
+        });
     }
 
     /**
-     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
-     * the server for a given {@link Image} or <code>null</code> if no such
-     * identifier exists or the user does not have permissions to access it.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param imageId {@link Image} identifier to query for.
-     * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
+     * Whether or not the current OMERO session can read the metadata required
+     * to fulfill the request.
+     * @return Future which will be completed with the readability.
      */
-    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
-        try {
-            List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels as p " +
-                    "WHERE p.image.id = :id",
-                    params, ctx
-                );
-            if (data.size() < 1) {
-                return null;
+    private CompletableFuture<Boolean> canRead() {
+        final JsonObject data = new JsonObject();
+        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
+        data.put("type", "Image");
+        data.put("id", imageRegionCtx.imageId);
+        Boolean canRead = canReadCache.get(imageRegionCtx.cacheKey);
+        if (canRead != null) {
+            log.debug("Can read {} cache hit", imageRegionCtx.cacheKey);
+            return CompletableFuture.completedFuture(canRead);
+        } else {
+            log.debug("Can read {} cache miss", imageRegionCtx.cacheKey);
+            StopWatch t0 = new Slf4JStopWatch("canRead");
+            CompletableFuture<Boolean> promise = new CompletableFuture<>();
+            vertx.eventBus().<Boolean>send(
+                CAN_READ_EVENT, data, result -> {
+                    if (result.failed()) {
+                        t0.stop();
+                        promise.completeExceptionally(result.cause());
+                        return;
+                    }
+                    t0.stop();
+                    //Put the result in the cache
+                    Boolean v = result.result().body();
+                    canReadCache.put(imageRegionCtx.cacheKey, v);
+                    promise.complete(v);
+                }
+            );
+
+            return promise;
+        }
+    }
+
+    /**
+     * Get cached image region if available.
+     * @return Future which will be completed with the image region byte array.
+     */
+    private CompletableFuture<byte[]> getCachedImageRegion() {
+        // Fast exit if the image region cache is disabled
+        if (!imageRegionCacheEnabled) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<byte[]> future = new CompletableFuture<>();
+        String key = imageRegionCtx.cacheKey();
+        vertx.eventBus().<byte[]>send(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            if (result.failed()) {
+                future.completeExceptionally(result.cause());
+                return;
             }
-            return data.get(0);  // The first row
-        } finally {
-            t0.stop();
-        }
+
+             byte[] body =
+                     result.succeeded()? result.result().body() : null;
+             if (body != null) {
+                 canRead().whenComplete((canRead, t) -> {
+                     if (t != null) {
+                         future.completeExceptionally(t);
+                         return;
+                     }
+
+                     if (canRead) {
+                         future.complete(body);
+                     } else {
+                         future.complete(null);
+                     }
+                 });
+             } else {
+                 future.complete(null);
+             }
+         });
+         return future;
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsId The identifier of the pixels.
+     * Creates a new set of rendering settings corresponding to the specified
+     * pixels set.  Most values will be overwritten during
+     * {@link #updateSettings(Renderer)} usage.
+     * @param pixels pixels metadata
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
-    }
-
-    private PixelBuffer getPixelBuffer(Pixels pixels)
-            throws ApiUsageException {
-        StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
-        try {
-            return pixelsService.getPixelBuffer(pixels, false);
-        } finally {
-            t0.stop();
-        }
-    }
-
-    /**
-     * Retrieves a single region from the server in the requested format as
-     * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
-     * @return Image region as a byte array.
-     * @throws QuantizationException
-     */
-    private byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
-        log.debug("Getting image region");
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch(
-                "PixelsService.retrievePixDescription");
-        Pixels pixels;
-        try {
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            pixels = (Pixels) mapper.reverse(
-                    iPixels.retrievePixDescription(pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
-            pixels.setImage(image);
-        } finally {
-            t0.stop();
-        }
+    private RenderingDef createRenderingDef(Pixels pixels) {
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+        StatsFactory statsFactory = new StatsFactory();
+
+        RenderingDef renderingDef = new RenderingDef();
+        renderingDef.setPixels(pixels);
+        // Model will be reset during updateSettings()
+        renderingModels.forEach(model -> {
+            if (model.getValue().equals(Renderer.MODEL_GREYSCALE)) {
+                renderingDef.setModel(model);
+            }
+        });
+        // QuantumDef defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetDefaults().  These *will not*
+        // be reset by updateSettings().
+        QuantumDef quantumDef = new QuantumDef();
+        quantumDef.setCdStart(0);
+        quantumDef.setCdEnd(QuantumFactory.DEPTH_8BIT);
+        quantumDef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        renderingDef.setQuantization(quantumDef);
+        // ChannelBinding defaults cribbed from
+        // ome.logic.RenderingSettingsImpl#resetChannelBindings().  All *will*
+        // be reset by updateSettings() unless otherwise denoted.
+        for (int c = 0; c < pixels.sizeOfChannels(); c++) {
+            double[] range = statsFactory.initPixelsRange(pixels);
+            ChannelBinding cb = new ChannelBinding();
+            // Will *not* be reset by updateSettings()
+            cb.setCoefficient(1.0);
+            // Will *not* be reset by updateSettings()
+            cb.setNoiseReduction(false);
+            // Will *not* be reset by updateSettings()
+            cb.setFamily(quantumFactory.getFamily(Family.VALUE_LINEAR));
+            cb.setInputStart(range[0]);
+            cb.setInputEnd(range[1]);
+            cb.setActive(c < 3);
+            cb.setRed(255);
+            cb.setBlue(0);
+            cb.setGreen(0);
+            cb.setAlpha(255);
+            renderingDef.addChannelBinding(cb);
+        }
+        return renderingDef;
+    }
+
+    private PixelBuffer getPixelBuffer(Pixels pixels) {
+        Slf4JStopWatch t0 = new Slf4JStopWatch("PixelsService.getPixelBuffer");
+        try {
+            return pixelsService.getPixelBuffer(pixels,false);
+        } finally {
+            t0.stop();
+        }
+    }
+
+    /**
+     * Get cached {@link Pixels} metadata if available or retrieve it from the
+     * server.
+     * @return Future which will be completed with the {@link Pixels} metadata.
+     */
+    private CompletableFuture<Pixels> getPixelsDescription() {
+        String key = String.format("%s:Image:%d",
+                Pixels.class.getName(), imageRegionCtx.imageId);
+        return getCachedPixelsDescription(key).thenCompose(result -> {
+            if (result != null) {
+                log.debug("Pixels description cache hit");
+                return CompletableFuture.completedFuture(result);
+            }
+            log.debug("Pixels description cache miss");
+
+            return loadPixelsDescription(key);
+        });
+    }
+
+    /**
+     * Load {@link Pixels} from the server.
+     * @param request OMERO request based on the current context
+     * @param requestHandler OMERO image region request handler
+     * @param key Cache key for {@link Pixels} metadata
+     * @return See above.
+     */
+    private CompletableFuture<Pixels> loadPixelsDescription(String key) {
+        CompletableFuture<Pixels> promise = new CompletableFuture<>();
+
+        final JsonObject data = new JsonObject();
+        data.put("sessionKey", imageRegionCtx.omeroSessionKey);
+        data.put("imageId", imageRegionCtx.imageId);
+        StopWatch t0 = new Slf4JStopWatch(GET_PIXELS_DESCRIPTION_EVENT);
+        vertx.eventBus().<byte[]>send(
+                GET_PIXELS_DESCRIPTION_EVENT, data, result -> {
+            try {
+                if (result.failed()) {
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
+                    return;
+                }
+
+                byte[] body = result.result().body();
+                ByteArrayInputStream bais = new ByteArrayInputStream(body);
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                Pixels pixels = (Pixels) ois.readObject();
+                t0.stop();
+                promise.complete(pixels);
+
+                // Cache the pixels metadata
+                if (pixelsMetadataCacheEnabled) {
+                    JsonObject setMessage = new JsonObject();
+                    setMessage.put("key", key);
+                    setMessage.put("value", body);
+                    vertx.eventBus().send(
+                            RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                            setMessage);
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                t0.stop();
+                promise.completeExceptionally(e);
+            }
+        });
+
+        return promise;
+    }
+
+    /**
+     * Get cached {@link Pixels} metadata if available.
+     * @param key Cache key for {@link Pixels} metadata
+     * @return Future which will be completed with the {@link Pixels} metadata.
+     */
+    private CompletableFuture<Pixels> getCachedPixelsDescription(String key) {
+        // Fast exit if the pixels metadata cache is disabled
+        if (!pixelsMetadataCacheEnabled) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Pixels> future = new CompletableFuture<>();
+        vertx.eventBus().<byte[]>send(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
+            if (result.failed()) {
+                future.completeExceptionally(result.cause());
+                return;
+            }
+
+            byte[] data = result.result().body();
+            if (data == null) {
+                future.complete(null);
+                return;
+            }
+            canRead().whenComplete((canRead, t) -> {
+                if (t != null) {
+                    future.completeExceptionally(t);
+                    return;
+                }
+
+                if (canRead) {
+                    try {
+                        ByteArrayInputStream bais =
+                                new ByteArrayInputStream(data);
+                        ObjectInputStream ois = new ObjectInputStream(bais);
+                        Pixels pixels = (Pixels) ois.readObject();
+                        future.complete(pixels);
+                    } catch (IOException | ClassNotFoundException e) {
+                        log.error(
+                            "Exception while decoding object in response", e);
+                        future.completeExceptionally(e);
+                    }
+                } else {
+                    future.complete(null);
+                }
+            });
+        });
+        return future;
+    }
+
+    private byte[] getRegion(RenderingDef renderingDef) {
+        try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            QuantumFactory quantumFactory = new QuantumFactory(families);
+            Pixels pixels = renderingDef.getPixels();
+            PixelBuffer pixelBuffer = getPixelBuffer(pixels);
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, getRenderingDef(iPixels, pixels.getId()),
+                pixels, renderingDef,
                 pixelBuffer, lutProvider
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -280,20 +455,29 @@ public class ImageRegionRequestHandler {
             planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
             setResolutionLevel(renderer, resolutionLevels);
             if (imageRegionCtx.compressionQuality != null) {
-                compressionSrv.setCompressionLevel(
+                compressionService.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
             updateSettings(renderer);
-            StopWatch t1 = new Slf4JStopWatch("render");
-            try {
-                // The actual act of rendering will close the provided pixel
-                // buffer.  However, just in case an exception is thrown before
-                // reaching this point a double close may occur due to the
-                // surrounding try-with-resources block.
-                return render(renderer, resolutionLevels, pixels, planeDef);
-            } finally {
-                t1.stop();
+            // The actual act of rendering will close the provided pixel
+            // buffer.  However, just in case an exception is thrown before
+            // reaching this point a double close may occur due to the
+            // surrounding try-with-resources block.
+            byte[] region = render(
+                    renderer, resolutionLevels, pixels, planeDef,
+                    pixelBuffer);
+            // Cache the image region
+            if (imageRegionCacheEnabled) {
+                JsonObject setMessage = new JsonObject();
+                setMessage.put("key", imageRegionCtx.cacheKey);
+                setMessage.put("value", region);
+                vertx.eventBus().send(
+                    RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                    setMessage);
             }
+            return region;
+        } catch (IOException | QuantizationException e) {
+            throw new CompletionException(e);
         }
     }
 
@@ -306,14 +490,13 @@ public class ImageRegionRequestHandler {
      * @param pixels pixels metadata
      * @param planeDef plane definition to use for rendering
      * @return Image region as a byte array.
-     * @throws ServerError
      * @throws IOException
      * @throws QuantizationException
      */
     private byte[] render(
             Renderer renderer, List<List<Integer>> resolutionLevels,
-            Pixels pixels, PlaneDef planeDef)
-                    throws ServerError, IOException, QuantizationException {
+            Pixels pixels, PlaneDef planeDef, PixelBuffer pixelBuffer)
+                    throws IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
         StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
@@ -325,7 +508,6 @@ public class ImageRegionRequestHandler {
                 int projectedSizeC = 0;
                 ChannelBinding[] channelBindings =
                         renderer.getChannelBindings();
-                PixelBuffer pixelBuffer = getPixelBuffer(pixels);
                 int start = Optional
                         .ofNullable(imageRegionCtx.projectionStart)
                         .orElse(0);
@@ -343,7 +525,7 @@ public class ImageRegionRequestHandler {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
                                 pixelBuffer,
-                                imageRegionCtx.projection.ordinal(),
+                                imageRegionCtx.projection,
                                 imageRegionCtx.t,
                                 i,  // Channel index
                                 1,  // Stepping 1 in ImageWrapper.renderJpeg()
@@ -396,7 +578,7 @@ public class ImageRegionRequestHandler {
         );
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         if (format.equals("jpeg")) {
-            compressionSrv.compressToStream(image, output);
+            compressionService.compressToStream(image, output);
             return output.toByteArray();
         } else if (format.equals("png") || format.equals("tif")) {
             if (format.equals("tif")) {
@@ -465,11 +647,9 @@ public class ImageRegionRequestHandler {
      * @param resolutionLevels complete definition of all resolution levels
      * for the image.
      * @param planeDef plane definition to validate
-     * @throws ServerError
      */
     private void checkPlaneDef(
-            List<List<Integer>> resolutionLevels, PlaneDef planeDef)
-                    throws ServerError{
+            List<List<Integer>> resolutionLevels, PlaneDef planeDef) {
         RegionDef rd = planeDef.getRegion();
         if (rd == null) {
             return;
@@ -505,9 +685,8 @@ public class ImageRegionRequestHandler {
      * @param renderer fully initialized renderer
      * @param sizeC number of channels
      * @param ctx OMERO context (group)
-     * @throws ServerError
      */
-    private void updateSettings(Renderer renderer) throws ServerError {
+    private void updateSettings(Renderer renderer) {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
@@ -518,8 +697,8 @@ public class ImageRegionRequestHandler {
 
             if (isActive) {
                 if (imageRegionCtx.windows != null) {
-                    double min = (double) imageRegionCtx.windows.get(idx)[0];
-                    double max = (double) imageRegionCtx.windows.get(idx)[1];
+                    double min = imageRegionCtx.windows.get(idx)[0];
+                    double max = imageRegionCtx.windows.get(idx)[1];
                     log.debug("\tMin-Max: [{}, {}]", min, max);
                     renderer.setChannelWindow(c, min, max);
                 }
@@ -606,12 +785,9 @@ public class ImageRegionRequestHandler {
      * @param resolutionLevels complete definition of all resolution levels
      * @param pixelBuffer raw pixel data access buffer
      * @return RegionDef {@link RegionDef} describing image region to read
-     * @throws IllegalArgumentException
-     * @throws ServerError
      */
     protected RegionDef getRegionDef(
-            List<List<Integer>> resolutionLevels, PixelBuffer pixelBuffer)
-                    throws IllegalArgumentException, ServerError {
+            List<List<Integer>> resolutionLevels, PixelBuffer pixelBuffer) {
         log.debug("Setting region to read");
         int resolution =
                 Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
@@ -660,12 +836,9 @@ public class ImageRegionRequestHandler {
      * @param renderer fully initialized renderer
      * @param resolutionLevels complete definition of all resolution levels for
      * the image.
-     * @throws ServerError
      */
     private void setResolutionLevel(
-            Renderer renderer,
-            List<List<Integer>> resolutionLevels)
-                    throws ServerError {
+            Renderer renderer, List<List<Integer>> resolutionLevels) {
         log.debug("Number of available resolution levels: {}",
                 resolutionLevels.size());
 

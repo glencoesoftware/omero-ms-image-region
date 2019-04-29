@@ -21,7 +21,9 @@ import omeis.providers.re.lut.LutReaderFactory;
 
 
 /**
- * Lookup table provider implementation.
+ * Lookup table provider implementation.  Differs from OMERO server
+ * implementation in that it does not require the script repository helper and
+ * <b>only</b> works off of the default script repository root.
  * @author Chris Allan <callan@glencoesoftware.com>
  */
 public class LutProviderImpl implements LutProvider {

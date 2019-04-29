@@ -45,15 +45,37 @@
 
   <bean id="nullMetrics" class="ome.system.metrics.NullMetrics"/>
 
-  <alias name="internal-ome.api.ICompress"
-         alias="internal-ome.api.LocalCompress"/>
-  <bean id="internal-ome.api.ICompress"
-        class="ome.logic.CompressImpl"
-        singleton="false"/>
-
   <bean id="LUTScripts" class="ome.services.scripts.ScriptFileType">
     <constructor-arg index="0" value="*.lut"/>
     <constructor-arg index="1" value="text/x-lut"/>
+  </bean>
+
+  <bean id="scriptRepoRoot" class="java.io.File">
+    <constructor-arg index="0" value="${omero.script_repo_root}" />
+  </bean>
+
+  <bean id="lutProvider"
+        class="com.glencoesoftware.omero.ms.image.region.LutProviderImpl">
+    <constructor-arg ref="scriptRepoRoot" />
+    <constructor-arg ref="LUTScripts" />
+  </bean>
+
+  <bean id="maxTileLength"
+        class="java.lang.Integer">
+     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
+  </bean>
+
+  <bean id="omero-ms-image-region-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
+        singleton="false">
+    <constructor-arg ref="/OMERO/Pixels" />
+    <constructor-arg ref="internal-ome.api.ICompress" />
+    <constructor-arg ref="lutProvider" />
+    <constructor-arg ref="maxTileLength" />
+  </bean>
+
+  <bean id="omero-ms-shape-mask-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle">
   </bean>
 
 </beans>

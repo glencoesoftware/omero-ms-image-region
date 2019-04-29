@@ -26,13 +26,13 @@ import java.awt.image.DataBufferByte;
 import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import javax.imageio.ImageIO;
 
@@ -40,80 +40,79 @@ import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
-import omero.RType;
-import omero.ServerError;
-import omero.api.IQueryPrx;
-import omero.model.MaskI;
-import omero.sys.ParametersI;
+import ome.model.roi.Mask;
 
 public class ShapeMaskRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskRequestHandler.class);
 
+    private static final String CAN_READ_EVENT =
+            "omero.can_read";
+
+    private static final String GET_OBJECT_EVENT =
+            "omero.get_object";
+
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
+
+    /** Vertx reference */
+    private final Vertx vertx;
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx) {
-        log.info("Setting up handler");
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, Vertx vertx) {
         this.shapeMaskCtx = shapeMaskCtx;
+        this.vertx = vertx;
     }
 
-    /**
-     * Render shape mask request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
-     */
-    public byte[] renderShapeMask(omero.client client) {
-        try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-            if (mask != null) {
-                return renderShapeMask(mask);
+    public CompletableFuture<byte[]> renderShapeMask() {
+        CompletableFuture<byte[]> promise = new CompletableFuture<byte[]>();
+        getMask().thenAccept(mask -> {
+            try {
+                if (mask != null) {
+                    promise.complete(renderShapeMask(mask));
+                }
+            } catch (Exception e) {
+                log.error("Exception while rendering shape mask", e);
+                promise.completeExceptionally(e);
             }
-            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
-        } catch (Exception e) {
-            log.error("Exception while retrieving shape mask", e);
-        }
-        return null;
+        });
+        return promise;
     }
 
     /**
      * Render shape mask.
      * @param mask mask to render
      * @return <code>image/png</code> encoded mask
+     * @throws IOException
      */
-    protected byte[] renderShapeMask(MaskI mask) {
-        try {
-            Color fillColor = Optional.ofNullable(mask.getFillColor())
-                .map(x -> new Color(x.getValue()))
-                .orElse(new Color(255, 255, 0, 255));
-            if (shapeMaskCtx.color != null) {
-                // Color came from the request so we override the default
-                // color the mask was assigned.
-                int[] rgba = ImageRegionRequestHandler
-                        .splitHTMLColor(shapeMaskCtx.color);
-                fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-            }
-            log.debug(
-                "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
-                fillColor.getRed(), fillColor.getGreen(),
-                fillColor.getBlue(), fillColor.getAlpha()
-            );
-            byte[] bytes = mask.getBytes();
-            int width = (int) mask.getWidth().getValue();
-            int height = (int) mask.getHeight().getValue();
-            return renderShapeMask(fillColor, bytes, width, height);
-        } catch (IOException e) {
-            log.error("Exception while rendering shape mask", e);
+    protected byte[] renderShapeMask(Mask mask) throws IOException {
+        Color fillColor = Optional.ofNullable(mask.getFillColor())
+            .map(x -> new Color(x))
+            .orElse(new Color(255, 255, 0, 255));
+        if (shapeMaskCtx.color != null) {
+            // Color came from the request so we override the default
+            // color the mask was assigned.
+            int[] rgba = ImageRegionRequestHandler
+                    .splitHTMLColor(shapeMaskCtx.color);
+            fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
         }
-        return null;
+        log.debug(
+            "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+            fillColor.getRed(), fillColor.getGreen(),
+            fillColor.getBlue(), fillColor.getAlpha()
+        );
+        byte[] bytes = mask.getBytes();
+        int width = (int) mask.getWidth().intValue();
+        int height = (int) mask.getHeight().intValue();
+        return renderShapeMask(fillColor, bytes, width, height);
     }
 
     /**
@@ -162,7 +161,6 @@ public class ShapeMaskRequestHandler {
      * @param width width of the mask
      * @param height height of the mask
      * @return <code>image/png</code> encoded mask
-     * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
      */
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
@@ -222,70 +220,59 @@ public class ShapeMaskRequestHandler {
         return bytes;
     }
 
-    /**
-     * Whether or not a single {@link MaskI} can be read from the server.
-     * @param client OMERO client to use for querying.
-     * @return <code>true</code> if the {@link MaskI} can be loaded or
-     * <code>false</code> otherwise.
-     * @throws ServerError If there was any sort of error retrieving the image.
-     */
-    public boolean canRead(omero.client client) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(shapeMaskCtx.shapeId);
+    public CompletableFuture<Boolean> canRead() {
+        CompletableFuture<Boolean> promise = new CompletableFuture<Boolean>();
+        String type = "Mask";
+        long id = shapeMaskCtx.shapeId;
+        log.info("canRead Type: {} Id: {}", type, id);
+
+        final JsonObject data = new JsonObject();
+        data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
+        data.put("type", type);
+        data.put("id", id);
         StopWatch t0 = new Slf4JStopWatch("canRead");
-        try {
-            List<List<RType>> rows = client.getSession()
-                    .getQueryService().projection(
-                            "SELECT s.id FROM Shape as s " +
-                            "WHERE s.id = :id", params, ctx);
-            if (rows.size() > 0) {
-                return true;
+        vertx.eventBus().<Boolean>send(CAN_READ_EVENT, data, result -> {
+            if (result.failed()) {
+                t0.stop();
+                promise.completeExceptionally(result.cause());
+                return;
             }
-        } catch (Exception e) {
-            log.error("Exception while checking shape mask readability", e);
-        } finally {
             t0.stop();
-        }
-        return false;
+            promise.complete(result.result().body());
+        });
+        return promise;
     }
 
-    /**
-     * Retrieves a single {@link MaskI} from the server.
-     * @param client OMERO client to use for querying.
-     * @param shapeId {@link MaskI} identifier to query for.
-     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
-     * exist or the user does not have permissions to access it.
-     * @throws ServerError If there was any sort of error retrieving the image.
-     */
-    protected MaskI getMask(omero.client client, Long shapeId)
-            throws ServerError {
-        return getMask(client.getSession().getQueryService(), shapeId);
-    }
-
-    /**
-     * Retrieves a single {@link MaskI} from the server.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param shapeId {@link MaskI} identifier to query for.
-     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
-     * exist or the user does not have permissions to access it.
-     * @throws ServerError If there was any sort of error retrieving the image.
-     */
-    protected MaskI getMask(IQueryPrx iQuery, Long shapeId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(shapeId);
+    protected CompletableFuture<Mask> getMask() {
+        CompletableFuture<Mask> promise = new CompletableFuture<Mask>();
+        String type = "Mask";
+        long id = shapeMaskCtx.shapeId;
+        //Get the mask
+        final JsonObject data = new JsonObject();
+        data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
+        data.put("type", type);
+        data.put("id", id);
+        log.info("getMask Type: {} Id: {}", type, id);
         StopWatch t0 = new Slf4JStopWatch("getMask");
-        try {
-            return (MaskI) iQuery.findByQuery(
-                "SELECT s FROM Shape as s " +
-                "WHERE s.id = :id", params, ctx
-            );
-        } finally {
-            t0.stop();
-        }
+        vertx.eventBus().<byte[]>send(GET_OBJECT_EVENT, data, result -> {
+            try {
+                if (result.failed()) {
+                    t0.stop();
+                    promise.completeExceptionally(result.cause());
+                    return;
+                }
+                ByteArrayInputStream bais =
+                        new ByteArrayInputStream(result.result().body());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                Mask mask = (Mask) ois.readObject();
+                t0.stop();
+                promise.complete(mask);
+            } catch (IOException | ClassNotFoundException e) {
+                log.error("Exception while decoding object in response", e);
+                t0.stop();
+                promise.completeExceptionally(e);
+            }
+        });
+        return promise;
     }
 }

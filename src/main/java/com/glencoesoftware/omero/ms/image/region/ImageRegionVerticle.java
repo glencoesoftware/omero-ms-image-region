@@ -18,104 +18,97 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.File;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.hazelcast.core.HazelcastInstance;
 
-import Glacier2.CannotCreateSessionException;
-import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.services.scripts.ScriptFileType;
-import ome.system.PreferenceContext;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
-import omero.ApiUsageException;
-import omero.ServerError;
-import omero.util.IceMapper;
+
+import com.hazelcast.core.Hazelcast;
 
 public class ImageRegionVerticle extends AbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
 
+    public static final String GET_ALL_ENUMERATIONS_EVENT =
+            "omero.get_all_enumerations";
+
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
-    public static final String RENDER_IMAGE_REGION_PNG_EVENT =
-            "omero.render_image_region_png";
+    private static final String CAN_READ_CACHE_NAME =
+            "omero.can_read_cache";
 
-    /** OMERO server host */
-    private final String host;
+    /** Whether or not the image region cache is enabled */
+    private boolean imageRegionCacheEnabled;
 
-    /** OMERO server port */
-    private final int port;
-
-    /** OMERO server Spring application context. */
-    private ApplicationContext context;
-
-    /** OMERO server wide preference context. */
-    private final PreferenceContext preferences;
+    /** Whether or not the pixels metadata cache is enabled */
+    private boolean pixelsMetadataCacheEnabled;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
-    /** Lookup table OMERO script file type */
-    private final ScriptFileType lutType;
-
-    /** Path to the script repository root. */
-    private final String scriptRepoRoot;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
     /** Available families */
-    private List<Family> families;
+    private List<Family> families = Arrays.asList(
+            new Family(Family.VALUE_EXPONENTIAL),
+            new Family(Family.VALUE_LINEAR),
+            new Family(Family.VALUE_LOGARITHMIC),
+            new Family(Family.VALUE_POLYNOMIAL));
 
     /** Available rendering models */
-    private List<RenderingModel> renderingModels;
+    private List<RenderingModel> renderingModels = Arrays.asList(
+            new RenderingModel(RenderingModel.VALUE_GREYSCALE),
+            new RenderingModel(RenderingModel.VALUE_RGB));
+
+    /** OMERO server pixels service */
+    private final PixelsService pixelsService;
+
+    /** Reference to the compression service */
+    private final LocalCompress compressionService;
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Distributed map for can read caching */
+    private Map<String, Boolean> canReadCache;
+
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
     public ImageRegionVerticle(
-            String host, int port, ApplicationContext context)
-    {
-        this.host = host;
-        this.port = port;
-        this.context = context;
-        this.preferences =
-                (PreferenceContext) this.context.getBean("preferenceContext");
-        scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
-        lutType = (ScriptFileType) context.getBean("LUTScripts");
-        lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
-        maxTileLength = Integer.parseInt(
-            Optional.ofNullable(
-                preferences.getProperty("omero.pixeldata.max_tile_length")
-            ).orElse("2048").toLowerCase()
-        );
+            PixelsService pixelsService,
+            LocalCompress compressionService,
+            LutProvider lutProvider,
+            int maxTileLength) {
+        this.pixelsService = pixelsService;
+        this.compressionService = compressionService;
+        this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
+        Set<HazelcastInstance> instances =
+                Hazelcast.getAllHazelcastInstances();
+        HazelcastInstance hazelcastInstance =
+                instances.stream().findFirst().get();
+        canReadCache = hazelcastInstance.getMap(CAN_READ_CACHE_NAME);
     }
 
     /* (non-Javadoc)
@@ -123,12 +116,23 @@ public class ImageRegionVerticle extends AbstractVerticle {
      */
     @Override
     public void start() {
-        log.info("Starting verticle");
+        JsonObject imageRegionCacheConfig =
+                config().getJsonObject("image-region-cache", new JsonObject());
+        imageRegionCacheEnabled =
+                imageRegionCacheConfig.getBoolean("enabled", false);
+        JsonObject pixelsMetadataCacheConfig = config()
+                .getJsonObject("pixels-metadata-cache", new JsonObject());
+        pixelsMetadataCacheEnabled =
+                 pixelsMetadataCacheConfig.getBoolean("enabled", false);
 
         vertx.eventBus().<String>consumer(
-                RENDER_IMAGE_REGION_EVENT, event -> {
-                    renderImageRegion(event);
-                });
+            RENDER_IMAGE_REGION_EVENT, new Handler<Message<String>>() {
+                @Override
+                public void handle(Message<String> event){
+                    getImageRegion(event);
+                }
+            }
+        );
     }
 
     /**
@@ -140,7 +144,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param event Current routing context.
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
-    private void renderImageRegion(Message<String> message) {
+    private void getImageRegion(Message<String> message) {
+        StopWatch t0 = new Slf4JStopWatch("getImageRegion");
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -149,103 +154,59 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
+            t0.stop();
             message.fail(400, v);
             return;
         }
-        log.debug(
-            "Render image region request with data: {}", message.body());
-        try (OmeroRequest request = new OmeroRequest(
-                 host, port, imageRegionCtx.omeroSessionKey))
-        {
-            if (families == null) {
-                request.execute(this::updateFamilies);
-            }
-            if (renderingModels == null) {
-                request.execute(this::updateRenderingModels);
-            }
+        log.debug("Render image region request with data: {}", message.body());
 
-            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-            LocalCompress compressionService =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
-            byte[] imageRegion = request.execute(
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx, context, families,
-                            renderingModels, lutProvider,
-                            pixelsService,
-                            compressionService,
-                            maxTileLength)::renderImageRegion);
-            if (imageRegion == null) {
-                message.fail(
-                        404, "Cannot find Image:" + imageRegionCtx.imageId);
-            } else {
-                message.reply(imageRegion);
-            }
-        } catch (PermissionDeniedException
-                | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (IllegalArgumentException e) {
-            log.debug(
-                "Illegal argument received while retrieving image region", e);
-            message.fail(400, e.getMessage());
-        } catch (Exception e) {
-            String v = "Exception while retrieving image region";
-            log.error(v, e);
-            message.fail(500, v);
-        }
+        renderImageRegion(imageRegionCtx)
+        .whenComplete(new BiConsumer<byte[], Throwable>() {
+            @Override
+            public void accept(byte[] imageRegion, Throwable t) {
+                if (t != null) {
+                    if (t instanceof ReplyException) {
+                        // Downstream event handling failure, propagate it
+                        t0.stop();
+                        message.fail(
+                            ((ReplyException) t).failureCode(), t.getMessage());
+                    } else {
+                        String s = "Internal error";
+                        log.error(s, t);
+                        t0.stop();
+                        message.fail(500, s);
+                    }
+                } else if (imageRegion == null) {
+                    t0.stop();
+                    message.fail(
+                            404, "Cannot find Image:" + imageRegionCtx.imageId);
+                } else {
+                    t0.stop();
+                    message.reply(imageRegion);
+                }
+            };
+        });
     }
 
     /**
-     * Updates the available enumerations from the server.
-     * @param client valid client to use to perform actions
+     * Synchronously performs the action of rendering an image region
+     * @param imageRegionCtx {@link ImageRegionCtx} object
+     * @return A new CompletionStage that, when this stage completes normally,
+     * will provide the rendered image region
      */
-    private Void updateFamilies(omero.client client) {
-        families = getAllEnumerations(client, Family.class);
-        return null;
-    }
-
-    /**
-     * Updates the available enumerations from the server.
-     * @param client valid client to use to perform actions
-     */
-    private Void updateRenderingModels(omero.client client) {
-        renderingModels = getAllEnumerations(client, RenderingModel.class);
-        return null;
-    }
-
-    /**
-     * Retrieves a list of all enumerations from the server of a particular
-     * class.
-     * @param client valid client to use to perform actions
-     * @param klass enumeration class to retrieve.
-     * @return See above.
-     */
-    private <T> List<T> getAllEnumerations(
-            omero.client client, Class<T> klass) {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
-        try {
-            return (List<T>) client
-                    .getSession()
-                    .getPixelsService()
-                    .getAllEnumerations(klass.getName(), ctx)
-                    .stream()
-                    .map(x -> {
-                        try {
-                            return (T) mapper.reverse(x);
-                        } catch (ApiUsageException e) {
-                            // *Should* never happen
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(Collectors.toList());
-        } catch (ServerError e) {
-            // *Should* never happen
-            throw new RuntimeException(e);
-        } finally {
-            t0.stop();
-        }
+    private CompletableFuture<byte[]> renderImageRegion(
+            ImageRegionCtx imageRegionCtx) {
+        ImageRegionRequestHandler imageRegionRequestHander =
+                new ImageRegionRequestHandler(
+                        imageRegionCtx, families,
+                        renderingModels, lutProvider,
+                        pixelsService,
+                        compressionService,
+                        vertx,
+                        maxTileLength,
+                        imageRegionCacheEnabled,
+                        pixelsMetadataCacheEnabled,
+                        canReadCache);
+        return imageRegionRequestHander.renderImageRegion();
     }
 }

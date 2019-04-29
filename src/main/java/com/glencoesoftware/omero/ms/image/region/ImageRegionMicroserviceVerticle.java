@@ -18,39 +18,47 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
-import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.XmlConfigBuilder;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
-import ome.system.PreferenceContext;
-import omero.model.Image;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -66,11 +74,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** OMERO server Spring application context. */
     private ApplicationContext context;
 
-    /** OMERO server wide preference context. */
-    private PreferenceContext preferences;
-
     /** OMERO.web session store */
     private OmeroWebSessionStore sessionStore;
+
+    /** VerticleFactory */
+    private OmeroVerticleFactory verticleFactory;
+
+    /** Default number of workers (core count * 2) */
+    public final int DEFAULT_WORKER_POOL_SIZE =
+            Runtime.getRuntime().availableProcessors() * 2;
 
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
@@ -94,11 +106,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 vertx, new ConfigRetrieverOptions()
                         .setIncludeDefaultStores(true)
                         .addStore(store));
-        retriever.getConfig(ar -> {
-            try {
-                deploy(ar.result(), future);
-            } catch (Exception e) {
-                future.fail(e);
+        retriever.getConfig(new Handler<AsyncResult<JsonObject>>() {
+            @Override
+            public void handle(AsyncResult<JsonObject> ar) {
+                try {
+                    deploy(ar.result(), future);
+                } catch (Exception e) {
+                    future.fail(e);
+                }
             }
         });
     }
@@ -117,38 +132,37 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             throw new IllegalArgumentException(
                     "'omero.server' block missing from configuration");
         }
-        omeroServer.forEach(entry -> {
+        for (Map.Entry<String, Object> entry : omeroServer) {
             System.setProperty(entry.getKey(), (String) entry.getValue());
-        });
+        }
 
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
+                "classpath:ome/services/service-ome.api.ICompress.xml",
                 "classpath*:beanRefContext.xml");
-        preferences =
-                (PreferenceContext) this.context.getBean("preferenceContext");
 
+        verticleFactory = (OmeroVerticleFactory)
+                context.getBean("omero-ms-verticlefactory");
+        vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
-        JsonObject omero = config.getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
-        }
-        vertx.deployVerticle(new RedisCacheVerticle(),
+        int workerPoolSize = Optional.ofNullable(
+            config.getInteger("worker_pool_size")
+        ).orElse(DEFAULT_WORKER_POOL_SIZE);
+        vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
+                new DeploymentOptions().setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
-                        .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(
-                omero.getString("host"), omero.getInteger("port"), context),
+                .setWorker(true)
+                .setInstances(workerPoolSize)
+                .setWorkerPoolSize(workerPoolSize)
+                .setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
-                        .setMultiThreaded(true)
-                        .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(
-                omero.getString("host"), omero.getInteger("port")),
-                new DeploymentOptions()
-                        .setWorker(true)
-                        .setMultiThreaded(true)
-                        .setConfig(config));
+                    .setWorker(true)
+                    .setInstances(workerPoolSize)
+                    .setWorkerPoolSize(workerPoolSize)
+                    .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxInitialLineLength(config.getInteger(
@@ -218,13 +232,18 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
-        server.requestHandler(router::accept).listen(port, result -> {
-            if (result.succeeded()) {
-                future.complete();
-            } else {
-                future.fail(result.cause());
+        server.requestHandler(router::accept).listen(port,
+            new Handler<AsyncResult<HttpServer>>() {
+                @Override
+                public void handle(AsyncResult<HttpServer> result) {
+                    if (result.succeeded()) {
+                        future.complete();
+                    } else {
+                        future.fail(result.cause());
+                    }
+                }
             }
-        });
+        );
     }
 
     /**
@@ -246,11 +265,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         String version = Optional.ofNullable(
             this.getClass().getPackage().getImplementationVersion()
         ).orElse("development");
-        int maxTileLength = Integer.parseInt(
-                Optional.ofNullable(
-                    preferences.getProperty("omero.pixeldata.max_tile_length")
-                ).orElse("1024").toLowerCase()
-            );
+        int maxTileLength = (Integer) context.getBean("maxTileLength");
         JsonObject resData = new JsonObject()
                 .put("provider", "ImageRegionMicroservice")
                 .put("version", version)
@@ -291,45 +306,49 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
-                ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-                Json.encode(imageRegionCtx), result -> {
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
+            ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
+            Json.encode(imageRegionCtx), new Handler<AsyncResult<Message<byte[]>>>() {
+                @Override
+                public void handle(AsyncResult<Message<byte[]>> result) {
+                    try {
+                        if (result.failed()) {
+                            Throwable t = result.cause();
+                            int statusCode = 404;
+                            if (t instanceof ReplyException) {
+                                statusCode = ((ReplyException) t).failureCode();
+                            }
+                            if (!response.closed()) {
+                                response.setStatusCode(statusCode).end();
+                            }
+                            return;
+                        }
+                        byte[] imageRegion = result.result().body();
+                        String contentType = "application/octet-stream";
+                        if (imageRegionCtx.format.equals("jpeg")) {
+                            contentType = "image/jpeg";
+                        }
+                        if (imageRegionCtx.format.equals("png")) {
+                            contentType = "image/png";
+                        }
+                        if (imageRegionCtx.format.equals("tif")) {
+                            contentType = "image/tiff";
+                        }
+                        response.headers().set("Content-Type", contentType);
+                        response.headers().set(
+                                "Content-Length",
+                                String.valueOf(imageRegion.length));
+                        if(!cacheControlHeader.equals("")) {
+                            response.headers().set("Cache-Control", cacheControlHeader);
+                        }
+                        if (!response.closed()) {
+                            response.end(Buffer.buffer(imageRegion));
+                        }
+                    } finally {
+                        log.debug("Response ended");
                     }
-                    if (!response.closed()) {
-                        response.setStatusCode(statusCode).end();
-                    }
-                    return;
                 }
-                byte[] imageRegion = result.result().body();
-                String contentType = "application/octet-stream";
-                if (imageRegionCtx.format.equals("jpeg")) {
-                    contentType = "image/jpeg";
-                }
-                if (imageRegionCtx.format.equals("png")) {
-                    contentType = "image/png";
-                }
-                if (imageRegionCtx.format.equals("tif")) {
-                    contentType = "image/tiff";
-                }
-                response.headers().set("Content-Type", contentType);
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(imageRegion.length));
-                if(!cacheControlHeader.equals("")) {
-                    response.headers().set("Cache-Control", cacheControlHeader);
-                }
-                if (!response.closed()) {
-                    response.end(Buffer.buffer(imageRegion));
-                }
-            } finally {
-                log.debug("Response ended");
             }
-        });
+        );
     }
 
     /**
@@ -348,29 +367,59 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
-                ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
-                Json.encode(shapeMaskCtx), result -> {
-            try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
+            ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
+            Json.encode(shapeMaskCtx), new Handler<AsyncResult<Message<byte[]>>>() {
+                @Override
+                public void handle(AsyncResult<Message<byte[]>> result){
+                    try {
+                        if (result.failed()) {
+                            Throwable t = result.cause();
+                            int statusCode = 404;
+                            if (t instanceof ReplyException) {
+                                statusCode = ((ReplyException) t).failureCode();
+                            }
+                            if (!response.closed()) {
+                                response.setStatusCode(statusCode).end();
+                            }
+                            return;
+                        }
+                        byte[] shapeMask = result.result().body();
+                        response.headers().set("Content-Type", "image/png");
+                        response.headers().set(
+                                "Content-Length",
+                                String.valueOf(shapeMask.length));
+                        if (!response.closed()) {
+                            response.end(Buffer.buffer(shapeMask));
+                        }
+                    } finally {
+                        log.debug("Response ended");
                     }
-                    response.setStatusCode(statusCode);
-                    return;
                 }
-                byte[] shapeMask = result.result().body();
-                response.headers().set("Content-Type", "image/png");
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(shapeMask.length));
-                response.write(Buffer.buffer(shapeMask));
-            } finally {
-                response.end();
-                log.debug("Response ended");
             }
-        });
+        );
     }
 
+    /**
+     * Retrieves the Hazelcast configuration either from the OMERO
+     * configuration directory or Hazelcast defaults.
+     */
+    private Config getHazelcastConfig() {
+        File configFile =
+                new File(new File(new File("."), "etc"), "hazelcast.xml");
+        Config config = new Config();
+        if (configFile.exists()) {
+            log.info("Loading Hazelcast configuration: {}",
+                     configFile.getAbsolutePath());
+            try (InputStream is = new FileInputStream(configFile);
+                 InputStream bis = new BufferedInputStream(is)) {
+                config = new XmlConfigBuilder(bis).build();
+            } catch (IOException e) {
+                log.error("Failed to read Hazelcast configuration", e);
+            }
+        } else {
+            log.debug("Hazelcast configuration file {} not found",
+                      configFile.getAbsolutePath());
+        }
+        return config;
+    }
 }

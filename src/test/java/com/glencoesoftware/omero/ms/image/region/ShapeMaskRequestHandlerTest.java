@@ -30,7 +30,6 @@ import javax.imageio.ImageIO;
 import org.testng.annotations.Test;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import ome.xml.model.primitives.Color;
 
@@ -52,7 +51,7 @@ public class ShapeMaskRequestHandlerTest {
         params.add("color", "0");
         params.add("flip", "");
 
-        handler = new ShapeMaskRequestHandler(new ShapeMaskCtx(params, ""));
+        handler = new ShapeMaskRequestHandler(new ShapeMaskCtx(params, ""), null);
     }
 
     @Test

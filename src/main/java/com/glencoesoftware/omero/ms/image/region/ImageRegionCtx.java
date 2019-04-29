@@ -18,19 +18,23 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TreeSet;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
+import com.google.common.hash.Hashing;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.api.IProjection;
 import omeis.providers.re.data.RegionDef;
-import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -78,7 +82,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     public Float compressionQuality;
 
     /** Projection */
-    public ProjectionType projection;
+    public Integer projection;
 
     /** Projection start */
     public Integer projectionStart;
@@ -94,6 +98,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
 
     /** Rendering output format */
     public String format;
+
+    /** Cache key */
+    public String cacheKey;
 
     /** Whether or not to flip horizontally */
     public boolean flipHorizontal;
@@ -137,11 +144,44 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             this.maps = Json.decodeValue(maps, List.class);
         }
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
+        cacheKey = createCacheKey(params);
 
         log.debug(
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
-                "format: {}", imageId, z, t, tile, channels, windows, colors,
-                m, format);
+                "format: {}, flip: {}", imageId, z, t, tile, channels, windows,
+                colors, m, format, flip, cacheKey);
+    }
+
+    /**
+     * Creates a cache key for the context using the class name and originally
+     * provided parameter map.
+     * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
+     * required for rendering an image region.
+     * @return A cache key as outlined above using the
+     * <a href="https://131002.net/siphash/">64-bit SipHash-2-4 algorithm</a>
+     * and default Guava seed value.
+     * @see {@link com.google.common.hash.Hashing#sipHash24()}
+     */
+    private String createCacheKey(MultiMap params) {
+        //Get an ordered set of keys
+        TreeSet<String> orderedKeys = new TreeSet<String>(params.names());
+        StringBuilder sb = new StringBuilder()
+                .append(ImageRegionCtx.class.getName());
+        for (String key : orderedKeys) {
+            sb.append(String.format(
+                ":%s=%s", key, params.get(key)));
+        }
+        return Hashing.sipHash24()
+                .hashString(sb, Charset.forName("UTF-8"))
+                .toString();
+    }
+
+    /**
+     * Gets the cache key for the context.
+     * @return See above.
+     */
+    public String cacheKey() {
+        return cacheKey;
     }
 
     private String getCheckedParam(MultiMap params, String key)
@@ -335,15 +375,15 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         String[] parts = projection.split("\\|", -1);
         switch(parts[0]) {
             case "intmax": {
-                this.projection = ProjectionType.MAXIMUMINTENSITY;
+                this.projection = IProjection.MAXIMUM_INTENSITY;
                 break;
             }
             case "intmean": {
-                this.projection = ProjectionType.MEANINTENSITY;
+                this.projection = IProjection.MEAN_INTENSITY;
                 break;
             }
             case "intsum": {
-                this.projection = ProjectionType.SUMINTENSITY;
+                this.projection = IProjection.SUM_INTENSITY;
                 break;
             }
         }

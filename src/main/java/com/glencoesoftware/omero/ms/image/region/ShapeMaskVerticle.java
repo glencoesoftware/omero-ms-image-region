@@ -18,16 +18,20 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.function.BiConsumer;
+
+import org.perf4j.StopWatch;
+import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
-import Glacier2.CannotCreateSessionException;
-import Glacier2.PermissionDeniedException;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
 
 public class ShapeMaskVerticle extends AbstractVerticle {
@@ -38,34 +42,19 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     public static final String RENDER_SHAPE_MASK_EVENT =
             "omero.render_shape_mask";
 
-    /** OMERO server host */
-    private final String host;
-
-    /** OMERO server port */
-    private final int port;
-
-    /**
-     * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
-     */
-    public ShapeMaskVerticle(String host, int port)
-    {
-        this.host = host;
-        this.port = port;
-    }
-
     /* (non-Javadoc)
      * @see io.vertx.core.AbstractVerticle#start()
      */
     @Override
     public void start() {
-        log.info("Starting verticle");
-
         vertx.eventBus().<String>consumer(
-                RENDER_SHAPE_MASK_EVENT, event -> {
-                    renderShapeMask(event);
-                });
+                RENDER_SHAPE_MASK_EVENT, new Handler<Message<String>>() {
+                @Override
+                public void handle(Message<String> event){
+                    getShapeMask(event);
+                }
+            }
+        );
     }
 
     /**
@@ -75,7 +64,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
      * does not exist or the user does not have permissions to access it.
      * @param message JSON encoded {@link ShapeMaskCtx} object.
      */
-    private void renderShapeMask(Message<String> message) {
+    private void getShapeMask(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ShapeMaskCtx shapeMaskCtx;
         try {
@@ -91,58 +80,77 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
+        StopWatch t0 = new Slf4JStopWatch("getShapeMask");
         vertx.eventBus().<byte[]>send(
-            RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
-                try (OmeroRequest request = new OmeroRequest(
-                         host, port, shapeMaskCtx.omeroSessionKey))
-                {
-                    byte[] shapeMask =
-                            result.succeeded()? result.result().body() : null;
-                    ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx);
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key,
+                new Handler<AsyncResult<Message<byte[]>>>() {
+            @Override
+            public void handle(AsyncResult<Message<byte[]>> result) {
+                byte[] cachedMask =
+                        result.succeeded()? result.result().body() : null;
+                ShapeMaskRequestHandler requestHandler =
+                        new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
-                    // If the PNG is in the cache, check we have permissions
-                    // to access it and assign and return
-                    if (shapeMask != null
-                            && request.execute(requestHandler::canRead)) {
-                        message.reply(shapeMask);
-                        return;
-                    }
+                requestHandler.canRead()
+                .whenComplete(new BiConsumer<Boolean, Throwable>() {
+                    @Override
+                    public void accept(Boolean readable, Throwable throwable) {
+                        if (throwable != null) {
+                            if (throwable instanceof ReplyException) {
+                                // Downstream event handling failure,
+                                // propagate it
+                                t0.stop();
+                                message.fail(
+                                    ((ReplyException) throwable).failureCode(),
+                                    throwable.getMessage());
+                            } else {
+                                String s = "Internal error";
+                                log.error(s, throwable);
+                                t0.stop();
+                                message.fail(500, s);
+                            }
+                            return;
+                        }
 
-                    // The PNG is not in the cache we have to create it
-                    shapeMask = request.execute(
-                            requestHandler::renderShapeMask);
-                    if (shapeMask == null) {
-                        message.fail(404, "Cannot render Mask:" +
-                                shapeMaskCtx.shapeId);
-                        return;
-                    }
-                    message.reply(shapeMask);
+                        if (cachedMask != null && readable) {
+                            t0.stop();
+                            message.reply(cachedMask);
+                            return;
+                        }
 
-                    // Cache the PNG if the color was explicitly set
-                   if (shapeMaskCtx.color != null) {
-                        JsonObject setMessage = new JsonObject();
-                        setMessage.put("key", key);
-                        setMessage.put("value", shapeMask);
-                        vertx.eventBus().send(
-                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                setMessage);
-                    }
-                } catch (PermissionDeniedException
-                        | CannotCreateSessionException e) {
-                    String v = "Permission denied";
-                    log.debug(v);
-                    message.fail(403, v);
-                } catch (IllegalArgumentException e) {
-                    log.debug(
-                        "Illegal argument received while retrieving shape mask", e);
-                    message.fail(400, e.getMessage());
-                } catch (Exception e) {
-                    String v = "Exception while retrieving shape mask";
-                    log.error(v, e);
-                    message.fail(500, v);
-                }
+                        requestHandler.renderShapeMask()
+                        .whenComplete(new BiConsumer<byte[], Throwable>() {
+                            @Override
+                            public void accept(byte[] renderedMask,
+                                               Throwable renderThrowable) {
+                                if (renderedMask == null) {
+                                    if (renderThrowable != null) {
+                                        log.error(
+                                            "Exception while rendering mask",
+                                            renderThrowable);
+                                    }
+                                    t0.stop();
+                                    message.fail(404, "Cannot render Mask:" +
+                                            shapeMaskCtx.shapeId);
+                                    return;
+                                }
+                                t0.stop();
+                                message.reply(renderedMask);
+
+                                // Cache the PNG if the color was explicitly set
+                                if (shapeMaskCtx.color != null) {
+                                    JsonObject setMessage = new JsonObject();
+                                    setMessage.put("key", key);
+                                    setMessage.put("value", renderedMask);
+                                    vertx.eventBus().send(
+                                        RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                        setMessage);
+                                }
+                            }
+                        });
+                    };
+                });
             }
-        );
+        });
     }
 }
