@@ -75,6 +75,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
+    static {
+        com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
+    }
+
     /**
      * Entry point method which starts the server event loop and initializes
      * our current OMERO.web session store.
