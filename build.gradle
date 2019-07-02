@@ -71,7 +71,7 @@ configurations.all {
 }
 
 dependencies {
-    compile 'ch.qos.logback:logback-classic:1.1.7'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
     compile ('com.glencoesoftware.omero:omero-ms-core:0.4.1') {
         exclude group: 'org.testng', module: 'testng'
     }
