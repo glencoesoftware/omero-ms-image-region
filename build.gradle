@@ -35,6 +35,7 @@ configurations.all {
     exclude group: 'batik'
     exclude group: 'cglib'
     exclude group: 'checkstyle'
+    exclude group: 'com.codahale.metrics'
     exclude group: 'com.jamonapi'
     exclude group: 'com.mortennobel'
     exclude group: 'com.zeroc', module: 'freeze'
