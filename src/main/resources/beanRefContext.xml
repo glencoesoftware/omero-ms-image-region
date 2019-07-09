@@ -44,4 +44,6 @@
     <constructor-arg index="1" value="text/x-lut"/>
   </bean>
 
+  <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
+
 </beans>
