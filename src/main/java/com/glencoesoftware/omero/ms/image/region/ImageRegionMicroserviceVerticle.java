@@ -52,6 +52,8 @@ import io.vertx.ext.web.handler.CookieHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
 
+import brave.http.HttpTracing;
+
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
  * @author Chris Allan <callan@glencoesoftware.com>
@@ -114,7 +116,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     public void deploy(JsonObject config, Future<Void> future) {
         log.info("Deploying verticle");
-
+        
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
         if (omeroServer == null) {
