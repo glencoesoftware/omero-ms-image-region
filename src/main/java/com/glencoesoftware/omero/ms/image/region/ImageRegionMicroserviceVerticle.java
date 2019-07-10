@@ -51,8 +51,14 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
-
+import zipkin2.Span;
+import zipkin2.reporter.AsyncReporter;
+import zipkin2.reporter.okhttp3.OkHttpSender;
+import brave.Tracing;
+import brave.http.HttpSampler;
 import brave.http.HttpTracing;
+import brave.sampler.Sampler;
+import brave.vertx.web.VertxWebTracing;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -76,6 +82,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
+
+    /** Zipkin HTTP Tracer*/
+    private HttpTracing httpTracing;
 
     static {
         com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
@@ -170,8 +179,27 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             HttpServerOptions.DEFAULT_MAX_CHUNK_SIZE)
         );
 
+        OkHttpSender sender = OkHttpSender.create("http://localhost:9411/api/v2/spans");
+        AsyncReporter<Span> spanReporter = AsyncReporter.create(sender);
+        Tracing tracing = Tracing.newBuilder()
+            .sampler(Sampler.ALWAYS_SAMPLE)
+            .localServiceName("omero-ms-image-region")
+            .spanReporter(spanReporter)
+            .build();
+        httpTracing = HttpTracing.newBuilder(tracing).build();
+        VertxWebTracing vertxWebTracing = VertxWebTracing.create(httpTracing);
+        Handler<RoutingContext> routingContextHandler = vertxWebTracing.routingContextHandler();
+
+
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
+
+        /*Set up HttpTracing Routing */
+        router.route()
+	        .order(-1) // applies before routes
+	        .handler(routingContextHandler)
+	        .failureHandler(routingContextHandler);
+
 
         cacheControlHeader = config.getString("cache-control-header", "");
 
