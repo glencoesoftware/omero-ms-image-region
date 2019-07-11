@@ -187,8 +187,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .spanReporter(spanReporter)
             .build();
         httpTracing = HttpTracing.newBuilder(tracing).build();
-        VertxWebTracing vertxWebTracing = VertxWebTracing.create(httpTracing);
-        Handler<RoutingContext> routingContextHandler = vertxWebTracing.routingContextHandler();
+        //VertxWebTracing vertxWebTracing = VertxWebTracing.create(httpTracing);
+        //Handler<RoutingContext> routingContextHandler = vertxWebTracing.routingContextHandler();
+        Handler<RoutingContext> routingContextHandler = new ImageRegionTracingContextHandler(httpTracing);
 
 
         HttpServer server = vertx.createHttpServer(options);
