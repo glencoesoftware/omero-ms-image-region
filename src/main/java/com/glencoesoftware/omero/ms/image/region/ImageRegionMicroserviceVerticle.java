@@ -180,27 +180,38 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             HttpServerOptions.DEFAULT_MAX_CHUNK_SIZE)
         );
 
-        OkHttpSender sender = OkHttpSender.create("http://localhost:9411/api/v2/spans");
-        AsyncReporter<Span> spanReporter = AsyncReporter.create(sender);
-        Tracing tracing = Tracing.newBuilder()
-            .sampler(Sampler.ALWAYS_SAMPLE)
-            .localServiceName("omero-ms-image-region")
-            .spanReporter(spanReporter)
-            .build();
-        httpTracing = HttpTracing.newBuilder(tracing).build();
-        //VertxWebTracing vertxWebTracing = VertxWebTracing.create(httpTracing);
-        //Handler<RoutingContext> routingContextHandler = vertxWebTracing.routingContextHandler();
-        Handler<RoutingContext> routingContextHandler = new ImageRegionTracingContextHandler(httpTracing);
-
-
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
-        /*Set up HttpTracing Routing */
-        router.route()
-	        .order(-1) // applies before routes
-	        .handler(routingContextHandler)
-	        .failureHandler(routingContextHandler);
+        try {
+            JsonObject httpTracingConfig = config.getJsonObject("http-tracing");
+            Boolean tracingEnabled = httpTracingConfig.getBoolean("enabled");
+            if(tracingEnabled) {
+                String zipkinUrl = httpTracingConfig.getString("zipkin-url");
+                OkHttpSender sender = OkHttpSender.create(zipkinUrl);
+                AsyncReporter<Span> spanReporter = AsyncReporter.create(sender);
+                Tracing tracing = Tracing.newBuilder()
+                    .sampler(Sampler.ALWAYS_SAMPLE)
+                    .localServiceName("omero-ms-image-region")
+                    .spanReporter(spanReporter)
+                    .build();
+                httpTracing = HttpTracing.newBuilder(tracing).build();
+                Handler<RoutingContext> routingContextHandler = new ImageRegionTracingContextHandler(httpTracing);
+
+                /*Set up HttpTracing Routing */
+                router.route()
+                    .order(-1) // applies before routes
+                    .handler(routingContextHandler)
+                    .failureHandler(routingContextHandler);
+            }
+        }
+        catch (NullPointerException npe) {
+            log.warn("Missing configuration for http tracing");
+        }
+        catch (Exception e) {
+            log.warn("Failed to set up http tracing");
+            log.warn(e.toString());
+        }
 
         // Establish a unique identifier for every request
         router.route()
@@ -209,7 +220,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             event.put("omero_ms.request_id", requestId);
             event.next();
         });
-
 
         cacheControlHeader = config.getString("cache-control-header", "");
 

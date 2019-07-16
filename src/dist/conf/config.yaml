@@ -27,6 +27,11 @@ omero.server:
 omero.web:
     session_cookie_name: "sessionid"
 
+# Configuration for zipkin http tracing
+http-tracing:
+    enabled: true
+    zipkin-url: "http://localhost:9411/api/v2/spans"
+
 # Information about the session store.
 session-store:
     #type is either "postgres" or "redis"
