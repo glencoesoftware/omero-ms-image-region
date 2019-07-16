@@ -35,10 +35,14 @@ final class TracingEndHandler implements Handler<Void> {
 
     @Override
     public void handle(Void event) {
-        String sessionId = m_context.get("omero.session_key");
-        m_span.tag("sessionid", sessionId);
-        m_span.tag("request_id", m_context.get("omero_ms.request_id"));
-        m_span.tag("Test_tag", "Test Value");
-        m_span.finish();
+        try {
+            String sessionId = m_context.get("omero.session_key");
+            String requestId = m_context.get("omero_ms.request_id");
+            m_span.tag("sessionid", sessionId);
+            m_span.tag("request_id", requestId);
+        }
+        finally {
+            m_span.finish();
+        }
     }
 }

@@ -207,7 +207,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .handler((event) -> {
             String requestId = UUID.randomUUID().toString();
             event.put("omero_ms.request_id", requestId);
-            //MDC.put("requestId", requestId);
             event.next();
         });
 
