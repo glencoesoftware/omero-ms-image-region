@@ -87,6 +87,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** Zipkin HTTP Tracer*/
     private HttpTracing httpTracing;
 
+    private OkHttpSender sender;
+
+    private AsyncReporter<Span> spanReporter;
+
+    private Tracing tracing;
+
     static {
         com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
     }
@@ -188,9 +194,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             Boolean tracingEnabled = httpTracingConfig.getBoolean("enabled");
             if(tracingEnabled) {
                 String zipkinUrl = httpTracingConfig.getString("zipkin-url");
-                OkHttpSender sender = OkHttpSender.create(zipkinUrl);
-                AsyncReporter<Span> spanReporter = AsyncReporter.create(sender);
-                Tracing tracing = Tracing.newBuilder()
+                sender = OkHttpSender.create(zipkinUrl);
+                spanReporter = AsyncReporter.create(sender);
+                tracing = Tracing.newBuilder()
                     .sampler(Sampler.ALWAYS_SAMPLE)
                     .localServiceName("omero-ms-image-region")
                     .spanReporter(spanReporter)
@@ -288,6 +294,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
+        tracing.close();
+        spanReporter.close();
+        sender.close();
     }
 
     /**
