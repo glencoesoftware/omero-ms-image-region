@@ -84,7 +84,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
-    /** Zipkin HTTP Tracer*/
+    /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
 
     private OkHttpSender sender;

@@ -7,28 +7,30 @@ import io.vertx.core.Handler;
 import io.vertx.ext.web.RoutingContext;
 
 public class ImageRegionTracingContextHandler implements Handler<RoutingContext> {
-    
-      final Tracer tracer;
 
-      ImageRegionTracingContextHandler(HttpTracing httpTracing) {
-        tracer = httpTracing.tracing().tracer();
-      }
+    final HttpTracing m_httpTracing;
 
-      @Override public void handle(RoutingContext context) {
+    ImageRegionTracingContextHandler(HttpTracing httpTracing) {
+        m_httpTracing = httpTracing;
+    }
+
+    @Override
+    public void handle(RoutingContext context) {
+        Tracer tracer = m_httpTracing.tracing().tracer();
         ScopedSpan span = tracer.startScopedSpan("image_region");
         TracingEndHandler handler = new TracingEndHandler(context, span);
         context.addHeadersEndHandler(handler);
         context.next();
-      }
+    }
 
 }
 
 final class TracingEndHandler implements Handler<Void> {
-    
+
     private ScopedSpan m_span;
     private RoutingContext m_context;
-    
-    TracingEndHandler(RoutingContext context, ScopedSpan span){
+
+    TracingEndHandler(RoutingContext context, ScopedSpan span) {
         m_context = context;
         m_span = span;
     }
@@ -40,8 +42,7 @@ final class TracingEndHandler implements Handler<Void> {
             String requestId = m_context.get("omero_ms.request_id");
             m_span.tag("sessionid", sessionId);
             m_span.tag("request_id", requestId);
-        }
-        finally {
+        } finally {
             m_span.finish();
         }
     }
