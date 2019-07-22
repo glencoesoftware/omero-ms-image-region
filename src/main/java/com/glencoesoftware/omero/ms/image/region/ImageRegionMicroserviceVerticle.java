@@ -59,7 +59,6 @@ import brave.Tracing;
 import brave.http.HttpSampler;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;
-import brave.vertx.web.VertxWebTracing;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
