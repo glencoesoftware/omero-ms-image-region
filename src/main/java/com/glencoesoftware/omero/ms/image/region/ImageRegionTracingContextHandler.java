@@ -36,20 +36,21 @@ public class ImageRegionTracingContextHandler
     @Override
     public void handle(RoutingContext context) {
         ScopedSpan span = tracer.startScopedSpan("image_region");
-        TracingEndHandler handler = new TracingEndHandler(context, span);
+        TracingHandler handler = new TracingHandler(context, span);
+        context.put(TracingHandler.class.getName(), handler);
         context.addHeadersEndHandler(handler);
         context.next();
     }
 
 }
 
-final class TracingEndHandler implements Handler<Void> {
+final class TracingHandler implements Handler<Void> {
 
-    private final ScopedSpan span;
+    final ScopedSpan span;
 
-    private final RoutingContext context;
+    final RoutingContext context;
 
-    TracingEndHandler(RoutingContext context, ScopedSpan span) {
+    TracingHandler(RoutingContext context, ScopedSpan span) {
         this.context = context;
         this.span = span;
     }
