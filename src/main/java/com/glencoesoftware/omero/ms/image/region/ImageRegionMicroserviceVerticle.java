@@ -188,8 +188,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         try {
-            JsonObject httpTracingConfig = config.getJsonObject("http-tracing");
-            Boolean tracingEnabled = httpTracingConfig.getBoolean("enabled");
+            JsonObject httpTracingConfig =
+                    config.getJsonObject("http-tracing", new JsonObject());
+            Boolean tracingEnabled =
+                    httpTracingConfig.getBoolean("enabled", false);
             if (tracingEnabled) {
                 String zipkinUrl = httpTracingConfig.getString("zipkin-url");
                 sender = OkHttpSender.create(zipkinUrl);
@@ -209,11 +211,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .handler(routingContextHandler)
                     .failureHandler(routingContextHandler);
             }
-        } catch (NullPointerException npe) {
-            log.warn("Missing configuration for http tracing");
         } catch (Exception e) {
-            log.warn("Failed to set up http tracing");
-            log.warn(e.toString());
+            log.warn("Failed to set up http tracing", e);
         }
 
         // Establish a unique identifier for every request
