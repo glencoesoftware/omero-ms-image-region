@@ -194,6 +194,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     httpTracingConfig.getBoolean("enabled", false);
             if (tracingEnabled) {
                 String zipkinUrl = httpTracingConfig.getString("zipkin-url");
+                log.info("Tracing enabled: {}", zipkinUrl);
                 sender = OkHttpSender.create(zipkinUrl);
                 spanReporter = AsyncReporter.create(sender);
                 tracing = Tracing.newBuilder()
@@ -210,6 +211,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .order(-1) // applies before routes
                     .handler(routingContextHandler)
                     .failureHandler(routingContextHandler);
+            } else {
+                log.info("Tracing disabled");
             }
         } catch (Exception e) {
             log.warn("Failed to set up http tracing", e);
