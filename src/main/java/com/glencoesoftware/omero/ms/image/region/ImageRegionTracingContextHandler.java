@@ -27,15 +27,14 @@ import io.vertx.ext.web.RoutingContext;
 public class ImageRegionTracingContextHandler
         implements Handler<RoutingContext> {
 
-    private final HttpTracing httpTracing;
+    private final Tracer tracer;
 
     ImageRegionTracingContextHandler(HttpTracing httpTracing) {
-        this.httpTracing = httpTracing;
+        tracer = httpTracing.tracing().tracer();
     }
 
     @Override
     public void handle(RoutingContext context) {
-        Tracer tracer = httpTracing.tracing().tracer();
         ScopedSpan span = tracer.startScopedSpan("image_region");
         TracingEndHandler handler = new TracingEndHandler(context, span);
         context.addHeadersEndHandler(handler);
@@ -46,8 +45,9 @@ public class ImageRegionTracingContextHandler
 
 final class TracingEndHandler implements Handler<Void> {
 
-    private ScopedSpan span;
-    private RoutingContext context;
+    private final ScopedSpan span;
+
+    private final RoutingContext context;
 
     TracingEndHandler(RoutingContext context, ScopedSpan span) {
         this.context = context;
