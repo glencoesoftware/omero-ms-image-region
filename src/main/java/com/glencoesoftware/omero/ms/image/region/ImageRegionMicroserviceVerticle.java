@@ -132,7 +132,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     public void deploy(JsonObject config, Future<Void> future) {
         log.info("Deploying verticle");
-        
+
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
         if (omeroServer == null) {
@@ -192,7 +192,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         try {
             JsonObject httpTracingConfig = config.getJsonObject("http-tracing");
             Boolean tracingEnabled = httpTracingConfig.getBoolean("enabled");
-            if(tracingEnabled) {
+            if (tracingEnabled) {
                 String zipkinUrl = httpTracingConfig.getString("zipkin-url");
                 sender = OkHttpSender.create(zipkinUrl);
                 spanReporter = AsyncReporter.create(sender);
@@ -202,7 +202,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .spanReporter(spanReporter)
                     .build();
                 httpTracing = HttpTracing.newBuilder(tracing).build();
-                Handler<RoutingContext> routingContextHandler = new ImageRegionTracingContextHandler(httpTracing);
+                Handler<RoutingContext> routingContextHandler =
+                        new ImageRegionTracingContextHandler(httpTracing);
 
                 /*Set up HttpTracing Routing */
                 router.route()
@@ -210,18 +211,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .handler(routingContextHandler)
                     .failureHandler(routingContextHandler);
             }
-        }
-        catch (NullPointerException npe) {
+        } catch (NullPointerException npe) {
             log.warn("Missing configuration for http tracing");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.warn("Failed to set up http tracing");
             log.warn(e.toString());
         }
 
         // Establish a unique identifier for every request
-        router.route()
-            .handler((event) -> {
+        router.route().handler((event) -> {
             String requestId = UUID.randomUUID().toString();
             event.put("omero_ms.request_id", requestId);
             event.next();
