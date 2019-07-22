@@ -205,7 +205,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 Handler<RoutingContext> routingContextHandler =
                         new ImageRegionTracingContextHandler(httpTracing);
 
-                /*Set up HttpTracing Routing */
+                // Set up HttpTracing Routing
                 router.route()
                     .order(-1) // applies before routes
                     .handler(routingContextHandler)
