@@ -186,6 +186,7 @@ public class ImageRegionRequestHandler {
         params.addId(imageId);
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("getPixelsIdAndSeries");
+        span.tag("image_id", imageId.toString());
         try {
             List<List<RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
@@ -220,6 +221,7 @@ public class ImageRegionRequestHandler {
             throws ApiUsageException {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("getPixelBuffer");
+        span.tag("pixels_id", pixels.getId().toString());
         try {
             return pixelsService.getPixelBuffer(pixels, false);
         } finally {
@@ -250,6 +252,7 @@ public class ImageRegionRequestHandler {
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
+            span.tag("pixels_id", Long.toString(pixelsId));
             pixels = (Pixels) mapper.reverse(
                     iPixels.retrievePixDescription(pixelsId, ctx));
             // The series will be used by our version of PixelsService which
@@ -290,6 +293,7 @@ public class ImageRegionRequestHandler {
             }
             updateSettings(renderer);
             span = Tracing.currentTracer().startScopedSpan("render");
+            span.tag("pixels_id", pixels.getId().toString());
             try {
                 // The actual act of rendering will close the provided pixel
                 // buffer.  However, just in case an exception is thrown before
@@ -323,6 +327,7 @@ public class ImageRegionRequestHandler {
 
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("renderAsPackedInt");
+        span1.tag("pixels_id", pixels.getId().toString());
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -345,6 +350,7 @@ public class ImageRegionRequestHandler {
                         }
                         ScopedSpan span2 =
                                 tracer.startScopedSpan("projectStack");
+                        span2.tag("pixels_id", pixels.getId().toString());
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,

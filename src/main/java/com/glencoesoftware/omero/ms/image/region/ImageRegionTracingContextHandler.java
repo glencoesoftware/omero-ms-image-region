@@ -36,6 +36,8 @@ public class ImageRegionTracingContextHandler
     @Override
     public void handle(RoutingContext context) {
         ScopedSpan span = tracer.startScopedSpan("image_region");
+        String url = context.request().absoluteURI();
+        span.tag("url", url);
         TracingHandler handler = new TracingHandler(context, span);
         context.put(TracingHandler.class.getName(), handler);
         context.addHeadersEndHandler(handler);
