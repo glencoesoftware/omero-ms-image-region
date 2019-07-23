@@ -35,6 +35,9 @@ import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.propagation.TraceContext.Extractor;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import ome.model.enums.Family;
@@ -95,6 +98,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Zipkin Tracing*/
+    private Extractor<Map<String, String>> extractor;
+
     /**
      * Default constructor.
      * @param host OMERO server host.
@@ -125,6 +131,10 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
+        extractor = Tracing.current().propagation()
+            .extractor((carrier, key) -> {
+                return carrier.get(key);
+            });
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     renderImageRegion(event);
@@ -143,9 +153,13 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void renderImageRegion(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
+        ScopedSpan span;
         try {
             imageRegionCtx = mapper.readValue(
                     message.body(), ImageRegionCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "handleRenderImageRegion",
+                    extractor.extract(imageRegionCtx.traceContext).context());
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
@@ -174,6 +188,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             pixelsService,
                             compressionService,
                             maxTileLength)::renderImageRegion);
+            span.finish();
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
@@ -184,14 +199,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 | CannotCreateSessionException e) {
             String v = "Permission denied";
             log.debug(v);
+            span.error(e);
             message.fail(403, v);
         } catch (IllegalArgumentException e) {
             log.debug(
                 "Illegal argument received while retrieving image region", e);
+            span.error(e);
             message.fail(400, e.getMessage());
         } catch (Exception e) {
             String v = "Exception while retrieving image region";
             log.error(v, e);
+            span.error(e);
             message.fail(500, v);
         }
     }

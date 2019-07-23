@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +28,8 @@ import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
+import brave.Tracing;
+import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import omeis.providers.re.data.RegionDef;
@@ -101,6 +104,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Whether or not to flip vertically */
     public boolean flipVertical;
 
+    /** Current trace context to be propagated */
+    public Map<String, String> traceContext = new HashMap<String, String>();
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -115,6 +121,13 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
         assignParams(params);
+        Injector<Map<String, String>> injector =
+            Tracing.current().propagation().injector((carrier, key, value) -> {
+                    carrier.put(key, value);
+                }
+            );
+        injector.inject(
+            Tracing.currentTracer().currentSpan().context(), traceContext);
     }
 
     public void assignParams(MultiMap params) throws IllegalArgumentException {
