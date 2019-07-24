@@ -22,6 +22,7 @@ import brave.ScopedSpan;
 import brave.Tracer;
 import brave.http.HttpTracing;
 import io.vertx.core.Handler;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 
 public class ImageRegionTracingContextHandler
@@ -36,8 +37,10 @@ public class ImageRegionTracingContextHandler
     @Override
     public void handle(RoutingContext context) {
         ScopedSpan span = tracer.startScopedSpan("image_region");
-        String url = context.request().absoluteURI();
-        span.tag("url", url);
+        HttpServerRequest request = context.request();
+        span.tag("http.method", request.rawMethod());
+        span.tag("http.path", request.path());
+        span.tag("http.params", request.params().toString());
         TracingHandler handler = new TracingHandler(context, span);
         context.put(TracingHandler.class.getName(), handler);
         context.addHeadersEndHandler(handler);
