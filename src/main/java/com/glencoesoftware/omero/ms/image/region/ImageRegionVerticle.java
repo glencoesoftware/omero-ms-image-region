@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -243,7 +241,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
             omero.client client, Class<T> klass) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("get_all_enumerations");
         try {
             return (List<T>) client
                     .getSession()
@@ -260,10 +259,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     })
                     .collect(Collectors.toList());
         } catch (ServerError e) {
+            span.error(e);
             // *Should* never happen
             throw new RuntimeException(e);
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 }
