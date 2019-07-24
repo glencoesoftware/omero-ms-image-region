@@ -121,8 +121,13 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
         assignParams(params);
+
+        Tracing tracing = Tracing.current();
+        if (tracing == null) {
+            return;
+        }
         Injector<Map<String, String>> injector =
-            Tracing.current().propagation().injector((carrier, key, value) -> {
+            tracing.propagation().injector((carrier, key, value) -> {
                     carrier.put(key, value);
                 }
             );
