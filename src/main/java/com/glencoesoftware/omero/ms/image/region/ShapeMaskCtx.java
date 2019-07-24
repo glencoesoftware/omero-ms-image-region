@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
-import brave.Span;
 import brave.Tracing;
 import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
@@ -43,7 +42,7 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
     /** Shape Id */
     public Long shapeId;
 
-    /** Display color */ 
+    /** Display color */
     public String color;
 
     /** Whether or not to flip horizontally */
