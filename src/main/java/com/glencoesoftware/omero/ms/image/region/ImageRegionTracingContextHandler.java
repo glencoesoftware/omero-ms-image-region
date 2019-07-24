@@ -36,7 +36,7 @@ public class ImageRegionTracingContextHandler
 
     @Override
     public void handle(RoutingContext context) {
-        ScopedSpan span = tracer.startScopedSpan("image_region");
+        ScopedSpan span = tracer.startScopedSpan("vertx.http_request");
         HttpServerRequest request = context.request();
         span.tag("http.method", request.rawMethod());
         span.tag("http.path", request.path());
