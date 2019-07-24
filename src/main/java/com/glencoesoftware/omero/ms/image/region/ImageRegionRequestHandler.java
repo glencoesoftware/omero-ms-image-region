@@ -148,7 +148,7 @@ public class ImageRegionRequestHandler {
      */
     public byte[] renderImageRegion(omero.client client) {
         ScopedSpan span =
-                Tracing.currentTracer().startScopedSpan("renderImageRegion");
+                Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
@@ -185,8 +185,8 @@ public class ImageRegionRequestHandler {
         ParametersI params = new ParametersI();
         params.addId(imageId);
         ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("getPixelsIdAndSeries");
-        span.tag("image_id", imageId.toString());
+                .startScopedSpan("get_pixels_id_and_series");
+        span.tag("omero.image_id", imageId.toString());
         try {
             List<List<RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
@@ -220,8 +220,8 @@ public class ImageRegionRequestHandler {
     private PixelBuffer getPixelBuffer(Pixels pixels)
             throws ApiUsageException {
         ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("getPixelBuffer");
-        span.tag("pixels_id", pixels.getId().toString());
+                .startScopedSpan("get_pixel_buffer");
+        span.tag("omero.pixels_id", pixels.getId().toString());
         try {
             return pixelsService.getPixelBuffer(pixels, false);
         } finally {
@@ -247,12 +247,12 @@ public class ImageRegionRequestHandler {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("retrievePixDescription");
+                .startScopedSpan("retrieve_pix_description");
         Pixels pixels;
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            span.tag("pixels_id", Long.toString(pixelsId));
+            span.tag("omero.pixels_id", Long.toString(pixelsId));
             pixels = (Pixels) mapper.reverse(
                     iPixels.retrievePixDescription(pixelsId, ctx));
             // The series will be used by our version of PixelsService which
@@ -293,7 +293,7 @@ public class ImageRegionRequestHandler {
             }
             updateSettings(renderer);
             span = Tracing.currentTracer().startScopedSpan("render");
-            span.tag("pixels_id", pixels.getId().toString());
+            span.tag("omero.pixels_id", pixels.getId().toString());
             try {
                 // The actual act of rendering will close the provided pixel
                 // buffer.  However, just in case an exception is thrown before
@@ -326,8 +326,8 @@ public class ImageRegionRequestHandler {
         checkPlaneDef(resolutionLevels, planeDef);
 
         Tracer tracer = Tracing.currentTracer();
-        ScopedSpan span1 = tracer.startScopedSpan("renderAsPackedInt");
-        span1.tag("pixels_id", pixels.getId().toString());
+        ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
+        span1.tag("omero.pixels_id", pixels.getId().toString());
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -349,8 +349,8 @@ public class ImageRegionRequestHandler {
                             continue;
                         }
                         ScopedSpan span2 =
-                                tracer.startScopedSpan("projectStack");
-                        span2.tag("pixels_id", pixels.getId().toString());
+                                tracer.startScopedSpan("project_stack");
+                        span2.tag("omero.pixels_id", pixels.getId().toString());
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,

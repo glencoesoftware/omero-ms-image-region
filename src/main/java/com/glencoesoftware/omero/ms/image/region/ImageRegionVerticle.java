@@ -158,7 +158,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
             imageRegionCtx = mapper.readValue(
                     message.body(), ImageRegionCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
-                    "handleRenderImageRegion",
+                    "handle_render_image_region",
                     extractor.extract(imageRegionCtx.traceContext).context());
         } catch (Exception e) {
             String v = "Illegal image region context";
