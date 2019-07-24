@@ -18,12 +18,17 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
+import brave.Span;
+import brave.Tracing;
+import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
 import ome.model.roi.Mask;
 
@@ -47,6 +52,9 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
     /** Whether or not to flip vertically */
     public boolean flipVertical;
 
+    /** Current trace context to be propagated */
+    public Map<String, String> traceContext = new HashMap<String, String>();
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -59,16 +67,32 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ShapeMaskCtx(MultiMap params, String omeroSessionKey) {
+        Tracing tracing = Tracing.current();
+        if (tracing == null) {
+            return;
+        }
+        Injector<Map<String, String>> injector =
+            tracing.propagation().injector((carrier, key, value) -> {
+                    carrier.put(key, value);
+                }
+            );
+        Span span = Tracing.currentTracer().currentSpan();
+
         this.omeroSessionKey = omeroSessionKey;
         shapeId = Long.parseLong(params.get("shapeId"));
+        span.tag("omero.shape_mask_ctx.shape_id", shapeId.toString());
         color = params.get("color");
+        span.tag("omero.shape_mask_ctx.color", color);
         String flip = Optional.ofNullable(params.get("flip"))
                 .orElse("").toLowerCase();
+        span.tag("omero.shape_mask_ctx.flip", flip);
         flipHorizontal = flip.contains("h");
+        span.tag("omero.shape_mask_ctx.flip_horizontal",
+                 Boolean.toString(flipHorizontal));
         flipVertical = flip.contains("v");
-
-
-        log.debug("Shape:{}, color: {}, flip: {}", shapeId, color, flip);
+        span.tag("omero.shape_mask_ctx.flip_vertical",
+                Boolean.toString(flipVertical));
+        injector.inject(span.context(), traceContext);
     }
 
     /**

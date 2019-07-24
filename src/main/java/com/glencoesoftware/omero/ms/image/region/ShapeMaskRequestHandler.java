@@ -36,10 +36,10 @@ import java.util.Optional;
 
 import javax.imageio.ImageIO;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
@@ -167,7 +167,8 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("render_shape_mask");
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
@@ -204,7 +205,7 @@ public class ShapeMaskRequestHandler {
             ImageIO.write(image, "png", output);
             return output.toByteArray();
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 
@@ -234,7 +235,8 @@ public class ShapeMaskRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(shapeMaskCtx.shapeId);
-        StopWatch t0 = new Slf4JStopWatch("canRead");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("can_read");
         try {
             List<List<RType>> rows = client.getSession()
                     .getQueryService().projection(
@@ -244,9 +246,10 @@ public class ShapeMaskRequestHandler {
                 return true;
             }
         } catch (Exception e) {
+            span.error(e);
             log.error("Exception while checking shape mask readability", e);
         } finally {
-            t0.stop();
+            span.finish();
         }
         return false;
     }
@@ -278,14 +281,15 @@ public class ShapeMaskRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(shapeId);
-        StopWatch t0 = new Slf4JStopWatch("getMask");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("get_mask");
         try {
             return (MaskI) iQuery.findByQuery(
                 "SELECT s FROM Shape as s " +
                 "WHERE s.id = :id", params, ctx
             );
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 }
