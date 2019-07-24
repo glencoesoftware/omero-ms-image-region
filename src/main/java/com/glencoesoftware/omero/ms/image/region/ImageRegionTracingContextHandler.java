@@ -63,10 +63,7 @@ final class TracingHandler implements Handler<Void> {
     @Override
     public void handle(Void event) {
         try {
-            String sessionId = context.get("omero.session_key");
-            String requestId = context.get("omero_ms.request_id");
-            span.tag("sessionid", sessionId);
-            span.tag("request_id", requestId);
+            span.tag("omero.session_key", context.get("omero.session_key"));
         } finally {
             span.finish();
         }
