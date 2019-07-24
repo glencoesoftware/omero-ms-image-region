@@ -153,19 +153,18 @@ public class ImageRegionVerticle extends AbstractVerticle {
         ImageRegionCtx imageRegionCtx;
         ScopedSpan span;
         try {
-            imageRegionCtx = mapper.readValue(
-                    message.body(), ImageRegionCtx.class);
+            String body = message.body();
+            imageRegionCtx = mapper.readValue(body, ImageRegionCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
                     "handle_render_image_region",
                     extractor.extract(imageRegionCtx.traceContext).context());
+            span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
-        log.debug(
-            "Render image region request with data: {}", message.body());
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {

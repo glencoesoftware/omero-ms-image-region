@@ -76,23 +76,16 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
                     carrier.put(key, value);
                 }
             );
-        Span span = Tracing.currentTracer().currentSpan();
+        injector.inject(
+                Tracing.currentTracer().currentSpan().context(), traceContext);
 
         this.omeroSessionKey = omeroSessionKey;
         shapeId = Long.parseLong(params.get("shapeId"));
-        span.tag("omero.shape_mask_ctx.shape_id", shapeId.toString());
         color = params.get("color");
-        span.tag("omero.shape_mask_ctx.color", color);
         String flip = Optional.ofNullable(params.get("flip"))
                 .orElse("").toLowerCase();
-        span.tag("omero.shape_mask_ctx.flip", flip);
         flipHorizontal = flip.contains("h");
-        span.tag("omero.shape_mask_ctx.flip_horizontal",
-                 Boolean.toString(flipHorizontal));
         flipVertical = flip.contains("v");
-        span.tag("omero.shape_mask_ctx.flip_vertical",
-                Boolean.toString(flipVertical));
-        injector.inject(span.context(), traceContext);
     }
 
     /**

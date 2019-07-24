@@ -92,19 +92,18 @@ public class ShapeMaskVerticle extends AbstractVerticle {
         ShapeMaskCtx shapeMaskCtx;
         ScopedSpan span;
         try {
-            shapeMaskCtx = mapper.readValue(
-                    message.body(), ShapeMaskCtx.class);
+            String body = message.body();
+            shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
                     "handle_render_shape_mask",
                     extractor.extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal shape mask context";
             log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
-        log.debug(
-            "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
