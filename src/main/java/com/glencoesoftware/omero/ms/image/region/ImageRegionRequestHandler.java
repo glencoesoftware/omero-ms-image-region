@@ -388,13 +388,8 @@ public class ImageRegionRequestHandler {
             }
             buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
+            span1.tag("omero.rendering_stats", renderer.getStats().getStats());
             span1.finish();
-            if (log.isDebugEnabled()) {
-                RenderingStats stats = renderer.getStats();
-                if (stats != null) {
-                    log.debug(renderer.getStats().getStats());
-                }
-            }
         }
 
         String format = imageRegionCtx.format;
