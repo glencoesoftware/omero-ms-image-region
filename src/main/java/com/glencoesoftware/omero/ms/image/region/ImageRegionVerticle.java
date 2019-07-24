@@ -243,6 +243,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
         ctx.put("omero.group", "-1");
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_all_enumerations");
+        span.tag("omero.enumeration_class", klass.getName());
         try {
             return (List<T>) client
                     .getSession()
