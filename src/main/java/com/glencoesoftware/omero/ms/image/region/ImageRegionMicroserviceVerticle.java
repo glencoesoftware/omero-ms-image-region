@@ -156,9 +156,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             log.info("Tracing enabled: {}", zipkinUrl);
             sender = OkHttpSender.create(zipkinUrl);
             spanReporter = AsyncReporter.create(sender);
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
             tracing = Tracing.newBuilder()
                 .sampler(Sampler.ALWAYS_SAMPLE)
                 .localServiceName("omero-ms-image-region")
+                .addFinishedSpanHandler(prometheusSpanHandler)
                 .spanReporter(spanReporter)
                 .build();
         } else {
