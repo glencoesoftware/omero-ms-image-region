@@ -57,6 +57,7 @@ import zipkin2.reporter.okhttp3.OkHttpSender;
 import brave.Tracing;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;
+import io.prometheus.client.vertx.MetricsHandler;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -209,11 +210,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+
+        router.get("/metrics")
+            .order(-2)
+            .handler(new MetricsHandler());
+
         Handler<RoutingContext> routingContextHandler =
                 new ImageRegionTracingContextHandler(httpTracing);
         // Set up HttpTracing Routing
         router.route()
-            .order(-1) // applies before routes
+            .order(-1) // applies before other routes
             .handler(routingContextHandler)
             .failureHandler(routingContextHandler);
 
