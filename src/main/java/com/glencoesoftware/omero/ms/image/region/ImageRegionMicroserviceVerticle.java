@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
@@ -27,8 +29,10 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -215,8 +219,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .order(-2)
             .handler(new MetricsHandler());
 
+        List<String> tags = new ArrayList<String>();
+        tags.add("omero.session_key");
+
         Handler<RoutingContext> routingContextHandler =
-                new ImageRegionTracingContextHandler(httpTracing);
+                new OmeroHttpTracingHandler(httpTracing, tags);
         // Set up HttpTracing Routing
         router.route()
             .order(-1) // applies before other routes

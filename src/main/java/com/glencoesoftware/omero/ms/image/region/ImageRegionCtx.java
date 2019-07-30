@@ -27,6 +27,7 @@ import java.util.Optional;
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
+import com.glencoesoftware.omero.ms.core.OmeroVertxInjectorFactory;
 
 import brave.Tracing;
 import brave.propagation.TraceContext.Injector;
@@ -126,11 +127,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         if (tracing == null) {
             return;
         }
-        Injector<Map<String, String>> injector =
-            tracing.propagation().injector((carrier, key, value) -> {
-                    carrier.put(key, value);
-                }
-            );
+        Injector<Map<String, String>> injector = OmeroVertxInjectorFactory.getInjector();
         injector.inject(
             Tracing.currentTracer().currentSpan().context(), traceContext);
     }

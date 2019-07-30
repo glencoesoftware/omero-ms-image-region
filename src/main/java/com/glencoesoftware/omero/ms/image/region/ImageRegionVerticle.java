@@ -30,6 +30,7 @@ import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.core.OmeroVertxExtractorFactory;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -129,10 +130,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
-        extractor = Tracing.current().propagation()
-            .extractor((carrier, key) -> {
-                return carrier.get(key);
-            });
+        extractor = OmeroVertxExtractorFactory.getExtractor();
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     renderImageRegion(event);
