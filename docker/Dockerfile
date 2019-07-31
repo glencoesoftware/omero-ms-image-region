@@ -1,4 +1,4 @@
-FROM "openmicroscopy/omero-server"
+FROM "openmicroscopy/omero-server:5.4.10"
 MAINTAINER sysadmin@glencoesoftware.com
 #LABEL org.openmicroscopy.release-date="unknown"
 #LABEL org.openmicroscopy.commit="unknown"
