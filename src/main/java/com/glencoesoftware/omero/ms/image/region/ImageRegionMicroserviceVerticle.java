@@ -358,6 +358,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.setStatusCode(400).end(e.getMessage());
             return;
         }
+        imageRegionCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(

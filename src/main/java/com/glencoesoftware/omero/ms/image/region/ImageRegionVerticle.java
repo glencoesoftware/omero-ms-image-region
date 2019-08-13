@@ -29,15 +29,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
-import com.glencoesoftware.omero.ms.core.OmeroVertxExtractorFactory;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
-import brave.propagation.TraceContext.Extractor;
-import io.vertx.core.AbstractVerticle;
+import brave.propagation.TraceContext;
 import io.vertx.core.eventbus.Message;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -50,7 +49,7 @@ import omero.ApiUsageException;
 import omero.ServerError;
 import omero.util.IceMapper;
 
-public class ImageRegionVerticle extends AbstractVerticle {
+public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
@@ -97,9 +96,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
-    /** Zipkin Tracing*/
-    private Extractor<Map<String, String>> extractor;
-
     /**
      * Default constructor.
      * @param host OMERO server host.
@@ -130,7 +126,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
-        extractor = OmeroVertxExtractorFactory.getExtractor();
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     renderImageRegion(event);
@@ -149,20 +144,22 @@ public class ImageRegionVerticle extends AbstractVerticle {
     private void renderImageRegion(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
-        ScopedSpan span;
         try {
             String body = message.body();
             imageRegionCtx = mapper.readValue(body, ImageRegionCtx.class);
-            span = Tracing.currentTracer().startScopedSpanWithParent(
-                    "handle_render_image_region",
-                    extractor.extract(imageRegionCtx.traceContext).context());
-            span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
+        TraceContext traceCtx = extractor().extract(imageRegionCtx.traceContext).context();
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "handle_render_image_region",
+                traceCtx);
+        span.tag("ctx", message.body());
+        imageRegionCtx.injectCurrentTraceContext();
+
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
