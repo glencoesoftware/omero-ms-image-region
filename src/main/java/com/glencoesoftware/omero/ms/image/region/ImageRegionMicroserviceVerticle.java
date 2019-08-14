@@ -32,6 +32,7 @@ import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.LogSpanReporter;
 import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
 
 import io.vertx.config.ConfigRetriever;
@@ -170,8 +171,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 .build();
         } else {
             log.info("Tracing disabled");
-            tracing = Tracing.newBuilder().build();
-            tracing.setNoop(true);
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+            spanReporter = new LogSpanReporter();
+            tracing = Tracing.newBuilder()
+                    .sampler(Sampler.ALWAYS_SAMPLE)
+                    .localServiceName("omero-ms-image-region")
+                    .addFinishedSpanHandler(prometheusSpanHandler)
+                    .spanReporter(spanReporter)
+                    .build();
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
