@@ -73,10 +73,6 @@ configurations.all {
 
 dependencies {
     compile 'io.prometheus:simpleclient_vertx:0.6.0'
-    compile 'io.zipkin.brave:brave:5.6.8'
-    compile 'io.zipkin.brave:brave-http:4.13.6'
-    compile 'io.zipkin.brave:brave-instrumentation-http:5.6.8'
-    compile 'io.zipkin.reporter2:zipkin-sender-okhttp3:2.10.0'
     compile 'ch.qos.logback:logback-classic:1.2.3'
     compile ('com.glencoesoftware.omero:omero-ms-core:0.4.2-SNAPSHOT') {
         exclude group: 'org.testng', module: 'testng'
