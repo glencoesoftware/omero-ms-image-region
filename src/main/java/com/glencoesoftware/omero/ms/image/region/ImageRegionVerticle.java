@@ -25,17 +25,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
-import io.vertx.core.AbstractVerticle;
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.propagation.TraceContext;
 import io.vertx.core.eventbus.Message;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -48,7 +49,7 @@ import omero.ApiUsageException;
 import omero.ServerError;
 import omero.util.IceMapper;
 
-public class ImageRegionVerticle extends AbstractVerticle {
+public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
@@ -144,16 +145,21 @@ public class ImageRegionVerticle extends AbstractVerticle {
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
-            imageRegionCtx = mapper.readValue(
-                    message.body(), ImageRegionCtx.class);
+            String body = message.body();
+            imageRegionCtx = mapper.readValue(body, ImageRegionCtx.class);
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
-        log.debug(
-            "Render image region request with data: {}", message.body());
+        TraceContext traceCtx = extractor().extract(imageRegionCtx.traceContext).context();
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "handle_render_image_region",
+                traceCtx);
+        span.tag("ctx", message.body());
+        imageRegionCtx.injectCurrentTraceContext();
+
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
@@ -174,6 +180,7 @@ public class ImageRegionVerticle extends AbstractVerticle {
                             pixelsService,
                             compressionService,
                             maxTileLength)::renderImageRegion);
+            span.finish();
             if (imageRegion == null) {
                 message.fail(
                         404, "Cannot find Image:" + imageRegionCtx.imageId);
@@ -184,14 +191,17 @@ public class ImageRegionVerticle extends AbstractVerticle {
                 | CannotCreateSessionException e) {
             String v = "Permission denied";
             log.debug(v);
+            span.error(e);
             message.fail(403, v);
         } catch (IllegalArgumentException e) {
             log.debug(
                 "Illegal argument received while retrieving image region", e);
+            span.error(e);
             message.fail(400, e.getMessage());
         } catch (Exception e) {
             String v = "Exception while retrieving image region";
             log.error(v, e);
+            span.error(e);
             message.fail(500, v);
         }
     }
@@ -225,7 +235,9 @@ public class ImageRegionVerticle extends AbstractVerticle {
             omero.client client, Class<T> klass) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch("getAllEnumerations");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("get_all_enumerations");
+        span.tag("omero.enumeration_class", klass.getName());
         try {
             return (List<T>) client
                     .getSession()
@@ -242,10 +254,11 @@ public class ImageRegionVerticle extends AbstractVerticle {
                     })
                     .collect(Collectors.toList());
         } catch (ServerError e) {
+            span.error(e);
             // *Should* never happen
             throw new RuntimeException(e);
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 }

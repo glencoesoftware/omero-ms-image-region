@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
@@ -27,8 +29,11 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
+import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.LogSpanReporter;
+import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -51,6 +56,13 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
+import zipkin2.Span;
+import zipkin2.reporter.AsyncReporter;
+import zipkin2.reporter.okhttp3.OkHttpSender;
+import brave.Tracing;
+import brave.http.HttpTracing;
+import brave.sampler.Sampler;
+import io.prometheus.client.vertx.MetricsHandler;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -74,6 +86,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
+
+    /** Zipkin HTTP Tracing*/
+    private HttpTracing httpTracing;
+
+    private OkHttpSender sender;
+
+    private AsyncReporter<Span> spanReporter;
+
+    private Tracing tracing;
 
     static {
         com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
@@ -132,6 +153,35 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
+        JsonObject httpTracingConfig =
+                config.getJsonObject("http-tracing", new JsonObject());
+        Boolean tracingEnabled =
+                httpTracingConfig.getBoolean("enabled", false);
+        if (tracingEnabled) {
+            String zipkinUrl = httpTracingConfig.getString("zipkin-url");
+            log.info("Tracing enabled: {}", zipkinUrl);
+            sender = OkHttpSender.create(zipkinUrl);
+            spanReporter = AsyncReporter.create(sender);
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+            tracing = Tracing.newBuilder()
+                .sampler(Sampler.ALWAYS_SAMPLE)
+                .localServiceName("omero-ms-image-region")
+                .addFinishedSpanHandler(prometheusSpanHandler)
+                .spanReporter(spanReporter)
+                .build();
+        } else {
+            log.info("Tracing disabled");
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+            spanReporter = new LogSpanReporter();
+            tracing = Tracing.newBuilder()
+                    .sampler(Sampler.ALWAYS_SAMPLE)
+                    .localServiceName("omero-ms-image-region")
+                    .addFinishedSpanHandler(prometheusSpanHandler)
+                    .spanReporter(spanReporter)
+                    .build();
+        }
+        httpTracing = HttpTracing.newBuilder(tracing).build();
+
         // Deploy our dependency verticles
         JsonObject omero = config.getJsonObject("omero");
         if (omero == null) {
@@ -170,6 +220,22 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
+
+
+        router.get("/metrics")
+            .order(-2)
+            .handler(new MetricsHandler());
+
+        List<String> tags = new ArrayList<String>();
+        tags.add("omero.session_key");
+
+        Handler<RoutingContext> routingContextHandler =
+                new OmeroHttpTracingHandler(httpTracing, tags);
+        // Set up HttpTracing Routing
+        router.route()
+            .order(-1) // applies before other routes
+            .handler(routingContextHandler)
+            .failureHandler(routingContextHandler);
 
         cacheControlHeader = config.getString("cache-control-header", "");
 
@@ -238,6 +304,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
+        tracing.close();
+        if (spanReporter != null) {
+            spanReporter.close();
+        }
+        if (sender != null) {
+            sender.close();
+        }
     }
 
     /**
@@ -292,6 +365,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.setStatusCode(400).end(e.getMessage());
             return;
         }
+        imageRegionCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(

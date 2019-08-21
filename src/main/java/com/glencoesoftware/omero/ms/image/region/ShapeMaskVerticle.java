@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Map;
+
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +28,9 @@ import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.propagation.TraceContext.Extractor;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
@@ -43,6 +48,9 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
     /** OMERO server port */
     private final int port;
+
+    /** Zipkin Tracing*/
+    private Extractor<Map<String, String>> extractor;
 
     /**
      * Default constructor.
@@ -62,6 +70,10 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
+        extractor = Tracing.current().propagation()
+                .extractor((carrier, key) -> {
+                    return carrier.get(key);
+                });
         vertx.eventBus().<String>consumer(
                 RENDER_SHAPE_MASK_EVENT, event -> {
                     renderShapeMask(event);
@@ -78,17 +90,20 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     private void renderShapeMask(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
         try {
-            shapeMaskCtx = mapper.readValue(
-                    message.body(), ShapeMaskCtx.class);
+            String body = message.body();
+            shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "handle_render_shape_mask",
+                    extractor.extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal shape mask context";
             log.error(v + ": {}", message.body(), e);
             message.fail(400, v);
             return;
         }
-        log.debug(
-            "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
         vertx.eventBus().<byte[]>send(
@@ -105,6 +120,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     // to access it and assign and return
                     if (shapeMask != null
                             && request.execute(requestHandler::canRead)) {
+                        span.finish();
                         message.reply(shapeMask);
                         return;
                     }
@@ -113,10 +129,12 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                     shapeMask = request.execute(
                             requestHandler::renderShapeMask);
                     if (shapeMask == null) {
+                        span.finish();
                         message.fail(404, "Cannot render Mask:" +
                                 shapeMaskCtx.shapeId);
                         return;
                     }
+                    span.finish();
                     message.reply(shapeMask);
 
                     // Cache the PNG if the color was explicitly set
@@ -132,14 +150,17 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                         | CannotCreateSessionException e) {
                     String v = "Permission denied";
                     log.debug(v);
+                    span.error(e);
                     message.fail(403, v);
                 } catch (IllegalArgumentException e) {
                     log.debug(
                         "Illegal argument received while retrieving shape mask", e);
+                    span.error(e);
                     message.fail(400, e.getMessage());
                 } catch (Exception e) {
                     String v = "Exception while retrieving shape mask";
                     log.error(v, e);
+                    span.error(e);
                     message.fail(500, v);
                 }
             }
