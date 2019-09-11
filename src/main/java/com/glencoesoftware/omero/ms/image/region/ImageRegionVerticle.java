@@ -153,12 +153,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             message.fail(400, v);
             return;
         }
-        TraceContext traceCtx = extractor().extract(imageRegionCtx.traceContext).context();
+        TraceContext traceCtx = extractor().extract(
+                imageRegionCtx.traceContext).context();
         ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
                 "handle_render_image_region",
                 traceCtx);
         span.tag("ctx", message.body());
-        imageRegionCtx.injectCurrentTraceContext();
 
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
