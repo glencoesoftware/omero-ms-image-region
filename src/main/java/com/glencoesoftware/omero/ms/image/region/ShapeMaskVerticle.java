@@ -23,6 +23,7 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
@@ -31,11 +32,10 @@ import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext.Extractor;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 
-public class ShapeMaskVerticle extends AbstractVerticle {
+public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskVerticle.class);
@@ -48,9 +48,6 @@ public class ShapeMaskVerticle extends AbstractVerticle {
 
     /** OMERO server port */
     private final int port;
-
-    /** Zipkin Tracing*/
-    private Extractor<Map<String, String>> extractor;
 
     /**
      * Default constructor.
@@ -70,10 +67,6 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
-        extractor = Tracing.current().propagation()
-                .extractor((carrier, key) -> {
-                    return carrier.get(key);
-                });
         vertx.eventBus().<String>consumer(
                 RENDER_SHAPE_MASK_EVENT, event -> {
                     renderShapeMask(event);
@@ -96,7 +89,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
                     "handle_render_shape_mask",
-                    extractor.extract(shapeMaskCtx.traceContext).context());
+                    extractor().extract(shapeMaskCtx.traceContext).context());
             span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal shape mask context";

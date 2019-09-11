@@ -423,6 +423,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
+        shapeMaskCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>send(
