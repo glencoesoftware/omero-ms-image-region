@@ -39,7 +39,6 @@ import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
@@ -59,7 +58,6 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.RenderingStats;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
@@ -79,9 +77,6 @@ public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
-
-    /** OMERO server Spring application context. */
-    private final ApplicationContext context;
 
     /** OMERO server pixels service. */
     private final PixelsService pixelsService;
@@ -121,7 +116,7 @@ public class ImageRegionRequestHandler {
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx, ApplicationContext context,
+            ImageRegionCtx imageRegionCtx,
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             PixelsService pixService,
@@ -129,7 +124,6 @@ public class ImageRegionRequestHandler {
             int maxTileLength) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
-        this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;

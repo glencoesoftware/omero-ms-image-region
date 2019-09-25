@@ -26,11 +26,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 import com.glencoesoftware.omero.ms.core.LogSpanReporter;
 import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
@@ -86,6 +86,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
+
+    /** VerticleFactory */
+    private OmeroVerticleFactory verticleFactory;
+
+    public final static int DEFAULT_WORKER_POOL_SIZE =
+            Runtime.getRuntime().availableProcessors() * 2;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
@@ -182,26 +188,32 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
+        verticleFactory = (OmeroVerticleFactory)
+                context.getBean("omero-ms-verticlefactory");
+        vertx.registerVerticleFactory(verticleFactory);
+        log.info(vertx.verticleFactories().toString());
         // Deploy our dependency verticles
+        int workerPoolSize = Optional.ofNullable(
+                config.getInteger("worker_pool_size")
+                ).orElse(DEFAULT_WORKER_POOL_SIZE);
         JsonObject omero = config.getJsonObject("omero");
         if (omero == null) {
             throw new IllegalArgumentException(
                     "'omero' block missing from configuration");
         }
-        vertx.deployVerticle(new RedisCacheVerticle(),
-                new DeploymentOptions()
-                        .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(
-                omero.getString("host"), omero.getInteger("port"), context),
+        vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
+                new DeploymentOptions().setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
                         .setMultiThreaded(true)
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(
-                omero.getString("host"), omero.getInteger("port")),
+        vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
                         .setMultiThreaded(true)
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();

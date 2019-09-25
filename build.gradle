@@ -74,7 +74,7 @@ configurations.all {
 dependencies {
     compile 'io.prometheus:simpleclient_vertx:0.6.0'
     compile 'ch.qos.logback:logback-classic:1.2.3'
-    compile ('com.glencoesoftware.omero:omero-ms-core:0.4.2-SNAPSHOT') {
+    compile ('com.glencoesoftware.omero:omero-ms-core:0.4.3-SNAPSHOT') {
         exclude group: 'org.testng', module: 'testng'
     }
     compile 'io.vertx:vertx-config:3.5.3'
@@ -82,6 +82,7 @@ dependencies {
     compile ('omero:blitz:5.4.10-ice36-b105') {
         exclude group: 'org.testng', module: 'testng'
     }
+    compile 'org.springframework:spring-context-support:4.3.14.RELEASE'
     testCompile 'org.testng:testng:6.10'
     testCompile 'org.mockito:mockito-core:2.+'
 }

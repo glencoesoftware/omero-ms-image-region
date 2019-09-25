@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN"
-  "http://www.springframework.org/dtd/spring-beans.dtd">
-<beans>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
   <description>
         Defines the beans for the pixel data microservice.
   </description>
@@ -36,14 +36,43 @@
   <alias name="internal-ome.api.ICompress"
          alias="internal-ome.api.LocalCompress"/>
   <bean id="internal-ome.api.ICompress"
-        class="ome.logic.CompressImpl"
-        singleton="false"/>
+        class="ome.logic.CompressImpl"/>
 
   <bean id="LUTScripts" class="ome.services.scripts.ScriptFileType">
     <constructor-arg index="0" value="*.lut"/>
     <constructor-arg index="1" value="text/x-lut"/>
   </bean>
 
+  <bean id="scriptRepoRoot" class="java.io.File">
+    <constructor-arg index="0" value="${omero.script_repo_root}" />
+  </bean>
+
+  <bean id="lutProvider"
+        class="com.glencoesoftware.omero.ms.image.region.LutProviderImpl">
+    <constructor-arg ref="scriptRepoRoot" />
+    <constructor-arg ref="LUTScripts" />
+  </bean>
+
+  <bean id="maxTileLength"
+        class="java.lang.Integer">
+     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
+  </bean>
+
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
 
+  <bean id="omero-ms-image-region-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle">
+    <constructor-arg value="${omero.host:localhost}" />
+    <constructor-arg type="int" value="${omero.port:4064}" />
+    <constructor-arg ref="/OMERO/Pixels" />
+    <constructor-arg ref="internal-ome.api.ICompress" />
+    <constructor-arg ref="lutProvider" />
+    <constructor-arg ref="maxTileLength" />
+  </bean>
+
+  <bean id="omero-ms-shape-mask-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle">
+    <constructor-arg value="${omero.host:localhost}" />
+    <constructor-arg type="int" value="${omero.port:4064}" />
+  </bean>
 </beans>
