@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
@@ -73,20 +74,27 @@ public class ImageRegionCtxTest {
             "{\"reverse\": {\"enabled\": false}}]";
 
     private MultiMap params = MultiMap.caseInsensitiveMultiMap();
+    private MultiMap defaultParams = MultiMap.caseInsensitiveMultiMap();
+
+    @BeforeTest
+    public void setUpParams() throws IOException {
+        defaultParams.add("imageId", String.valueOf(imageId));
+        defaultParams.add("theZ", String.valueOf(z));
+        defaultParams.add("theT", String.valueOf(t));
+        defaultParams.add("q", String.valueOf(q));
+
+        defaultParams.add("tile", tile);
+        defaultParams.add("c", c);
+
+        defaultParams.add("region", region);
+        defaultParams.add("c", c);
+        defaultParams.add("maps", maps);
+    }
 
     @BeforeMethod
     public void setUp() throws IOException {
-        params.add("imageId", String.valueOf(imageId));
-        params.add("theZ", String.valueOf(z));
-        params.add("theT", String.valueOf(t));
-        params.add("q", String.valueOf(q));
-
-        params.add("tile", tile);
-        params.add("c", c);
-
-        params.add("region", region);
-        params.add("c", c);
-        params.add("maps", maps);
+        params.addAll(defaultParams);
+        params.setAll(defaultParams);
     }
 
     private void assertChannelInfo(ImageRegionCtx imageCtx) {
@@ -121,7 +129,7 @@ public class ImageRegionCtxTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testImageIdFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("imageId", "abc");
+        params.set("imageId", "abc");
         new ImageRegionCtx(params, "");
     }
 
@@ -135,7 +143,7 @@ public class ImageRegionCtxTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testTheZFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("theZ", "abc");
+        params.set("theZ", "abc");
         new ImageRegionCtx(params, "");
     }
 
@@ -149,42 +157,42 @@ public class ImageRegionCtxTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testTheTFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("theT", "abc");
+        params.set("theT", "abc");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testRegionFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("region", "1,2,3,abc");
+        params.set("region", "1,2,3,abc");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testChannelFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        params.set("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testChannelFormatActive()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        params.set("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testChannelFormatRange()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("c", "-1|0:65535$0000FF,1|abc:51199$00FF00,3|3218:26623$FF0000");
+        params.set("c", "-1|0:65535$0000FF,1|abc:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testQualityFormat()
             throws JsonParseException, JsonMappingException, IOException {
-        params.add("q", "abc");
+        params.set("q", "abc");
         new ImageRegionCtx(params, "");
     }
 
@@ -192,7 +200,7 @@ public class ImageRegionCtxTest {
     public void testTileShortParameters()
             throws JsonParseException, JsonMappingException, IOException {
         params.remove("region");
-        params.add("tile", String.format("%d,%d,%d", resolution, tileX, tileY));
+        params.set("tile", String.format("%d,%d,%d", resolution, tileX, tileY));
 
         ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
         String data = Json.encode(imageCtx);
