@@ -147,7 +147,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 traceCtx);
         span.tag("ctx", message.body());
 
-        log.info(Integer.toString(port));
         try (OmeroRequest request = new OmeroRequest(
                  host, port, imageRegionCtx.omeroSessionKey))
         {
