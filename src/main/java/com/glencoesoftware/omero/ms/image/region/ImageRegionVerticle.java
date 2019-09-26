@@ -35,6 +35,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
@@ -56,10 +57,10 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             "omero.render_image_region_png";
 
     /** OMERO server host */
-    private final String host;
+    private String host;
 
     /** OMERO server port */
-    private final int port;
+    private int port;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
@@ -87,19 +88,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
     public ImageRegionVerticle(
-            String host,
-            int port,
             PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength)
     {
-        this.host = host;
-        this.port = port;
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
@@ -113,6 +108,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
+        JsonObject omeroCfg = this.config().getJsonObject("omero");
+        this.host = omeroCfg.getString("host");
+        this.port = omeroCfg.getInteger("port");
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     renderImageRegion(event);

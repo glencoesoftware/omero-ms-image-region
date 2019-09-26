@@ -44,20 +44,16 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             "omero.render_shape_mask";
 
     /** OMERO server host */
-    private final String host;
+    private String host;
 
     /** OMERO server port */
-    private final int port;
+    private int port;
 
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
-    public ShapeMaskVerticle(String host, int port)
+    public ShapeMaskVerticle()
     {
-        this.host = host;
-        this.port = port;
     }
 
     /* (non-Javadoc)
@@ -67,6 +63,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
+        JsonObject omeroCfg = this.config().getJsonObject("omero");
+        this.host = omeroCfg.getString("host");
+        this.port = omeroCfg.getInteger("port");
         vertx.eventBus().<String>consumer(
                 RENDER_SHAPE_MASK_EVENT, event -> {
                     renderShapeMask(event);
