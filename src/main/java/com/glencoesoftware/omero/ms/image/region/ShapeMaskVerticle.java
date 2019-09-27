@@ -18,8 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Map;
-
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +29,6 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
-import brave.propagation.TraceContext.Extractor;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 
@@ -98,7 +95,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         }
 
         String key = shapeMaskCtx.cacheKey();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
                 try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))

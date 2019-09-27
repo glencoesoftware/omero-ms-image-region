@@ -77,8 +77,8 @@ dependencies {
     compile ('com.glencoesoftware.omero:omero-ms-core:0.4.3-SNAPSHOT') {
         exclude group: 'org.testng', module: 'testng'
     }
-    compile 'io.vertx:vertx-config:3.6.3'
-    compile 'io.vertx:vertx-config-yaml:3.6.3'
+    compile 'io.vertx:vertx-config:3.8.1'
+    compile 'io.vertx:vertx-config-yaml:3.8.1'
     compile ('omero:blitz:5.4.10-ice36-b105') {
         exclude group: 'org.testng', module: 'testng'
     }
