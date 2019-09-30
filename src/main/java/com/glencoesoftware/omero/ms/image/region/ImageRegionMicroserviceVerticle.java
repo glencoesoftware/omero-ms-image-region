@@ -89,8 +89,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** VerticleFactory */
     private OmeroVerticleFactory verticleFactory;
 
-    public final static int DEFAULT_WORKER_POOL_SIZE =
-            Runtime.getRuntime().availableProcessors() * 2;
+    public int DEFAULT_WORKER_POOL_SIZE;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
@@ -112,6 +111,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> prom) {
         log.info("Starting verticle");
+
+        DEFAULT_WORKER_POOL_SIZE =
+                Runtime.getRuntime().availableProcessors() * 2;
 
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
