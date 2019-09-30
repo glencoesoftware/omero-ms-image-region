@@ -7,7 +7,7 @@ plugins {
 group = 'com.glencoesoftware.omero'
 version = '0.4.6-SNAPSHOT'
 
-mainClassName = 'io.vertx.core.Starter'
+mainClassName = 'io.vertx.core.Launcher'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
