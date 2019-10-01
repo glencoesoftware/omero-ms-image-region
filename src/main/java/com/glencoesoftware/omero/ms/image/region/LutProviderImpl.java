@@ -52,7 +52,7 @@ public class LutProviderImpl implements LutProvider {
                         script.fullname(), e);
             }
         }
-        log.info("Successfully added {} LUTs", lutReaders.size());
+        log.info("Successfully added {} LUTs from {}", lutReaders.size(), root);
     }
 
     /* (non-Javadoc)
