@@ -36,7 +36,8 @@
   <alias name="internal-ome.api.ICompress"
          alias="internal-ome.api.LocalCompress"/>
   <bean id="internal-ome.api.ICompress"
-        class="ome.logic.CompressImpl"/>
+        class="ome.logic.CompressImpl"
+        scope="prototype"/>
 
   <bean id="LUTScripts" class="ome.services.scripts.ScriptFileType">
     <constructor-arg index="0" value="*.lut"/>
