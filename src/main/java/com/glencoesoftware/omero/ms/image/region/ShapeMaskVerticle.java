@@ -29,6 +29,7 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 
@@ -54,21 +55,26 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     }
 
     /* (non-Javadoc)
-     * @see io.vertx.core.AbstractVerticle#start()
+     * @see io.vertx.core.Verticle#start(io.vertx.core.Promise)
      */
     @Override
-    public void start() {
-        JsonObject omero = config().getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
+    public void start(Promise<Void> startPromise) {
+        try {
+            JsonObject omero = config().getJsonObject("omero");
+            if (omero == null) {
+                throw new IllegalArgumentException(
+                        "'omero' block missing from configuration");
+            }
+            host = omero.getString("host");
+            port = omero.getInteger("port");
+            vertx.eventBus().<String>consumer(
+                    RENDER_SHAPE_MASK_EVENT, event -> {
+                        renderShapeMask(event);
+                    });
+        } catch (Exception e) {
+            startPromise.fail(e);
         }
-        host = omero.getString("host");
-        port = omero.getInteger("port");
-        vertx.eventBus().<String>consumer(
-                RENDER_SHAPE_MASK_EVENT, event -> {
-                    renderShapeMask(event);
-                });
+        startPromise.complete();
     }
 
     /**
