@@ -202,11 +202,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
+                        .setInstances(workerPoolSize)
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
         vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
+                        .setInstances(workerPoolSize)
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
