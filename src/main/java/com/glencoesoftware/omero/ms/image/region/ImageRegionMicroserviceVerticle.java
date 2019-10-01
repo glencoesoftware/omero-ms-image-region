@@ -198,11 +198,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         int workerPoolSize = Optional.ofNullable(
                 config.getInteger("worker_pool_size")
                 ).orElse(DEFAULT_WORKER_POOL_SIZE);
-        JsonObject omero = config.getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
-        }
         vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
                 new DeploymentOptions().setConfig(config));
         vertx.deployVerticle("omero:omero-ms-image-region-verticle",

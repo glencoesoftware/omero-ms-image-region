@@ -108,9 +108,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public void start() {
         log.info("Starting verticle");
 
-        JsonObject omeroCfg = this.config().getJsonObject("omero");
-        this.host = omeroCfg.getString("host");
-        this.port = omeroCfg.getInteger("port");
+        JsonObject omero = config().getJsonObject("omero");
+        if (omero == null) {
+            throw new IllegalArgumentException(
+                    "'omero' block missing from configuration");
+        }
+        host = omero.getString("host");
+        port = omero.getInteger("port");
         vertx.eventBus().<String>consumer(
                 RENDER_IMAGE_REGION_EVENT, event -> {
                     renderImageRegion(event);
