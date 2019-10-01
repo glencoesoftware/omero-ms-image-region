@@ -89,7 +89,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** VerticleFactory */
     private OmeroVerticleFactory verticleFactory;
 
-    public int DEFAULT_WORKER_POOL_SIZE;
+    /** Default number of workers to be assigned to the worker verticle */
+    private int DEFAULT_WORKER_POOL_SIZE;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
