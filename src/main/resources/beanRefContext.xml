@@ -54,11 +54,6 @@
     <constructor-arg ref="LUTScripts" />
   </bean>
 
-  <bean id="maxTileLength"
-        class="java.lang.Integer">
-     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-  </bean>
-
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
 
   <bean id="omero-ms-image-region-verticle"
@@ -66,7 +61,7 @@
     <constructor-arg ref="/OMERO/Pixels" />
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
-    <constructor-arg ref="maxTileLength" />
+    <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
