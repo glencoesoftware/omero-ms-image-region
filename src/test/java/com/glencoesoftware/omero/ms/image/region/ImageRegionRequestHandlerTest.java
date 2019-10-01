@@ -56,7 +56,6 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx = new ImageRegionCtx(params, "");
         reqHandler = new ImageRegionRequestHandler(
                 imageRegionCtx,
-                null, //ApplicationContext context,
                 new ArrayList<Family>(),
                 new ArrayList<RenderingModel>(),
                 null, //LutProvider lutProvider,

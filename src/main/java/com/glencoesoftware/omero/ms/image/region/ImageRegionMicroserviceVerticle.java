@@ -26,11 +26,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
 import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
 import com.glencoesoftware.omero.ms.core.LogSpanReporter;
 import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
@@ -40,8 +40,8 @@ import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
@@ -53,7 +53,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CookieHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
 import zipkin2.Span;
@@ -87,6 +86,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
+    /** VerticleFactory */
+    private OmeroVerticleFactory verticleFactory;
+
+    /** Default number of workers to be assigned to the worker verticle */
+    private int DEFAULT_WORKER_POOL_SIZE;
+
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
 
@@ -105,8 +110,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * our current OMERO.web session store.
      */
     @Override
-    public void start(Future<Void> future) {
+    public void start(Promise<Void> prom) {
         log.info("Starting verticle");
+
+        DEFAULT_WORKER_POOL_SIZE =
+                Runtime.getRuntime().availableProcessors() * 2;
 
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
@@ -121,9 +129,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .addStore(store));
         retriever.getConfig(ar -> {
             try {
-                deploy(ar.result(), future);
+                deploy(ar.result(), prom);
             } catch (Exception e) {
-                future.fail(e);
+                prom.fail(e);
             }
         });
     }
@@ -133,7 +141,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * configuration.
      * @param config Current configuration
      */
-    public void deploy(JsonObject config, Future<Void> future) {
+    public void deploy(JsonObject config, Promise<Void> prom) {
         log.info("Deploying verticle");
 
         // Set OMERO.server configuration options using system properties
@@ -182,26 +190,28 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
+        verticleFactory = (OmeroVerticleFactory)
+                context.getBean("omero-ms-verticlefactory");
+        vertx.registerVerticleFactory(verticleFactory);
         // Deploy our dependency verticles
-        JsonObject omero = config.getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
-        }
-        vertx.deployVerticle(new RedisCacheVerticle(),
-                new DeploymentOptions()
-                        .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(
-                omero.getString("host"), omero.getInteger("port"), context),
+        int workerPoolSize = Optional.ofNullable(
+                config.getInteger("worker_pool_size")
+                ).orElse(DEFAULT_WORKER_POOL_SIZE);
+        vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
+                new DeploymentOptions().setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
-                        .setMultiThreaded(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolName("render-image-region-pool")
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(
-                omero.getString("host"), omero.getInteger("port")),
+        vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
-                        .setMultiThreaded(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolName("render-shape-mask-pool")
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();
@@ -241,9 +251,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Get ImageRegion Microservice Information
         router.options().handler(this::getMicroserviceDetails);
-
-        // Cookie handler so we can pick up the OMERO.web session
-        router.route().handler(CookieHandler.create());
 
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
@@ -288,11 +295,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
-        server.requestHandler(router::accept).listen(port, result -> {
+        server.requestHandler(router).listen(port, result -> {
             if (result.succeeded()) {
-                future.complete();
+                prom.complete();
             } else {
-                future.fail(result.cause());
+                prom.fail(result.cause());
             }
         });
     }
@@ -368,7 +375,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         imageRegionCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             try {
@@ -426,7 +433,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         shapeMaskCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {

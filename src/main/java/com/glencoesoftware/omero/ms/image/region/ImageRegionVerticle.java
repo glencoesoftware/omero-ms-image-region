@@ -18,15 +18,12 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
@@ -37,11 +34,11 @@ import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.services.scripts.ScriptFileType;
-import ome.system.PreferenceContext;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
@@ -61,25 +58,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             "omero.render_image_region_png";
 
     /** OMERO server host */
-    private final String host;
+    private String host;
 
     /** OMERO server port */
-    private final int port;
-
-    /** OMERO server Spring application context. */
-    private ApplicationContext context;
-
-    /** OMERO server wide preference context. */
-    private final PreferenceContext preferences;
+    private int port;
 
     /** Lookup table provider. */
     private final LutProvider lutProvider;
-
-    /** Lookup table OMERO script file type */
-    private final ScriptFileType lutType;
-
-    /** Path to the script repository root. */
-    private final String scriptRepoRoot;
 
     /**
      * Mapper between <code>omero.model</code> client side Ice backed objects
@@ -93,43 +78,51 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
+    /** OMERO server pixels service */
+    private final PixelsService pixelsService;
+
+    /** Reference to the compression service */
+    private final LocalCompress compressionService;
+
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
     public ImageRegionVerticle(
-            String host, int port, ApplicationContext context)
+            PixelsService pixelsService,
+            LocalCompress compressionService,
+            LutProvider lutProvider,
+            int maxTileLength)
     {
-        this.host = host;
-        this.port = port;
-        this.context = context;
-        this.preferences =
-                (PreferenceContext) this.context.getBean("preferenceContext");
-        scriptRepoRoot = preferences.getProperty("omero.script_repo_root");
-        lutType = (ScriptFileType) context.getBean("LUTScripts");
-        lutProvider = new LutProviderImpl(new File(scriptRepoRoot), lutType);
-        maxTileLength = Integer.parseInt(
-            Optional.ofNullable(
-                preferences.getProperty("omero.pixeldata.max_tile_length")
-            ).orElse("2048").toLowerCase()
-        );
+        this.pixelsService = pixelsService;
+        this.compressionService = compressionService;
+        this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
     }
 
     /* (non-Javadoc)
-     * @see io.vertx.core.AbstractVerticle#start()
+     * @see io.vertx.core.Verticle#start(io.vertx.core.Promise)
      */
     @Override
-    public void start() {
-        log.info("Starting verticle");
-
-        vertx.eventBus().<String>consumer(
-                RENDER_IMAGE_REGION_EVENT, event -> {
-                    renderImageRegion(event);
-                });
+    public void start(Promise<Void> startPromise) {
+        try {
+            JsonObject omero = config().getJsonObject("omero");
+            if (omero == null) {
+                throw new IllegalArgumentException(
+                        "'omero' block missing from configuration");
+            }
+            host = omero.getString("host");
+            port = omero.getInteger("port");
+            vertx.eventBus().<String>consumer(
+                    RENDER_IMAGE_REGION_EVENT, event -> {
+                        renderImageRegion(event);
+                    });
+        } catch (Exception e) {
+            startPromise.fail(e);
+        }
+        startPromise.complete();
     }
 
     /**
@@ -169,14 +162,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-
-            PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-            LocalCompress compressionService =
-                (LocalCompress) context.getBean("internal-ome.api.ICompress");
             byte[] imageRegion = request.execute(
                     new ImageRegionRequestHandler(
-                            imageRegionCtx, context, families,
-                            renderingModels, lutProvider,
+                            imageRegionCtx,
+                            families,
+                            renderingModels,
+                            lutProvider,
                             pixelsService,
                             compressionService,
                             maxTileLength)::renderImageRegion);

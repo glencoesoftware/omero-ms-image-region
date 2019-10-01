@@ -171,7 +171,7 @@ Eclipse Configuration
         cp src/dist/conf/config.yaml conf/
         # Edit as appropriate
 
-1. Add a new Run Configuration with a main class of `io.vertx.core.Starter`::
+1. Add a new Run Configuration with a main class of `io.vertx.core.Launcher`::
 
         run "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle"
 

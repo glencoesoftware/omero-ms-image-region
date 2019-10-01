@@ -18,8 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Map;
-
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +29,7 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
-import brave.propagation.TraceContext.Extractor;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 
@@ -44,33 +42,39 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             "omero.render_shape_mask";
 
     /** OMERO server host */
-    private final String host;
+    private String host;
 
     /** OMERO server port */
-    private final int port;
+    private int port;
 
     /**
      * Default constructor.
-     * @param host OMERO server host.
-     * @param port OMERO server port.
      */
-    public ShapeMaskVerticle(String host, int port)
+    public ShapeMaskVerticle()
     {
-        this.host = host;
-        this.port = port;
     }
 
     /* (non-Javadoc)
-     * @see io.vertx.core.AbstractVerticle#start()
+     * @see io.vertx.core.Verticle#start(io.vertx.core.Promise)
      */
     @Override
-    public void start() {
-        log.info("Starting verticle");
-
-        vertx.eventBus().<String>consumer(
-                RENDER_SHAPE_MASK_EVENT, event -> {
-                    renderShapeMask(event);
-                });
+    public void start(Promise<Void> startPromise) {
+        try {
+            JsonObject omero = config().getJsonObject("omero");
+            if (omero == null) {
+                throw new IllegalArgumentException(
+                        "'omero' block missing from configuration");
+            }
+            host = omero.getString("host");
+            port = omero.getInteger("port");
+            vertx.eventBus().<String>consumer(
+                    RENDER_SHAPE_MASK_EVENT, event -> {
+                        renderShapeMask(event);
+                    });
+        } catch (Exception e) {
+            startPromise.fail(e);
+        }
+        startPromise.complete();
     }
 
     /**
@@ -99,7 +103,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         }
 
         String key = shapeMaskCtx.cacheKey();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
             RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
                 try (OmeroRequest request = new OmeroRequest(
                          host, port, shapeMaskCtx.omeroSessionKey))
