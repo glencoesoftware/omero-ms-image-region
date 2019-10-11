@@ -157,7 +157,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
-                "classpath*:beanRefContext.xml");
+                "classpath*:beanRefContext.xml",
+                "classpath*:omeroPixels.xml");
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
@@ -272,7 +273,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "Missing/invalid value for 'session-store.type' in config");
         }
         router.route().handler(
-                new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
+                new OmeroWebSessionRequestHandler(config, sessionStore));
 
         // ImageRegion request handlers
         router.get(
