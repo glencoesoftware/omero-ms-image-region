@@ -53,7 +53,8 @@
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
 
   <bean id="omero-ms-image-region-verticle"
-        class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle">
+        class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
+        scope="prototype">
     <constructor-arg ref="/OMERO/Pixels" />
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
@@ -61,6 +62,7 @@
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
-        class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle">
+        class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
+        scope="prototype">
   </bean>
 </beans>
