@@ -197,11 +197,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
-        new BuildInfoCollector().register();
-        try {
-            new JmxCollector(JMX_CONFIG).register();
-        } catch (Exception e) {
-            log.error("Error setting up JMX Metrics", e);
+        if(config.containsKey("jmx-metrics-enabled") && config.getBoolean("jmx-metrics-enabled")) {
+            log.info("JMX Metrics Enabled");
+            new BuildInfoCollector().register();
+            try {
+                new JmxCollector(JMX_CONFIG).register();
+            } catch (Exception e) {
+                log.error("Error setting up JMX Metrics", e);
+            }
+        }
+        else {
+            log.info("JMX Metrics NOT Enabled");
         }
 
         verticleFactory = (OmeroVerticleFactory)
