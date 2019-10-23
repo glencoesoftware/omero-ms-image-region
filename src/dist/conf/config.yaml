@@ -35,7 +35,7 @@ http-tracing:
     enabled: false
     zipkin-url: "http://localhost:9411/api/v2/spans"
 
-#Enable JMX Prometheus Metrics
+# Enable JMX Prometheus Metrics
 jmx-metrics:
     enabled: true
 
@@ -51,10 +51,5 @@ session-store:
     uri: "jdbc:postgresql://localhost:5432/omero_database?user=omero&password=omero"
     # uri: "redis://:password@localhost:6379/1"
 
-# Pixels metadata cache configuration.  Uses the "redis-cache" configured above
-# to avoid round trips to the server to retrieve the same set of Pixels
-# metadata.
-pixels-metadata-cache:
-    enabled: false
-#The string to be used as the Cache-Control header provided in responses
+# The string to be used as the Cache-Control header provided in responses
 cache-control-header: "private, max-age=3600"
