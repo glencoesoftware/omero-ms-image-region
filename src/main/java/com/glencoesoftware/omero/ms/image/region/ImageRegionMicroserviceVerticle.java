@@ -62,6 +62,8 @@ import brave.Tracing;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;
 import io.prometheus.client.vertx.MetricsHandler;
+import io.prometheus.jmx.BuildInfoCollector;
+import io.prometheus.jmx.JmxCollector;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -70,6 +72,10 @@ import io.prometheus.client.vertx.MetricsHandler;
  *
  */
 public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
+
+    private static final String JMX_CONFIG =
+        "---\n"
+        + "startDelaySeconds: 0\n";
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionMicroserviceVerticle.class);
@@ -190,6 +196,23 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     .build();
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
+
+        JsonObject jmxMetricsConfig =
+                config.getJsonObject("jmx-metrics", new JsonObject());
+        Boolean jmxMetricsEnabled =
+                jmxMetricsConfig.getBoolean("enabled", false);
+        if (jmxMetricsEnabled) {
+            log.info("JMX Metrics Enabled");
+            new BuildInfoCollector().register();
+            try {
+                new JmxCollector(JMX_CONFIG).register();
+            } catch (Exception e) {
+                log.error("Error setting up JMX Metrics", e);
+            }
+        }
+        else {
+            log.info("JMX Metrics NOT Enabled");
+        }
 
         verticleFactory = (OmeroVerticleFactory)
                 context.getBean("omero-ms-verticlefactory");
