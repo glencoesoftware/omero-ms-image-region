@@ -36,7 +36,8 @@ http-tracing:
     zipkin-url: "http://localhost:9411/api/v2/spans"
 
 #Enable JMX Prometheus Metrics
-jmx-metrics-enabled: false
+jmx-metrics:
+    enabled: true
 
 # Information about the session store.
 session-store:

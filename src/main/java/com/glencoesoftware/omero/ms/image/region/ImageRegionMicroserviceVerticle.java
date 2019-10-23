@@ -197,7 +197,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
-        if(config.containsKey("jmx-metrics-enabled") && config.getBoolean("jmx-metrics-enabled")) {
+        JsonObject jmxMetricsConfig =
+                config.getJsonObject("jmx-metrics", new JsonObject());
+        Boolean jmxMetricsEnabled =
+                jmxMetricsConfig.getBoolean("enabled", false);
+        if (jmxMetricsEnabled) {
             log.info("JMX Metrics Enabled");
             new BuildInfoCollector().register();
             try {
