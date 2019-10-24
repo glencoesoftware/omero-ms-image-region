@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import javax.swing.JSpinner.DefaultEditor;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -64,6 +66,7 @@ import brave.sampler.Sampler;
 import io.prometheus.client.vertx.MetricsHandler;
 import io.prometheus.jmx.BuildInfoCollector;
 import io.prometheus.jmx.JmxCollector;
+import io.prometheus.client.hotspot.DefaultExports;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -206,6 +209,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             new BuildInfoCollector().register();
             try {
                 new JmxCollector(JMX_CONFIG).register();
+                DefaultExports.initialize();
             } catch (Exception e) {
                 log.error("Error setting up JMX Metrics", e);
             }
