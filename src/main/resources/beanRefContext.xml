@@ -65,6 +65,8 @@
      <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
   </bean>
   
+  <alias name="internal-ome.api.ICompress"
+         alias="internal-ome.api.LocalCompress"/>
   <bean id="internal-ome.api.ICompress"
         class="ome.logic.CompressImpl"
         scope="prototype"/>
