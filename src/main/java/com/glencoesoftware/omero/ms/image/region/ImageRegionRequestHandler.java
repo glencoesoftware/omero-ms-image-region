@@ -41,14 +41,14 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import ome.api.local.LocalCompress;
@@ -186,16 +186,16 @@ public class ImageRegionRequestHandler {
             return CompletableFuture.completedFuture(canRead);
         } else {
             log.debug("Can read {} cache miss", imageRegionCtx.cacheKey);
-            StopWatch t0 = new Slf4JStopWatch("canRead");
+            ScopedSpan span = Tracing.currentTracer().startScopedSpan("canRead");
             CompletableFuture<Boolean> promise = new CompletableFuture<>();
-            vertx.eventBus().<Boolean>send(
+            vertx.eventBus().<Boolean>request(
                 CAN_READ_EVENT, data, result -> {
                     if (result.failed()) {
-                        t0.stop();
+                        span.finish();
                         promise.completeExceptionally(result.cause());
                         return;
                     }
-                    t0.stop();
+                    span.finish();
                     //Put the result in the cache
                     Boolean v = result.result().body();
                     canReadCache.put(imageRegionCtx.cacheKey, v);
@@ -219,7 +219,7 @@ public class ImageRegionRequestHandler {
 
         CompletableFuture<byte[]> future = new CompletableFuture<>();
         String key = imageRegionCtx.cacheKey();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
             if (result.failed()) {
                 future.completeExceptionally(result.cause());
@@ -300,11 +300,11 @@ public class ImageRegionRequestHandler {
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels) {
-        Slf4JStopWatch t0 = new Slf4JStopWatch("PixelsService.getPixelBuffer");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("PixelsService.getPixelBuffer");
         try {
             return pixelsService.getPixelBuffer(pixels,false);
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 
@@ -340,12 +340,12 @@ public class ImageRegionRequestHandler {
         final JsonObject data = new JsonObject();
         data.put("sessionKey", imageRegionCtx.omeroSessionKey);
         data.put("imageId", imageRegionCtx.imageId);
-        StopWatch t0 = new Slf4JStopWatch(GET_PIXELS_DESCRIPTION_EVENT);
-        vertx.eventBus().<byte[]>send(
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan(GET_PIXELS_DESCRIPTION_EVENT);
+        vertx.eventBus().<byte[]>request(
                 GET_PIXELS_DESCRIPTION_EVENT, data, result -> {
             try {
                 if (result.failed()) {
-                    t0.stop();
+                    span.finish();
                     promise.completeExceptionally(result.cause());
                     return;
                 }
@@ -354,7 +354,7 @@ public class ImageRegionRequestHandler {
                 ByteArrayInputStream bais = new ByteArrayInputStream(body);
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Pixels pixels = (Pixels) ois.readObject();
-                t0.stop();
+                span.finish();
                 promise.complete(pixels);
 
                 // Cache the pixels metadata
@@ -368,7 +368,7 @@ public class ImageRegionRequestHandler {
                 }
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
-                t0.stop();
+                span.finish();
                 promise.completeExceptionally(e);
             }
         });
@@ -388,7 +388,7 @@ public class ImageRegionRequestHandler {
         }
 
         CompletableFuture<Pixels> future = new CompletableFuture<>();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key, result -> {
             if (result.failed()) {
                 future.completeExceptionally(result.cause());
@@ -499,7 +499,7 @@ public class ImageRegionRequestHandler {
                     throws IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
-        StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("Renderer.renderAsPackedInt");
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -519,8 +519,7 @@ public class ImageRegionRequestHandler {
                         if (!channelBindings[i].getActive()) {
                             continue;
                         }
-                        StopWatch t1 = new Slf4JStopWatch(
-                                "ProjectionService.projectStack");
+                        ScopedSpan span2 = Tracing.currentTracer().startScopedSpan("ProjectionService.projectStack");
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
@@ -533,7 +532,7 @@ public class ImageRegionRequestHandler {
                                 end
                             );
                         } finally {
-                            t1.stop();
+                            span.finish();
                         }
                         projectedSizeC++;
                     }
@@ -558,7 +557,7 @@ public class ImageRegionRequestHandler {
             }
             buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
-            t0.stop();
+            span.finish();
             if (log.isDebugEnabled()) {
                 RenderingStats stats = renderer.getStats();
                 if (stats != null) {

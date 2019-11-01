@@ -36,10 +36,10 @@ import java.util.concurrent.CompletableFuture;
 
 import javax.imageio.ImageIO;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
@@ -165,7 +165,7 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        StopWatch t0 = new Slf4JStopWatch("renderShapeMask");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("renderShapeMask");
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
@@ -202,7 +202,7 @@ public class ShapeMaskRequestHandler {
             ImageIO.write(image, "png", output);
             return output.toByteArray();
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 
@@ -230,14 +230,14 @@ public class ShapeMaskRequestHandler {
         data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
         data.put("type", type);
         data.put("id", id);
-        StopWatch t0 = new Slf4JStopWatch("canRead");
-        vertx.eventBus().<Boolean>send(CAN_READ_EVENT, data, result -> {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("canRead");
+        vertx.eventBus().<Boolean>request(CAN_READ_EVENT, data, result -> {
             if (result.failed()) {
-                t0.stop();
+                span.finish();
                 promise.completeExceptionally(result.cause());
                 return;
             }
-            t0.stop();
+            span.finish();
             promise.complete(result.result().body());
         });
         return promise;
@@ -253,11 +253,11 @@ public class ShapeMaskRequestHandler {
         data.put("type", type);
         data.put("id", id);
         log.info("getMask Type: {} Id: {}", type, id);
-        StopWatch t0 = new Slf4JStopWatch("getMask");
-        vertx.eventBus().<byte[]>send(GET_OBJECT_EVENT, data, result -> {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("getMask");
+        vertx.eventBus().<byte[]>request(GET_OBJECT_EVENT, data, result -> {
             try {
                 if (result.failed()) {
-                    t0.stop();
+                    span.finish();
                     promise.completeExceptionally(result.cause());
                     return;
                 }
@@ -265,11 +265,11 @@ public class ShapeMaskRequestHandler {
                         new ByteArrayInputStream(result.result().body());
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Mask mask = (Mask) ois.readObject();
-                t0.stop();
+                span.finish();
                 promise.complete(mask);
             } catch (IOException | ClassNotFoundException e) {
                 log.error("Exception while decoding object in response", e);
-                t0.stop();
+                span.finish();
                 promise.completeExceptionally(e);
             }
         });

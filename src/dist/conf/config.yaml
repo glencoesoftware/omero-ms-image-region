@@ -47,6 +47,15 @@ session-store:
 redis-cache:
     uri: "redis://password@localhost:7379/1"
 
+# Configuration for zipkin http tracing
+http-tracing:
+    enabled: true
+    zipkin-url: "http://localhost:9411/api/v2/spans"
+
+# Enable JMX Prometheus Metrics
+jmx-metrics:
+    enabled: true
+
 # Image region cache configuration.  Uses the "redis-cache" configured above
 # to avoid round trips to the server when the same region has already been
 # rendered.

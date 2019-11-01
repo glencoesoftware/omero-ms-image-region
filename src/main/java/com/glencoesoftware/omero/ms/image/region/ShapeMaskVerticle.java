@@ -20,13 +20,14 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.function.BiConsumer;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
@@ -34,7 +35,7 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
 
-public class ShapeMaskVerticle extends AbstractVerticle {
+public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskVerticle.class);
@@ -67,9 +68,16 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     private void getShapeMask(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
         try {
+            String body = message.body();
             shapeMaskCtx = mapper.readValue(
-                    message.body(), ShapeMaskCtx.class);
+                    body, ShapeMaskCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "getShapeMask",
+                    extractor().extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
+
         } catch (Exception e) {
             String v = "Illegal shape mask context";
             log.error(v + ": {}", message.body(), e);
@@ -80,8 +88,7 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
-        StopWatch t0 = new Slf4JStopWatch("getShapeMask");
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key,
                 new Handler<AsyncResult<Message<byte[]>>>() {
             @Override
@@ -99,21 +106,21 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                             if (throwable instanceof ReplyException) {
                                 // Downstream event handling failure,
                                 // propagate it
-                                t0.stop();
+                                span.finish();
                                 message.fail(
                                     ((ReplyException) throwable).failureCode(),
                                     throwable.getMessage());
                             } else {
                                 String s = "Internal error";
                                 log.error(s, throwable);
-                                t0.stop();
+                                span.finish();
                                 message.fail(500, s);
                             }
                             return;
                         }
 
                         if (cachedMask != null && readable) {
-                            t0.stop();
+                            span.finish();
                             message.reply(cachedMask);
                             return;
                         }
@@ -129,12 +136,12 @@ public class ShapeMaskVerticle extends AbstractVerticle {
                                             "Exception while rendering mask",
                                             renderThrowable);
                                     }
-                                    t0.stop();
+                                    span.finish();
                                     message.fail(404, "Cannot render Mask:" +
                                             shapeMaskCtx.shapeId);
                                     return;
                                 }
-                                t0.stop();
+                                span.finish();
                                 message.reply(renderedMask);
 
                                 // Cache the PNG if the color was explicitly set
