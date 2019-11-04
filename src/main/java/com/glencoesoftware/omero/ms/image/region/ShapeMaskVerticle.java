@@ -74,7 +74,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             shapeMaskCtx = mapper.readValue(
                     body, ShapeMaskCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
-                    "getShapeMask",
+                    "get_shape_mask",
                     extractor().extract(shapeMaskCtx.traceContext).context());
             span.tag("ctx", body);
 

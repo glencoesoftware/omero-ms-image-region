@@ -186,7 +186,7 @@ public class ImageRegionRequestHandler {
             return CompletableFuture.completedFuture(canRead);
         } else {
             log.debug("Can read {} cache miss", imageRegionCtx.cacheKey);
-            ScopedSpan span = Tracing.currentTracer().startScopedSpan("canRead");
+            ScopedSpan span = Tracing.currentTracer().startScopedSpan("can_read");
             CompletableFuture<Boolean> promise = new CompletableFuture<>();
             vertx.eventBus().<Boolean>request(
                 CAN_READ_EVENT, data, result -> {
@@ -300,7 +300,7 @@ public class ImageRegionRequestHandler {
     }
 
     private PixelBuffer getPixelBuffer(Pixels pixels) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("PixelsService.getPixelBuffer");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("PixelsService.get_pixel_buffer");
         try {
             return pixelsService.getPixelBuffer(pixels,false);
         } finally {
@@ -499,7 +499,7 @@ public class ImageRegionRequestHandler {
                     throws IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("Renderer.renderAsPackedInt");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("Renderer.render_as_packed_int");
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -519,7 +519,7 @@ public class ImageRegionRequestHandler {
                         if (!channelBindings[i].getActive()) {
                             continue;
                         }
-                        ScopedSpan span2 = Tracing.currentTracer().startScopedSpan("ProjectionService.projectStack");
+                        ScopedSpan span2 = Tracing.currentTracer().startScopedSpan("ProjectionService.project_stack");
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,

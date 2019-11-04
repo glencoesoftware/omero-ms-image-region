@@ -164,7 +164,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         log.debug("Render image region request with data: {}", message.body());
         TraceContext traceCtx = extractor().extract(imageRegionCtx.traceContext).context();
         ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
-                "getImageRegion",
+                "get_image_region",
                 traceCtx);
         span.tag("ctx", message.body());
         renderImageRegion(imageRegionCtx)

@@ -165,7 +165,7 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("renderShapeMask");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("render_shape_mask");
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
@@ -230,7 +230,7 @@ public class ShapeMaskRequestHandler {
         data.put("sessionKey", shapeMaskCtx.omeroSessionKey);
         data.put("type", type);
         data.put("id", id);
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("canRead");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("can_read");
         vertx.eventBus().<Boolean>request(CAN_READ_EVENT, data, result -> {
             if (result.failed()) {
                 span.finish();
@@ -253,7 +253,7 @@ public class ShapeMaskRequestHandler {
         data.put("type", type);
         data.put("id", id);
         log.info("getMask Type: {} Id: {}", type, id);
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("getMask");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_mask");
         vertx.eventBus().<byte[]>request(GET_OBJECT_EVENT, data, result -> {
             try {
                 if (result.failed()) {
