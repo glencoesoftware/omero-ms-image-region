@@ -47,12 +47,10 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -63,7 +61,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CookieHandler;
 
 import zipkin2.Span;
 import zipkin2.reporter.AsyncReporter;
@@ -137,16 +134,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 vertx, new ConfigRetrieverOptions()
                         .setIncludeDefaultStores(true)
                         .addStore(store));
-        retriever.getConfig(new Handler<AsyncResult<JsonObject>>() {
-            @Override
-            public void handle(AsyncResult<JsonObject> ar) {
+        retriever.getConfig(
+            ar -> {
                 try {
                     deploy(ar.result(), promise);
                 } catch (Exception e) {
                     promise.fail(e);
                 }
             }
-        });
+        );
     }
 
     /**
@@ -283,9 +279,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // Get ImageRegion Microservice Information
         router.options().handler(this::getMicroserviceDetails);
 
-        // Cookie handler so we can pick up the OMERO.web session
-        router.route().handler(CookieHandler.create());
-
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
         JsonObject sessionStoreConfig = config.getJsonObject("session-store");
@@ -330,14 +323,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
         server.requestHandler(router).listen(port,
-            new Handler<AsyncResult<HttpServer>>() {
-                @Override
-                public void handle(AsyncResult<HttpServer> result) {
-                    if (result.succeeded()) {
-                        promise.complete();
-                    } else {
-                        promise.fail(result.cause());
-                    }
+            result -> {
+                if (result.succeeded()) {
+                    promise.complete();
+                } else {
+                    promise.fail(result.cause());
                 }
             }
         );
@@ -412,9 +402,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>request(
             ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-            Json.encode(imageRegionCtx), new Handler<AsyncResult<Message<byte[]>>>() {
-                @Override
-                public void handle(AsyncResult<Message<byte[]>> result) {
+            Json.encode(imageRegionCtx),
+                result -> {
                     try {
                         if (result.failed()) {
                             Throwable t = result.cause();
@@ -451,9 +440,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     } finally {
                         log.debug("Response ended");
                     }
-                }
-            }
-        );
+                });
     }
 
     /**
@@ -474,35 +461,32 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>request(
             ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
-            Json.encode(shapeMaskCtx), new Handler<AsyncResult<Message<byte[]>>>() {
-                @Override
-                public void handle(AsyncResult<Message<byte[]>> result){
-                    try {
-                        if (result.failed()) {
-                            Throwable t = result.cause();
-                            int statusCode = 404;
-                            if (t instanceof ReplyException) {
-                                statusCode = ((ReplyException) t).failureCode();
-                            }
-                            if (!response.closed()) {
-                                response.setStatusCode(statusCode).end();
-                            }
-                            return;
+            Json.encode(shapeMaskCtx),
+            result -> {
+                try {
+                    if (result.failed()) {
+                        Throwable t = result.cause();
+                        int statusCode = 404;
+                        if (t instanceof ReplyException) {
+                            statusCode = ((ReplyException) t).failureCode();
                         }
-                        byte[] shapeMask = result.result().body();
-                        response.headers().set("Content-Type", "image/png");
-                        response.headers().set(
-                                "Content-Length",
-                                String.valueOf(shapeMask.length));
                         if (!response.closed()) {
-                            response.end(Buffer.buffer(shapeMask));
+                            response.setStatusCode(statusCode).end();
                         }
-                    } finally {
-                        log.debug("Response ended");
+                        return;
                     }
+                    byte[] shapeMask = result.result().body();
+                    response.headers().set("Content-Type", "image/png");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(shapeMask.length));
+                    if (!response.closed()) {
+                        response.end(Buffer.buffer(shapeMask));
+                    }
+                } finally {
+                    log.debug("Response ended");
                 }
-            }
-        );
+            });
     }
 
     /**

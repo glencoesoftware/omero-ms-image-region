@@ -21,12 +21,9 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.Map;
 import java.util.Set;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,9 +33,6 @@ import com.hazelcast.core.HazelcastInstance;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Handler;
-import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
@@ -131,11 +125,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                  pixelsMetadataCacheConfig.getBoolean("enabled", false);
 
         vertx.eventBus().<String>consumer(
-            RENDER_IMAGE_REGION_EVENT, new Handler<Message<String>>() {
-                @Override
-                public void handle(Message<String> event){
+            RENDER_IMAGE_REGION_EVENT, event -> {
                     getImageRegion(event);
-                }
             }
         );
     }
@@ -168,9 +159,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 traceCtx);
         span.tag("ctx", message.body());
         renderImageRegion(imageRegionCtx)
-        .whenComplete(new BiConsumer<byte[], Throwable>() {
-            @Override
-            public void accept(byte[] imageRegion, Throwable t) {
+        .whenComplete(
+            (imageRegion, t) -> {
                 if (t != null) {
                     if (t instanceof ReplyException) {
                         // Downstream event handling failure, propagate it
@@ -191,8 +181,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     span.finish();
                     message.reply(imageRegion);
                 }
-            };
-        });
+            }
+        );
     }
 
     /**
