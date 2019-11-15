@@ -165,7 +165,11 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height)
                     throws IOException {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("render_shape_mask");
+        ScopedSpan span = null;
+        if(Tracing.currentTracer() != null) {
+            span =
+                Tracing.currentTracer().startScopedSpan("render_shape_mask");
+        }
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
@@ -202,7 +206,8 @@ public class ShapeMaskRequestHandler {
             ImageIO.write(image, "png", output);
             return output.toByteArray();
         } finally {
-            span.finish();
+            if(span != null)
+                span.finish();
         }
     }
 
