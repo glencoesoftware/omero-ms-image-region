@@ -18,23 +18,19 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.function.BiConsumer;
-
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
+import brave.ScopedSpan;
+import brave.Tracing;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
 
-public class ShapeMaskVerticle extends AbstractVerticle {
+public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskVerticle.class);
@@ -48,11 +44,9 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     @Override
     public void start() {
         vertx.eventBus().<String>consumer(
-                RENDER_SHAPE_MASK_EVENT, new Handler<Message<String>>() {
-                @Override
-                public void handle(Message<String> event){
-                    getShapeMask(event);
-                }
+            RENDER_SHAPE_MASK_EVENT,
+            event -> {
+                getShapeMask(event);
             }
         );
     }
@@ -67,9 +61,16 @@ public class ShapeMaskVerticle extends AbstractVerticle {
     private void getShapeMask(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
         try {
+            String body = message.body();
             shapeMaskCtx = mapper.readValue(
-                    message.body(), ShapeMaskCtx.class);
+                    body, ShapeMaskCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "get_shape_mask",
+                    extractor().extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
+
         } catch (Exception e) {
             String v = "Illegal shape mask context";
             log.error(v + ": {}", message.body(), e);
@@ -80,77 +81,71 @@ public class ShapeMaskVerticle extends AbstractVerticle {
             "Render shape mask request with data: {}", message.body());
 
         String key = shapeMaskCtx.cacheKey();
-        StopWatch t0 = new Slf4JStopWatch("getShapeMask");
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 RedisCacheVerticle.REDIS_CACHE_GET_EVENT, key,
-                new Handler<AsyncResult<Message<byte[]>>>() {
-            @Override
-            public void handle(AsyncResult<Message<byte[]>> result) {
-                byte[] cachedMask =
-                        result.succeeded()? result.result().body() : null;
-                ShapeMaskRequestHandler requestHandler =
-                        new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
+                result -> {
+                    byte[] cachedMask =
+                            result.succeeded()? result.result().body() : null;
+                    ShapeMaskRequestHandler requestHandler =
+                            new ShapeMaskRequestHandler(shapeMaskCtx, vertx);
 
-                requestHandler.canRead()
-                .whenComplete(new BiConsumer<Boolean, Throwable>() {
-                    @Override
-                    public void accept(Boolean readable, Throwable throwable) {
-                        if (throwable != null) {
-                            if (throwable instanceof ReplyException) {
-                                // Downstream event handling failure,
-                                // propagate it
-                                t0.stop();
-                                message.fail(
-                                    ((ReplyException) throwable).failureCode(),
-                                    throwable.getMessage());
-                            } else {
-                                String s = "Internal error";
-                                log.error(s, throwable);
-                                t0.stop();
-                                message.fail(500, s);
+                    requestHandler.canRead()
+                    .whenComplete(
+                        (readable, throwable) -> {
+                            if (throwable != null) {
+                                if (throwable instanceof ReplyException) {
+                                    // Downstream event handling failure,
+                                    // propagate it
+                                    span.finish();
+                                    message.fail(
+                                        ((ReplyException) throwable).failureCode(),
+                                        throwable.getMessage());
+                                } else {
+                                    String s = "Internal error";
+                                    log.error(s, throwable);
+                                    span.finish();
+                                    message.fail(500, s);
+                                }
+                                return;
                             }
-                            return;
-                        }
 
-                        if (cachedMask != null && readable) {
-                            t0.stop();
-                            message.reply(cachedMask);
-                            return;
-                        }
+                            if (cachedMask != null && readable) {
+                                span.finish();
+                                message.reply(cachedMask);
+                                return;
+                            }
 
-                        requestHandler.renderShapeMask()
-                        .whenComplete(new BiConsumer<byte[], Throwable>() {
-                            @Override
-                            public void accept(byte[] renderedMask,
-                                               Throwable renderThrowable) {
-                                if (renderedMask == null) {
-                                    if (renderThrowable != null) {
-                                        log.error(
-                                            "Exception while rendering mask",
-                                            renderThrowable);
+                            requestHandler.renderShapeMask()
+                            .whenComplete(
+                                (renderedMask, renderThrowable) -> {
+                                    if (renderedMask == null) {
+                                        if (renderThrowable != null) {
+                                            log.error(
+                                                "Exception while rendering mask",
+                                                renderThrowable);
+                                        }
+                                        span.finish();
+                                        message.fail(404, "Cannot render Mask:" +
+                                                shapeMaskCtx.shapeId);
+                                        return;
                                     }
-                                    t0.stop();
-                                    message.fail(404, "Cannot render Mask:" +
-                                            shapeMaskCtx.shapeId);
-                                    return;
-                                }
-                                t0.stop();
-                                message.reply(renderedMask);
+                                    span.finish();
+                                    message.reply(renderedMask);
 
-                                // Cache the PNG if the color was explicitly set
-                                if (shapeMaskCtx.color != null) {
-                                    JsonObject setMessage = new JsonObject();
-                                    setMessage.put("key", key);
-                                    setMessage.put("value", renderedMask);
-                                    vertx.eventBus().send(
-                                        RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
-                                        setMessage);
+                                    // Cache the PNG if the color was explicitly set
+                                    if (shapeMaskCtx.color != null) {
+                                        JsonObject setMessage = new JsonObject();
+                                        setMessage.put("key", key);
+                                        setMessage.put("value", renderedMask);
+                                        vertx.eventBus().send(
+                                            RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                            setMessage);
+                                    }
                                 }
-                            }
-                        });
-                    };
-                });
-            }
-        });
+                            );
+                        }
+                    );
+                }
+            );
     }
 }

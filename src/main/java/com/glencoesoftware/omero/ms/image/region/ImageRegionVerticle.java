@@ -21,19 +21,18 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.Map;
 import java.util.Set;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.hazelcast.core.HazelcastInstance;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Handler;
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.propagation.TraceContext;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonObject;
@@ -45,7 +44,7 @@ import omeis.providers.re.lut.LutProvider;
 
 import com.hazelcast.core.Hazelcast;
 
-public class ImageRegionVerticle extends AbstractVerticle {
+public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
 	private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionVerticle.class);
@@ -126,11 +125,8 @@ public class ImageRegionVerticle extends AbstractVerticle {
                  pixelsMetadataCacheConfig.getBoolean("enabled", false);
 
         vertx.eventBus().<String>consumer(
-            RENDER_IMAGE_REGION_EVENT, new Handler<Message<String>>() {
-                @Override
-                public void handle(Message<String> event){
+            RENDER_IMAGE_REGION_EVENT, event -> {
                     getImageRegion(event);
-                }
             }
         );
     }
@@ -145,7 +141,6 @@ public class ImageRegionVerticle extends AbstractVerticle {
      * @param message JSON encoded {@link ImageRegionCtx} object.
      */
     private void getImageRegion(Message<String> message) {
-        StopWatch t0 = new Slf4JStopWatch("getImageRegion");
         ObjectMapper mapper = new ObjectMapper();
         ImageRegionCtx imageRegionCtx;
         try {
@@ -154,38 +149,40 @@ public class ImageRegionVerticle extends AbstractVerticle {
         } catch (Exception e) {
             String v = "Illegal image region context";
             log.error(v + ": {}", message.body(), e);
-            t0.stop();
             message.fail(400, v);
             return;
         }
         log.debug("Render image region request with data: {}", message.body());
-
+        TraceContext traceCtx = extractor().extract(imageRegionCtx.traceContext).context();
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_image_region",
+                traceCtx);
+        span.tag("ctx", message.body());
         renderImageRegion(imageRegionCtx)
-        .whenComplete(new BiConsumer<byte[], Throwable>() {
-            @Override
-            public void accept(byte[] imageRegion, Throwable t) {
+        .whenComplete(
+            (imageRegion, t) -> {
                 if (t != null) {
                     if (t instanceof ReplyException) {
                         // Downstream event handling failure, propagate it
-                        t0.stop();
+                        span.finish();
                         message.fail(
                             ((ReplyException) t).failureCode(), t.getMessage());
                     } else {
                         String s = "Internal error";
                         log.error(s, t);
-                        t0.stop();
+                        span.finish();
                         message.fail(500, s);
                     }
                 } else if (imageRegion == null) {
-                    t0.stop();
+                    span.finish();
                     message.fail(
                             404, "Cannot find Image:" + imageRegionCtx.imageId);
                 } else {
-                    t0.stop();
+                    span.finish();
                     message.reply(imageRegion);
                 }
-            };
-        });
+            }
+        );
     }
 
     /**
