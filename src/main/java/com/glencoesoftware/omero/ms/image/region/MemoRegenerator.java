@@ -59,6 +59,8 @@ public class MemoRegenerator implements Callable<Void> {
     )
     private Path csv;
 
+    private ClassPathXmlApplicationContext context;
+
     private PixelsService pixelsService;
 
     @Override
@@ -86,8 +88,12 @@ public class MemoRegenerator implements Callable<Void> {
             }
         });
         JsonObject config = future.get();
-        init(config);
-        regen();
+        try {
+            init(config);
+            regen();
+        } finally {
+            context.close();
+        }
         return null;
     }
 
@@ -102,7 +108,7 @@ public class MemoRegenerator implements Callable<Void> {
             System.setProperty(entry.getKey(), (String) entry.getValue());
         });
 
-        ApplicationContext context = new ClassPathXmlApplicationContext(
+        context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
                 "classpath*:beanRefContext.xml",
