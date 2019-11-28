@@ -59,7 +59,7 @@ public class MemoRegenerator implements Callable<Void> {
     )
     private Path csv;
 
-    private ApplicationContext context;
+    private PixelsService pixelsService;
 
     @Override
     public Void call() throws Exception {
@@ -102,11 +102,12 @@ public class MemoRegenerator implements Callable<Void> {
             System.setProperty(entry.getKey(), (String) entry.getValue());
         });
 
-        context = new ClassPathXmlApplicationContext(
+        ApplicationContext context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
                 "classpath*:beanRefContext.xml",
                 "classpath*:service-ms.core.PixelsService.xml");
+        pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
     }
 
     private void regen() {
@@ -126,8 +127,6 @@ public class MemoRegenerator implements Callable<Void> {
         rowProcessor.getRows();
         for (Object[] row : rowProcessor.getRows()) {
             Pixels pixels = pixelsFromRow(row);
-            PixelsService pixelsService =
-                    (PixelsService) context.getBean("/OMERO/Pixels");
             pixelsService.getPixelBuffer(pixels, false);
         }
     }
