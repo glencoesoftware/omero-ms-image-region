@@ -1,33 +1,69 @@
+/*
+ * Copyright (C) 2019 Glencoe Software, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import com.univocity.parsers.common.processor.ObjectRowListProcessor;
+import com.univocity.parsers.conversions.Conversions;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.enums.PixelsType;
+import picocli.CommandLine;
+import picocli.CommandLine.Parameters;
 
-public class MemoRegenerator {
-    private static ConfigRetriever retriever;
+public class MemoRegenerator implements Callable<Void> {
 
-    private static HashMap<Integer, String> pixelsTypes;
+    private static final Logger log =
+            LoggerFactory.getLogger(MemoRegenerator.class);
 
-    private static String csvPath;
+    @Parameters(
+        index = "0",
+        arity = "1",
+        description =
+            "path to CSV with Images to regenerate memo files for; " +
+            "expected columns are: imageId, pixelsId, series, pixelsType, " +
+            "sizeX, sizeY"
+    )
+    private Path csv;
 
-    public MemoRegenerator() {
-        Vertx vertx = Vertx.vertx();
+    private ApplicationContext context;
+
+    @Override
+    public Void call() throws Exception {
+        final Vertx vertx = Vertx.vertx();
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
                 .setFormat("yaml")
@@ -35,39 +71,27 @@ public class MemoRegenerator {
                         .put("path", "conf/config.yaml")
                 )
                 .setOptional(true);
-        retriever = ConfigRetriever.create(
+        ConfigRetriever retriever = ConfigRetriever.create(
                 vertx, new ConfigRetrieverOptions()
                         .setIncludeDefaultStores(true)
                         .addStore(store));
-
-        pixelsTypes = new HashMap<Integer, String>();
-        pixelsTypes.put(1, "bit");
-        pixelsTypes.put(2, "int8");
-        pixelsTypes.put(5, "uint8");
-        pixelsTypes.put(3, "int16");
-        pixelsTypes.put(6, "uint16");
-        pixelsTypes.put(4, "int32");
-        pixelsTypes.put(7, "uint32");
-        pixelsTypes.put(8, "float");
-        pixelsTypes.put(9, "double");
-        pixelsTypes.put(10, "complex");
-        pixelsTypes.put(11, "double-complex");
+        CompletableFuture<JsonObject> future =
+                new CompletableFuture<JsonObject>();
+        retriever.getConfig(result -> {
+            vertx.close();
+            if (!result.failed()) {
+                future.complete(result.result());
+            } else {
+                future.completeExceptionally(result.cause());
+            }
+        });
+        JsonObject config = future.get();
+        init(config);
+        regen();
+        return null;
     }
 
-    public static void main(String[] args) {
-        System.out.println("Running MemoRegenerator main");
-        if(args.length < 1) {
-            System.err.println("Must provide a csv file path");
-            return;
-        }
-        System.out.println(args[0]);
-        csvPath = args[0];
-        MemoRegenerator mr = new MemoRegenerator();
-        retriever.getConfig(mr::withConfig);
-    }
-
-    private void withConfig(AsyncResult<JsonObject> result) {
-        JsonObject config = result.result();
+    private void init(JsonObject config) {
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
         if (omeroServer == null) {
@@ -78,50 +102,58 @@ public class MemoRegenerator {
             System.setProperty(entry.getKey(), (String) entry.getValue());
         });
 
+        context = new ClassPathXmlApplicationContext(
+                "classpath:ome/config.xml",
+                "classpath:ome/services/datalayer.xml",
+                "classpath*:beanRefContext.xml",
+                "classpath*:service-ms.core.PixelsService.xml");
+    }
 
-        try (BufferedReader csvReader = new BufferedReader(new FileReader(csvPath))) {
-            ApplicationContext context = new ClassPathXmlApplicationContext(
-                    "classpath:ome/config.xml",
-                    "classpath:ome/services/datalayer.xml",
-                    "classpath*:beanRefContext.xml",
-                    "classpath*:service-ms.core.PixelsService.xml");
+    private void regen() {
+        // imageId, pixelsId, series, pixelsType, sizeX, sizeY
+        ObjectRowListProcessor rowProcessor = new ObjectRowListProcessor();
+        rowProcessor.convertIndexes(Conversions.toLong()).set(0, 1);
+        rowProcessor.convertIndexes(Conversions.toInteger()).set(2, 4, 5);
 
-            String line;
-            while((line = csvReader.readLine()) != null) {
-                try {
-                    String[] imageParams = line.split(",");
-                    Long imageId = Long.valueOf(imageParams[0]);
-                    Long pixelsId = Long.valueOf(imageParams[1]);
-                    Integer series = Integer.valueOf(imageParams[2]);
-                    Integer ptInt = Integer.valueOf(imageParams[3]);
-                    Integer sizeX = Integer.valueOf(imageParams[4]);
-                    Integer sizeY = Integer.valueOf(imageParams[5]);
+        CsvParserSettings parserSettings = new CsvParserSettings();
+        parserSettings.setProcessor(rowProcessor);
+        parserSettings.setHeaderExtractionEnabled(true);
 
-                    Image image = new Image(imageId, true);
-                    image.setSeries(series);
+        log.info("Loading Image data from CSV: {}", csv);
+        CsvParser parser = new CsvParser(parserSettings);
+        parser.parse(csv.toFile());
 
-                    Pixels pixels = new Pixels(pixelsId, true);
-                    pixels.setImage(image);
-                    PixelsType pt = new PixelsType(pixelsTypes.get(ptInt));
-                    pixels.setPixelsType(pt);
-                    pixels.setSizeX(sizeX);
-                    pixels.setSizeY(sizeY);
-
-                    PixelsService pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-
-                    PixelBuffer pb = pixelsService.getPixelBuffer(pixels, false);
-                } catch (Exception e) {
-                    System.err.println("Error processing line: " + line);
-                    System.err.println(e.toString());
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("An error occurred");
-            System.err.println(e.toString());
-            System.err.println(e.getMessage());
-            e.printStackTrace();
-        } finally {
-            Vertx.currentContext().owner().close();
+        rowProcessor.getRows();
+        for (Object[] row : rowProcessor.getRows()) {
+            Pixels pixels = pixelsFromRow(row);
+            PixelsService pixelsService =
+                    (PixelsService) context.getBean("/OMERO/Pixels");
+            pixelsService.getPixelBuffer(pixels, false);
         }
     }
+
+    private Pixels pixelsFromRow(Object[] row) {
+        Long imageId = (Long) row[0];
+        Long pixelsId = (Long) row[1];
+        Integer series = (Integer) row[2];
+        String pixelsType = (String) row[3];
+        Integer sizeX = (Integer) row[4];
+        Integer sizeY = (Integer) row[5];
+
+        Image image = new Image(imageId, true);
+        image.setSeries(series);
+
+        Pixels pixels = new Pixels(pixelsId, true);
+        pixels.setImage(image);
+        PixelsType pt = new PixelsType(pixelsType);
+        pixels.setPixelsType(pt);
+        pixels.setSizeX(sizeX);
+        pixels.setSizeY(sizeY);
+        return pixels;
+    }
+
+    public static void main(String[] args) {
+        CommandLine.call(new MemoRegenerator(), args);
+    }
+
 }
