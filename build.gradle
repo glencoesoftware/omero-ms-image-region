@@ -124,6 +124,7 @@ task memoRegenStartScript(type: CreateStartScripts) {
 }
 
 applicationDistribution.into("bin") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(memoRegenStartScript)
     fileMode = 0755
 }
