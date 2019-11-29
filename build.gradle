@@ -118,9 +118,9 @@ distributions {
 
 task memoRegenStartScript(type: CreateStartScripts) {
     mainClassName = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
     applicationName = "memoregenerator"
-    outputDir = new File(project.buildDir, 'scripts')
-    classpath = jar.outputs.files + project.configurations.runtime
 }
 
 applicationDistribution.into("bin") {
