@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import org.apache.tika.Tika;
 import org.slf4j.LoggerFactory;
@@ -197,26 +198,39 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 httpTracingConfig.getBoolean("enabled", false);
         if (tracingEnabled) {
             String zipkinUrl = httpTracingConfig.getString("zipkin-url");
-            log.info("Tracing enabled: {}", zipkinUrl);
-            sender = OkHttpSender.create(zipkinUrl);
-            spanReporter = AsyncReporter.create(sender);
-            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-            tracing = Tracing.newBuilder()
-                .sampler(Sampler.ALWAYS_SAMPLE)
-                .localServiceName("omero-ms-image-region")
-                .addFinishedSpanHandler(prometheusSpanHandler)
-                .spanReporter(spanReporter)
-                .build();
+            try {
+                log.info("Tracing enabled: {}", zipkinUrl);
+                if(Pattern.matches("^http.*", zipkinUrl)) {
+                    log.info("Tracing enabled: {}", zipkinUrl);
+                    sender = OkHttpSender.create(zipkinUrl);
+                    spanReporter = AsyncReporter.create(sender);
+                    PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+                    tracing = Tracing.newBuilder()
+                        .sampler(Sampler.ALWAYS_SAMPLE)
+                        .localServiceName("omero-ms-image-region")
+                        .addFinishedSpanHandler(prometheusSpanHandler)
+                        .spanReporter(spanReporter)
+                        .build();
+                } else if (Pattern.matches("^slf4j.*", zipkinUrl)) {
+                    PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+                    spanReporter = new LogSpanReporter();
+                    tracing = Tracing.newBuilder()
+                            .sampler(Sampler.ALWAYS_SAMPLE)
+                            .localServiceName("omero-ms-image-region")
+                            .addFinishedSpanHandler(prometheusSpanHandler)
+                            .spanReporter(spanReporter)
+                            .build();
+                } else {
+                    throw new IllegalArgumentException("Invalid URL configured for tracing");
+                }
+            } catch (Exception e) {
+                log.error("Tracing enabled but configured incorrectly");
+                throw e;
+            }
         } else {
             log.info("Tracing disabled");
-            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-            spanReporter = new LogSpanReporter();
-            tracing = Tracing.newBuilder()
-                    .sampler(Sampler.ALWAYS_SAMPLE)
-                    .localServiceName("omero-ms-image-region")
-                    .addFinishedSpanHandler(prometheusSpanHandler)
-                    .spanReporter(spanReporter)
-                    .build();
+            tracing = Tracing.newBuilder().build();
+            tracing.setNoop(true);
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 
