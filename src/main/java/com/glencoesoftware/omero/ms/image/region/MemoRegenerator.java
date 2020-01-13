@@ -123,7 +123,6 @@ public class MemoRegenerator implements Callable<Void> {
 
         CsvParserSettings parserSettings = new CsvParserSettings();
         parserSettings.setProcessor(rowProcessor);
-        parserSettings.setHeaderExtractionEnabled(true);
         parserSettings.setLineSeparatorDetectionEnabled(true);
 
         log.info("Loading Image data from CSV: {}", csv);
