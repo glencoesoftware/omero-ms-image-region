@@ -41,12 +41,25 @@ import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.enums.PixelsType;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 public class MemoRegenerator implements Callable<Void> {
 
     private static final Logger log =
             LoggerFactory.getLogger(MemoRegenerator.class);
+
+    @Option(
+        names = "--cache-dir",
+        description =
+            "specify additional directory for Bio-Formats cache.  Memo files " +
+            "from the pixels service configured cache directory will be " +
+            "copied to this directory if they exist and regenerated as " +
+            "required using the Bio-Formats version of the microservice.  " +
+            "No memo files from the pixels service configured cache " +
+            "directory will be modified."
+    )
+    private Path cacheDir;
 
     @Parameters(
         index = "0",
@@ -113,6 +126,9 @@ public class MemoRegenerator implements Callable<Void> {
                 "classpath*:beanRefContext.xml",
                 "classpath*:service-ms.core.PixelsService.xml");
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        if (cacheDir != null) {
+            pixelsService.setMemoizerDirectoryLocal(cacheDir.toString());
+        }
     }
 
     private void regen() {
