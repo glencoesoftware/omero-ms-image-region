@@ -11,4 +11,4 @@ COPY (SELECT * FROM (
         JOIN pixels ON image.id = pixels.image
         JOIN pixelstype ON pixels.pixelstype = pixelstype.id
             WHERE fileset.id = image.fileset
-) AS rank WHERE rank.rank = 1) TO STDOUT WITH DELIMITER ',' CSV;
+) AS rank WHERE rank.rank = 1) TO STDOUT CSV;
