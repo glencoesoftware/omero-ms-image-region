@@ -7,8 +7,7 @@ COPY (SELECT * FROM (
            pixels.sizeY,
            rank() OVER (PARTITION BY fileset.id ORDER BY image.id) AS rank
         FROM fileset
-        JOIN image ON fileset.id = image.fileset
-        JOIN pixels ON image.id = pixels.image
-        JOIN pixelstype ON pixels.pixelstype = pixelstype.id
-            WHERE fileset.id = image.fileset
+            JOIN image ON fileset.id = image.fileset
+            JOIN pixels ON image.id = pixels.image
+            JOIN pixelstype ON pixels.pixelstype = pixelstype.id
 ) AS rank WHERE rank.rank = 1) TO STDOUT CSV;
