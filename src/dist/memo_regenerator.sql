@@ -9,6 +9,6 @@ COPY (SELECT * FROM (
         FROM fileset
         JOIN image ON fileset.id = image.fileset
         JOIN pixels ON image.id = pixels.image
-        JOIN pixelsType pixelstype ON pixels.pixelstype = pixelstype.id
+        JOIN pixelstype ON pixels.pixelstype = pixelstype.id
             WHERE fileset.id = image.fileset
 ) AS rank WHERE rank.rank = 1) TO STDOUT WITH DELIMITER ',' CSV;
