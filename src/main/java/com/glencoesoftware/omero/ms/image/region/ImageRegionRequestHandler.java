@@ -64,7 +64,6 @@ import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
-import omero.ApiUsageException;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
@@ -211,8 +210,7 @@ public class ImageRegionRequestHandler {
                 iPixels.retrieveRndSettings(pixelsId, ctx));
     }
 
-    private PixelBuffer getPixelBuffer(Pixels pixels)
-            throws ApiUsageException {
+    private PixelBuffer getPixelBuffer(Pixels pixels) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
