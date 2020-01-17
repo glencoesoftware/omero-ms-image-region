@@ -41,13 +41,30 @@ import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.enums.PixelsType;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+@Command(name="memoregenerator",
+    description = "Regenerates Bio Formats memo files")
 public class MemoRegenerator implements Callable<Void> {
 
     private static final Logger log =
             LoggerFactory.getLogger(MemoRegenerator.class);
+
+    @Option(names = {"-h", "--help"},
+            usageHelp = true,
+            description = "display this help message")
+    boolean usageHelpRequested;
+
+    @Option(
+        names = "--inplace",
+        description = "set instead of --cache-dir to create the memo files " +
+                "in place instead of copying them to a new directory. " +
+                "This WILL modify the memo files from the pixels service " +
+                "configured cache directory"
+        )
+    private boolean inplace;
 
     @Option(
         names = "--cache-dir",
@@ -104,7 +121,9 @@ public class MemoRegenerator implements Callable<Void> {
             init(config);
             regen();
         } finally {
-            context.close();
+            if (context != null) {
+                context.close();
+            }
         }
         return null;
     }
@@ -126,6 +145,11 @@ public class MemoRegenerator implements Callable<Void> {
                 "classpath*:beanRefContext.xml",
                 "classpath*:service-ms.core.PixelsService.xml");
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
+        if (cacheDir == null && inplace == false) {
+            throw new IllegalArgumentException("Must supply a cache-dir with --cache-dir or use the --inplace option.");
+        } else if (cacheDir != null && inplace == true) {
+            throw new IllegalArgumentException("Cannot set both --inplace and --cache-dir");
+        }
         if (cacheDir != null) {
             pixelsService.setMemoizerDirectoryLocal(cacheDir.toString());
         }
@@ -145,10 +169,18 @@ public class MemoRegenerator implements Callable<Void> {
         CsvParser parser = new CsvParser(parserSettings);
         parser.parse(csv.toFile());
 
-        rowProcessor.getRows();
+        int total = rowProcessor.getRows().size();
+        int i = 1;
         for (Object[] row : rowProcessor.getRows()) {
-            Pixels pixels = pixelsFromRow(row);
-            pixelsService.getPixelBuffer(pixels, false);
+            log.info(String.format("Processing row %d of %d", i, total));
+            try {
+                Pixels pixels = pixelsFromRow(row);
+                pixelsService.getPixelBuffer(pixels, false);
+            } catch(Exception e) {
+                log.error(String.format("Caught exception processing row %d", i), e);
+            } finally {
+                i++;
+            }
         }
     }
 
