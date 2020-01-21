@@ -173,12 +173,12 @@ public class MemoRegenerator implements Callable<Void> {
         int total = rowProcessor.getRows().size();
         int i = 1;
         for (Object[] row : rowProcessor.getRows()) {
-            log.info(String.format("Processing row %d of %d", i, total));
+            log.info("Processing row {} of {}", i, total);
             try {
                 Pixels pixels = pixelsFromRow(row);
                 pixelsService.getPixelBuffer(pixels, false);
             } catch(Exception e) {
-                log.error(String.format("Caught exception processing row %d", i), e);
+                log.error("Caught exception processing row {}", i, e);
             } finally {
                 i++;
             }
