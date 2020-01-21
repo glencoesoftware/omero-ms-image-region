@@ -48,7 +48,8 @@ import picocli.CommandLine.Parameters;
 
 @Command(
     name = "memoregenerator", mixinStandardHelpOptions = true,
-    description = "Regenerates Bio-Formats memo files"
+    description = "Regenerates Bio-Formats memo files",
+    version = "memoregenerator 1.0"
 )
 public class MemoRegenerator implements Callable<Void> {
 
