@@ -41,37 +41,48 @@ import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.enums.PixelsType;
 import picocli.CommandLine;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-@Command(name="memoregenerator", mixinStandardHelpOptions=true,
-    description = "Regenerates Bio-Formats memo files")
+@Command(
+    name = "memoregenerator", mixinStandardHelpOptions = true,
+    description = "Regenerates Bio-Formats memo files"
+)
 public class MemoRegenerator implements Callable<Void> {
 
     private static final Logger log =
             LoggerFactory.getLogger(MemoRegenerator.class);
 
-    @Option(
-        names = "--inplace",
-        description = "set instead of --cache-dir to create the memo files " +
+    @ArgGroup(exclusive = true, multiplicity = "1")
+    private Mode mode;
+
+    static class Mode {
+        @Option(
+            names = "--inplace",
+            required = true,
+            description =
+                "set instead of --cache-dir to create the memo files " +
                 "in place instead of copying them to a new directory. " +
                 "This WILL modify the memo files from the pixels service " +
                 "configured cache directory"
         )
-    private boolean inplace;
+        private boolean inplace;
 
-    @Option(
-        names = "--cache-dir",
-        description =
-            "specify additional directory for Bio-Formats cache.  Memo files " +
-            "from the pixels service configured cache directory will be " +
-            "copied to this directory if they exist and regenerated as " +
-            "required using the Bio-Formats version of the microservice.  " +
-            "No memo files from the pixels service configured cache " +
-            "directory will be modified."
-    )
-    private Path cacheDir;
+        @Option(
+            names = "--cache-dir",
+            required = true,
+            description =
+                "specify additional directory for Bio-Formats cache.  Memo " +
+                "files from the pixels service configured cache directory " +
+                "will be copied to this directory if they exist and " +
+                "regenerated as required using the Bio-Formats version of " +
+                "the microservice.  No memo files from the pixels service " +
+                "configured cache directory will be modified."
+        )
+        private Path cacheDir;
+    }
 
     @Parameters(
         index = "0",
@@ -140,13 +151,8 @@ public class MemoRegenerator implements Callable<Void> {
                 "classpath*:beanRefContext.xml",
                 "classpath*:service-ms.core.PixelsService.xml");
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
-        if (cacheDir == null && inplace == false) {
-            throw new IllegalArgumentException("Must supply a cache-dir with --cache-dir or use the --inplace option.");
-        } else if (cacheDir != null && inplace == true) {
-            throw new IllegalArgumentException("Cannot set both --inplace and --cache-dir");
-        }
-        if (cacheDir != null) {
-            pixelsService.setMemoizerDirectoryLocal(cacheDir.toString());
+        if (mode.cacheDir != null) {
+            pixelsService.setMemoizerDirectoryLocal(mode.cacheDir.toString());
         }
     }
 
