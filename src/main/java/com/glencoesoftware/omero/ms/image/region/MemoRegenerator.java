@@ -206,7 +206,7 @@ public class MemoRegenerator implements Callable<Void> {
     }
 
     public static void main(String[] args) {
-        CommandLine.call(new MemoRegenerator(), args);
+        new CommandLine(new MemoRegenerator()).execute(args);
     }
 
 }
