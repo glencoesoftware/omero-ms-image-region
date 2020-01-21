@@ -36,6 +36,7 @@ import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import loci.formats.FormatTools;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
@@ -43,12 +44,14 @@ import ome.model.enums.PixelsType;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.IVersionProvider;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 @Command(
     name = "memoregenerator", mixinStandardHelpOptions = true,
-    description = "Regenerates Bio-Formats memo files"
+    description = "Regenerates Bio-Formats memo files",
+    versionProvider = MemoRegenerator.ManifestVersionProvider.class
 )
 public class MemoRegenerator implements Callable<Void> {
 
@@ -82,6 +85,25 @@ public class MemoRegenerator implements Callable<Void> {
                 "configured cache directory will be modified."
         )
         private Path cacheDir;
+    }
+
+    static class ManifestVersionProvider implements IVersionProvider {
+
+        @Override
+        public String[] getVersion() throws Exception {
+            String version = MemoRegenerator.class.getPackage()
+                    .getImplementationVersion();
+            if (version == null) {
+                version = "DEV";
+            }
+            return new String[] {
+                "omero-ms-image-region: " + version,
+                "Bio-Formats Version: " + FormatTools.VERSION,
+                "Bio-Formats Build date: " + FormatTools.DATE,
+                "Bio-Formats VCS revision: " + FormatTools.VCS_REVISION
+            };
+        }
+
     }
 
     @Parameters(
