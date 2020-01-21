@@ -194,6 +194,7 @@ public class MemoRegenerator implements Callable<Void> {
 
         int total = rowProcessor.getRows().size();
         int i = 1;
+        int errorCount = 0;
         for (Object[] row : rowProcessor.getRows()) {
             log.info("Processing row {} of {}", i, total);
             try {
@@ -201,10 +202,12 @@ public class MemoRegenerator implements Callable<Void> {
                 pixelsService.getPixelBuffer(pixels, false);
             } catch (Exception e) {
                 log.error("Caught exception processing row {}", i, e);
+                errorCount++;
             } finally {
                 i++;
             }
         }
+        log.info("COMPLETE: Processed {} images with {} failures", total, errorCount);
     }
 
     private Pixels pixelsFromRow(Object[] row) {
