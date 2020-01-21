@@ -177,7 +177,7 @@ public class MemoRegenerator implements Callable<Void> {
             try {
                 Pixels pixels = pixelsFromRow(row);
                 pixelsService.getPixelBuffer(pixels, false);
-            } catch(Exception e) {
+            } catch (Exception e) {
                 log.error("Caught exception processing row {}", i, e);
             } finally {
                 i++;
