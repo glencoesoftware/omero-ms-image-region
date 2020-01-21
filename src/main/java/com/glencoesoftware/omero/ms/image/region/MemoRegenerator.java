@@ -45,17 +45,12 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-@Command(name="memoregenerator",
-    description = "Regenerates Bio Formats memo files")
+@Command(name="memoregenerator", mixinStandardHelpOptions=true,
+    description = "Regenerates Bio-Formats memo files")
 public class MemoRegenerator implements Callable<Void> {
 
     private static final Logger log =
             LoggerFactory.getLogger(MemoRegenerator.class);
-
-    @Option(names = {"-h", "--help"},
-            usageHelp = true,
-            description = "display this help message")
-    boolean usageHelpRequested;
 
     @Option(
         names = "--inplace",
