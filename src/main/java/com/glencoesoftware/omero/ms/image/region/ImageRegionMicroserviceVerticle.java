@@ -99,6 +99,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** Default number of workers to be assigned to the worker verticle */
     private int DEFAULT_WORKER_POOL_SIZE;
 
+    /** Default max number of channels to allow per request */
+    private int MAX_CHANNELS = 6;
+
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
 
@@ -319,6 +322,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
+        if(config.containsKey("max_channels")) {
+            MAX_CHANNELS = config.getInteger("max_channels");
+        }
+
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
         server.requestHandler(router).listen(port, result -> {
@@ -396,6 +403,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         } catch (IllegalArgumentException e) {
             HttpServerResponse response = event.response();
             response.setStatusCode(400).end(e.getMessage());
+            return;
+        }
+        if (imageRegionCtx.channels.size() > MAX_CHANNELS) {
+            HttpServerResponse response = event.response();
+            response.setStatusCode(400).end(String.format(
+                "Too many channels. Cannot process more than %d per request",
+                MAX_CHANNELS));
             return;
         }
         imageRegionCtx.injectCurrentTraceContext();
