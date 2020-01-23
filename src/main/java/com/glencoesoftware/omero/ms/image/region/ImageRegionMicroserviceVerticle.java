@@ -99,6 +99,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** Default number of workers to be assigned to the worker verticle */
     private int DEFAULT_WORKER_POOL_SIZE;
 
+    /** Default max number of channels to allow per request */
+    private int MAX_ACTIVE_CHANNELS = 6;
+
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
 
@@ -319,6 +322,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
+        MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
+
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
         server.requestHandler(router).listen(port, result -> {
@@ -369,7 +374,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("mask-color")
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
-                               .put("maxTileLength", maxTileLength));
+                               .put("maxTileLength", maxTileLength)
+                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
         if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
@@ -396,6 +402,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         } catch (IllegalArgumentException e) {
             HttpServerResponse response = event.response();
             response.setStatusCode(400).end(e.getMessage());
+            return;
+        }
+        int activeChannelCount = 0;
+        for (Integer channel : imageRegionCtx.channels) {
+            if (channel > 0) activeChannelCount++;
+        }
+        if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
+            HttpServerResponse response = event.response();
+            response.setStatusCode(400).end(String.format(
+                "Too many active channels. Cannot process more than %d per request",
+                MAX_ACTIVE_CHANNELS));
             return;
         }
         imageRegionCtx.injectCurrentTraceContext();
