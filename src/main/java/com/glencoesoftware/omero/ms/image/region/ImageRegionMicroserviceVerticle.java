@@ -100,7 +100,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private int DEFAULT_WORKER_POOL_SIZE;
 
     /** Default max number of channels to allow per request */
-    private int MAX_CHANNELS = 6;
+    private int MAX_ACTIVE_CHANNELS = 6;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
@@ -322,8 +322,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
-        if(config.containsKey("max_channels")) {
-            MAX_CHANNELS = config.getInteger("max_channels");
+        if(config.containsKey("max-active-channels")) {
+            MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels");
         }
 
         int port = config.getInteger("port");
@@ -376,7 +376,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("mask-color")
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
-                               .put("maxTileLength", maxTileLength));
+                               .put("maxTileLength", maxTileLength)
+                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
         if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
@@ -405,11 +406,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.setStatusCode(400).end(e.getMessage());
             return;
         }
-        if (imageRegionCtx.channels.size() > MAX_CHANNELS) {
+        if (imageRegionCtx.channels.size() > MAX_ACTIVE_CHANNELS) {
             HttpServerResponse response = event.response();
             response.setStatusCode(400).end(String.format(
                 "Too many channels. Cannot process more than %d per request",
-                MAX_CHANNELS));
+                MAX_ACTIVE_CHANNELS));
             return;
         }
         imageRegionCtx.injectCurrentTraceContext();
