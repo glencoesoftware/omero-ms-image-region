@@ -322,9 +322,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
-        if(config.containsKey("max-active-channels")) {
-            MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels");
-        }
+        MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
@@ -406,10 +404,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.setStatusCode(400).end(e.getMessage());
             return;
         }
-        if (imageRegionCtx.channels.size() > MAX_ACTIVE_CHANNELS) {
+        int activeChannelCount = 0;
+        for (Integer channel : imageRegionCtx.channels) {
+            if (channel > 0) activeChannelCount++;
+        }
+        if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
             HttpServerResponse response = event.response();
             response.setStatusCode(400).end(String.format(
-                "Too many channels. Cannot process more than %d per request",
+                "Too many active channels. Cannot process more than %d per request",
                 MAX_ACTIVE_CHANNELS));
             return;
         }
