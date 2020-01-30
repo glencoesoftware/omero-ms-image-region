@@ -18,7 +18,14 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
@@ -195,19 +202,40 @@ public class MemoRegenerator implements Callable<Void> {
         int total = rowProcessor.getRows().size();
         int i = 1;
         int errorCount = 0;
+        Map<String, List<Long>> errorImages = new HashMap<String, List<Long>>();
         for (Object[] row : rowProcessor.getRows()) {
             log.info("Processing row {} of {}", i, total);
             try {
                 Pixels pixels = pixelsFromRow(row);
                 pixelsService.getPixelBuffer(pixels, false);
             } catch (Exception e) {
-                log.error("Caught exception processing row {}", i, e);
                 errorCount++;
+                if (!errorImages.containsKey(e.getClass().getName())) {
+                    errorImages.put(e.getClass().getName(), new ArrayList<Long>());
+                }
+                errorImages.get(e.getClass().getName()).add((Long) row[0]);
+                log.error("Caught exception processing row {}", i);
+                log.debug("Stack trace: ", e);
             } finally {
                 i++;
             }
         }
         log.info("COMPLETE: Processed {} images with {} failures", total, errorCount);
+        //Write errors to error file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("memoErrors.txt", false))) {
+            for (Map.Entry<String, List<Long>> entry : errorImages.entrySet()) {
+                writer.write(entry.getKey());
+                writer.newLine();
+                for (Long imageId : entry.getValue()) {
+                    writer.write(imageId.toString());
+                    writer.newLine();
+                }
+                writer.write("---");
+                writer.newLine();
+            }
+        } catch(IOException e) {
+            log.error("Failed to write error file 'memoErrors.txt'", e);
+        }
     }
 
     private Pixels pixelsFromRow(Object[] row) {
