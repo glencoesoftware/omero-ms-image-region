@@ -42,6 +42,8 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
@@ -50,9 +52,13 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.metrics.MetricsOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.micrometer.MicrometerMetricsOptions;
+import io.vertx.micrometer.PrometheusScrapingHandler;
+import io.vertx.micrometer.VertxPrometheusOptions;
 import ome.system.PreferenceContext;
 import omero.model.Image;
 import zipkin2.Span;
@@ -120,6 +126,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     public void start(Promise<Void> prom) {
         log.info("Starting verticle");
 
+        Vertx vertx = Vertx.vertx(new VertxOptions().setMetricsOptions(
+                new MicrometerMetricsOptions()
+                    .setPrometheusOptions(new VertxPrometheusOptions().setEnabled(true))
+                    .setEnabled(true)));
         DEFAULT_WORKER_POOL_SIZE =
                 Runtime.getRuntime().availableProcessors() * 2;
 
@@ -257,6 +267,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+
+        router.route("/vertxmetrics")
+            .order(-3)
+            .handler(PrometheusScrapingHandler.create());
 
         router.get("/metrics")
             .order(-2)
