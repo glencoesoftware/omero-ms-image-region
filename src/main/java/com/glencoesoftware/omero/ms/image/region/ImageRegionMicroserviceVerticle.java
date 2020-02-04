@@ -52,7 +52,6 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.metrics.MetricsOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -268,9 +267,19 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
 
-        router.route("/vertxmetrics")
-            .order(-3)
-            .handler(PrometheusScrapingHandler.create());
+        JsonObject vertxMetricsConfig =
+                config.getJsonObject("vertx-metrics", new JsonObject());
+        Boolean vertxMetricsEnabled =
+                vertxMetricsConfig.getBoolean("enabled", false);
+        if (vertxMetricsEnabled) {
+            router.route("/vertxmetrics")
+                .order(-3)
+                .handler(PrometheusScrapingHandler.create());
+            log.info("Vertx Metrics Enabled");
+        }
+        else {
+            log.info("Vertx Metrics NOT Enabled");
+        }
 
         router.get("/metrics")
             .order(-2)
