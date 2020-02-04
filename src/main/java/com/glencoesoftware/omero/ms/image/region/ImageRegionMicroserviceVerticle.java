@@ -125,10 +125,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     public void start(Promise<Void> prom) {
         log.info("Starting verticle");
 
-        Vertx vertx = Vertx.vertx(new VertxOptions().setMetricsOptions(
-                new MicrometerMetricsOptions()
-                    .setPrometheusOptions(new VertxPrometheusOptions().setEnabled(true))
-                    .setEnabled(true)));
         DEFAULT_WORKER_POOL_SIZE =
                 Runtime.getRuntime().availableProcessors() * 2;
 
