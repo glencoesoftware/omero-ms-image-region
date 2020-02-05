@@ -18,24 +18,22 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.yaml.snakeyaml.Yaml;
 
 import com.univocity.parsers.common.processor.ObjectRowListProcessor;
 import com.univocity.parsers.conversions.Conversions;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 
-import io.vertx.config.ConfigRetriever;
-import io.vertx.config.ConfigRetrieverOptions;
-import io.vertx.config.ConfigStoreOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
@@ -106,6 +104,10 @@ public class MemoRegenerator implements Callable<Void> {
 
     }
 
+    @Option(names = "--config", required = false, description = "Path to config.yml file")
+    private String configPath = "conf/config.yaml";
+
+
     @Parameters(
         index = "0",
         arity = "1",
@@ -122,32 +124,16 @@ public class MemoRegenerator implements Callable<Void> {
 
     @Override
     public Void call() throws Exception {
-        final Vertx vertx = Vertx.vertx();
-        ConfigStoreOptions store = new ConfigStoreOptions()
-                .setType("file")
-                .setFormat("yaml")
-                .setConfig(new JsonObject()
-                        .put("path", "conf/config.yaml")
-                )
-                .setOptional(true);
-        ConfigRetriever retriever = ConfigRetriever.create(
-                vertx, new ConfigRetrieverOptions()
-                        .setIncludeDefaultStores(true)
-                        .addStore(store));
-        CompletableFuture<JsonObject> future =
-                new CompletableFuture<JsonObject>();
-        retriever.getConfig(result -> {
-            vertx.close();
-            if (!result.failed()) {
-                future.complete(result.result());
-            } else {
-                future.completeExceptionally(result.cause());
-            }
-        });
-        JsonObject config = future.get();
         try {
+            Yaml yaml = new Yaml();
+            InputStream inputStream = new FileInputStream(configPath);
+            Map<String, Object> config = yaml.load(inputStream);
             init(config);
             regen();
+        } catch (Exception e) {
+            log.error("Exception during memo regeneration.", e);
+        }
+        try {
         } finally {
             if (context != null) {
                 context.close();
@@ -156,15 +142,15 @@ public class MemoRegenerator implements Callable<Void> {
         return null;
     }
 
-    private void init(JsonObject config) {
+    private void init(Map<String, Object> config) {
         // Set OMERO.server configuration options using system properties
-        JsonObject omeroServer = config.getJsonObject("omero.server");
+        Map<String, Object> omeroServer = (Map<String, Object>) config.get("omero.server");
         if (omeroServer == null) {
             throw new IllegalArgumentException(
                     "'omero.server' block missing from configuration");
         }
-        omeroServer.forEach(entry -> {
-            System.setProperty(entry.getKey(), (String) entry.getValue());
+        omeroServer.forEach((key, value) -> {
+            System.setProperty(key, (String) value);
         });
 
         context = new ClassPathXmlApplicationContext(
@@ -197,17 +183,25 @@ public class MemoRegenerator implements Callable<Void> {
         int errorCount = 0;
         for (Object[] row : rowProcessor.getRows()) {
             log.info("Processing row {} of {}", i, total);
+            long startTime = System.nanoTime();
+            Long imageId = (Long) row[0];
             try {
                 Pixels pixels = pixelsFromRow(row);
                 pixelsService.getPixelBuffer(pixels, false);
+                long elapsedTime = System.nanoTime() - startTime;
+                System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (Exception e) {
                 log.error("Caught exception processing row {}", i, e);
+                long elapsedTime = System.nanoTime() - startTime;
+                System.out.printf("%d/%d - fail: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
                 errorCount++;
             } finally {
                 i++;
             }
         }
         log.info("COMPLETE: Processed {} images with {} failures", total, errorCount);
+        System.out.printf("COMPLETE: processed %d rows with %d successes and %d failures%n",
+                total, total - errorCount, errorCount);
     }
 
     private Pixels pixelsFromRow(Object[] row) {
