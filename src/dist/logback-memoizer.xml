@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder>
+      <pattern>%date [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="com.glencoesoftware.omero.ms" level="INFO"/>
+  <logger name="org.perf4j.TimingLogger" level="WARN"/>
+  <logger name="ome.io.nio.PixelsService" level="WARN"/>
+  <logger name="ome.io.nio.FilePathResolver" level="WARN"/>
+  <logger name="org.springframework.beans.factory.xml.XmlBeanDefinitionReader" level="WARN"/>
+  <logger name="org.springframework.context.support.ClassPathXmlApplicationContext" level="WARN"/>
+  <logger name="loci" level="WARN"/><!-- Bio-Formats -->
+  <logger name="loci.formats.Memoizer" level="WARN"/><!-- Bio-Formats memoizer -->
+
+  <root level="info">
+    <appender-ref ref="STDERR" />
+  </root>
+</configuration>
