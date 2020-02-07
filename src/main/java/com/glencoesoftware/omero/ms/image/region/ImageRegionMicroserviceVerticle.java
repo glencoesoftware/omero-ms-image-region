@@ -268,8 +268,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 .order(-3)
                 .handler(PrometheusScrapingHandler.create());
             log.info("Vertx Metrics Enabled");
-        }
-        else {
+        } else {
             log.info("Vertx Metrics NOT Enabled");
         }
 
