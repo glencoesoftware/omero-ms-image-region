@@ -191,7 +191,7 @@ public class MemoRegenerator implements Callable<Void> {
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (Exception e) {
-                log.error("Caught exception processing row {}", i, e);
+                log.error("Caught exception processing row {} ImageID {}", i, imageId, e);
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - fail: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
                 errorCount++;
