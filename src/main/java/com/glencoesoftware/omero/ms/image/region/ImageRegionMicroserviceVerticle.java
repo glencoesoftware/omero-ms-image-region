@@ -53,6 +53,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.micrometer.PrometheusScrapingHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
 import zipkin2.Span;
@@ -260,6 +261,19 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+
+        JsonObject vertxMetricsConfig =
+                config.getJsonObject("vertx-metrics", new JsonObject());
+        Boolean vertxMetricsEnabled =
+                vertxMetricsConfig.getBoolean("enabled", false);
+        if (vertxMetricsEnabled) {
+            router.route("/vertxmetrics")
+                .order(-3)
+                .handler(PrometheusScrapingHandler.create());
+            log.info("Vertx Metrics Enabled");
+        } else {
+            log.info("Vertx Metrics NOT Enabled");
+        }
 
         router.get("/metrics")
             .order(-2)

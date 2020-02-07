@@ -41,6 +41,10 @@ http-tracing:
 jmx-metrics:
     enabled: true
 
+ # Enable Vertx Prometheus Metrics
+vertx-metrics:
+    enabled: true
+
 # Information about the session store.
 session-store:
     #type is either "postgres" or "redis"
