@@ -26,11 +26,14 @@ TOTAL_IMAGES=$( wc -l ${IMAGE_LIST} |awk '{ print $1 }')
 echo -en "Output Files / Total Images\n\t"
 echo -e "${PROCESSED_IMAGES}/${TOTAL_IMAGES}"
 echo -e "Completion: $( bc <<< "scale=2;($PROCESSED_IMAGES/$TOTAL_IMAGES)*100" ) %"
-echo -en "ok files / # of total images\n\t"
+echo -en "OK images / # of total images\n\t"
 echo -e "${OK_IMAGES}/${TOTAL_IMAGES}"
-echo -en "fail files / # of total images\n\t"
+echo -e "OK %: $( bc <<< "scale=2;($OK_IMAGES/$TOTAL_IMAGES)*100" ) %"
+echo -en "Fail images / # of total images\n\t"
 echo -e "${FAIL_IMAGES}/${TOTAL_IMAGES}"
-echo -en "fail files / # of total processed images\n\t"
+echo -e "Fail %: $( bc <<< "scale=2;($FAIL_IMAGES/$TOTAL_IMAGES)*100" ) %"
+echo -en "Fail images / # of total processed images\n\t"
 echo -e "${FAIL_IMAGES}/${PROCESSED_IMAGES}"
+echo -e "Fail % of Processed: $( bc <<< "scale=2;($FAIL_IMAGES/$PROCESSED_IMAGES)*100" ) %"
 
 
