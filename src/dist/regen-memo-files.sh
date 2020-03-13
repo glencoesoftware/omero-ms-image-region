@@ -95,8 +95,6 @@ if [ -z "${JOBS}" ]; then
 else
   if [ "${JOBS}" == "max" ]; then
     JOBS=${MAX_JOBS}
-  else
-  JOBS=${3}
   fi
 fi
 [ -z "${JOBS}" ] && JOBS=2
