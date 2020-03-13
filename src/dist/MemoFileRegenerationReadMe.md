@@ -48,3 +48,24 @@ You can run your system out of memory by setting jobs too high.
 It is also possible for the OOM killer to kill the job if there are too many running.
 For example: when testing done on a 16G/8cpu system the parallel jobs will be
 OOM'ed when jobs are set to >4.
+
+## Checking Status
+
+Using the included `memofile-regen-status.sh` you can do basic checks on the progress.
+Parallel timings tend to be off since a given image processes in wildly varying
+amounts of time, but the whole process is parallelized based on the number of
+CPUS/jobs.
+
+```
+$ ./memofile-regen-status.sh rslt.20200313.14374/
+Output Files / Total Images
+        85545/85545
+Completion: 100.00 %
+ok files / # of total images
+        30369/85545
+fail files / # of total images
+        55176/85545
+fail files / # of total processed images
+        55176/85545
+```
+
