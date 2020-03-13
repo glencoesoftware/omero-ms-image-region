@@ -38,14 +38,14 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.perf4j.StopWatch;
-import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
 import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
+import brave.ScopedSpan;
+import brave.Tracer;
+import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
@@ -58,14 +58,12 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.RenderingStats;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
-import omero.ApiUsageException;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
@@ -78,9 +76,6 @@ public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
-
-    /** OMERO server Spring application context. */
-    private final ApplicationContext context;
 
     /** OMERO server pixels service. */
     private final PixelsService pixelsService;
@@ -120,7 +115,7 @@ public class ImageRegionRequestHandler {
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx, ApplicationContext context,
+            ImageRegionCtx imageRegionCtx,
             List<Family> families, List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             PixelsService pixService,
@@ -128,7 +123,6 @@ public class ImageRegionRequestHandler {
             int maxTileLength) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
-        this.context = context;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
@@ -146,7 +140,8 @@ public class ImageRegionRequestHandler {
      * provided by <code>imageRegionCtx</code>.
      */
     public byte[] renderImageRegion(omero.client client) {
-        StopWatch t0 = new Slf4JStopWatch("renderImageRegion");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
@@ -158,9 +153,10 @@ public class ImageRegionRequestHandler {
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
+            span.error(e);
             log.error("Exception while retrieving image region", e);
         } finally {
-            t0.stop();
+            span.finish();
         }
         return null;
     }
@@ -181,7 +177,9 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();
         params.addId(imageId);
-        StopWatch t0 = new Slf4JStopWatch("getPixelsIdAndSeries");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_pixels_id_and_series");
+        span.tag("omero.image_id", imageId.toString());
         try {
             List<List<RType>> data = iQuery.projection(
                     "SELECT p.id, p.image.series FROM Pixels as p " +
@@ -193,7 +191,7 @@ public class ImageRegionRequestHandler {
             }
             return data.get(0);  // The first row
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 
@@ -212,13 +210,14 @@ public class ImageRegionRequestHandler {
                 iPixels.retrieveRndSettings(pixelsId, ctx));
     }
 
-    private PixelBuffer getPixelBuffer(Pixels pixels)
-            throws ApiUsageException {
-        StopWatch t0 = new Slf4JStopWatch("getPixelBuffer");
+    private PixelBuffer getPixelBuffer(Pixels pixels) {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_pixel_buffer");
+        span.tag("omero.pixels_id", pixels.getId().toString());
         try {
             return pixelsService.getPixelBuffer(pixels, false);
         } finally {
-            t0.stop();
+            span.finish();
         }
     }
 
@@ -239,12 +238,13 @@ public class ImageRegionRequestHandler {
         log.debug("Getting image region");
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        StopWatch t0 = new Slf4JStopWatch(
-                "PixelsService.retrievePixDescription");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("retrieve_pix_description");
         Pixels pixels;
         try {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
+            span.tag("omero.pixels_id", Long.toString(pixelsId));
             pixels = (Pixels) mapper.reverse(
                     iPixels.retrievePixDescription(pixelsId, ctx));
             // The series will be used by our version of PixelsService which
@@ -254,7 +254,7 @@ public class ImageRegionRequestHandler {
             image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
             pixels.setImage(image);
         } finally {
-            t0.stop();
+            span.finish();
         }
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
@@ -284,7 +284,8 @@ public class ImageRegionRequestHandler {
                         imageRegionCtx.compressionQuality);
             }
             updateSettings(renderer);
-            StopWatch t1 = new Slf4JStopWatch("render");
+            span = Tracing.currentTracer().startScopedSpan("render");
+            span.tag("omero.pixels_id", pixels.getId().toString());
             try {
                 // The actual act of rendering will close the provided pixel
                 // buffer.  However, just in case an exception is thrown before
@@ -292,7 +293,7 @@ public class ImageRegionRequestHandler {
                 // surrounding try-with-resources block.
                 return render(renderer, resolutionLevels, pixels, planeDef);
             } finally {
-                t1.stop();
+                span.finish();
             }
         }
     }
@@ -316,7 +317,9 @@ public class ImageRegionRequestHandler {
                     throws ServerError, IOException, QuantizationException {
         checkPlaneDef(resolutionLevels, planeDef);
 
-        StopWatch t0 = new Slf4JStopWatch("Renderer.renderAsPackedInt");
+        Tracer tracer = Tracing.currentTracer();
+        ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
+        span1.tag("omero.pixels_id", pixels.getId().toString());
         int[] buf;
         try {
             PixelBuffer newBuffer = null;
@@ -337,8 +340,9 @@ public class ImageRegionRequestHandler {
                         if (!channelBindings[i].getActive()) {
                             continue;
                         }
-                        StopWatch t1 = new Slf4JStopWatch(
-                                "ProjectionService.projectStack");
+                        ScopedSpan span2 =
+                                tracer.startScopedSpan("project_stack");
+                        span2.tag("omero.pixels_id", pixels.getId().toString());
                         try {
                             planes[0][i][0] = projectionService.projectStack(
                                 pixels,
@@ -351,7 +355,7 @@ public class ImageRegionRequestHandler {
                                 end
                             );
                         } finally {
-                            t1.stop();
+                            span2.finish();
                         }
                         projectedSizeC++;
                     }
@@ -376,13 +380,8 @@ public class ImageRegionRequestHandler {
             }
             buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
-            t0.stop();
-            if (log.isDebugEnabled()) {
-                RenderingStats stats = renderer.getStats();
-                if (stats != null) {
-                    log.debug(renderer.getStats().getStats());
-                }
-            }
+            span1.tag("omero.rendering_stats", renderer.getStats().getStats());
+            span1.finish();
         }
 
         String format = imageRegionCtx.format;

@@ -6,6 +6,7 @@
       <pattern>%date [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
+
   <logger name="com.glencoesoftware.omero.ms" level="INFO"/>
   <logger name="org.perf4j.TimingLogger" level="WARN"/>
   <logger name="ome.io.nio.PixelsService" level="WARN"/>

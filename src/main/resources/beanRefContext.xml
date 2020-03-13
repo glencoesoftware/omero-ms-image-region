@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN"
-  "http://www.springframework.org/dtd/spring-beans.dtd">
-<beans>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
   <description>
         Defines the beans for the pixel data microservice.
   </description>
@@ -37,13 +37,32 @@
          alias="internal-ome.api.LocalCompress"/>
   <bean id="internal-ome.api.ICompress"
         class="ome.logic.CompressImpl"
-        singleton="false"/>
+        scope="prototype"/>
 
   <bean id="LUTScripts" class="ome.services.scripts.ScriptFileType">
     <constructor-arg index="0" value="*.lut"/>
     <constructor-arg index="1" value="text/x-lut"/>
   </bean>
 
+  <bean id="lutProvider"
+        class="com.glencoesoftware.omero.ms.image.region.LutProviderImpl">
+    <constructor-arg value="${omero.script_repo_root}" />
+    <constructor-arg ref="LUTScripts" />
+  </bean>
+
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
 
+  <bean id="omero-ms-image-region-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
+        scope="prototype">
+    <constructor-arg ref="/OMERO/Pixels" />
+    <constructor-arg ref="internal-ome.api.ICompress" />
+    <constructor-arg ref="lutProvider" />
+    <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
+  </bean>
+
+  <bean id="omero-ms-shape-mask-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
+        scope="prototype">
+  </bean>
 </beans>

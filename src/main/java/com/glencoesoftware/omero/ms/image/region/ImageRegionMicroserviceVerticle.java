@@ -18,25 +18,30 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebRedisSessionStore;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionStore;
-import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
+import com.glencoesoftware.omero.ms.core.PrometheusSpanHandler;
 import com.glencoesoftware.omero.ms.core.OmeroWebSessionRequestHandler;
+import com.glencoesoftware.omero.ms.core.LogSpanReporter;
+import com.glencoesoftware.omero.ms.core.OmeroHttpTracingHandler;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
@@ -48,9 +53,19 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CookieHandler;
+import io.vertx.micrometer.PrometheusScrapingHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
+import zipkin2.Span;
+import zipkin2.reporter.AsyncReporter;
+import zipkin2.reporter.okhttp3.OkHttpSender;
+import brave.Tracing;
+import brave.http.HttpTracing;
+import brave.sampler.Sampler;
+import io.prometheus.client.vertx.MetricsHandler;
+import io.prometheus.jmx.BuildInfoCollector;
+import io.prometheus.jmx.JmxCollector;
+import io.prometheus.client.hotspot.DefaultExports;
 
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
@@ -59,6 +74,10 @@ import omero.model.Image;
  *
  */
 public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
+
+    private static final String JMX_CONFIG =
+        "---\n"
+        + "startDelaySeconds: 0\n";
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionMicroserviceVerticle.class);
@@ -75,6 +94,24 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** The string which will be used as Cache-Control header in responses */
     private String cacheControlHeader;
 
+    /** VerticleFactory */
+    private OmeroVerticleFactory verticleFactory;
+
+    /** Default number of workers to be assigned to the worker verticle */
+    private int DEFAULT_WORKER_POOL_SIZE;
+
+    /** Default max number of channels to allow per request */
+    private int MAX_ACTIVE_CHANNELS = 6;
+
+    /** Zipkin HTTP Tracing*/
+    private HttpTracing httpTracing;
+
+    private OkHttpSender sender;
+
+    private AsyncReporter<Span> spanReporter;
+
+    private Tracing tracing;
+
     static {
         com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
     }
@@ -84,8 +121,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * our current OMERO.web session store.
      */
     @Override
-    public void start(Future<Void> future) {
+    public void start(Promise<Void> prom) {
         log.info("Starting verticle");
+
+        DEFAULT_WORKER_POOL_SIZE =
+                Runtime.getRuntime().availableProcessors() * 2;
 
         ConfigStoreOptions store = new ConfigStoreOptions()
                 .setType("file")
@@ -100,9 +140,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .addStore(store));
         retriever.getConfig(ar -> {
             try {
-                deploy(ar.result(), future);
+                deploy(ar.result(), prom);
             } catch (Exception e) {
-                future.fail(e);
+                prom.fail(e);
             }
         });
     }
@@ -112,7 +152,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * configuration.
      * @param config Current configuration
      */
-    public void deploy(JsonObject config, Future<Void> future) {
+    public void deploy(JsonObject config, Promise<Void> prom) {
         log.info("Deploying verticle");
 
         // Set OMERO.server configuration options using system properties
@@ -128,30 +168,80 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
-                "classpath*:beanRefContext.xml");
+                "classpath*:beanRefContext.xml",
+                "classpath*:service-ms.core.PixelsService.xml");
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
 
-        // Deploy our dependency verticles
-        JsonObject omero = config.getJsonObject("omero");
-        if (omero == null) {
-            throw new IllegalArgumentException(
-                    "'omero' block missing from configuration");
+        JsonObject httpTracingConfig =
+                config.getJsonObject("http-tracing", new JsonObject());
+        Boolean tracingEnabled =
+                httpTracingConfig.getBoolean("enabled", false);
+        if (tracingEnabled) {
+            String zipkinUrl = httpTracingConfig.getString("zipkin-url");
+            log.info("Tracing enabled: {}", zipkinUrl);
+            sender = OkHttpSender.create(zipkinUrl);
+            spanReporter = AsyncReporter.create(sender);
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+            tracing = Tracing.newBuilder()
+                .sampler(Sampler.ALWAYS_SAMPLE)
+                .localServiceName("omero-ms-image-region")
+                .addFinishedSpanHandler(prometheusSpanHandler)
+                .spanReporter(spanReporter)
+                .build();
+        } else {
+            log.info("Tracing disabled");
+            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+            spanReporter = new LogSpanReporter();
+            tracing = Tracing.newBuilder()
+                    .sampler(Sampler.ALWAYS_SAMPLE)
+                    .localServiceName("omero-ms-image-region")
+                    .addFinishedSpanHandler(prometheusSpanHandler)
+                    .spanReporter(spanReporter)
+                    .build();
         }
-        vertx.deployVerticle(new RedisCacheVerticle(),
-                new DeploymentOptions()
-                        .setConfig(config));
-        vertx.deployVerticle(new ImageRegionVerticle(
-                omero.getString("host"), omero.getInteger("port"), context),
+        httpTracing = HttpTracing.newBuilder(tracing).build();
+
+        JsonObject jmxMetricsConfig =
+                config.getJsonObject("jmx-metrics", new JsonObject());
+        Boolean jmxMetricsEnabled =
+                jmxMetricsConfig.getBoolean("enabled", false);
+        if (jmxMetricsEnabled) {
+            log.info("JMX Metrics Enabled");
+            new BuildInfoCollector().register();
+            try {
+                new JmxCollector(JMX_CONFIG).register();
+                DefaultExports.initialize();
+            } catch (Exception e) {
+                log.error("Error setting up JMX Metrics", e);
+            }
+        }
+        else {
+            log.info("JMX Metrics NOT Enabled");
+        }
+
+        verticleFactory = (OmeroVerticleFactory)
+                context.getBean("omero-ms-verticlefactory");
+        vertx.registerVerticleFactory(verticleFactory);
+        // Deploy our dependency verticles
+        int workerPoolSize = Optional.ofNullable(
+                config.getInteger("worker_pool_size")
+                ).orElse(DEFAULT_WORKER_POOL_SIZE);
+        vertx.deployVerticle("omero:omero-ms-redis-cache-verticle",
+                new DeploymentOptions().setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
-                        .setMultiThreaded(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolName("render-image-region-pool")
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
-        vertx.deployVerticle(new ShapeMaskVerticle(
-                omero.getString("host"), omero.getInteger("port")),
+        vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
                         .setWorker(true)
-                        .setMultiThreaded(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolName("render-shape-mask-pool")
+                        .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();
@@ -171,13 +261,39 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer(options);
         Router router = Router.router(vertx);
 
+
+        JsonObject vertxMetricsConfig =
+                config.getJsonObject("vertx-metrics", new JsonObject());
+        Boolean vertxMetricsEnabled =
+                vertxMetricsConfig.getBoolean("enabled", false);
+        if (vertxMetricsEnabled) {
+            router.route("/vertxmetrics")
+                .order(-3)
+                .handler(PrometheusScrapingHandler.create());
+            log.info("Vertx Metrics Enabled");
+        } else {
+            log.info("Vertx Metrics NOT Enabled");
+        }
+
+        router.get("/metrics")
+            .order(-2)
+            .handler(new MetricsHandler());
+
+        List<String> tags = new ArrayList<String>();
+        tags.add("omero.session_key");
+
+        Handler<RoutingContext> routingContextHandler =
+                new OmeroHttpTracingHandler(httpTracing, tags);
+        // Set up HttpTracing Routing
+        router.route()
+            .order(-1) // applies before other routes
+            .handler(routingContextHandler)
+            .failureHandler(routingContextHandler);
+
         cacheControlHeader = config.getString("cache-control-header", "");
 
         // Get ImageRegion Microservice Information
         router.options().handler(this::getMicroserviceDetails);
-
-        // Cookie handler so we can pick up the OMERO.web session
-        router.route().handler(CookieHandler.create());
 
         // OMERO session handler which picks up the session key from the
         // OMERO.web session and joins it.
@@ -199,7 +315,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "Missing/invalid value for 'session-store.type' in config");
         }
         router.route().handler(
-                new OmeroWebSessionRequestHandler(config, sessionStore, vertx));
+                new OmeroWebSessionRequestHandler(config, sessionStore));
 
         // ImageRegion request handlers
         router.get(
@@ -220,13 +336,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
 
+        MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
+
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
-        server.requestHandler(router::accept).listen(port, result -> {
+        server.requestHandler(router).listen(port, result -> {
             if (result.succeeded()) {
-                future.complete();
+                prom.complete();
             } else {
-                future.fail(result.cause());
+                prom.fail(result.cause());
             }
         });
     }
@@ -238,6 +356,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     @Override
     public void stop() throws Exception {
         sessionStore.close();
+        tracing.close();
+        if (spanReporter != null) {
+            spanReporter.close();
+        }
+        if (sender != null) {
+            sender.close();
+        }
     }
 
     /**
@@ -263,7 +388,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("mask-color")
                                  .add("png-tiles"))
                 .put("options",new JsonObject()
-                               .put("maxTileLength", maxTileLength));
+                               .put("maxTileLength", maxTileLength)
+                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
         if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
@@ -292,9 +418,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.setStatusCode(400).end(e.getMessage());
             return;
         }
+        int activeChannelCount = 0;
+        for (Integer channel : imageRegionCtx.channels) {
+            if (channel > 0) activeChannelCount++;
+        }
+        if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
+            HttpServerResponse response = event.response();
+            response.setStatusCode(400).end(String.format(
+                "Too many active channels. Cannot process more than %d per request",
+                MAX_ACTIVE_CHANNELS));
+            return;
+        }
+        imageRegionCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             try {
@@ -349,9 +487,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
+        shapeMaskCtx.injectCurrentTraceContext();
 
         final HttpServerResponse response = event.response();
-        vertx.eventBus().<byte[]>send(
+        vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {

@@ -99,6 +99,28 @@ output similar to the following::
     Jun 01 14:40:55 demo.glencoesoftware.com omero-ms-image-region[9096]: Jun 01, 2017 2:40:55 PM io.vertx.core.Starter
     Jun 01 14:40:55 demo.glencoesoftware.com omero-ms-image-region[9096]: INFO: Succeeded in deploying verticle
 
+Regenerating memo files
+-----------------------
+
+Bio-Formats memo files often need to be regenerated between Bio-Formats
+upgrades.  The image region microservice ships with a command line tool,
+`memoregenerator`, to perform this regeneration out of band using a secondary
+Bio-Formats cache directory.
+
+1. Configure the application by editing `conf/config.yaml`
+
+1. Run the input CSV generator against your database::
+
+        psql -f memo_regenerator.sql omero > input.csv
+
+1. Split the input CSV into as many jobs as required::
+
+        split -l <images_per_job> --additional-suffix=.csv input.csv input
+
+1. Run memo file regeneration to a secondary directory, in parallel if desired::
+
+        memoregenerator --cache-dir /other/cache/dir input...csv
+
 Redirecting OMERO.web to the Server
 ===================================
 
@@ -171,7 +193,7 @@ Eclipse Configuration
         cp src/dist/conf/config.yaml conf/
         # Edit as appropriate
 
-1. Add a new Run Configuration with a main class of `io.vertx.core.Starter`::
+1. Add a new Run Configuration with a main class of `io.vertx.core.Launcher`::
 
         run "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle"
 
