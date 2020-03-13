@@ -16,6 +16,7 @@ usage() {
     echo "    --memoizer-home       Location of image-region-ms"
     echo "    --force-image-regen   Force regeneration of image list even if it exists already"
     echo "    --no-ask              Do not ask for confirmation"
+    echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
     echo "    --cache-options       Memofile cache options [/path/to/dir | in-place]"
     echo "    --csv                 Bypass sql query and use this csv for image list"
     echo
@@ -33,6 +34,8 @@ while true; do
           DRYRUN="--dry-run"; shift;;
         --no-ask)
           NO_ASK="1"; shift;;
+        --no-wait)
+          NO_WAIT="1"; shift;;
         --force-image-regen)
           FORCE_IMAGE_REGEN="1"; shift;;
         --db)
@@ -65,6 +68,8 @@ while true; do
     esac
 done
 
+DATESTR="$( date "+%Y%m%d" ).$$"
+
 if [ -z "${CACHE_OPTIONS}" ]; then
   echo "Missing --cache-options : must specify a directory or 'in-place'"
   usage 1
@@ -81,6 +86,7 @@ if [ -z "${MEMOIZER_HOME}" ]; then
   usage 1
 fi
 
+set -e
 
 # max cpu/jobs calc
 MAX_JOBS=$(nproc)
@@ -95,11 +101,6 @@ else
 fi
 [ -z "${JOBS}" ] && JOBS=2
 
-set -e
-
-DATESTR="$( date "+%Y%m%d" ).$$"
-WORKING_DIR="memoregen-${DATESTR}"
-mkdir -p ${WORKING_DIR} && cd ${WORKING_DIR}
 
 if [ -z "${FULL_CSV}" ]; then
   FULL_CSV="image-list-${DATESTR}.csv"
@@ -131,16 +132,21 @@ fi
 
 if [ -s "${FULL_CSV}" ]; then
   NUM_IMAGES=$( wc -l ${FULL_CSV} |cut -f 1 )
-  echo "${NUM_IMAGES} images to process using ${JOBS} threads... 5 seconds to cancel."
-  sleep 5s
+  if [ -n "${NO_WAIT}" ]; then
+    echo "${NUM_IMAGES} images to process using ${JOBS} threads...starting"
+  else
+    echo "${NUM_IMAGES} images to process using ${JOBS} threads... 5 seconds to cancel."
+    sleep 5s
+  fi
+  mkdir -p rslt.${DATESTR}
   JAVA_OPTS='-Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer'
-  PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${JOBS}cpus.log --files --results results --use-cpus-instead-of-cores ${DRYRUN}"
-  split -n "l/${MAX_JOBS}" ${FULL_CSV} --additional-suffix=.csv input
+  PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
+  split -n "l/${MAX_JOBS}" ${FULL_CSV} --additional-suffix=.csv rslt.${DATESTR}/input
   time parallel ${PARALLEL_OPTS} \
-	  ${MEMOIZER_HOME}/bin/memoregenerator \
-	  --config=${MEMOIZER_HOME}/conf/config.yaml \
-	  ${CACHE_OPTIONS} \
-	  ::: input*.csv
+		${MEMOIZER_HOME}/bin/memoregenerator \
+		--config=${MEMOIZER_HOME}/conf/config.yaml \
+    ${CACHE_OPTIONS} \
+    ::: rslt.${DATESTR}/input*.csv
 else
   echo "No images to process"
 fi
