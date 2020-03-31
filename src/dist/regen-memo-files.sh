@@ -111,10 +111,14 @@ else
   echo "running sql to generate images file"
   [ -n "${DRYRUN}" ] && set -x
   if [ -n "${DB}" ]; then
-    psql ${DB} omero -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
-  else
-    psql ${PSQL_OPTIONS} omero -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
+    MS_CONFIG="${MEMOIZER_HOME}/conf/config.yaml"
+    DB_USER=$( grep omero.db.user ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
+    DB_HOST=$( grep omero.db.host ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
+    DB_NAME=$( grep omero.db.name ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
+    DB_PASS=$( grep omero.db.pass ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
   fi
+  PSQL_OPTIONS="psql://${DB_USER:-omero}:${DB_PASS:-omero}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-omero}"
+  psql ${PSQL_OPTIONS} omero -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
 fi
 [ -n "${DRYRUN}" ] && set +x
 
