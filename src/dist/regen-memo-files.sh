@@ -17,12 +17,35 @@ usage() {
     echo "    --force-image-regen   Force regeneration of image list even if it exists already"
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
-    echo "    --cache-options       Memofile cache options [/path/to/dir | in-place]"
+    echo "    --cache-options       Memofile cache options [/path/to/dir | inplace]"
     echo "    --csv                 Bypass sql query and use this csv for image list"
     echo
     echo "Example:"
     echo "  $0 --db postgresql://user:pass@host:port/db --jobs [12|max] --memoizer-home /opt/omero/OMERO.ms-image-region.current --cache-options /path/to/dir"
     exit $1
+}
+
+run_split_parallel_os_dep() {
+  JAVA_OPTS='-Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer'
+  CENTOS_VERSION=$(cat /etc/centos-release |cut -f 3 -d' '|cut -d. -f 1)
+  if [ "${CENTOS_VERSION}" = "6" ]; then
+    PARALLEL_OPTS="--halt 2 --gnu --eta --jobs ${JOBS} --joblog rslt.${DATESTR}/parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
+    split -l  $(( ${NUM_IMAGES} / ${JOBS} )) -d ${FULL_CSV} rslt.${DATESTR}/input.
+    mv -v ${FULL_CSV} rslt.${DATESTR}/
+    time parallel ${PARALLEL_OPTS} \
+      ${MEMOIZER_HOME}/bin/memoregenerator \
+      --config=${MEMOIZER_HOME}/conf/config.yaml \
+      ${CACHE_OPTIONS} \
+      ::: rslt.${DATESTR}/input.*
+  else
+    PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
+    split -n "l/${MAX_JOBS}" ${FULL_CSV} --additional-suffix=.csv rslt.${DATESTR}/input
+    time parallel ${PARALLEL_OPTS} \
+      ${MEMOIZER_HOME}/bin/memoregenerator \
+      --config=${MEMOIZER_HOME}/conf/config.yaml \
+      ${CACHE_OPTIONS} \
+      ::: rslt.${DATESTR}/input*.csv
+  fi
 }
 
 while true; do
@@ -71,11 +94,11 @@ done
 DATESTR="$( date "+%Y%m%d" ).$$"
 
 if [ -z "${CACHE_OPTIONS}" ]; then
-  echo "Missing --cache-options : must specify a directory or 'in-place'"
+  echo "Missing --cache-options : must specify a directory or 'inplace'"
   usage 1
 else
-  if [ "${CACHE_OPTIONS}" == "in-place" ]; then
-    CACHE_OPTIONS="--in-place"
+  if [ "${CACHE_OPTIONS}" == "inplace" ]; then
+    CACHE_OPTIONS="--inplace"
   else
     CACHE_OPTIONS="--cache-dir=${CACHE_OPTIONS}"
   fi
@@ -133,7 +156,7 @@ if [ -z "${NO_ASK}" ]; then
 fi
 
 if [ -s "${FULL_CSV}" ]; then
-  NUM_IMAGES=$( wc -l ${FULL_CSV} |cut -f 1 )
+  NUM_IMAGES=$( wc -l ${FULL_CSV} |cut -f 1 -d' ' )
   if [ -n "${NO_WAIT}" ]; then
     echo "${NUM_IMAGES} images to process using ${JOBS} threads...starting"
   else
@@ -141,14 +164,8 @@ if [ -s "${FULL_CSV}" ]; then
     sleep 5s
   fi
   mkdir -p rslt.${DATESTR}
-  JAVA_OPTS='-Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer'
-  PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
-  split -n "l/${MAX_JOBS}" ${FULL_CSV} --additional-suffix=.csv rslt.${DATESTR}/input
-  time parallel ${PARALLEL_OPTS} \
-		${MEMOIZER_HOME}/bin/memoregenerator \
-		--config=${MEMOIZER_HOME}/conf/config.yaml \
-    ${CACHE_OPTIONS} \
-    ::: rslt.${DATESTR}/input*.csv
+  mv -v ${FULL_CSV} rslt.${DATESTR}/
+  run_split_parallel_os_dep
 else
   echo "No images to process"
 fi
