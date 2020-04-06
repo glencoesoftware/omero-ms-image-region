@@ -35,6 +35,7 @@ import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 
 import loci.formats.FormatTools;
+import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
@@ -187,7 +188,11 @@ public class MemoRegenerator implements Callable<Void> {
             Long imageId = (Long) row[0];
             try {
                 Pixels pixels = pixelsFromRow(row);
-                pixelsService.getPixelBuffer(pixels, false);
+                PixelBuffer buffer =
+                        pixelsService.getPixelBuffer(pixels, false);
+                if (buffer != null) {
+                    buffer.close();
+                }
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (Exception e) {
