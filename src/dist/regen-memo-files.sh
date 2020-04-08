@@ -18,6 +18,7 @@ usage() {
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
     echo "    --cache-options       Memofile cache options [/path/to/dir | inplace]"
+    echo "    --batch-size          # of image files to split list into"
     echo "    --csv                 Bypass sql query and use this csv for image list"
     echo
     echo "Example:"
@@ -26,26 +27,21 @@ usage() {
 }
 
 run_split_parallel_os_dep() {
-  JAVA_OPTS='-Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer'
+  JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
   CENTOS_VERSION=$(cat /etc/centos-release |cut -f 3 -d' '|cut -d. -f 1)
+  cd rslt.${DATESTR}
+  split -l ${BATCH_SIZE} ${FULL_CSV} -d input.
+  PARALLEL_OPTS="error"
   if [ "${CENTOS_VERSION}" = "6" ]; then
-    PARALLEL_OPTS="--halt 2 --gnu --eta --jobs ${JOBS} --joblog rslt.${DATESTR}/parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
-    split -l  $(( ${NUM_IMAGES} / ${JOBS} )) -d ${FULL_CSV} rslt.${DATESTR}/input.
-    mv -v ${FULL_CSV} rslt.${DATESTR}/
-    time parallel ${PARALLEL_OPTS} \
-      ${MEMOIZER_HOME}/bin/memoregenerator \
-      --config=${MEMOIZER_HOME}/conf/config.yaml \
-      ${CACHE_OPTIONS} \
-      ::: rslt.${DATESTR}/input.*
+    PARALLEL_OPTS="--halt 2 --gnu --eta --jobs ${JOBS} --joblog parallel-${JOBS}cpus.log --files --use-cpus-instead-of-cores --result . ${DRYRUN}"
   else
-    PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${DATESTR}-${JOBS}cpus.log --files --results rslt.${DATESTR} --use-cpus-instead-of-cores ${DRYRUN}"
-    split -n "l/${MAX_JOBS}" ${FULL_CSV} --additional-suffix=.csv rslt.${DATESTR}/input
-    time parallel ${PARALLEL_OPTS} \
-      ${MEMOIZER_HOME}/bin/memoregenerator \
-      --config=${MEMOIZER_HOME}/conf/config.yaml \
-      ${CACHE_OPTIONS} \
-      ::: rslt.${DATESTR}/input*.csv
+    PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${JOBS}cpus.log --files --use-cpus-instead-of-cores --results . ${DRYRUN}"
   fi
+set -x
+  /usr/bin/time -p -o timed parallel ${PARALLEL_OPTS} \
+    ${MEMOIZER_HOME}/bin/memoregenerator \
+    --config=${MEMOIZER_HOME}/conf/config.yaml \
+    ${CACHE_OPTIONS} ::: input.*
 }
 
 while true; do
@@ -65,6 +61,11 @@ while true; do
             case "$2" in
                 "") echo "No parameter specified for --db"; break;;
                 *)  DB=$2; shift 2;;
+            esac;;
+        --batch-size)
+            case "$2" in
+                "") echo "No parameter specified for --batch-size"; break;;
+                *)  BATCH_SIZE=$2; shift 2;;
             esac;;
         --jobs)
             case "$2" in
@@ -104,9 +105,14 @@ else
   fi
 fi
 
+if [ -z "${BATCH_SIZE}" ]; then
+  echo "Setting batch size to 500"
+  BATCH_SIZE=500
+fi
+
 if [ -z "${MEMOIZER_HOME}" ]; then
-  echo "Missing --memoizer-home : Need path to omero-ms-image-region top directory"
-  usage 1
+  echo "Setting memoizer-home to cwd (${PWD})"
+  MEMOIZER_HOME=${PWD}
 fi
 
 set -e
@@ -143,7 +149,7 @@ else
   PSQL_OPTIONS="postgresql://${DB_USER:-omero}:${DB_PASS:-omero}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-omero}"
   psql ${PSQL_OPTIONS} omero -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
 fi
-[ -n "${DRYRUN}" ] && set +x
+[ -n "${DRYRUN}" ] && set -x
 
 if [ -z "${NO_ASK}" ]; then
   read -p "Are you sure you want to regenerate memo files? (yes/no) " ANS

@@ -1,5 +1,39 @@
 #!/bin/bash
 
+flotToint() {
+    printf "%.0f\n" "$@"
+}
+
+function show_time () {
+    local num=$(flotToint $1)
+    local min=0
+    local hour=0
+    local day=0
+    if((num>59));then
+        ((sec=num%60))
+        ((num=num/60))
+        if((num>59));then
+            ((min=num%60))
+            ((num=num/60))
+            if((num>23));then
+                ((hour=num%24))
+                ((day=num/24))
+            else
+                ((hour=num))
+            fi
+        else
+            ((min=num))
+        fi
+    else
+        ((sec=num))
+    fi
+    echo "$day"d "$hour"h "$min"m "$sec"s
+}
+
+if [ "$2" == "--show-times" ]; then
+  SHOW_TIMES="1"
+fi
+
 RSLT_DIR=${1%/}
 [ -z "${RSLT_DIR}" ] && echo "usage: $0 [rslt_dir]" && exit 1
 
@@ -51,11 +85,29 @@ if [ -n "${REGEN_RUNNING}" ]; then
 	PARALLEL_PID=$(pgrep -P ${PARENT_PID})
 	if [ -n "${PARALLEL_PID}" ]; then
 		RUNNING_MEMOIZERS=$(pgrep -P ${PARALLEL_PID}| wc -l)
+		MEMOIZER_PIDS=$(pgrep -d' ' -P ${PARALLEL_PID})
 		echo "parallel currently running (${PARALLEL_PID})"
-		echo "${RUNNING_MEMOIZERS} Memoizer processes running"
+		echo "${RUNNING_MEMOIZERS} Memoizer processes running [${MEMOIZER_PIDS}]"
 	else
-	echo "parallel no longer running"
+		echo "parallel no longer running"
 	fi
 else
-	echo "regen script no longer running"
+	if [ -f "${RSLT_DIR}/timed" ]; then
+		real_time=$( grep real ${RSLT_DIR}/timed |awk '{ print $2 }' )
+		echo
+		echo "Run Completion time: $(show_time ${real_time})"
+	fi
 fi
+
+PARALLEL_LOG="${RSLT_DIR}/parallel-*.log"
+if [ -n "${SHOW_TIMES}" ]; then
+	for seq in $(cat ${PARALLEL_LOG} |grep -v ^Seq |awk '{ print $1 }'); do
+		startat=$(grep -we ^${seq} ${PARALLEL_LOG}|awk '{ print $3 }')
+		runtime=$(grep -we ^${seq} ${PARALLEL_LOG}|awk '{ print $4 }')
+		run_cmd=$(grep -we ^${seq} ${PARALLEL_LOG}|awk '{ print $NF }')
+		echo ${run_cmd} -- $(show_time ${runtime})
+	done
+fi
+#TOTAL_RUNTIME=$( awk '{sum += $4} END {print sum}' ${PARALLEL_LOG} )
+#echo
+#echo "Cumlative Completed Job Runtime: $(show_time ${TOTAL_RUNTIME})"
