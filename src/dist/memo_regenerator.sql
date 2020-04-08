@@ -5,6 +5,9 @@ COPY (SELECT * FROM (
            pixelstype.value AS pixelstype,
            pixels.sizeX,
            pixels.sizeY,
+           pixels.sizeZ,
+           pixels.sizeC,
+           pixels.sizeT,
            rank() OVER (PARTITION BY fileset.id ORDER BY image.id) AS rank
         FROM fileset
             JOIN image ON fileset.id = image.fileset

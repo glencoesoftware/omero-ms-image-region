@@ -216,6 +216,9 @@ public class MemoRegenerator implements Callable<Void> {
         String pixelsType = (String) row[3];
         Integer sizeX = (Integer) row[4];
         Integer sizeY = (Integer) row[5];
+        Integer sizeZ = (Integer) row[6];
+        Integer sizeC = (Integer) row[7];
+        Integer sizeT = (Integer) row[8];
 
         Image image = new Image(imageId, true);
         image.setSeries(series);
@@ -226,6 +229,9 @@ public class MemoRegenerator implements Callable<Void> {
         pixels.setPixelsType(pt);
         pixels.setSizeX(sizeX);
         pixels.setSizeY(sizeY);
+        pixels.setSizeZ(sizeZ);
+        pixels.setSizeC(sizeC);
+        pixels.setSizeT(sizeT);
         return pixels;
     }
 
