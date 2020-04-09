@@ -27,7 +27,8 @@ usage() {
 }
 
 run_split_parallel_os_dep() {
-  JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
+set -x
+  export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
   CENTOS_VERSION=$(cat /etc/centos-release |cut -f 3 -d' '|cut -d. -f 1)
   cd rslt.${DATESTR}
   split -l ${BATCH_SIZE} ${FULL_CSV} -d input.
