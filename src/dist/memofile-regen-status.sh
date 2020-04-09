@@ -30,6 +30,17 @@ function show_time () {
     echo "$day"d "$hour"h "$min"m "$sec"s
 }
 
+stat_display() {
+	local stat_name=${1}
+	local stat=${2}
+	echo -e "${stat_name} images / # of processed images"
+	echo -en "\t${stat}/${PROCESSED_IMAGES}"
+	echo -e "\t$( bc <<< "scale=2;(${stat}/${PROCESSED_IMAGES})*100" ) %"
+	echo -e "${stat_name} images / # of total images"
+	echo -en "\t${stat}/${TOTAL_IMAGES}"
+	echo -e "\t$( bc <<< "scale=2;(${stat}/${TOTAL_IMAGES})*100" ) %"
+}
+
 if [ "$2" == "--show-times" ]; then
   SHOW_TIMES="1"
 fi
@@ -54,6 +65,7 @@ STDERR_FILES=$( find ${PRSLTDIR} -type f -and -name stderr -and -size +0 -print 
 
 OK_IMAGES=$( grep 'ok: ' ${STDOUT_FILES} |wc -l )
 FAIL_IMAGES=$( grep 'fail: ' ${STDOUT_FILES} | wc -l )
+SKIP_IMAGES=$( grep 'skip: ' ${STDOUT_FILES} | wc -l )
 PROCESSED_IMAGES=$(( $OK_IMAGES + $FAIL_IMAGES ))
 TOTAL_IMAGES=$( wc -l ${IMAGE_LIST} |awk '{ print $1 }')
 
@@ -61,21 +73,9 @@ echo -e "Output Files / Total Images"
 echo -en "\t${PROCESSED_IMAGES}/${TOTAL_IMAGES}"
 echo -e "\t$( bc <<< "scale=2;($PROCESSED_IMAGES/$TOTAL_IMAGES)*100" ) %"
 
-echo -e "OK images / # of total images"
-echo -en "\t${OK_IMAGES}/${TOTAL_IMAGES}"
-echo -e "\t$( bc <<< "scale=2;($OK_IMAGES/$TOTAL_IMAGES)*100" ) %"
-
-echo -e "OK images / # of processed images"
-echo -en "\t${OK_IMAGES}/${PROCESSED_IMAGES}"
-echo -e "\t$( bc <<< "scale=2;($OK_IMAGES/$PROCESSED_IMAGES)*100" ) %"
-
-echo -e "Fail images / # of total images"
-echo -en "\t${FAIL_IMAGES}/${TOTAL_IMAGES}"
-echo -e "\t$( bc <<< "scale=2;($FAIL_IMAGES/$TOTAL_IMAGES)*100" ) %"
-
-echo -e "Fail images / # of processed images"
-echo -en "\t${FAIL_IMAGES}/${PROCESSED_IMAGES}"
-echo -e "\t$( bc <<< "scale=2;($FAIL_IMAGES/$PROCESSED_IMAGES)*100" ) %"
+stat_display "OK" ${OK_IMAGES}
+stat_display "Fail" ${FAIL_IMAGES}
+stat_display "Skip" ${SKIP_IMAGES}
 
 PARENT_PID=${RSLT_DIR##*.}
 REGEN_RUNNING=$(ps -Fw --no-headers ${PARENT_PID})
