@@ -35,6 +35,7 @@ import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 
 import loci.formats.FormatTools;
+import ome.conditions.MissingPyramidException;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
@@ -196,6 +197,9 @@ public class MemoRegenerator implements Callable<Void> {
                 }
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
+            } catch (MissingPyramidException e) {
+                long elapsedTime = System.nanoTime() - startTime;
+                System.out.printf("%d/%d - skip: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (Exception e) {
                 log.error("Caught exception processing row {} ImageID {}", i, imageId, e);
                 long elapsedTime = System.nanoTime() - startTime;
