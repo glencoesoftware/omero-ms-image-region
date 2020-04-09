@@ -169,7 +169,8 @@ public class MemoRegenerator implements Callable<Void> {
         // imageId, pixelsId, series, pixelsType, sizeX, sizeY
         ObjectRowListProcessor rowProcessor = new ObjectRowListProcessor();
         rowProcessor.convertIndexes(Conversions.toLong()).set(0, 1);
-        rowProcessor.convertIndexes(Conversions.toInteger()).set(2, 4, 5);
+        rowProcessor.convertIndexes(Conversions.toInteger())
+            .set(2, 4, 5, 6, 7, 8);
 
         CsvParserSettings parserSettings = new CsvParserSettings();
         parserSettings.setProcessor(rowProcessor);
