@@ -46,7 +46,7 @@ set -x
   export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
   CENTOS_VERSION=$(cat /etc/centos-release |cut -f 3 -d' '|cut -d. -f 1)
   cd rslt.${DATESTR}
-  split -l ${BATCH_SIZE} ${FULL_CSV} -d input.
+  split -a 3 -l ${BATCH_SIZE} ${FULL_CSV} -d input.
   PARALLEL_OPTS="error"
   if [ "${CENTOS_VERSION}" = "6" ]; then
     PARALLEL_OPTS="--halt 2 --gnu --eta --jobs ${JOBS} --joblog parallel-${JOBS}cpus.log --files --use-cpus-instead-of-cores --result . ${DRYRUN}"
