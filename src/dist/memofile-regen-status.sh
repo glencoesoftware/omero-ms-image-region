@@ -97,7 +97,8 @@ REGEN_RUNNING=$(ps -Fw --no-headers ${PARENT_PID})
 
 if [ -n "${REGEN_RUNNING}" ]; then
   echo "regen script running (${PARENT_PID})"
-  PARALLEL_PID=$(pgrep -P ${PARENT_PID})
+  TIME_PID=$(pgrep -P ${PARENT_PID} time)
+  PARALLEL_PID=$(pgrep -P ${TIME_PID} perl)
   if [ -n "${PARALLEL_PID}" ]; then
     RUNNING_MEMOIZERS=$(pgrep -P ${PARALLEL_PID}| wc -l)
     MEMOIZER_PIDS=$(pgrep -d' ' -P ${PARALLEL_PID})
