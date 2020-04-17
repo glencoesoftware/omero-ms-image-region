@@ -81,7 +81,7 @@ STDERR_FILES=$( find ${PRSLTDIR} -type f -and -name stderr -and -size +0 -print 
 OK_IMAGES=$( grep 'ok: ' ${STDOUT_FILES} |wc -l )
 FAIL_IMAGES=$( grep 'fail: ' ${STDOUT_FILES} | wc -l )
 SKIP_IMAGES=$( grep 'skip: ' ${STDOUT_FILES} | wc -l )
-PROCESSED_IMAGES=$(( $OK_IMAGES + $FAIL_IMAGES ))
+PROCESSED_IMAGES=$(( $OK_IMAGES + $FAIL_IMAGES + $SKIP_IMAGES ))
 TOTAL_IMAGES=$( wc -l ${IMAGE_LIST} |awk '{ print $1 }')
 
 echo -e "Output Files / Total Images"
