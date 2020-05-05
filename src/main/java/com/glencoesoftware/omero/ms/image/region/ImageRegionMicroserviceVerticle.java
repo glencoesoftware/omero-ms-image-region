@@ -486,7 +486,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 }
                 response.write(Buffer.buffer(imageRegion));
             } finally {
-                response.end();
+                if(!response.closed()) {
+                    response.end();
+                }
                 log.debug("Response ended");
             }
         });
@@ -522,7 +524,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         String.valueOf(shapeMask.length));
                 response.write(Buffer.buffer(shapeMask));
             } finally {
-                response.end();
+                if(!response.closed()) {
+                    response.end();
+                }
                 log.debug("Response ended");
             }
         });
