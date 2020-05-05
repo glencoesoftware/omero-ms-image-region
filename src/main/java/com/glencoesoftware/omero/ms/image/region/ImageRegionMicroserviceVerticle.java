@@ -484,10 +484,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 if(!cacheControlHeader.equals("")) {
                     response.headers().set("Cache-Control", cacheControlHeader);
                 }
-                if (!response.closed()) {
-                    response.end(Buffer.buffer(imageRegion));
-                }
+                response.write(Buffer.buffer(imageRegion));
             } finally {
+                response.end();
                 log.debug("Response ended");
             }
         });
