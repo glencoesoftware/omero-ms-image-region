@@ -481,12 +481,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
-                if(!cacheControlHeader.equals("")) {
+                if (!cacheControlHeader.equals("")) {
                     response.headers().set("Cache-Control", cacheControlHeader);
                 }
                 response.write(Buffer.buffer(imageRegion));
             } finally {
-                if(!response.closed()) {
+                if (!response.closed()) {
                     response.end();
                 }
                 log.debug("Response ended");
@@ -524,7 +524,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         String.valueOf(shapeMask.length));
                 response.write(Buffer.buffer(shapeMask));
             } finally {
-                if(!response.closed()) {
+                if (!response.closed()) {
                     response.end();
                 }
                 log.debug("Response ended");
