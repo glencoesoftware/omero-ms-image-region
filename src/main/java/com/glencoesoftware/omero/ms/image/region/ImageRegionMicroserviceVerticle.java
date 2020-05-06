@@ -442,7 +442,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     request.params(), event.get("omero.session_key"));
         } catch (IllegalArgumentException e) {
             HttpServerResponse response = event.response();
-            response.setStatusCode(400).end(e.getMessage());
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
             return;
         }
         int activeChannelCount = 0;
@@ -451,9 +453,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
             HttpServerResponse response = event.response();
-            response.setStatusCode(400).end(String.format(
-                "Too many active channels. Cannot process more than %d per request",
-                MAX_ACTIVE_CHANNELS));
+            if (!response.closed()) {
+                response.setStatusCode(400).end(String.format(
+                    "Too many active channels. Cannot process more than " +
+                    "%d per request", MAX_ACTIVE_CHANNELS));
+            }
             return;
         }
         imageRegionCtx.injectCurrentTraceContext();
