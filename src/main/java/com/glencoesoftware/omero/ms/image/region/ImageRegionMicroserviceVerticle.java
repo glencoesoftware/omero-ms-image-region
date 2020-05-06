@@ -384,7 +384,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 statusCode = ((ReplyException) t).failureCode();
             }
             if (statusCode < 200 || statusCode > 599) {
-                log.error("Unexpected failureCode {} resetting to 500", t);
+                log.error(
+                    "Unexpected failureCode {} resetting to 500",
+                    statusCode, t);
                 statusCode = 500;
             }
             response.setStatusCode(statusCode);
