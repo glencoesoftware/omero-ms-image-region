@@ -39,10 +39,12 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -366,6 +368,33 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     }
 
     /**
+     * If the result of the eventbus message is a failure, handle it and
+     * return a response to the client.
+     * @param result eventbus result from worker verticle
+     * @param response HTTP response
+     * @return whether or not the <code>result</code> failed
+     */
+    private <T> Boolean handleResultFailed(
+            AsyncResult<Message<T>> result, HttpServerResponse response) {
+        Boolean resultFailed = result.failed();
+        if (resultFailed) {
+            Throwable t = result.cause();
+            int statusCode = 404;
+            if (t instanceof ReplyException) {
+                statusCode = ((ReplyException) t).failureCode();
+            }
+            if (statusCode < 200 || statusCode > 599) {
+                log.error(
+                    "Unexpected failureCode {} resetting to 500",
+                    statusCode, t);
+                statusCode = 500;
+            }
+            response.setStatusCode(statusCode);
+        }
+        return resultFailed;
+    }
+
+    /**
      * Get information about microservice.
      * Confirms that this is a microservice
      * @param event Current routing context.
@@ -415,7 +444,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     request.params(), event.get("omero.session_key"));
         } catch (IllegalArgumentException e) {
             HttpServerResponse response = event.response();
-            response.setStatusCode(400).end(e.getMessage());
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
             return;
         }
         int activeChannelCount = 0;
@@ -424,9 +455,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
             HttpServerResponse response = event.response();
-            response.setStatusCode(400).end(String.format(
-                "Too many active channels. Cannot process more than %d per request",
-                MAX_ACTIVE_CHANNELS));
+            if (!response.closed()) {
+                response.setStatusCode(400).end(String.format(
+                    "Too many active channels. Cannot process more than " +
+                    "%d per request", MAX_ACTIVE_CHANNELS));
+            }
             return;
         }
         imageRegionCtx.injectCurrentTraceContext();
@@ -436,15 +469,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
             try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
-                    }
-                    if (!response.closed()) {
-                        response.setStatusCode(statusCode).end();
-                    }
+                if (handleResultFailed(result, response)) {
                     return;
                 }
                 byte[] imageRegion = result.result().body();
@@ -462,13 +487,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(imageRegion.length));
-                if(!cacheControlHeader.equals("")) {
+                if (!cacheControlHeader.equals("")) {
                     response.headers().set("Cache-Control", cacheControlHeader);
                 }
-                if (!response.closed()) {
-                    response.end(Buffer.buffer(imageRegion));
-                }
+                response.write(Buffer.buffer(imageRegion));
             } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
                 log.debug("Response ended");
             }
         });
@@ -494,13 +520,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {
-                if (result.failed()) {
-                    Throwable t = result.cause();
-                    int statusCode = 404;
-                    if (t instanceof ReplyException) {
-                        statusCode = ((ReplyException) t).failureCode();
-                    }
-                    response.setStatusCode(statusCode);
+                if (handleResultFailed(result, response)) {
                     return;
                 }
                 byte[] shapeMask = result.result().body();
@@ -510,7 +530,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         String.valueOf(shapeMask.length));
                 response.write(Buffer.buffer(shapeMask));
             } finally {
-                response.end();
+                if (!response.closed()) {
+                    response.end();
+                }
                 log.debug("Response ended");
             }
         });
