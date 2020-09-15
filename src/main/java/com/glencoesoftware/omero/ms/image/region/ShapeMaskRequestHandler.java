@@ -27,8 +27,10 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,17 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.tiledb.java.api.Array;
+import io.tiledb.java.api.ArraySchema;
+import io.tiledb.java.api.Attribute;
+import io.tiledb.java.api.Context;
+import io.tiledb.java.api.Dimension;
+import io.tiledb.java.api.Domain;
+import io.tiledb.java.api.NativeArray;
+import io.tiledb.java.api.Pair;
+import io.tiledb.java.api.Query;
+import io.tiledb.java.api.QueryType;
+import io.tiledb.java.api.TileDBError;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
@@ -56,13 +69,17 @@ public class ShapeMaskRequestHandler {
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
 
+    /** Location of label image files */
+    private final String labelImagePath;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
+        this.labelImagePath = labelImagePath;
     }
 
     /**
@@ -72,16 +89,36 @@ public class ShapeMaskRequestHandler {
      * provided by <code>shapeMaskCtx</code>.
      */
     public byte[] renderShapeMask(omero.client client) {
-        try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-            if (mask != null) {
-                return renderShapeMask(mask);
+        //If the path to the label image exists, get it
+        String fullLabelImagePath = labelImagePath + Long.toString(shapeMaskCtx.shapeId) + ".tiledb";
+        File labelImageFile = new File(fullLabelImagePath);
+        if (labelImageFile.exists()) {
+            Array array = null;
+            try {
+                Context ctx = new Context();
+                array = new Array(ctx, fullLabelImagePath, QueryType.TILEDB_READ);
+                return getData(array, ctx);
+            } catch (TileDBError e) {
+                log.error("Caught TileDBError", e);
+                return null;
+            } finally {
+                if (array != null) {
+                    log.info("Closing array");
+                    array.close();
+                }
             }
-            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
-        } catch (Exception e) {
-            log.error("Exception while retrieving shape mask", e);
+        } else {
+            try {
+                MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+                if (mask != null) {
+                    return renderShapeMask(mask);
+                }
+                log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+            } catch (Exception e) {
+                log.error("Exception while retrieving shape mask", e);
+            }
+            return null;
         }
-        return null;
     }
 
     /**
@@ -211,6 +248,66 @@ public class ShapeMaskRequestHandler {
             if(span != null)
             span.finish();
         }
+    }
+
+    public byte[] renderLabelImage(omero.client client) {
+        log.info(labelImagePath);
+        long shapeId = 156193;
+        String fullLabelImagePath = labelImagePath + Long.toString(shapeId) + ".tiledb/0/labels/StarDist/0";
+        log.info(fullLabelImagePath);
+        Array array = null;
+        try {
+            Context ctx = new Context();
+            array = new Array(ctx, fullLabelImagePath, QueryType.TILEDB_READ);
+            getData(array, ctx);
+
+        } catch (TileDBError e) {
+            log.error("Caught TileDBError", e);
+        } finally {
+            if (array != null) {
+                log.info("Closing array");
+                array.close();
+            }
+        }
+        /*
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        Attribute attribute = schema.getAttribute("a1");
+        FilterList filterList = attribute.getFilterList();)
+        */
+        return null;
+    }
+
+    private byte[] getData(Array array, Context ctx) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        long num_dims = domain.getNDim();
+        long size = 1;
+        Dimension d0 = domain.getDimension(0);
+        log.info("Num Dims: " + Long.toString(num_dims));
+        log.info(Long.toString(domain.getRank()));
+        log.info(d0.getType().toString());
+        log.info(d0.domainToStr());
+        Pair<Byte, Byte> dimDomain = d0.getDomain();
+        for (int i = 0; i < num_dims; i++) {
+            log.info(domain.getDimension(i).domainToStr());
+        }
+        Attribute attribute = schema.getAttribute("a1");
+        log.info(attribute.getType().toString());
+        int[] subarrayDomain = new int[(int) num_dims*2];
+        for(int i = 0; i < num_dims; i++) {
+            subarrayDomain[i*2] = (int) (domain.getDimension(i).getDomain().getFirst());
+            subarrayDomain[i*2 + 1] = (int) domain.getDimension(i).getDomain().getSecond();
+        }
+        log.info(Arrays.toString(subarrayDomain));
+        NativeArray subArray = new NativeArray(ctx, subarrayDomain, Integer.class);
+        Query query = new Query(array, QueryType.TILEDB_READ);
+        query.setBuffer("a1", new NativeArray(ctx, 20, Double.class));
+        query.setSubarray(subArray);
+        query.submit();
+        double[] a1 = (double[]) query.getBuffer("a1");
+        log.info(Arrays.toString(a1));
+        return null;
     }
 
     /**
