@@ -30,6 +30,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,7 @@ import io.tiledb.java.api.Array;
 import io.tiledb.java.api.ArraySchema;
 import io.tiledb.java.api.Attribute;
 import io.tiledb.java.api.Context;
+import io.tiledb.java.api.Datatype;
 import io.tiledb.java.api.Dimension;
 import io.tiledb.java.api.Domain;
 import io.tiledb.java.api.NativeArray;
@@ -295,19 +297,39 @@ public class ShapeMaskRequestHandler {
         Attribute attribute = schema.getAttribute("a1");
         log.info(attribute.getType().toString());
         int[] subarrayDomain = new int[(int) num_dims*2];
+        int capacity = 1;
         for(int i = 0; i < num_dims; i++) {
-            subarrayDomain[i*2] = (int) (domain.getDimension(i).getDomain().getFirst());
-            subarrayDomain[i*2 + 1] = (int) domain.getDimension(i).getDomain().getSecond();
+            int start = (int) (domain.getDimension(i).getDomain().getFirst());
+            int end = (int) domain.getDimension(i).getDomain().getSecond();
+            subarrayDomain[i*2] = start;
+            subarrayDomain[i*2 + 1] = end;
+            capacity *= (end - start + 1);
         }
+        log.info("Num pixels: " + Integer.toString(capacity));
+        int bytesPerPixel = 1;
+        if (attribute.getType() == Datatype.TILEDB_UINT32 || attribute.getType() == Datatype.TILEDB_INT32) {
+            bytesPerPixel = 4;
+        }
+        capacity *= bytesPerPixel;
+        log.info("Bytes: " + Integer.toString(capacity));
         log.info(Arrays.toString(subarrayDomain));
+        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+        ByteBuffer bufferSlice = buffer.slice();
+        bufferSlice.order(ByteOrder.nativeOrder());
         NativeArray subArray = new NativeArray(ctx, subarrayDomain, Integer.class);
         Query query = new Query(array, QueryType.TILEDB_READ);
-        query.setBuffer("a1", new NativeArray(ctx, 20, Double.class));
         query.setSubarray(subArray);
+        query.setBuffer("a1", bufferSlice);
         query.submit();
-        double[] a1 = (double[]) query.getBuffer("a1");
-        log.info(Arrays.toString(a1));
-        return null;
+        byte[] outputBytes = new byte[buffer.capacity()/bytesPerPixel];
+        int i = 0;
+        while (buffer.hasRemaining()) {
+            int val = buffer.getInt(); //TODO: Handle other types
+            if (val != 0) {
+                outputBytes[i] = 1;
+            }
+        }
+        return outputBytes;
     }
 
     /**
