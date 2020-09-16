@@ -26,6 +26,7 @@ omero.server:
     omero.script_repo_root: "/opt/omero/lib/scripts"
     omero.pixeldata.max_tile_length: "2048"
     omero.labelimage.path: "/opt/omero/data/labelimages/"
+    omero.labelimage.suffix: ".tiledb"
 # OMERO.web configuration
 omero.web:
     session_cookie_name: "sessionid"
