@@ -256,34 +256,6 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-    public byte[] renderLabelImage(omero.client client) {
-        log.info(labelImagePath);
-        long shapeId = 156193;
-        String fullLabelImagePath = labelImagePath + Long.toString(shapeId) + ".tiledb/0/labels/StarDist/0";
-        log.info(fullLabelImagePath);
-        Array array = null;
-        try {
-            Context ctx = new Context();
-            array = new Array(ctx, fullLabelImagePath, QueryType.TILEDB_READ);
-            getData(array, ctx);
-
-        } catch (TileDBError e) {
-            log.error("Caught TileDBError", e);
-        } finally {
-            if (array != null) {
-                log.info("Closing array");
-                array.close();
-            }
-        }
-        /*
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-        FilterList filterList = attribute.getFilterList();)
-        */
-        return null;
-    }
-
     private byte[] getData(Array array, Context ctx) throws TileDBError {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
