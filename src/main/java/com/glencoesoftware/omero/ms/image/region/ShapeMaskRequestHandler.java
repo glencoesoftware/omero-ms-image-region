@@ -31,6 +31,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -96,13 +99,13 @@ public class ShapeMaskRequestHandler {
      */
     public byte[] renderShapeMask(omero.client client) {
         //If the path to the label image exists, get it
-        String fullLabelImagePath = labelImagePath + Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix;
-        File labelImageFile = new File(fullLabelImagePath);
-        if (labelImageFile.exists()) {
+        Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+        log.debug(fullLabelImagePath.toString());
+        if (Files.exists(fullLabelImagePath)) {
             Array array = null;
             try {
                 Context ctx = new Context();
-                array = new Array(ctx, fullLabelImagePath, QueryType.TILEDB_READ);
+                array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ);
                 return getData(array, ctx);
             } catch (TileDBError e) {
                 log.error("Caught TileDBError", e);
