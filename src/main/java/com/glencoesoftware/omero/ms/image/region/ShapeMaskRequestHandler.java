@@ -100,23 +100,11 @@ public class ShapeMaskRequestHandler {
     public byte[] renderShapeMask(omero.client client) {
         //If the path to the label image exists, get it
         Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
-        log.debug(fullLabelImagePath.toString());
+        log.info(fullLabelImagePath.toString());
         if (Files.exists(fullLabelImagePath)) {
-            Array array = null;
-            try {
-                Context ctx = new Context();
-                array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ);
-                return getData(array, ctx);
-            } catch (TileDBError e) {
-                log.error("Caught TileDBError", e);
-                return null;
-            } finally {
-                if (array != null) {
-                    log.info("Closing array");
-                    array.close();
-                }
-            }
-        } else {
+            return getLabelImageMask(fullLabelImagePath);
+        }
+        else {
             try {
                 MaskI mask = getMask(client, shapeMaskCtx.shapeId);
                 if (mask != null) {
@@ -126,6 +114,44 @@ public class ShapeMaskRequestHandler {
             } catch (Exception e) {
                 log.error("Exception while retrieving shape mask", e);
             }
+            return null;
+        }
+    }
+
+    protected byte[] getLabelImageMask(Path fullLabelImagePath) {
+        try (Context ctx = new Context()){
+            try (Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)) {
+                byte[] tiledbBytes = getData(array, ctx);
+
+                Color fillColor = new Color(255, 255, 0, 255);
+                if (shapeMaskCtx.color != null) {
+                    // Color came from the request so we override the default
+                    // color the mask was assigned.
+                    int[] rgba = ImageRegionRequestHandler
+                            .splitHTMLColor(shapeMaskCtx.color);
+                    fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
+                }
+                log.debug(
+                    "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+                    fillColor.getRed(), fillColor.getGreen(),
+                    fillColor.getBlue(), fillColor.getAlpha()
+                );
+                Domain domain = array.getSchema().getDomain();
+                int xStart = (int) domain.getDimension("x").getDomain().getFirst();
+                int xEnd = (int) domain.getDimension("x").getDomain().getSecond();
+                int width = xEnd - xStart + 1;
+                int yStart = (int) domain.getDimension("y").getDomain().getFirst();
+                int yEnd = (int) domain.getDimension("y").getDomain().getSecond();
+                int height = yEnd - yStart + 1;
+                try {
+                    return renderFromByteMask(fillColor, tiledbBytes, width, height);
+                } catch (IOException e) {
+                    log.error("Error while rendering shape mask");
+                }
+                return null;
+            }
+        } catch (TileDBError e) {
+            log.error("Caught TileDBError", e);
             return null;
         }
     }
@@ -198,6 +224,36 @@ public class ShapeMaskRequestHandler {
             }
         }
         return dest;
+    }
+
+    protected byte[] renderFromByteMask(
+            Color fillColor,byte[] bytes, int width, int height)
+                    throws IOException {
+        bytes = flip(bytes, width, height,
+                shapeMaskCtx.flipHorizontal,
+                shapeMaskCtx.flipVertical);
+        log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
+                "Size:{}", width, height, 8, bytes.length);
+        // Create buffered image
+        DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+        WritableRaster raster = Raster.createPackedRaster(
+                dataBuffer, width, height, 8, new Point(0, 0));
+        byte[] colorMap = new byte[] {
+            // First index (0); 100% transparent
+            0, 0, 0, 0,
+            // Second index (1); our color of choice
+            (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+            (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+        };
+        ColorModel colorModel = new IndexColorModel(
+                1, 2, colorMap, 0, true);
+        BufferedImage image = new BufferedImage(
+                colorModel, raster, false, null);
+
+        // Write PNG to memory and return
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return output.toByteArray();
     }
 
 
@@ -307,7 +363,9 @@ public class ShapeMaskRequestHandler {
             if (val != 0) {
                 outputBytes[i] = 1;
             }
+            i++;
         }
+        query.close();
         return outputBytes;
     }
 
