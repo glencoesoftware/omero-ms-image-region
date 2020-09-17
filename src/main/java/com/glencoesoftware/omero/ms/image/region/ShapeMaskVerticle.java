@@ -50,6 +50,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     /** Label Image Location */
     private String labelImagePath;
 
+    /** Label Image Suffix */
+    private String labelImageSuffix;
+
     /**
      * Default constructor.
      */
@@ -71,6 +74,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             host = omero.getString("host");
             port = omero.getInteger("port");
             labelImagePath = config().getJsonObject("omero.server").getString("omero.labelimage.path");
+            labelImageSuffix = config().getJsonObject("omero.server").getString("omero.labelimage.suffix");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -115,7 +119,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, labelImagePath);
+                            new ShapeMaskRequestHandler(shapeMaskCtx, labelImagePath, labelImageSuffix);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return

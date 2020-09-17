@@ -74,14 +74,18 @@ public class ShapeMaskRequestHandler {
     /** Location of label image files */
     private final String labelImagePath;
 
+    /** Label Image Suffix */
+    private String labelImageSuffix;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath, String labelImageSuffix) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.labelImagePath = labelImagePath;
+        this.labelImageSuffix = labelImageSuffix;
     }
 
     /**
@@ -92,7 +96,7 @@ public class ShapeMaskRequestHandler {
      */
     public byte[] renderShapeMask(omero.client client) {
         //If the path to the label image exists, get it
-        String fullLabelImagePath = labelImagePath + Long.toString(shapeMaskCtx.shapeId) + ".tiledb";
+        String fullLabelImagePath = labelImagePath + Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix;
         File labelImageFile = new File(fullLabelImagePath);
         if (labelImageFile.exists()) {
             Array array = null;
