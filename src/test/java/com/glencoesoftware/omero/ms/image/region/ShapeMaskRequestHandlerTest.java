@@ -62,7 +62,7 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 8;
         int height = 2;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
+        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height, 1);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);
@@ -75,7 +75,8 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 4;
         int height = 4;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
+        byte[] convertedBytes = handler.convertBitsToBytes(bytes, height*width);
+        byte[] png = handler.renderShapeMask(fillColor, convertedBytes, width, height, 8);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);

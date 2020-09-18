@@ -98,62 +98,16 @@ public class ShapeMaskRequestHandler {
      * provided by <code>shapeMaskCtx</code>.
      */
     public byte[] renderShapeMask(omero.client client) {
-        //If the path to the label image exists, get it
-        Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
-        log.info(fullLabelImagePath.toString());
-        if (Files.exists(fullLabelImagePath)) {
-            return getLabelImageMask(fullLabelImagePath);
-        }
-        else {
-            try {
-                MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-                if (mask != null) {
-                    return renderShapeMask(mask);
-                }
-                log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
-            } catch (Exception e) {
-                log.error("Exception while retrieving shape mask", e);
+        try {
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                return renderShapeMask(mask);
             }
-            return null;
+            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+        } catch (Exception e) {
+            log.error("Exception while retrieving shape mask", e);
         }
-    }
-
-    protected byte[] getLabelImageMask(Path fullLabelImagePath) {
-        try (Context ctx = new Context()){
-            try (Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)) {
-                byte[] tiledbBytes = getData(array, ctx);
-
-                Color fillColor = new Color(255, 255, 0, 255);
-                if (shapeMaskCtx.color != null) {
-                    // Color came from the request so we override the default
-                    // color the mask was assigned.
-                    int[] rgba = ImageRegionRequestHandler
-                            .splitHTMLColor(shapeMaskCtx.color);
-                    fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-                }
-                log.debug(
-                    "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
-                    fillColor.getRed(), fillColor.getGreen(),
-                    fillColor.getBlue(), fillColor.getAlpha()
-                );
-                Domain domain = array.getSchema().getDomain();
-                int xStart = (int) domain.getDimension("x").getDomain().getFirst();
-                int xEnd = (int) domain.getDimension("x").getDomain().getSecond();
-                int width = xEnd - xStart + 1;
-                int yStart = (int) domain.getDimension("y").getDomain().getFirst();
-                int yEnd = (int) domain.getDimension("y").getDomain().getSecond();
-                int height = yEnd - yStart + 1;
-                try {
-                    return renderFromByteMask(fillColor, tiledbBytes, width, height);
-                } catch (IOException e) {
-                    log.error("Error while rendering shape mask");
-                }
-                return null;
-            }
-        } catch (TileDBError e) {
-            log.error("Caught TileDBError", e);
-            return null;
-        }
+        return null;
     }
 
     /**
@@ -178,10 +132,41 @@ public class ShapeMaskRequestHandler {
                 fillColor.getRed(), fillColor.getGreen(),
                 fillColor.getBlue(), fillColor.getAlpha()
             );
-            byte[] bytes = mask.getBytes();
-            int width = (int) mask.getWidth().getValue();
-            int height = (int) mask.getHeight().getValue();
-            return renderShapeMask(fillColor, bytes, width, height);
+            //If the path to the label image exists, get it
+            Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+            log.info(fullLabelImagePath.toString());
+            if (Files.exists(fullLabelImagePath)) {
+                log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
+                try (Context ctx = new Context();
+                        Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        byte[] tiledbBytes = getData(array, ctx);
+                        Domain domain = array.getSchema().getDomain();
+                        int xStart = (int) domain.getDimension("x").getDomain().getFirst();
+                        int xEnd = (int) domain.getDimension("x").getDomain().getSecond();
+                        int width = xEnd - xStart + 1;
+                        int yStart = (int) domain.getDimension("y").getDomain().getFirst();
+                        int yEnd = (int) domain.getDimension("y").getDomain().getSecond();
+                        int height = yEnd - yStart + 1;
+                        return renderShapeMask(fillColor, tiledbBytes, width, height, 8);
+                } catch (TileDBError e) {
+                    log.error("Caught TileDBError", e);
+                    return null;
+                }
+            } else {
+                byte[] bytes = mask.getBytes();
+                int width = (int) mask.getWidth().getValue();
+                int height = (int) mask.getHeight().getValue();
+                // The underlying raster will used a MultiPixelPackedSampleModel
+                // which expects the row stride to be evenly divisible by the byte
+                // width of the data type.  If it is not so aligned we will need
+                // to convert it to a byte mask for rendering.
+                int bitsPerPixel = 1;
+                if (width % 8 != 0) {
+                    bytes = convertBitsToBytes(bytes, width * height);
+                    bitsPerPixel = 8;
+                }
+                return renderShapeMask(fillColor, bytes, width, height, bitsPerPixel);
+            }
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
         }
@@ -267,7 +252,7 @@ public class ShapeMaskRequestHandler {
      * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
      */
     protected byte[] renderShapeMask(
-            Color fillColor, byte[] bytes, int width, int height)
+            Color fillColor, byte[] bytes, int width, int height, int bitsPerPixel)
                     throws IOException {
         ScopedSpan span = null;
         if(Tracing.currentTracer() != null) {
@@ -275,15 +260,6 @@ public class ShapeMaskRequestHandler {
                 Tracing.currentTracer().startScopedSpan("render_shape_mask");
         }
         try {
-            // The underlying raster will used a MultiPixelPackedSampleModel
-            // which expects the row stride to be evenly divisible by the byte
-            // width of the data type.  If it is not so aligned we will need
-            // to convert it to a byte mask for rendering.
-            int bitsPerPixel = 1;
-            if (width % 8 != 0) {
-                bytes = convertBitsToBytes(bytes, width * height);
-                bitsPerPixel = 8;
-            }
             bytes = flip(bytes, width, height,
                     shapeMaskCtx.flipHorizontal,
                     shapeMaskCtx.flipVertical);
@@ -319,18 +295,7 @@ public class ShapeMaskRequestHandler {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
         long num_dims = domain.getNDim();
-        long size = 1;
-        Dimension d0 = domain.getDimension(0);
-        log.info("Num Dims: " + Long.toString(num_dims));
-        log.info(Long.toString(domain.getRank()));
-        log.info(d0.getType().toString());
-        log.info(d0.domainToStr());
-        Pair<Byte, Byte> dimDomain = d0.getDomain();
-        for (int i = 0; i < num_dims; i++) {
-            log.info(domain.getDimension(i).domainToStr());
-        }
         Attribute attribute = schema.getAttribute("a1");
-        log.info(attribute.getType().toString());
         int[] subarrayDomain = new int[(int) num_dims*2];
         int capacity = 1;
         for(int i = 0; i < num_dims; i++) {
@@ -340,14 +305,11 @@ public class ShapeMaskRequestHandler {
             subarrayDomain[i*2 + 1] = end;
             capacity *= (end - start + 1);
         }
-        log.info("Num pixels: " + Integer.toString(capacity));
         int bytesPerPixel = 1;
         if (attribute.getType() == Datatype.TILEDB_UINT32 || attribute.getType() == Datatype.TILEDB_INT32) {
             bytesPerPixel = 4;
         }
         capacity *= bytesPerPixel;
-        log.info("Bytes: " + Integer.toString(capacity));
-        log.info(Arrays.toString(subarrayDomain));
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
         ByteBuffer bufferSlice = buffer.slice();
         bufferSlice.order(ByteOrder.nativeOrder());
@@ -374,7 +336,7 @@ public class ShapeMaskRequestHandler {
      * @param bits the bits to convert
      * @param size number of bits to convert
      */
-    private byte[] convertBitsToBytes(byte[] bits, int size) {
+    protected byte[] convertBitsToBytes(byte[] bits, int size) {
         PixelData bitData = new PixelData("bit", ByteBuffer.wrap(bits));
         byte[] bytes = new byte[size];
         for (int i = 0; i < size; i++) {

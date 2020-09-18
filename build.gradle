@@ -24,6 +24,9 @@ repositories {
     maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
 }
 
 configurations.all {
@@ -69,7 +72,7 @@ dependencies {
     implementation 'info.picocli:picocli:4.1.4'
     implementation 'com.univocity:univocity-parsers:2.8.3'
     implementation 'com.zeroc:icegrid:3.6.4'
-    implementation 'io.tiledb:tiledb-java:0.3.1'
+    implementation 'io.tiledb:tiledb-java:0.3.3-SNAPSHOT'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.+'
 }
