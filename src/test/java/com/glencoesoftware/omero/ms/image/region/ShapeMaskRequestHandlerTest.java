@@ -62,7 +62,14 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 8;
         int height = 2;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height, 1);
+        byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); our color of choice
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height, 1, colorMap);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);
@@ -76,7 +83,14 @@ public class ShapeMaskRequestHandlerTest {
         int width = 4;
         int height = 4;
         byte[] convertedBytes = handler.convertBitsToBytes(bytes, height*width);
-        byte[] png = handler.renderShapeMask(fillColor, convertedBytes, width, height, 8);
+        byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); our color of choice
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+        byte[] png = handler.renderShapeMask(fillColor, convertedBytes, width, height, 8, colorMap);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);

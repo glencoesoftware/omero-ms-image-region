@@ -27,14 +27,12 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +49,8 @@ import io.tiledb.java.api.ArraySchema;
 import io.tiledb.java.api.Attribute;
 import io.tiledb.java.api.Context;
 import io.tiledb.java.api.Datatype;
-import io.tiledb.java.api.Dimension;
 import io.tiledb.java.api.Domain;
 import io.tiledb.java.api.NativeArray;
-import io.tiledb.java.api.Pair;
 import io.tiledb.java.api.Query;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
@@ -65,6 +61,8 @@ import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
+
+import com.google.gson.Gson;
 
 public class ShapeMaskRequestHandler {
 
@@ -79,6 +77,9 @@ public class ShapeMaskRequestHandler {
 
     /** Label Image Suffix */
     private String labelImageSuffix;
+
+    /** GSON */
+    Gson gson;
 
     /**
      * Default constructor.
@@ -129,6 +130,20 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    protected byte getMaxByte(byte[] bytes) {
+        if (bytes.length == 0) {
+            throw new IllegalArgumentException("Cannot get max of empty array");
+        } else {
+            byte max = bytes[0];
+            for(int i = 1; i < bytes.length; i++) {
+                if (bytes[i] > max) {
+                    max = bytes[i];
+                }
+            }
+            return max;
+        }
+    }
+
     /**
      * Render shape mask.
      * @param mask mask to render
@@ -167,7 +182,8 @@ public class ShapeMaskRequestHandler {
                         long yEnd = (long) domain.getDimension("y").getDomain().getSecond();
                         int height = (int) (yEnd - yStart + 1);
                         int bitsPerPixel = 8 * getBytesPerPixel(array.getSchema().getAttribute("a1").getType());
-                        return renderShapeMask(fillColor, tiledbBytes, width, height, bitsPerPixel);
+                        byte[] colorMap = getColorMap(getMaxByte(tiledbBytes));
+                        return renderShapeMask(fillColor, tiledbBytes, width, height, bitsPerPixel, colorMap);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
                     return null;
@@ -185,7 +201,14 @@ public class ShapeMaskRequestHandler {
                     bytes = convertBitsToBytes(bytes, width * height);
                     bitsPerPixel = 8;
                 }
-                return renderShapeMask(fillColor, bytes, width, height, bitsPerPixel);
+                byte[] colorMap = new byte[] {
+                        // First index (0); 100% transparent
+                        0, 0, 0, 0,
+                        // Second index (1); our color of choice
+                        (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                        (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+                    };
+                return renderShapeMask(fillColor, bytes, width, height, bitsPerPixel, colorMap);
             }
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
@@ -231,6 +254,28 @@ public class ShapeMaskRequestHandler {
         return dest;
     }
 
+    byte[] getColorMap(int maxIndex) {
+        int colorMapSize = (maxIndex + 1) * 4;
+        byte [] colorMap = new byte[colorMapSize];
+        int[] coprimes = new int[] {111, 51, 29};
+        int k = 0;
+        for (int i = 1; i < maxIndex + 1; i++) {
+            for (int j = 0; j < 4; j++) {
+                if (j != 3) {
+                    if (j == k) {
+                        colorMap[i*4 + j] = (byte) (coprimes[j]*(i/4 + 1) % 256);
+                    } else {
+                        colorMap[i*4 + j] = colorMap[(i-1)*4 +j];
+                    }
+                } else {
+                    colorMap[i*4 + j] = (byte) 255;
+                }
+            }
+            k = (k+1) % 3;
+        }
+        return colorMap;
+    }
+
     /**
      * Render shape mask.
      * @param fillColor fill color to use for the mask
@@ -241,7 +286,7 @@ public class ShapeMaskRequestHandler {
      * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
      */
     protected byte[] renderShapeMask(
-            Color fillColor, byte[] bytes, int width, int height, int bitsPerPixel)
+            Color fillColor, byte[] bytes, int width, int height, int bitsPerPixel, byte[] colorMap)
                     throws IOException {
         ScopedSpan span = null;
         if(Tracing.currentTracer() != null) {
@@ -258,15 +303,8 @@ public class ShapeMaskRequestHandler {
             DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
             WritableRaster raster = Raster.createPackedRaster(
                     dataBuffer, width, height, bitsPerPixel, new Point(0, 0));
-            byte[] colorMap = new byte[] {
-                // First index (0); 100% transparent
-                0, 0, 0, 0,
-                // Second index (1); our color of choice
-                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
-                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
-            };
             ColorModel colorModel = new IndexColorModel(
-                    1, 2, colorMap, 0, true);
+                    1, colorMap.length/4, colorMap, 0, true);
             BufferedImage image = new BufferedImage(
                     colorModel, raster, false, null);
 
