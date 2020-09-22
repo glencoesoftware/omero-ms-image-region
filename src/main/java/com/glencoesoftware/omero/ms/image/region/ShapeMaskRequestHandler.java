@@ -110,6 +110,25 @@ public class ShapeMaskRequestHandler {
         return null;
     }
 
+    protected int getBytesPerPixel(Datatype type) {
+        switch (type) {
+            case TILEDB_UINT8:
+            case TILEDB_INT8:
+                return 1;
+            case TILEDB_UINT16:
+            case TILEDB_INT16:
+                return 2;
+            case TILEDB_UINT32:
+            case TILEDB_INT32:
+                return 4;
+            case TILEDB_UINT64:
+            case TILEDB_INT64:
+                return 8;
+            default:
+                throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
+        }
+    }
+
     /**
      * Render shape mask.
      * @param mask mask to render
@@ -139,15 +158,16 @@ public class ShapeMaskRequestHandler {
                 log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
                 try (Context ctx = new Context();
                         Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
-                        byte[] tiledbBytes = getByteMaskData(array, ctx);
+                        byte[] tiledbBytes = getData(array, ctx);
                         Domain domain = array.getSchema().getDomain();
-                        int xStart = (int) domain.getDimension("x").getDomain().getFirst();
-                        int xEnd = (int) domain.getDimension("x").getDomain().getSecond();
-                        int width = xEnd - xStart + 1;
-                        int yStart = (int) domain.getDimension("y").getDomain().getFirst();
-                        int yEnd = (int) domain.getDimension("y").getDomain().getSecond();
-                        int height = yEnd - yStart + 1;
-                        return renderShapeMask(fillColor, tiledbBytes, width, height, 8);
+                        long xStart = (long) domain.getDimension("x").getDomain().getFirst();
+                        long xEnd = (long) domain.getDimension("x").getDomain().getSecond();
+                        int width = (int) (xEnd - xStart + 1);
+                        long yStart = (long) domain.getDimension("y").getDomain().getFirst();
+                        long yEnd = (long) domain.getDimension("y").getDomain().getSecond();
+                        int height = (int) (yEnd - yStart + 1);
+                        int bitsPerPixel = 8 * getBytesPerPixel(array.getSchema().getAttribute("a1").getType());
+                        return renderShapeMask(fillColor, tiledbBytes, width, height, bitsPerPixel);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
                     return null;
@@ -211,37 +231,6 @@ public class ShapeMaskRequestHandler {
         return dest;
     }
 
-    protected byte[] renderFromByteMask(
-            Color fillColor,byte[] bytes, int width, int height)
-                    throws IOException {
-        bytes = flip(bytes, width, height,
-                shapeMaskCtx.flipHorizontal,
-                shapeMaskCtx.flipVertical);
-        log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
-                "Size:{}", width, height, 8, bytes.length);
-        // Create buffered image
-        DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
-        WritableRaster raster = Raster.createPackedRaster(
-                dataBuffer, width, height, 8, new Point(0, 0));
-        byte[] colorMap = new byte[] {
-            // First index (0); 100% transparent
-            0, 0, 0, 0,
-            // Second index (1); our color of choice
-            (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
-            (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
-        };
-        ColorModel colorModel = new IndexColorModel(
-                1, 2, colorMap, 0, true);
-        BufferedImage image = new BufferedImage(
-                colorModel, raster, false, null);
-
-        // Write PNG to memory and return
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", output);
-        return output.toByteArray();
-    }
-
-
     /**
      * Render shape mask.
      * @param fillColor fill color to use for the mask
@@ -291,220 +280,37 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-    private int getCapacity(Domain domain) throws TileDBError {
-        long num_dims = domain.getNDim();
-        Datatype dimType = domain.getDimension(0).getType();
-        switch (dimType) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:{
-                int capacity = 1;
-                for(int i = 0; i < num_dims; i++) {
-                    byte start = (byte) (domain.getDimension(i).getDomain().getFirst());
-                    byte end = (byte) domain.getDimension(i).getDomain().getSecond();
-                    capacity *= (end - start + 1);
-                }
-                return capacity;
-            }
-            case TILEDB_UINT16:
-            case TILEDB_INT16: {
-                int capacity = 1;
-                for(int i = 0; i < num_dims; i++) {
-                    short start = (short) (domain.getDimension(i).getDomain().getFirst());
-                    short end = (short) domain.getDimension(i).getDomain().getSecond();
-                    capacity *= (end - start + 1);
-                }
-                return capacity;
-            }
-            case TILEDB_UINT32:
-            case TILEDB_INT32: {
-                int capacity = 1;
-                for(int i = 0; i < num_dims; i++) {
-                    int start = (int) (domain.getDimension(i).getDomain().getFirst());
-                    int end = (int) domain.getDimension(i).getDomain().getSecond();
-                    capacity *= (end - start + 1);
-                }
-                return capacity;
-            }
-            case TILEDB_UINT64:
-            case TILEDB_INT64: {
-                int capacity = 1;
-                for(int i = 0; i < num_dims; i++) {
-                    long start = (long) (domain.getDimension(i).getDomain().getFirst());
-                    long end = (long) domain.getDimension(i).getDomain().getSecond();
-                    capacity *= (end - start + 1);
-                }
-                return capacity;
-            }
-            default: return -1;
-        }
-    }
-
-    private NativeArray getSubarray(Context ctx, Domain domain) throws TileDBError {
-        long num_dims = domain.getNDim();
-        Datatype dimType = domain.getDimension(0).getType();
-        switch (dimType) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:{
-                byte[] subarrayDomain = new byte[(int) num_dims*2];
-                for(int i = 0; i < num_dims; i++) {
-                    byte start = (byte) (domain.getDimension(i).getDomain().getFirst());
-                    byte end = (byte) domain.getDimension(i).getDomain().getSecond();
-                    subarrayDomain[i*2] = start;
-                    subarrayDomain[i*2 + 1] = end;
-                }
-                return new NativeArray(ctx, subarrayDomain, dimType);
-            }
-            case TILEDB_UINT16:
-            case TILEDB_INT16: {
-                short[] subarrayDomain = new short[(int) num_dims*2];
-                for(int i = 0; i < num_dims; i++) {
-                    short start = (short) (domain.getDimension(i).getDomain().getFirst());
-                    short end = (short) domain.getDimension(i).getDomain().getSecond();
-                    subarrayDomain[i*2] = start;
-                    subarrayDomain[i*2 + 1] = end;
-                }
-                return new NativeArray(ctx, subarrayDomain, dimType);
-            }
-            case TILEDB_UINT32:
-            case TILEDB_INT32: {
-                int[] subarrayDomain = new int[(int) num_dims*2];
-                for(int i = 0; i < num_dims; i++) {
-                    int start = (int) (domain.getDimension(i).getDomain().getFirst());
-                    int end = (int) domain.getDimension(i).getDomain().getSecond();
-                    subarrayDomain[i*2] = start;
-                    subarrayDomain[i*2 + 1] = end;
-                }
-                return new NativeArray(ctx, subarrayDomain, dimType);
-            }
-            case TILEDB_UINT64:
-            case TILEDB_INT64: {
-                long[] subarrayDomain = new long[(int) num_dims*2];
-                for(int i = 0; i < num_dims; i++) {
-                    long start = (long) (domain.getDimension(i).getDomain().getFirst());
-                    long end = (long) domain.getDimension(i).getDomain().getSecond();
-                    subarrayDomain[i*2] = start;
-                    subarrayDomain[i*2 + 1] = end;
-                }
-                return new NativeArray(ctx, subarrayDomain, dimType);
-            }
-            default: return null;
-        }
-    }
-
     private byte[] getData(Array array, Context ctx) throws TileDBError {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
         Attribute attribute = schema.getAttribute("a1");
 
-        int bytesPerPixel = 1;
-        switch (attribute.getType()) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:
-                break;
-            case TILEDB_UINT16:
-            case TILEDB_INT16:
-                bytesPerPixel = 2;
-                break;
-            case TILEDB_UINT32:
-            case TILEDB_INT32:
-                bytesPerPixel = 4;
-                break;
-            case TILEDB_UINT64:
-            case TILEDB_INT64:
-                bytesPerPixel = 8;
-                break;
-            default:
-                throw new IllegalArgumentException("Attribute type " + attribute.getType().toString() + " not supported");
+        int bytesPerPixel = getBytesPerPixel(attribute.getType());
+
+        int num_dims = (int) domain.getNDim();
+        int capacity = 1;
+        long[] subarrayDomain = new long[(int) num_dims*2];
+        for(int i = 0; i < num_dims; i++) {
+            long start = (long) (domain.getDimension(i).getDomain().getFirst());
+            long end = (long) domain.getDimension(i).getDomain().getSecond();
+            subarrayDomain[i*2] = start;
+            subarrayDomain[i*2 + 1] = end;
+            capacity *= (end - start + 1);
         }
-        int capacity = getCapacity(domain) * bytesPerPixel;
+        capacity *= bytesPerPixel;
+
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        ByteBuffer bufferSlice = buffer.slice();
-        bufferSlice.order(ByteOrder.nativeOrder());
+        buffer.order(ByteOrder.nativeOrder());
         //Dimensions in Dense Arrays must be the same type
-        Query query = new Query(array, QueryType.TILEDB_READ);
-        query.setSubarray(getSubarray(ctx, domain));
-        query.setBuffer("a1", bufferSlice);
-        query.submit();
-        byte[] outputBytes = new byte[capacity];
-        buffer.get(outputBytes);
-        query.close();
-        return outputBytes;
-    }
-
-    private void populateByteMask(byte[] dst, ByteBuffer src, Datatype type) {
-        int i = 0;
-        switch (type) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:
-                src.get(dst);
-                break;
-            case TILEDB_UINT16:
-            case TILEDB_INT16:
-                while (src.hasRemaining()) {
-                    short val = src.getShort();
-                    if (val != 0) {dst[i] = 1;}
-                    i++;
-                }
-                break;
-            case TILEDB_UINT32:
-            case TILEDB_INT32:
-                while (src.hasRemaining()) {
-                    int val = src.getInt();
-                    if (val != 0) {dst[i] = 1;}
-                    i++;
-                }
-                break;
-            case TILEDB_UINT64:
-            case TILEDB_INT64:
-                while (src.hasRemaining()) {
-                    long val = src.getLong();
-                    if (val != 0) {dst[i] = 1;}
-                    i++;
-                }
-                break;
-            default:
-                return;
+        try (Query query = new Query(array, QueryType.TILEDB_READ);
+                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
+            query.setSubarray(subArray);
+            query.setBuffer("a1", buffer);
+            query.submit();
+            byte[] outputBytes = new byte[buffer.capacity()];
+            buffer.get(outputBytes);
+            return outputBytes;
         }
-    }
-
-    private byte[] getByteMaskData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = 1;
-        switch (attribute.getType()) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:
-                break;
-            case TILEDB_UINT16:
-            case TILEDB_INT16:
-                bytesPerPixel = 2;
-                break;
-            case TILEDB_UINT32:
-            case TILEDB_INT32:
-                bytesPerPixel = 4;
-                break;
-            case TILEDB_UINT64:
-            case TILEDB_INT64:
-                bytesPerPixel = 8;
-                break;
-            default:
-                throw new IllegalArgumentException("Attribute type " + attribute.getType().toString() + " not supported");
-        }
-        int capacity = getCapacity(domain) * bytesPerPixel;
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        ByteBuffer bufferSlice = buffer.slice();
-        bufferSlice.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        Query query = new Query(array, QueryType.TILEDB_READ);
-        query.setSubarray(getSubarray(ctx, domain));
-        query.setBuffer("a1", bufferSlice);
-        query.submit();
-        byte[] outputBytes = new byte[buffer.capacity()/bytesPerPixel];
-        populateByteMask(outputBytes, buffer, attribute.getType());
-        query.close();
-        return outputBytes;
     }
 
     /**
