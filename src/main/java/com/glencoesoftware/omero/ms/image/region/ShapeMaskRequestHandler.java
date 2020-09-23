@@ -329,6 +329,10 @@ public class ShapeMaskRequestHandler {
         int capacity = 1;
         long[] subarrayDomain = new long[(int) num_dims*2];
         for(int i = 0; i < num_dims; i++) {
+            if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
+                throw new IllegalArgumentException("Dimension type "
+                    + domain.getDimension(i).getType().toString() + " not supported");
+            }
             long start = (long) (domain.getDimension(i).getDomain().getFirst());
             long end = (long) domain.getDimension(i).getDomain().getSecond();
             subarrayDomain[i*2] = start;
