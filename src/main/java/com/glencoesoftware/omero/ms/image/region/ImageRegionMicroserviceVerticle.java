@@ -561,14 +561,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>request(
-                ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
+                ShapeMaskVerticle.GET_SHAPE_MASK_BYTES_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
                 }
                 byte[] shapeMask = result.result().body();
-                response.headers().set("Content-Type", "image/png");
+                response.headers().set("Content-Type", "application/octet-stream");
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(shapeMask.length));
