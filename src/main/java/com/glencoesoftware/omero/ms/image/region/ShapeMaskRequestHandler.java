@@ -23,6 +23,9 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferShort;
+import java.awt.image.DataBufferUShort;
 import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
@@ -30,9 +33,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +47,7 @@ import java.util.Optional;
 
 import javax.imageio.ImageIO;
 
+import org.json.JSONObject;
 import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
@@ -51,9 +59,11 @@ import io.tiledb.java.api.Context;
 import io.tiledb.java.api.Datatype;
 import io.tiledb.java.api.Domain;
 import io.tiledb.java.api.NativeArray;
+import io.tiledb.java.api.Pair;
 import io.tiledb.java.api.Query;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
+import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
@@ -110,6 +120,150 @@ public class ShapeMaskRequestHandler {
         }
         return null;
     }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public byte[] getShapeMaskBytes(omero.client client) {
+        try {
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+                log.info(fullLabelImagePath.toString());
+                if (Files.exists(fullLabelImagePath)) {
+                    log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
+                    try (Context ctx = new Context();
+                            Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                            return getData(array, ctx);
+                    }
+                } else {
+                    return mask.getBytes();
+                }
+            }
+            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+        } catch (Exception e) {
+            log.error("Exception while retrieving shape mask", e);
+        }
+        return null;
+    }
+
+    List<Integer> getMinMax(ByteBuffer buf, Datatype type) {
+        switch(type) {
+            case TILEDB_UINT8:
+            case TILEDB_INT8: {
+                byte min = (byte) 0;
+                byte max = (byte) 0;
+                while (buf.hasRemaining()) {
+                    byte next = buf.get();
+                    min = next < min ? next : min;
+                    max = next > max ? next : max;
+                }
+                List<Integer> ret = new ArrayList<Integer>();
+                ret.add((int) min);
+                ret.add((int) max);
+                return ret;
+            }
+            case TILEDB_UINT16:
+            case TILEDB_INT16: {
+                short min = (short) 0;
+                short max = (short) 0;
+                while (buf.hasRemaining()) {
+                    short next = buf.getShort();
+                    min = next < min ? next : min;
+                    max = next > max ? next : max;
+                }
+                List<Integer> ret = new ArrayList<Integer>();
+                ret.add((int) min);
+                ret.add((int) max);
+                return ret;
+            }
+            case TILEDB_UINT32:
+            case TILEDB_INT32: {
+                int min = (int) 0;
+                int max = (int) 0;
+                while (buf.hasRemaining()) {
+                    int next = buf.getInt();
+                    min = next < min ? next : min;
+                    max = next > max ? next : max;
+                }
+                List<Integer> ret = new ArrayList<Integer>();
+                ret.add(min);
+                ret.add(max);
+                return ret;
+            }
+            default:
+                throw new IllegalArgumentException("Type: " + type.toString() + " not supported");
+        }
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public JsonObject getLabelImageMetadata(omero.client client) {
+        try {
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                //Get Metadata
+                Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+                log.info(fullLabelImagePath.toString());
+                if (Files.exists(fullLabelImagePath)) {
+                    try (Context ctx = new Context();
+                            Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        ArraySchema schema = array.getSchema();
+                        Domain domain = schema.getDomain();
+                        Attribute attribute = schema.getAttribute("a1");
+
+                        int bytesPerPixel = getBytesPerPixel(attribute.getType());
+
+                        int num_dims = (int) domain.getNDim();
+                        int capacity = 1;
+                        long[] subarrayDomain = new long[(int) num_dims*2];
+                        for(int i = 0; i < num_dims; i++) {
+                            if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
+                                throw new IllegalArgumentException("Dimension type "
+                                    + domain.getDimension(i).getType().toString() + " not supported");
+                            }
+                            long start = (long) (domain.getDimension(i).getDomain().getFirst());
+                            long end = (long) domain.getDimension(i).getDomain().getSecond();
+                            subarrayDomain[i*2] = start;
+                            subarrayDomain[i*2 + 1] = end;
+                            capacity *= (end - start + 1);
+                        }
+                        capacity *= bytesPerPixel;
+
+                        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+                        buffer.order(ByteOrder.nativeOrder());
+                        JsonObject metadata = new JsonObject();
+                        //Dimensions in Dense Arrays must be the same type
+                        try (Query query = new Query(array, QueryType.TILEDB_READ);
+                                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
+                            query.setSubarray(subArray);
+                            query.setBuffer("a1", buffer);
+                            query.submit();
+                            List<Integer> minMax = getMinMax(buffer, attribute.getType());
+                            metadata.put("min", minMax.get(0));
+                            metadata.put("max", minMax.get(1));
+                        }
+                        return metadata;
+                    }
+                } else {
+                    return null;
+                }
+            }
+            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+        } catch (Exception e) {
+            log.error("Exception while retrieving label image metadata", e);
+        }
+        return null;
+    }
+
+
 
     protected int getBytesPerPixel(Datatype type) {
         switch (type) {
@@ -276,6 +430,39 @@ public class ShapeMaskRequestHandler {
         return colorMap;
     }
 
+    DataBuffer getDataBuffer(byte[] bytes, int bitsPerPixel) {
+        switch(bitsPerPixel) {
+            case 1:
+            case 8:
+                return new DataBufferByte(bytes, bytes.length);
+            case 16:
+                ShortBuffer shortBuf = ByteBuffer.wrap(bytes)
+                    .order(ByteOrder.nativeOrder())
+                    .asShortBuffer();
+                short[] shorts = new short[shortBuf.remaining()];
+                shortBuf.get(shorts);
+                return new DataBufferUShort(shorts, shorts.length);
+            case 32:
+                IntBuffer intBuf = ByteBuffer.wrap(bytes)
+                    .order(ByteOrder.nativeOrder())
+                    .asIntBuffer();
+                int[] ints = new int[intBuf.remaining()];
+                intBuf.get(ints);
+                return new DataBufferInt(ints, ints.length);
+                /*
+            case 64:
+                LongBuffer longBuf = ByteBuffer.wrap(bytes)
+                    .order(ByteOrder.nativeOrder())
+                    .asLongBuffer();
+                long[] longs = new long[longBuf.remaining()];
+                longBuf.get(longs);
+                return new DataBufferLong(longs, longs.length);
+                */
+            default:
+                throw new IllegalArgumentException("Unsupported number of bits per pixel: " + Integer.toString(bitsPerPixel));
+        }
+    }
+
     /**
      * Render shape mask.
      * @param fillColor fill color to use for the mask
@@ -300,11 +487,12 @@ public class ShapeMaskRequestHandler {
             log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
                     "Size:{}", width, height, bitsPerPixel, bytes.length);
             // Create buffered image
-            DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+            //DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+            DataBuffer dataBuffer = getDataBuffer(bytes, bitsPerPixel);
             WritableRaster raster = Raster.createPackedRaster(
                     dataBuffer, width, height, bitsPerPixel, new Point(0, 0));
             ColorModel colorModel = new IndexColorModel(
-                    1, colorMap.length/4, colorMap, 0, true);
+                    bitsPerPixel, colorMap.length/4, colorMap, 0, true);
             BufferedImage image = new BufferedImage(
                     colorModel, raster, false, null);
 

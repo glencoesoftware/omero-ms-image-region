@@ -337,6 +337,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
+        router.get(
+                "/webgateway/get_shape_mask_bytes/:shapeId*")
+            .handler(this::getShapeMaskBytes);
+        router.get(
+                "/webgateway/get_label_image_metadata/:shapeId*")
+            .handler(this::getLabelImageMetadata);
 
         MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
 
@@ -529,6 +535,82 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         "Content-Length",
                         String.valueOf(shapeMask.length));
                 response.write(Buffer.buffer(shapeMask));
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /**
+     * Get shape mask bytes event handler.
+     * Responds with raws image bytes on success based
+     * on the <code>shapeId</code> encoded in the URL or HTTP 404 if the
+     * {@link Shape} does not exist or the user does not have permissions to
+     * access it.
+     * @param event Current routing context.
+     */
+    private void getShapeMaskBytes(RoutingContext event) {
+        log.info("Getting shape mask bytes");
+        HttpServerRequest request = event.request();
+        ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
+                request.params(), event.get("omero.session_key"));
+        shapeMaskCtx.injectCurrentTraceContext();
+
+        final HttpServerResponse response = event.response();
+        vertx.eventBus().<byte[]>request(
+                ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
+                Json.encode(shapeMaskCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                byte[] shapeMask = result.result().body();
+                response.headers().set("Content-Type", "image/png");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(shapeMask.length));
+                response.write(Buffer.buffer(shapeMask));
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /**
+     * Get label image metadata event handler.
+     * Responds with JSON payload of label image metadata on success based
+     * on the <code>shapeId</code> encoded in the URL or HTTP 404 if the
+     * LabelImage does not exist or the user does not have permissions to
+     * access it.
+     * @param event Current routing context.
+     */
+    private void getLabelImageMetadata(RoutingContext event) {
+        log.info("Getting label image metadata");
+        HttpServerRequest request = event.request();
+        ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
+                request.params(), event.get("omero.session_key"));
+        shapeMaskCtx.injectCurrentTraceContext();
+
+        final HttpServerResponse response = event.response();
+        vertx.eventBus().<JsonObject>request(
+                ShapeMaskVerticle.GET_LABEL_IMAGE_METADATA_EVENT,
+                Json.encode(shapeMaskCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                JsonObject metadataJson = result.result().body();
+                response.headers().set("Content-Type", "application/json");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(metadataJson.encodePrettily().length()));
+                response.write(metadataJson.encodePrettily());
             } finally {
                 if (!response.closed()) {
                     response.end();
