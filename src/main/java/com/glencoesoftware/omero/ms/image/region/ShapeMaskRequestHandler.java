@@ -133,6 +133,9 @@ public class ShapeMaskRequestHandler {
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
+                if (labelImagePath == null || labelImageSuffix == null) {
+                    return mask.getBytes();
+                }
                 Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
                 log.info(fullLabelImagePath.toString());
                 if (Files.exists(fullLabelImagePath)) {
@@ -209,6 +212,9 @@ public class ShapeMaskRequestHandler {
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
         try {
+            if (labelImagePath == null || labelImageSuffix == null) {
+                throw new IllegalArgumentException("Label image configs not properly set");
+            }
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
                 //Get Metadata
@@ -328,6 +334,29 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    private byte[] renderShapeMaskWithColor(MaskI mask, Color fillColor) throws IOException {
+        byte[] bytes = mask.getBytes();
+        int width = (int) mask.getWidth().getValue();
+        int height = (int) mask.getHeight().getValue();
+        // The underlying raster will used a MultiPixelPackedSampleModel
+        // which expects the row stride to be evenly divisible by the byte
+        // width of the data type.  If it is not so aligned we will need
+        // to convert it to a byte mask for rendering.
+        int bitsPerPixel = 1;
+        if (width % 8 != 0) {
+            bytes = convertBitsToBytes(bytes, width * height);
+            bitsPerPixel = 8;
+        }
+        byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); our color of choice
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+        return renderShapeMask(fillColor, bytes, width, height, bitsPerPixel, colorMap);
+    }
+
     /**
      * Render shape mask.
      * @param mask mask to render
@@ -350,6 +379,9 @@ public class ShapeMaskRequestHandler {
                 fillColor.getRed(), fillColor.getGreen(),
                 fillColor.getBlue(), fillColor.getAlpha()
             );
+            if (labelImagePath == null && labelImageSuffix == null) {
+                renderShapeMaskWithColor(mask, fillColor);
+            }
             //If the path to the label image exists, get it
             Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
             log.info(fullLabelImagePath.toString());
@@ -370,26 +402,7 @@ public class ShapeMaskRequestHandler {
                     return null;
                 }
             } else {
-                byte[] bytes = mask.getBytes();
-                int width = (int) mask.getWidth().getValue();
-                int height = (int) mask.getHeight().getValue();
-                // The underlying raster will used a MultiPixelPackedSampleModel
-                // which expects the row stride to be evenly divisible by the byte
-                // width of the data type.  If it is not so aligned we will need
-                // to convert it to a byte mask for rendering.
-                int bitsPerPixel = 1;
-                if (width % 8 != 0) {
-                    bytes = convertBitsToBytes(bytes, width * height);
-                    bitsPerPixel = 8;
-                }
-                byte[] colorMap = new byte[] {
-                        // First index (0); 100% transparent
-                        0, 0, 0, 0,
-                        // Second index (1); our color of choice
-                        (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
-                        (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
-                    };
-                return renderShapeMask(fillColor, bytes, width, height, bitsPerPixel, colorMap);
+                renderShapeMaskWithColor(mask, fillColor);
             }
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
