@@ -221,7 +221,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
-                    requestHandler::renderShapeMask);
+                    requestHandler::getShapeMaskBytes);
             if (shapeMask == null) {
                 span.finish();
                 message.fail(404, "Cannot render Mask:" +

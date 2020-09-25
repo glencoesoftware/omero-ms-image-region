@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +67,7 @@ import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
+import omeis.providers.re.data.RegionDef;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
@@ -249,6 +251,7 @@ public class ShapeMaskRequestHandler {
                             List<Integer> minMax = getMinMax(buffer, attribute.getType());
                             metadata.put("min", minMax.get(0));
                             metadata.put("max", minMax.get(1));
+                            metadata.put("type", attribute.getType().toString());
                         }
                         return metadata;
                     }
@@ -298,6 +301,33 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    private RegionDef getSubregion(Domain domain) throws TileDBError {
+        long xstart = (long) (domain.getDimension("x").getDomain().getFirst());
+        long xend = (long) domain.getDimension("x").getDomain().getSecond();
+        long ystart = (long) (domain.getDimension("y").getDomain().getFirst());
+        long yend = (long) domain.getDimension("y").getDomain().getSecond();
+
+        RegionDef region = shapeMaskCtx.region;
+        if (region != null) {
+            if (region.getX() > xend ||
+                    region.getY() > yend ||
+                    region.getX() < xstart ||
+                    region.getY() < ystart) {
+                throw new IllegalArgumentException("Invalid region");
+            }
+            return new RegionDef(region.getX(),
+                    region.getY(),
+                    (int) Math.min(region.getWidth(), xend - region.getX() + 1),
+                    (int) Math.min(region.getHeight(), yend - region.getY() + 1));
+        } else {
+            return new RegionDef(
+                    (int) xstart,
+                    (int) ystart,
+                    (int) (xend - xstart + 1),
+                    (int) (yend - ystart + 1));
+        }
+    }
+
     /**
      * Render shape mask.
      * @param mask mask to render
@@ -329,15 +359,12 @@ public class ShapeMaskRequestHandler {
                         Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
                         byte[] tiledbBytes = getData(array, ctx);
                         Domain domain = array.getSchema().getDomain();
-                        long xStart = (long) domain.getDimension("x").getDomain().getFirst();
-                        long xEnd = (long) domain.getDimension("x").getDomain().getSecond();
-                        int width = (int) (xEnd - xStart + 1);
-                        long yStart = (long) domain.getDimension("y").getDomain().getFirst();
-                        long yEnd = (long) domain.getDimension("y").getDomain().getSecond();
-                        int height = (int) (yEnd - yStart + 1);
+
+                        RegionDef subRegion = getSubregion(domain);
+                        log.info(subRegion.toString());
                         int bitsPerPixel = 8 * getBytesPerPixel(array.getSchema().getAttribute("a1").getType());
                         byte[] colorMap = getColorMap(getMaxByte(tiledbBytes));
-                        return renderShapeMask(fillColor, tiledbBytes, width, height, bitsPerPixel, colorMap);
+                        return renderShapeMask(fillColor, tiledbBytes, subRegion.getWidth(), subRegion.getHeight(), bitsPerPixel, colorMap);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
                     return null;
@@ -506,15 +533,8 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-    private byte[] getData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = getBytesPerPixel(attribute.getType());
-
+    long[] getFullArrayDomain(Domain domain) throws TileDBError {
         int num_dims = (int) domain.getNDim();
-        int capacity = 1;
         long[] subarrayDomain = new long[(int) num_dims*2];
         for(int i = 0; i < num_dims; i++) {
             if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
@@ -525,9 +545,33 @@ public class ShapeMaskRequestHandler {
             long end = (long) domain.getDimension(i).getDomain().getSecond();
             subarrayDomain[i*2] = start;
             subarrayDomain[i*2 + 1] = end;
-            capacity *= (end - start + 1);
         }
-        capacity *= bytesPerPixel;
+        return subarrayDomain;
+    }
+
+    private byte[] getData(Array array, Context ctx) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        Attribute attribute = schema.getAttribute("a1");
+
+        int bytesPerPixel = getBytesPerPixel(attribute.getType());
+
+        int num_dims = (int) domain.getNDim();
+        if (num_dims != 5) {
+            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                    + Integer.toString(num_dims));
+        }
+        long[] subarrayDomain = new long[5*2];
+
+        RegionDef subRegion = getSubregion(domain);
+        subarrayDomain[6] = subRegion.getY();
+        subarrayDomain[7] = subRegion.getY() + subRegion.getHeight() - 1; //Last coordinate is inclusive
+        subarrayDomain[8] = subRegion.getX();
+        subarrayDomain[9] = subRegion.getX() + subRegion.getWidth() - 1; //Last coordinate is inclusive
+
+        int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
+                        * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
+                        * bytesPerPixel;
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
         buffer.order(ByteOrder.nativeOrder());

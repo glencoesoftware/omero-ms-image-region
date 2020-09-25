@@ -30,6 +30,7 @@ import brave.Tracing;
 import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
 import ome.model.roi.Mask;
+import omeis.providers.re.data.RegionDef;
 
 public class ShapeMaskCtx extends OmeroRequestCtx {
 
@@ -53,6 +54,8 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
 
     /** Current trace context to be propagated */
     public Map<String, String> traceContext = new HashMap<String, String>();
+
+    public RegionDef region;
 
     /**
      * Constructor for jackson to decode the object from string
@@ -85,6 +88,35 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
                 .orElse("").toLowerCase();
         flipHorizontal = flip.contains("h");
         flipVertical = flip.contains("v");
+        getRegionFromString(params.get("region"));
+    }
+
+    /**
+     * Parse a string to RegionDef.
+     * @param regionString string describing the region to render:
+     * "0,0,1024,1024"
+     */
+    private void getRegionFromString(String regionString) {
+        if (regionString == null) {
+            return;
+        }
+        String[] regionSplit = regionString.split(",", -1);
+        if (regionSplit.length != 4) {
+            throw new IllegalArgumentException("Region string format incorrect. "
+                + "Should be 'x,y,w,h'");
+        }
+        try {
+            region = new RegionDef(
+                Integer.parseInt(regionSplit[0]),
+                Integer.parseInt(regionSplit[1]),
+                Integer.parseInt(regionSplit[2]),
+                Integer.parseInt(regionSplit[3])
+            );
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Improper number formatting "
+                + "in region string " + regionString);
+        }
     }
 
     /**
