@@ -338,10 +338,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webgateway/render_shape_mask/:shapeId*")
             .handler(this::renderShapeMask);
         router.get(
-                "/webgateway/get_shape_mask_bytes/:shapeId*")
+                "/omero_ms_image_region/get_shape_mask_bytes/:shapeId*")
             .handler(this::getShapeMaskBytes);
         router.get(
-                "/webgateway/get_label_image_metadata/:shapeId*")
+                "/omero_ms_image_region/get_label_image_metadata/:shapeId*")
             .handler(this::getLabelImageMetadata);
 
         MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);

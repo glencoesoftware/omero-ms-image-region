@@ -155,11 +155,7 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
-    location /webgateway/get_shape_mask_bytes/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/get_label_image_metadata/ {
+    location /omero_ms_image_region/ {
         proxy_pass http://image_region_backend;
     }
 
