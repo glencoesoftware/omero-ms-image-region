@@ -57,6 +57,11 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
 
     public RegionDef region;
 
+    public RegionDef tile;
+
+    /** Resolution to read */
+    public Integer resolution;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -89,6 +94,7 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
         flipHorizontal = flip.contains("h");
         flipVertical = flip.contains("v");
         getRegionFromString(params.get("region"));
+        getTileFromString(params.get("tile"));
     }
 
     /**
@@ -117,6 +123,26 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
             throw new IllegalArgumentException("Improper number formatting "
                 + "in region string " + regionString);
         }
+    }
+
+    /**
+     * Parse a string to RegionDef and Int describing tile and resolution.
+     * @param tileString string describing the tile to render:
+     * "1,1,0,1024,1024"
+     */
+    private void getTileFromString(String tileString) {
+        if (tileString == null) {
+            return;
+        }
+        String[] tileArray = tileString.split(",", -1);
+        tile = new RegionDef();
+        tile.setX(Integer.parseInt(tileArray[1]));
+        tile.setY(Integer.parseInt(tileArray[2]));
+        if (tileArray.length == 5) {
+            tile.setWidth(Integer.parseInt(tileArray[3]));
+            tile.setHeight(Integer.parseInt(tileArray[4]));
+        }
+        resolution = Integer.parseInt(tileArray[0]);
     }
 
     /**

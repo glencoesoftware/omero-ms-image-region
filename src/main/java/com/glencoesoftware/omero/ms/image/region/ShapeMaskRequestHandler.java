@@ -36,6 +36,7 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -137,6 +138,10 @@ public class ShapeMaskRequestHandler {
                     return mask.getBytes();
                 }
                 Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+                if(shapeMaskCtx.resolution != null) {
+                    //Append the resolution level
+                    fullLabelImagePath = fullLabelImagePath.resolve("/" + Integer.toString(shapeMaskCtx.resolution));
+                }
                 log.info(fullLabelImagePath.toString());
                 if (Files.exists(fullLabelImagePath)) {
                     log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
@@ -204,6 +209,15 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    private String getStringMetadata(Array array, String key) throws TileDBError {
+        if(array.hasMetadataKey(key)) {
+            NativeArray strNativeArray = array.getMetadata(key, Datatype.TILEDB_CHAR);
+            return new String((byte[]) strNativeArray.toJavaArray(), StandardCharsets.UTF_8);
+        } else {
+            return null;
+        }
+    }
+
     /**
      * Get shape mask bytes request handler.
      * @param client OMERO client to use for querying.
@@ -218,11 +232,27 @@ public class ShapeMaskRequestHandler {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
                 //Get Metadata
-                Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+                Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+                Path fullLabelImagePath = labelImageBasePath;
+                if(shapeMaskCtx.resolution != null) {
+                    //Append the resolution level
+                    fullLabelImagePath = labelImageBasePath.resolve(Integer.toString(shapeMaskCtx.resolution));
+                }
                 log.info(fullLabelImagePath.toString());
                 if (Files.exists(fullLabelImagePath)) {
                     try (Context ctx = new Context();
-                            Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        Array array = new Array(ctx, labelImageBasePath.toString(), QueryType.TILEDB_READ)) {
+                            String meta = getStringMetadata(array, "multiscales");
+                            JSONObject metaObj = new JSONObject(meta);
+                            log.info(metaObj.toString());
+                        }
+                    try (Context ctx = new Context();
+                        Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        /*
+                        String colorStr = getStringMetadata(array, "color");
+                        JSONObject colorObj = new JSONObject(colorStr);
+                        log.info(colorObj.toString());
+                        */
                         ArraySchema schema = array.getSchema();
                         Domain domain = schema.getDomain();
                         Attribute attribute = schema.getAttribute("a1");
@@ -307,24 +337,60 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    protected int getMaxUnsignedByte(byte[] bytes) {
+        if (bytes.length == 0) {
+            throw new IllegalArgumentException("Cannot get max of empty array");
+        } else {
+            int max = bytes[0] & 0xff;
+            for(int i = 1; i < bytes.length; i++) {
+                int val = bytes[i] & 0xff;
+                if (val > max) {
+                    max = val;
+                }
+            }
+            return max;
+        }
+    }
+
+    private RegionDef getTruncateRegionDef(RegionDef region,
+            int xstart, int xend,
+            int ystart, int yend) {
+        if (region.getX() > xend ||
+                region.getY() > yend ||
+                region.getX() < xstart ||
+                region.getY() < ystart) {
+            throw new IllegalArgumentException("Invalid region");
+        }
+        return new RegionDef(region.getX(),
+                region.getY(),
+                (int) Math.min(region.getWidth(), xend - region.getX() + 1),
+                (int) Math.min(region.getHeight(), yend - region.getY() + 1));
+    }
+
     private RegionDef getSubregion(Domain domain) throws TileDBError {
         long xstart = (long) (domain.getDimension("x").getDomain().getFirst());
         long xend = (long) domain.getDimension("x").getDomain().getSecond();
         long ystart = (long) (domain.getDimension("y").getDomain().getFirst());
         long yend = (long) domain.getDimension("y").getDomain().getSecond();
 
-        RegionDef region = shapeMaskCtx.region;
-        if (region != null) {
-            if (region.getX() > xend ||
-                    region.getY() > yend ||
-                    region.getX() < xstart ||
-                    region.getY() < ystart) {
-                throw new IllegalArgumentException("Invalid region");
+        RegionDef region = shapeMaskCtx.tile == null ? shapeMaskCtx.region : shapeMaskCtx.region;
+        //RegionDef tile = shapeMaskCtx.tile;
+        if (shapeMaskCtx.tile != null) {
+            RegionDef tile = shapeMaskCtx.tile;
+            int tileWidth = (int) (xend - xstart + 1);
+            if(tile.getWidth() > 0 && tile.getWidth() < tileWidth) {
+                tileWidth = tile.getWidth();
             }
-            return new RegionDef(region.getX(),
-                    region.getY(),
-                    (int) Math.min(region.getWidth(), xend - region.getX() + 1),
-                    (int) Math.min(region.getHeight(), yend - region.getY() + 1));
+            int tileHeight = (int) (yend - ystart + 1);
+            if(tile.getHeight() > 0 && tile.getHeight() < tileHeight) {
+                tileHeight = tile.getHeight();
+            }
+            int tileX = tile.getX() * tileWidth;
+            int tileY = tile.getY() * tileHeight;
+            return getTruncateRegionDef(new RegionDef(tileX, tileY, tileWidth, tileHeight),
+                    (int) xstart, (int) xend, (int) ystart, (int) yend);
+        } else if (shapeMaskCtx.region != null) {
+            return getTruncateRegionDef(region, (int) xstart, (int) xend, (int) ystart, (int) yend);
         } else {
             return new RegionDef(
                     (int) xstart,
@@ -384,6 +450,10 @@ public class ShapeMaskRequestHandler {
             }
             //If the path to the label image exists, get it
             Path fullLabelImagePath = Paths.get(labelImagePath).resolve(Long.toString(shapeMaskCtx.shapeId) + labelImageSuffix);
+            if(shapeMaskCtx.resolution != null) {
+                //Append the resolution level
+                fullLabelImagePath = fullLabelImagePath.resolve(Integer.toString(shapeMaskCtx.resolution));
+            }
             log.info(fullLabelImagePath.toString());
             if (Files.exists(fullLabelImagePath)) {
                 log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
@@ -393,9 +463,9 @@ public class ShapeMaskRequestHandler {
                         Domain domain = array.getSchema().getDomain();
 
                         RegionDef subRegion = getSubregion(domain);
-                        log.info(subRegion.toString());
-                        int bitsPerPixel = 8 * getBytesPerPixel(array.getSchema().getAttribute("a1").getType());
-                        byte[] colorMap = getColorMap(getMaxByte(tiledbBytes));
+                        Datatype type = array.getSchema().getAttribute("a1").getType();
+                        int bitsPerPixel = 8 * getBytesPerPixel(type);
+                        byte[] colorMap = getColorMap(getMaxUnsignedByte(tiledbBytes));
                         return renderShapeMask(fillColor, tiledbBytes, subRegion.getWidth(), subRegion.getHeight(), bitsPerPixel, colorMap);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
