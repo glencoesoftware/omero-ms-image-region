@@ -141,10 +141,8 @@ public class ShapeMaskRequestHandler {
                 long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(imageId) + ".tiledb");
-                log.info(labelImageBasePath.toString());
                 Path labelImageLabelsPath = labelImageBasePath.resolve("0/labels");
                 Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-                log.info(labelImageShapePath.toString());
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
                     //Append the resolution level
