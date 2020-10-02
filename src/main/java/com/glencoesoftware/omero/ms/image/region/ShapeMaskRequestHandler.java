@@ -243,10 +243,8 @@ public class ShapeMaskRequestHandler {
                 long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(imageId) + ".tiledb");
-                log.info(labelImageBasePath.toString());
                 Path labelImageLabelsPath = labelImageBasePath.resolve("0/labels");
                 Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-                log.info(labelImageShapePath.toString());
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
                     //Append the resolution level
@@ -254,30 +252,17 @@ public class ShapeMaskRequestHandler {
                 }
                 Path fullLabelImagePath = labelImageShapePath.resolve(resolutionLevel);
                 log.info(fullLabelImagePath.toString());
+                JsonObject multiscales = null;
                 if (Files.exists(fullLabelImagePath)) {
                     try (Context ctx = new Context();
-                        Array array = new Array(ctx, labelImageBasePath.toString(), QueryType.TILEDB_READ)) {
-                            Map<String, Object> metadata = array.getMetadataMap();
-                            log.info(metadata.toString());
-                        }
-                    try (Context ctx = new Context();
-                        Array array = new Array(ctx, labelImageLabelsPath.toString(), QueryType.TILEDB_READ)) {
-                            Map<String, Object> metadata = array.getMetadataMap();
-                            log.info(metadata.toString());
-                        }
-                    try (Context ctx = new Context();
                         Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
-                            Map<String, Object> metadata = array.getMetadataMap();
-                            log.info(metadata.toString());
+                            if(array.hasMetadataKey("multiscales")) {
+                                String multiscalesMetaStr = getStringMetadata(array, "multiscales");
+                                multiscales = new JsonObject(multiscalesMetaStr);
+                            }
                         }
                     try (Context ctx = new Context();
                         Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
-                        /*
-                        String colorStr = getStringMetadata(array, "color");
-                        JSONObject colorObj = new JSONObject(colorStr);
-                        log.info(colorObj.toString());
-                        */
-                        log.info(array.getMetadataMap().toString());
                         ArraySchema schema = array.getSchema();
                         Domain domain = schema.getDomain();
                         Attribute attribute = schema.getAttribute("a1");
@@ -313,6 +298,9 @@ public class ShapeMaskRequestHandler {
                             metadata.put("min", minMax.get(0));
                             metadata.put("max", minMax.get(1));
                             metadata.put("type", attribute.getType().toString());
+                            if(multiscales != null) {
+                                metadata.put("multiscales", multiscales);
+                            }
                         }
                         return metadata;
                     }
@@ -373,6 +361,24 @@ public class ShapeMaskRequestHandler {
                     max = val;
                 }
             }
+            return max;
+        }
+    }
+
+    protected int getMaxUnsignedShort(byte[] bytes) {
+        if (bytes.length == 0) {
+            throw new IllegalArgumentException("Cannot get max of empty array");
+        } else {
+            ByteBuffer bbuf = ByteBuffer.wrap(bytes);
+            ShortBuffer sbuf = bbuf.asShortBuffer();
+            int max = sbuf.get() & 0xffff;
+            while(sbuf.hasRemaining()) {
+                int val = sbuf.get() & 0xffff;
+                if(val > max) {
+                    max = val;
+                }
+            }
+            log.info("Max is: " + Integer.toString(max));
             return max;
         }
     }
@@ -497,7 +503,14 @@ public class ShapeMaskRequestHandler {
                         RegionDef subRegion = getSubregion(domain);
                         Datatype type = array.getSchema().getAttribute("a1").getType();
                         int bitsPerPixel = 8 * getBytesPerPixel(type);
-                        byte[] colorMap = getColorMap(getMaxUnsignedByte(tiledbBytes));
+                        byte[] colorMap = null;
+                        if(type == Datatype.TILEDB_UINT8)  {
+                            colorMap = getColorMap(getMaxUnsignedByte(tiledbBytes));
+                        } else if (type == Datatype.TILEDB_UINT16) {
+                            colorMap = getColorMap(getMaxUnsignedShort(tiledbBytes));
+                        } else {
+                            throw new IllegalArgumentException("Currently unsupported data type: " + type.toString());
+                        }
                         return renderShapeMask(fillColor, tiledbBytes, subRegion.getWidth(), subRegion.getHeight(), bitsPerPixel, colorMap);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
@@ -591,15 +604,6 @@ public class ShapeMaskRequestHandler {
                 int[] ints = new int[intBuf.remaining()];
                 intBuf.get(ints);
                 return new DataBufferInt(ints, ints.length);
-                /*
-            case 64:
-                LongBuffer longBuf = ByteBuffer.wrap(bytes)
-                    .order(ByteOrder.nativeOrder())
-                    .asLongBuffer();
-                long[] longs = new long[longBuf.remaining()];
-                longBuf.get(longs);
-                return new DataBufferLong(longs, longs.length);
-                */
             default:
                 throw new IllegalArgumentException("Unsupported number of bits per pixel: " + Integer.toString(bitsPerPixel));
         }
@@ -617,6 +621,12 @@ public class ShapeMaskRequestHandler {
     protected byte[] renderShapeMask(
             Color fillColor, byte[] bytes, int width, int height, int bitsPerPixel, byte[] colorMap)
                     throws IOException {
+        for(int i = 0; i < bytes.length; i++) {
+            if(bytes[i] != 0) {
+                log.info("NONZERO BYTE FOUND!");
+                break;
+            }
+        }
         ScopedSpan span = null;
         if(Tracing.currentTracer() != null) {
             span =
@@ -683,6 +693,7 @@ public class ShapeMaskRequestHandler {
         subarrayDomain[7] = subRegion.getY() + subRegion.getHeight() - 1; //Last coordinate is inclusive
         subarrayDomain[8] = subRegion.getX();
         subarrayDomain[9] = subRegion.getX() + subRegion.getWidth() - 1; //Last coordinate is inclusive
+        log.info(Arrays.toString(subarrayDomain));
 
         int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
                         * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
