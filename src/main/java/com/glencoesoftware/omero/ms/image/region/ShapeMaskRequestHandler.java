@@ -167,54 +167,6 @@ public class ShapeMaskRequestHandler {
         return null;
     }
 
-    List<Integer> getMinMax(ByteBuffer buf, Datatype type) {
-        switch(type) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8: {
-                byte min = (byte) 0;
-                byte max = (byte) 0;
-                while (buf.hasRemaining()) {
-                    byte next = buf.get();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
-                }
-                List<Integer> ret = new ArrayList<Integer>();
-                ret.add((int) min);
-                ret.add((int) max);
-                return ret;
-            }
-            case TILEDB_UINT16:
-            case TILEDB_INT16: {
-                short min = (short) 0;
-                short max = (short) 0;
-                while (buf.hasRemaining()) {
-                    short next = buf.getShort();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
-                }
-                List<Integer> ret = new ArrayList<Integer>();
-                ret.add((int) min);
-                ret.add((int) max);
-                return ret;
-            }
-            case TILEDB_UINT32:
-            case TILEDB_INT32: {
-                int min = (int) 0;
-                int max = (int) 0;
-                while (buf.hasRemaining()) {
-                    int next = buf.getInt();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
-                }
-                List<Integer> ret = new ArrayList<Integer>();
-                ret.add(min);
-                ret.add(max);
-                return ret;
-            }
-            default:
-                throw new IllegalArgumentException("Type: " + type.toString() + " not supported");
-        }
-    }
 
     private String getStringMetadata(Array array, String key) throws TileDBError {
         if(array.hasMetadataKey(key)) {
@@ -292,7 +244,7 @@ public class ShapeMaskRequestHandler {
                             query.setSubarray(subArray);
                             query.setBuffer("a1", buffer);
                             query.submit();
-                            List<Integer> minMax = getMinMax(buffer, attribute.getType());
+                            List<Integer> minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
                             metadata.put("min", minMax.get(0));
                             metadata.put("max", minMax.get(1));
                             metadata.put("type", attribute.getType().toString());
@@ -334,52 +286,6 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-    protected byte getMaxByte(byte[] bytes) {
-        if (bytes.length == 0) {
-            throw new IllegalArgumentException("Cannot get max of empty array");
-        } else {
-            byte max = bytes[0];
-            for(int i = 1; i < bytes.length; i++) {
-                if (bytes[i] > max) {
-                    max = bytes[i];
-                }
-            }
-            return max;
-        }
-    }
-
-    protected int getMaxUnsignedByte(byte[] bytes) {
-        if (bytes.length == 0) {
-            throw new IllegalArgumentException("Cannot get max of empty array");
-        } else {
-            int max = bytes[0] & 0xff;
-            for(int i = 1; i < bytes.length; i++) {
-                int val = bytes[i] & 0xff;
-                if (val > max) {
-                    max = val;
-                }
-            }
-            return max;
-        }
-    }
-
-    protected int getMaxUnsignedShort(byte[] bytes) {
-        if (bytes.length == 0) {
-            throw new IllegalArgumentException("Cannot get max of empty array");
-        } else {
-            ByteBuffer bbuf = ByteBuffer.wrap(bytes);
-            ShortBuffer sbuf = bbuf.asShortBuffer();
-            int max = sbuf.get() & 0xffff;
-            while(sbuf.hasRemaining()) {
-                int val = sbuf.get() & 0xffff;
-                if(val > max) {
-                    max = val;
-                }
-            }
-            log.info("Max is: " + Integer.toString(max));
-            return max;
-        }
-    }
 
     private RegionDef getTruncateRegionDef(RegionDef region,
             int xstart, int xend,
@@ -503,9 +409,9 @@ public class ShapeMaskRequestHandler {
                         int bitsPerPixel = 8 * getBytesPerPixel(type);
                         byte[] colorMap = null;
                         if(type == Datatype.TILEDB_UINT8)  {
-                            colorMap = getColorMap(getMaxUnsignedByte(tiledbBytes));
+                            colorMap = getColorMap(TiledbUtils.getMaxUnsignedByte(tiledbBytes));
                         } else if (type == Datatype.TILEDB_UINT16) {
-                            colorMap = getColorMap(getMaxUnsignedShort(tiledbBytes));
+                            colorMap = getColorMap(TiledbUtils.getMaxUnsignedShort(tiledbBytes));
                         } else {
                             throw new IllegalArgumentException("Currently unsupported data type: " + type.toString());
                         }
