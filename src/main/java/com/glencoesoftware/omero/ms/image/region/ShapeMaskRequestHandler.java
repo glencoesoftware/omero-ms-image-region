@@ -244,9 +244,9 @@ public class ShapeMaskRequestHandler {
                             query.setSubarray(subArray);
                             query.setBuffer("a1", buffer);
                             query.submit();
-                            List<Integer> minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
-                            metadata.put("min", minMax.get(0));
-                            metadata.put("max", minMax.get(1));
+                            long[] minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
+                            metadata.put("min", minMax[0]);
+                            metadata.put("max", minMax[1]);
                             metadata.put("type", attribute.getType().toString());
                             if(multiscales != null) {
                                 metadata.put("multiscales", multiscales);
