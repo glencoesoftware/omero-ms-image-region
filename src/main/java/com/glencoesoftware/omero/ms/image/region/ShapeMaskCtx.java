@@ -74,27 +74,20 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ShapeMaskCtx(MultiMap params, String omeroSessionKey) {
-        Tracing tracing = Tracing.current();
-        if (tracing == null) {
-            return;
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            shapeId = Long.parseLong(params.get("shapeId"));
+            color = params.get("color");
+            String flip = Optional.ofNullable(params.get("flip"))
+                    .orElse("").toLowerCase();
+            flipHorizontal = flip.contains("h");
+            flipVertical = flip.contains("v");
+            getRegionFromString(params.get("region"));
+            getTileFromString(params.get("tile"));
+        } catch(Exception e) {
+            log.error("Error creating ShapeMaskCtx", e);
+            throw e;
         }
-        Injector<Map<String, String>> injector =
-            tracing.propagation().injector((carrier, key, value) -> {
-                    carrier.put(key, value);
-                }
-            );
-        injector.inject(
-                Tracing.currentTracer().currentSpan().context(), traceContext);
-
-        this.omeroSessionKey = omeroSessionKey;
-        shapeId = Long.parseLong(params.get("shapeId"));
-        color = params.get("color");
-        String flip = Optional.ofNullable(params.get("flip"))
-                .orElse("").toLowerCase();
-        flipHorizontal = flip.contains("h");
-        flipVertical = flip.contains("v");
-        getRegionFromString(params.get("region"));
-        getTileFromString(params.get("tile"));
     }
 
     /**

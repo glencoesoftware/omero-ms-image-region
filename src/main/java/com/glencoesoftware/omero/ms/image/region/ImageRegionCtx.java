@@ -113,8 +113,13 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ImageRegionCtx(MultiMap params, String omeroSessionKey) {
-        this.omeroSessionKey = omeroSessionKey;
-        assignParams(params);
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            assignParams(params);
+        } catch(Exception e) {
+            log.error("Error creating ImageRegionCtx", e);
+            throw e;
+        }
     }
 
     public void assignParams(MultiMap params) throws IllegalArgumentException {
