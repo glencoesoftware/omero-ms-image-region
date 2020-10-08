@@ -154,7 +154,11 @@ public class ShapeMaskRequestHandler {
                     log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
                     try (Context ctx = new Context();
                             Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
-                            return getData(array, ctx);
+                            if(shapeMaskCtx.subarrayDomainStr == null) {
+                                return getData(array, ctx);
+                            } else {
+                                return getData(array, ctx, shapeMaskCtx.subarrayDomainStr);
+                            }
                     }
                 } else {
                     return mask.getBytes();
@@ -217,7 +221,7 @@ public class ShapeMaskRequestHandler {
                         Domain domain = schema.getDomain();
                         Attribute attribute = schema.getAttribute("a1");
 
-                        int bytesPerPixel = getBytesPerPixel(attribute.getType());
+                        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
 
                         int num_dims = (int) domain.getNDim();
                         int capacity = 1;
@@ -247,6 +251,10 @@ public class ShapeMaskRequestHandler {
                             long[] minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
                             metadata.put("min", minMax[0]);
                             metadata.put("max", minMax[1]);
+                            metadata.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
+                                    (long) domain.getDimension("x").getDomain().getFirst());
+                            metadata.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
+                                    (long) domain.getDimension("y").getDomain().getFirst());
                             metadata.put("type", attribute.getType().toString());
                             if(multiscales != null) {
                                 metadata.put("multiscales", multiscales);
@@ -263,27 +271,6 @@ public class ShapeMaskRequestHandler {
             log.error("Exception while retrieving label image metadata", e);
         }
         return null;
-    }
-
-
-
-    protected int getBytesPerPixel(Datatype type) {
-        switch (type) {
-            case TILEDB_UINT8:
-            case TILEDB_INT8:
-                return 1;
-            case TILEDB_UINT16:
-            case TILEDB_INT16:
-                return 2;
-            case TILEDB_UINT32:
-            case TILEDB_INT32:
-                return 4;
-            case TILEDB_UINT64:
-            case TILEDB_INT64:
-                return 8;
-            default:
-                throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
-        }
     }
 
 
@@ -309,7 +296,6 @@ public class ShapeMaskRequestHandler {
         long yend = (long) domain.getDimension("y").getDomain().getSecond();
 
         RegionDef region = shapeMaskCtx.tile == null ? shapeMaskCtx.region : shapeMaskCtx.region;
-        //RegionDef tile = shapeMaskCtx.tile;
         if (shapeMaskCtx.tile != null) {
             RegionDef tile = shapeMaskCtx.tile;
             int tileWidth = (int) (xend - xstart + 1);
@@ -401,12 +387,17 @@ public class ShapeMaskRequestHandler {
                 log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
                 try (Context ctx = new Context();
                         Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
-                        byte[] tiledbBytes = getData(array, ctx);
+                        byte[] tiledbBytes = null;
+                        if(shapeMaskCtx.subarrayDomainStr == null) {
+                            tiledbBytes = getData(array, ctx);
+                        } else {
+                            tiledbBytes = getData(array, ctx, shapeMaskCtx.subarrayDomainStr);
+                        }
                         Domain domain = array.getSchema().getDomain();
 
                         RegionDef subRegion = getSubregion(domain);
                         Datatype type = array.getSchema().getAttribute("a1").getType();
-                        int bitsPerPixel = 8 * getBytesPerPixel(type);
+                        int bitsPerPixel = 8 * TiledbUtils.getBytesPerPixel(type);
                         byte[] colorMap = null;
                         if(type == Datatype.TILEDB_UINT8)  {
                             colorMap = getColorMap(TiledbUtils.getMaxUnsignedByte(tiledbBytes));
@@ -579,12 +570,48 @@ public class ShapeMaskRequestHandler {
         return subarrayDomain;
     }
 
+    private byte[] getData(Array array, Context ctx, String subarrayString) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        Attribute attribute = schema.getAttribute("a1");
+
+        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
+
+        int num_dims = (int) domain.getNDim();
+        if (num_dims != 5) {
+            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                    + Integer.toString(num_dims));
+        }
+        long[] subarrayDomain = TiledbUtils.getSubarrayDomainFromString(subarrayString);
+        log.info(Arrays.toString(subarrayDomain));
+
+        int capacity = 1;
+        for(int i = 0; i < 5; i++) {
+            capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
+        }
+        capacity *= bytesPerPixel;
+        log.info(Integer.toString(capacity));
+
+        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+        buffer.order(ByteOrder.nativeOrder());
+        //Dimensions in Dense Arrays must be the same type
+        try (Query query = new Query(array, QueryType.TILEDB_READ);
+                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
+            query.setSubarray(subArray);
+            query.setBuffer("a1", buffer);
+            query.submit();
+            byte[] outputBytes = new byte[buffer.capacity()];
+            buffer.get(outputBytes);
+            return outputBytes;
+        }
+    }
+
     private byte[] getData(Array array, Context ctx) throws TileDBError {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
         Attribute attribute = schema.getAttribute("a1");
 
-        int bytesPerPixel = getBytesPerPixel(attribute.getType());
+        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
 
         int num_dims = (int) domain.getNDim();
         if (num_dims != 5) {
@@ -603,6 +630,7 @@ public class ShapeMaskRequestHandler {
         int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
                         * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
                         * bytesPerPixel;
+        log.info(Integer.toString(capacity));
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
         buffer.order(ByteOrder.nativeOrder());

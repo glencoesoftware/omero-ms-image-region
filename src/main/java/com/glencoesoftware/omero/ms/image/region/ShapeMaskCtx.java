@@ -62,6 +62,9 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
     /** Resolution to read */
     public Integer resolution;
 
+    /** Subarray Domain String for Label Images */
+    public String subarrayDomainStr;
+
     /**
      * Constructor for jackson to decode the object from string
      */
@@ -84,6 +87,7 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
             flipVertical = flip.contains("v");
             getRegionFromString(params.get("region"));
             getTileFromString(params.get("tile"));
+            subarrayDomainStr = params.get("domain");
         } catch(Exception e) {
             log.error("Error creating ShapeMaskCtx", e);
             throw e;

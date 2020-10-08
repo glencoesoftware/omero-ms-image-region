@@ -161,4 +161,53 @@ public class TiledbUtils {
                 throw new IllegalArgumentException("Type: " + type.toString() + " not supported");
         }
     }
+
+    public static int getBytesPerPixel(Datatype type) {
+        switch (type) {
+            case TILEDB_UINT8:
+            case TILEDB_INT8:
+                return 1;
+            case TILEDB_UINT16:
+            case TILEDB_INT16:
+                return 2;
+            case TILEDB_UINT32:
+            case TILEDB_INT32:
+                return 4;
+            case TILEDB_UINT64:
+            case TILEDB_INT64:
+                return 8;
+            default:
+                throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
+        }
+    }
+
+    public static long[] getSubarrayDomainFromString(String domainStr) {
+        //String like [0,1,0,100:150,200:250]
+        if(domainStr.length() == 0) {
+            return null;
+        }
+        if(domainStr.startsWith("[")) {
+            domainStr = domainStr.substring(1);
+        }
+        if(domainStr.endsWith("]")) {
+            domainStr = domainStr.substring(0, domainStr.length() - 1);
+        }
+        String[] dimStrs = domainStr.split(",");
+        if(dimStrs.length != 5) {
+            throw new IllegalArgumentException("Invalid number of dimensions in domain string");
+        }
+        long[] subarrayDomain = new long[5*2];
+        for(int i = 0; i < 5; i++) {
+            String s = dimStrs[i];
+            if(s.contains(":")) {
+                String[] startEnd = s.split(":");
+                subarrayDomain[i*2] = Long.valueOf(startEnd[0]);
+                subarrayDomain[i*2 + 1] = Long.valueOf(startEnd[1]) - 1;
+            } else {
+                subarrayDomain[i*2] = Long.valueOf(s);
+                subarrayDomain[i*2 + 1] = Long.valueOf(s);
+            }
+        }
+        return subarrayDomain;
+    }
 }
