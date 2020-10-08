@@ -418,10 +418,11 @@ public class ShapeMaskRequestHandler {
                         return renderShapeMask(fillColor, tiledbBytes, subRegion.getWidth(), subRegion.getHeight(), bitsPerPixel, colorMap);
                 } catch (TileDBError e) {
                     log.error("Caught TileDBError", e);
-                    return null;
+                    log.error("Getting standard shape mask");
+                    return renderShapeMaskWithColor(mask, fillColor);
                 }
             } else {
-                renderShapeMaskWithColor(mask, fillColor);
+                return renderShapeMaskWithColor(mask, fillColor);
             }
         } catch (IOException e) {
             log.error("Exception while rendering shape mask", e);
