@@ -30,6 +30,7 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -181,6 +182,19 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    int getResolutionLevelCount(Path labelImageShapePath) {
+        File[] directories = new File(labelImageShapePath.toString()).listFiles(File::isDirectory);
+        int count = 0;
+        for(File dir : directories) {
+            try {
+                Integer.valueOf(dir.getName());
+                count++;
+            } catch(NumberFormatException e) {
+            }
+        }
+        return count;
+    }
+
     /**
      * Get shape mask bytes request handler.
      * @param client OMERO client to use for querying.
@@ -251,14 +265,24 @@ public class ShapeMaskRequestHandler {
                             long[] minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
                             metadata.put("min", minMax[0]);
                             metadata.put("max", minMax[1]);
-                            metadata.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                                    (long) domain.getDimension("x").getDomain().getFirst());
-                            metadata.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                                    (long) domain.getDimension("y").getDomain().getFirst());
+                            JsonObject size = new JsonObject();
+                            size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
+                                    (long) domain.getDimension("t").getDomain().getFirst() + 1);
+                            size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
+                                    (long) domain.getDimension("c").getDomain().getFirst() + 1);
+                            size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
+                                    (long) domain.getDimension("z").getDomain().getFirst() + 1);
+                            size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
+                                    (long) domain.getDimension("x").getDomain().getFirst() + 1);
+                            size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
+                                    (long) domain.getDimension("y").getDomain().getFirst() + 1);
+                            metadata.put("size", size);
                             metadata.put("type", attribute.getType().toString());
                             if(multiscales != null) {
                                 metadata.put("multiscales", multiscales);
                             }
+                            metadata.put("uuid", uuid);
+                            metadata.put("levels", getResolutionLevelCount(labelImageShapePath));
                         }
                         return metadata;
                     }
