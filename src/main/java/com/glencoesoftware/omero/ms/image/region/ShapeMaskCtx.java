@@ -86,6 +86,9 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
             flipHorizontal = flip.contains("h");
             flipVertical = flip.contains("v");
             getRegionFromString(params.get("region"));
+            if(params.get("resolution") != null) {
+                resolution = Integer.valueOf(params.get("resolution"));
+            }
             getTileFromString(params.get("tile"));
             subarrayDomainStr = params.get("domain");
         } catch(Exception e) {
