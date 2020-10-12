@@ -55,7 +55,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     private int port;
 
     /** Label Image Location */
-    private String labelImagePath;
+    private String ngffDir;
 
     /**
      * Default constructor.
@@ -77,7 +77,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             }
             host = omero.getString("host");
             port = omero.getInteger("port");
-            labelImagePath = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+            ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -130,7 +130,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, labelImagePath);
+                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -213,7 +213,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                  host, port, shapeMaskCtx.omeroSessionKey))
         {
             ShapeMaskRequestHandler requestHandler =
-                    new ShapeMaskRequestHandler(shapeMaskCtx, labelImagePath);
+                    new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -276,7 +276,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 host, port, shapeMaskCtx.omeroSessionKey))
        {
            ShapeMaskRequestHandler requestHandler =
-                   new ShapeMaskRequestHandler(shapeMaskCtx, labelImagePath);
+                   new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
 
            // The PNG is not in the cache we have to create it
            JsonObject metadata = request.execute(

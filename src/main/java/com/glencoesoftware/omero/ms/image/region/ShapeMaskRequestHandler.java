@@ -73,6 +73,7 @@ import omeis.providers.re.data.RegionDef;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
+import omero.model.Image;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 
@@ -87,7 +88,7 @@ public class ShapeMaskRequestHandler {
     private final ShapeMaskCtx shapeMaskCtx;
 
     /** Location of label image files */
-    private final String labelImagePath;
+    private final String ngffDir;
 
     /** GSON */
     Gson gson;
@@ -96,10 +97,10 @@ public class ShapeMaskRequestHandler {
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
-        this.labelImagePath = labelImagePath;
+        this.ngffDir = ngffDir;
     }
 
     /**
@@ -222,25 +223,28 @@ public class ShapeMaskRequestHandler {
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                if (labelImagePath == null) {
+                if (ngffDir == null) {
                     return mask.getBytes();
                 }
-                long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
-                Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(imageId) + ".tiledb");
-                Path labelImageLabelsPath = labelImageBasePath.resolve("0/labels");
+                long filesetId = image.getFileset().getId().getValue();
+                int series = image.getSeries().getValue();
+                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                        + ".tiledb/" + Integer.toString(series));
+                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
                 Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
                     //Append the resolution level
                     resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
                 }
-                Path fullLabelImagePath = labelImageShapePath.resolve(resolutionLevel);
-                log.info(fullLabelImagePath.toString());
-                if (Files.exists(fullLabelImagePath)) {
+                Path fullngffDir = labelImageShapePath.resolve(resolutionLevel);
+                log.info(fullngffDir.toString());
+                if (Files.exists(fullngffDir)) {
                     log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
                     try (Context ctx = new Context();
-                            Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                            Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
                             if(shapeMaskCtx.subarrayDomainStr == null) {
                                 return getData(array, ctx);
                             } else {
@@ -289,25 +293,28 @@ public class ShapeMaskRequestHandler {
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
         try {
-            if (labelImagePath == null) {
+            if (ngffDir == null) {
                 throw new IllegalArgumentException("Label image configs not properly set");
             }
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
-                Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(imageId) + ".tiledb");
-                Path labelImageLabelsPath = labelImageBasePath.resolve("0/labels");
+                long filesetId = image.getFileset().getId().getValue();
+                int series = image.getSeries().getValue();
+                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                        + ".tiledb/" + Integer.toString(series));
+                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
                 Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
                     //Append the resolution level
                     resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
                 }
-                Path fullLabelImagePath = labelImageShapePath.resolve(resolutionLevel);
-                log.info(fullLabelImagePath.toString());
+                Path fullngffDir = labelImageShapePath.resolve(resolutionLevel);
+                log.info(fullngffDir.toString());
                 JsonObject multiscales = null;
-                if (Files.exists(fullLabelImagePath)) {
+                if (Files.exists(fullngffDir)) {
                     try (Context ctx = new Context();
                         Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
                             if(array.hasMetadataKey("multiscales")) {
@@ -316,7 +323,7 @@ public class ShapeMaskRequestHandler {
                             }
                         }
                     try (Context ctx = new Context();
-                        Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
                         ArraySchema schema = array.getSchema();
                         Domain domain = schema.getDomain();
                         Attribute attribute = schema.getAttribute("a1");
@@ -473,12 +480,12 @@ public class ShapeMaskRequestHandler {
                 fillColor.getRed(), fillColor.getGreen(),
                 fillColor.getBlue(), fillColor.getAlpha()
             );
-            if (labelImagePath == null) {
+            if (ngffDir == null) {
                 renderShapeMaskWithColor(mask, fillColor);
             }
             //If the path to the label image exists, get it
             String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
-            Path labelImageBasePath = Paths.get(labelImagePath).resolve(Long.toString(imageId) + ".tiledb");
+            Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(imageId) + ".tiledb");
             log.info(labelImageBasePath.toString());
             Path labelImageLabelsPath = labelImageBasePath.resolve("0/labels");
             Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
@@ -488,12 +495,12 @@ public class ShapeMaskRequestHandler {
                 //Append the resolution level
                 resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
             }
-            Path fullLabelImagePath = labelImageShapePath.resolve(resolutionLevel);
-            log.info(fullLabelImagePath.toString());
-            if (Files.exists(fullLabelImagePath)) {
+            Path fullngffDir = labelImageShapePath.resolve(resolutionLevel);
+            log.info(fullngffDir.toString());
+            if (Files.exists(fullngffDir)) {
                 log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
                 try (Context ctx = new Context();
-                        Array array = new Array(ctx, fullLabelImagePath.toString(), QueryType.TILEDB_READ)){
+                        Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
                         byte[] tiledbBytes = null;
                         if(shapeMaskCtx.subarrayDomainStr == null) {
                             tiledbBytes = getData(array, ctx);
@@ -846,7 +853,7 @@ public class ShapeMaskRequestHandler {
      * exist or the user does not have permissions to access it.
      * @throws ServerError If there was any sort of error retrieving the image.
      */
-    protected long getImageId(IQueryPrx iQuery, Long shapeId)
+    protected Image getImageFromShapeId(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -856,10 +863,11 @@ public class ShapeMaskRequestHandler {
                 Tracing.currentTracer().startScopedSpan("get_mask");
         try {
             MaskI shape = (MaskI) iQuery.findByQuery(
-                "SELECT s FROM Shape as s join fetch s.roi " +
+                "SELECT s from Shape s join fetch s.roi roi " +
+                "join fetch roi.image " +
                 "WHERE s.id = :id", params, ctx
             );
-            return shape.getRoi().getImage().getId().getValue();
+            return shape.getRoi().getImage();
         } finally {
             span.finish();
         }
