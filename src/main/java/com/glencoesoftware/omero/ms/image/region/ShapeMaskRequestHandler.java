@@ -89,9 +89,6 @@ public class ShapeMaskRequestHandler {
     /** Location of label image files */
     private final String labelImagePath;
 
-    /** Label Image Suffix */
-    private String labelImageSuffix;
-
     /** GSON */
     Gson gson;
 
@@ -99,11 +96,10 @@ public class ShapeMaskRequestHandler {
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath, String labelImageSuffix) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String labelImagePath) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.labelImagePath = labelImagePath;
-        this.labelImageSuffix = labelImageSuffix;
     }
 
     /**
@@ -115,15 +111,105 @@ public class ShapeMaskRequestHandler {
     public byte[] renderShapeMask(omero.client client) {
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-            long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
             if (mask != null) {
-                return renderShapeMask(mask, imageId);
+                return renderShapeMask(mask);
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
         }
         return null;
+    }
+
+
+    /**
+     * Render shape mask.
+     * @param mask mask to render
+     * @return <code>image/png</code> encoded mask
+     */
+    protected byte[] renderShapeMask(MaskI mask) {
+        try {
+            Color fillColor = Optional.ofNullable(mask.getFillColor())
+                .map(x -> new Color(x.getValue()))
+                .orElse(new Color(255, 255, 0, 255));
+            if (shapeMaskCtx.color != null) {
+                // Color came from the request so we override the default
+                // color the mask was assigned.
+                int[] rgba = ImageRegionRequestHandler
+                        .splitHTMLColor(shapeMaskCtx.color);
+                fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
+            }
+            log.debug(
+                "Fill color Red:{} Green:{} Blue:{} Alpha:{}",
+                fillColor.getRed(), fillColor.getGreen(),
+                fillColor.getBlue(), fillColor.getAlpha()
+            );
+            byte[] bytes = mask.getBytes();
+            int width = (int) mask.getWidth().getValue();
+            int height = (int) mask.getHeight().getValue();
+            return renderShapeMask(fillColor, bytes, width, height);
+        } catch (IOException e) {
+            log.error("Exception while rendering shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Render shape mask.
+     * @param fillColor fill color to use for the mask
+     * @param bytes mask bytes to render
+     * @param width width of the mask
+     * @param height height of the mask
+     * @return <code>image/png</code> encoded mask
+     * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
+     */
+    protected byte[] renderShapeMask(
+            Color fillColor, byte[] bytes, int width, int height)
+                    throws IOException {
+        ScopedSpan span = null;
+        if(Tracing.currentTracer() != null) {
+            span =
+                Tracing.currentTracer().startScopedSpan("render_shape_mask");
+        }
+        try {
+            // The underlying raster will used a MultiPixelPackedSampleModel
+            // which expects the row stride to be evenly divisible by the byte
+            // width of the data type.  If it is not so aligned we will need
+            // to convert it to a byte mask for rendering.
+            int bitsPerPixel = 1;
+            if (width % 8 != 0) {
+                bytes = convertBitsToBytes(bytes, width * height);
+                bitsPerPixel = 8;
+            }
+            bytes = flip(bytes, width, height,
+                    shapeMaskCtx.flipHorizontal,
+                    shapeMaskCtx.flipVertical);
+            log.debug("Rendering Mask Width:{} Height:{} bitsPerPixel:{} " +
+                    "Size:{}", width, height, bitsPerPixel, bytes.length);
+            // Create buffered image
+            DataBuffer dataBuffer = new DataBufferByte(bytes, bytes.length);
+            WritableRaster raster = Raster.createPackedRaster(
+                    dataBuffer, width, height, bitsPerPixel, new Point(0, 0));
+            byte[] colorMap = new byte[] {
+                // First index (0); 100% transparent
+                0, 0, 0, 0,
+                // Second index (1); our color of choice
+                (byte) fillColor.getRed(), (byte) fillColor.getGreen(),
+                (byte) fillColor.getBlue(), (byte) fillColor.getAlpha()
+            };
+            ColorModel colorModel = new IndexColorModel(
+                    1, 2, colorMap, 0, true);
+            BufferedImage image = new BufferedImage(
+                    colorModel, raster, false, null);
+
+            // Write PNG to memory and return
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
+        } finally {
+            if(span != null)
+            span.finish();
+        }
     }
 
     /**
@@ -136,7 +222,7 @@ public class ShapeMaskRequestHandler {
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                if (labelImagePath == null || labelImageSuffix == null) {
+                if (labelImagePath == null) {
                     return mask.getBytes();
                 }
                 long imageId = getImageId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
@@ -203,7 +289,7 @@ public class ShapeMaskRequestHandler {
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
         try {
-            if (labelImagePath == null || labelImageSuffix == null) {
+            if (labelImagePath == null) {
                 throw new IllegalArgumentException("Label image configs not properly set");
             }
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
@@ -319,7 +405,6 @@ public class ShapeMaskRequestHandler {
         long ystart = (long) (domain.getDimension("y").getDomain().getFirst());
         long yend = (long) domain.getDimension("y").getDomain().getSecond();
 
-        RegionDef region = shapeMaskCtx.tile == null ? shapeMaskCtx.region : shapeMaskCtx.region;
         if (shapeMaskCtx.tile != null) {
             RegionDef tile = shapeMaskCtx.tile;
             int tileWidth = (int) (xend - xstart + 1);
@@ -334,8 +419,6 @@ public class ShapeMaskRequestHandler {
             int tileY = tile.getY() * tileHeight;
             return getTruncateRegionDef(new RegionDef(tileX, tileY, tileWidth, tileHeight),
                     (int) xstart, (int) xend, (int) ystart, (int) yend);
-        } else if (shapeMaskCtx.region != null) {
-            return getTruncateRegionDef(region, (int) xstart, (int) xend, (int) ystart, (int) yend);
         } else {
             return new RegionDef(
                     (int) xstart,
@@ -390,7 +473,7 @@ public class ShapeMaskRequestHandler {
                 fillColor.getRed(), fillColor.getGreen(),
                 fillColor.getBlue(), fillColor.getAlpha()
             );
-            if (labelImagePath == null && labelImageSuffix == null) {
+            if (labelImagePath == null) {
                 renderShapeMaskWithColor(mask, fillColor);
             }
             //If the path to the label image exists, get it

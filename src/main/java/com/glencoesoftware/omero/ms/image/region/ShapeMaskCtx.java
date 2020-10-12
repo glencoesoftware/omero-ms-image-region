@@ -85,7 +85,6 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
                     .orElse("").toLowerCase();
             flipHorizontal = flip.contains("h");
             flipVertical = flip.contains("v");
-            getRegionFromString(params.get("region"));
             if(params.get("resolution") != null) {
                 resolution = Integer.valueOf(params.get("resolution"));
             }
@@ -94,34 +93,6 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
         } catch(Exception e) {
             log.error("Error creating ShapeMaskCtx", e);
             throw e;
-        }
-    }
-
-    /**
-     * Parse a string to RegionDef.
-     * @param regionString string describing the region to render:
-     * "0,0,1024,1024"
-     */
-    private void getRegionFromString(String regionString) {
-        if (regionString == null) {
-            return;
-        }
-        String[] regionSplit = regionString.split(",", -1);
-        if (regionSplit.length != 4) {
-            throw new IllegalArgumentException("Region string format incorrect. "
-                + "Should be 'x,y,w,h'");
-        }
-        try {
-            region = new RegionDef(
-                Integer.parseInt(regionSplit[0]),
-                Integer.parseInt(regionSplit[1]),
-                Integer.parseInt(regionSplit[2]),
-                Integer.parseInt(regionSplit[3])
-            );
-        }
-        catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Improper number formatting "
-                + "in region string " + regionString);
         }
     }
 
