@@ -19,13 +19,16 @@ repositories {
         url 'https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases'
     }
     maven {
-        url 'https://artifacts.openmicroscopy.org/artifactory/maven/'
+        url 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
     }
     maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
         url 'https://repo.glencoesoftware.com/repository/tiledb-snapshots/'
+    }
+    maven {
+        url 'https://maven.scijava.org/content/groups/public'
     }
     maven {
         url 'https://oss.sonatype.org/content/repositories/snapshots/'
