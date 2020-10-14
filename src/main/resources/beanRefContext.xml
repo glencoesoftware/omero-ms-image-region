@@ -51,11 +51,22 @@
   </bean>
 
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
+  
+  <bean name="/OMERO/Pixels2" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
+        parent="filesystem">
+    <!-- index=0 "path" comes from parent -->
+    <constructor-arg index="1" ref="MemoizerWait"/>
+    <constructor-arg ref="omeroFilePathResolver"/>
+    <constructor-arg ref="backOff"/>
+    <constructor-arg ref="tileSizes"/>
+    <constructor-arg><null /></constructor-arg>
+    <property name="metrics" ref="metrics"/>
+  </bean>
 
   <bean id="omero-ms-image-region-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
         scope="prototype">
-    <constructor-arg ref="/OMERO/Pixels" />
+    <constructor-arg ref="/OMERO/Pixels2" />
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />

@@ -40,7 +40,6 @@ import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
-import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
@@ -170,7 +169,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             lutProvider,
                             pixelsService,
                             compressionService,
-                            maxTileLength)::renderImageRegion);
+                            maxTileLength,
+                            config().getJsonObject("omero.server").getString("omero.ngff.dir"))::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(

@@ -49,13 +49,13 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
-import ome.io.nio.PixelsService;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.model.fs.Fileset;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.ReverseIntensityContext;
@@ -110,6 +110,9 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Location of label image files */
+    private final String ngffDir;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -120,13 +123,15 @@ public class ImageRegionRequestHandler {
             LutProvider lutProvider,
             PixelsService pixService,
             LocalCompress compSrv,
-            int maxTileLength) {
+            int maxTileLength,
+            String ngffDir) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        this.ngffDir = ngffDir;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
@@ -195,6 +200,27 @@ public class ImageRegionRequestHandler {
         }
     }
 
+    private long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
+            throws ServerError {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(imageId);
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_fileset_id_from_image_id");
+        span.tag("omero.image_id", imageId.toString());
+        try {
+            omero.model.Image image = (omero.model.Image) iQuery.findByQuery(
+                    "SELECT i from Image i " +
+                    "WHERE i.id = :id",
+                    params, ctx
+                );
+            return image.getFileset().getId().getValue();
+        } finally {
+            span.finish();
+        }
+    }
+
     /**
      * Retrieves the rendering settings corresponding to the specified pixels
      * set.
@@ -215,7 +241,7 @@ public class ImageRegionRequestHandler {
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
         try {
-            return pixelsService.getPixelBuffer(pixels, false);
+            return pixelsService.getPixelBuffer(pixels, false, ngffDir, 0);
         } finally {
             span.finish();
         }
@@ -251,6 +277,7 @@ public class ImageRegionRequestHandler {
             // avoids attempting to retrieve the series from the database
             // via IQuery later.
             Image image = new Image(pixels.getImage().getId(), true);
+            image.setFileset(new Fileset(getFilesetIdFromImageId(iQuery, pixels.getImage().getId()), true));
             image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
             pixels.setImage(image);
         } finally {
