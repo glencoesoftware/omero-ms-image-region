@@ -35,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +59,6 @@ import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
-import omeis.providers.re.data.RegionDef;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
@@ -356,9 +354,9 @@ public class ShapeMaskRequestHandler {
                     try (Context ctx = new Context();
                             Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
                             if(shapeMaskCtx.subarrayDomainStr == null) {
-                                return getData(array, ctx);
+                                return TiledbUtils.getData(array, ctx);
                             } else {
-                                return getData(array, ctx, shapeMaskCtx.subarrayDomainStr);
+                                return TiledbUtils.getData(array, ctx, shapeMaskCtx.subarrayDomainStr);
                             }
                     }
                 } else {
@@ -500,51 +498,6 @@ public class ShapeMaskRequestHandler {
         return null;
     }
 
-
-    private RegionDef getTruncateRegionDef(RegionDef region,
-            int xstart, int xend,
-            int ystart, int yend) {
-        if (region.getX() > xend ||
-                region.getY() > yend ||
-                region.getX() < xstart ||
-                region.getY() < ystart) {
-            throw new IllegalArgumentException("Invalid region");
-        }
-        return new RegionDef(region.getX(),
-                region.getY(),
-                (int) Math.min(region.getWidth(), xend - region.getX() + 1),
-                (int) Math.min(region.getHeight(), yend - region.getY() + 1));
-    }
-
-    private RegionDef getSubregion(Domain domain) throws TileDBError {
-        long xstart = (long) (domain.getDimension("x").getDomain().getFirst());
-        long xend = (long) domain.getDimension("x").getDomain().getSecond();
-        long ystart = (long) (domain.getDimension("y").getDomain().getFirst());
-        long yend = (long) domain.getDimension("y").getDomain().getSecond();
-
-        if (shapeMaskCtx.tile != null) {
-            RegionDef tile = shapeMaskCtx.tile;
-            int tileWidth = (int) (xend - xstart + 1);
-            if(tile.getWidth() > 0 && tile.getWidth() < tileWidth) {
-                tileWidth = tile.getWidth();
-            }
-            int tileHeight = (int) (yend - ystart + 1);
-            if(tile.getHeight() > 0 && tile.getHeight() < tileHeight) {
-                tileHeight = tile.getHeight();
-            }
-            int tileX = tile.getX() * tileWidth;
-            int tileY = tile.getY() * tileHeight;
-            return getTruncateRegionDef(new RegionDef(tileX, tileY, tileWidth, tileHeight),
-                    (int) xstart, (int) xend, (int) ystart, (int) yend);
-        } else {
-            return new RegionDef(
-                    (int) xstart,
-                    (int) ystart,
-                    (int) (xend - xstart + 1),
-                    (int) (yend - ystart + 1));
-        }
-    }
-
     long[] getFullArrayDomain(Domain domain) throws TileDBError {
         int num_dims = (int) domain.getNDim();
         long[] subarrayDomain = new long[(int) num_dims*2];
@@ -559,82 +512,6 @@ public class ShapeMaskRequestHandler {
             subarrayDomain[i*2 + 1] = end;
         }
         return subarrayDomain;
-    }
-
-    private byte[] getData(Array array, Context ctx, String subarrayString) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
-        }
-        long[] subarrayDomain = TiledbUtils.getSubarrayDomainFromString(subarrayString);
-        log.info(Arrays.toString(subarrayDomain));
-
-        int capacity = 1;
-        for(int i = 0; i < 5; i++) {
-            capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
-        }
-        capacity *= bytesPerPixel;
-        log.info(Integer.toString(capacity));
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        }
-    }
-
-    private byte[] getData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
-        }
-        long[] subarrayDomain = new long[5*2];
-
-        RegionDef subRegion = getSubregion(domain);
-        subarrayDomain[6] = subRegion.getY();
-        subarrayDomain[7] = subRegion.getY() + subRegion.getHeight() - 1; //Last coordinate is inclusive
-        subarrayDomain[8] = subRegion.getX();
-        subarrayDomain[9] = subRegion.getX() + subRegion.getWidth() - 1; //Last coordinate is inclusive
-        log.info(Arrays.toString(subarrayDomain));
-
-        int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
-                        * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
-                        * bytesPerPixel;
-        log.info(Integer.toString(capacity));
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        }
     }
 
     /**

@@ -8,9 +8,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.hibernate.util.xml.OriginImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -197,7 +199,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
                 .append(y).append(":").append(y + h).append(",")
                 .append(x).append(":").append(x + w).append("]");
             log.info(domStrBuf.toString());
-            byte[] buffer = getData(array, ctx, domStrBuf.toString());
+            byte[] buffer = TiledbUtils.getData(array, ctx, domStrBuf.toString());
             d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
@@ -295,7 +297,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
         try (Context ctx = new Context();
                 Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
             PixelData d;
-            byte[] buffer = getData(array, ctx);
+            byte[] buffer = TiledbUtils.getData(array, ctx);
             d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
@@ -505,84 +507,17 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
-        // TODO Auto-generated method stub
-        return null;
+        int resLevels = getResolutionLevels();
+        List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
+        int originalResolution = resolutionLevel;
+        for(int i = 0; i < resLevels; i++) {
+            setResolutionLevel(i);
+            List<Integer> description = new ArrayList<Integer>();
+            description.add(getSizeX());
+            description.add(getSizeY());
+            resolutionDescriptions.add(description);
+        }
+        setResolutionLevel(originalResolution);
+        return resolutionDescriptions;
     }
-
-
-    private byte[] getData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
-        }
-        long[] subarrayDomain = new long[5*2];
-
-        subarrayDomain[6] = (long) domain.getDimension("y").getDomain().getFirst();
-        subarrayDomain[7] = (long) domain.getDimension("y").getDomain().getSecond();
-        subarrayDomain[8] = (long) domain.getDimension("x").getDomain().getFirst();
-        subarrayDomain[9] = (long) domain.getDimension("x").getDomain().getSecond();
-        log.info(Arrays.toString(subarrayDomain));
-
-        int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
-                        * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
-                        * bytesPerPixel;
-        log.info(Integer.toString(capacity));
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        }
-    }
-
-    private byte[] getData(Array array, Context ctx, String subarrayString) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
-        }
-        long[] subarrayDomain = TiledbUtils.getSubarrayDomainFromString(subarrayString);
-        log.info(Arrays.toString(subarrayDomain));
-
-        int capacity = 1;
-        for(int i = 0; i < 5; i++) {
-            capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
-        }
-        capacity *= bytesPerPixel;
-        log.info(Integer.toString(capacity));
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        }
-    }
-
 }
