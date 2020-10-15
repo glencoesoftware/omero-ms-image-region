@@ -53,7 +53,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     private final static Logger log = LoggerFactory.getLogger(TiledbPixelBuffer.class);
 
-String getPixelsType(Datatype type) {
+    String getPixelsType(Datatype type) {
         switch (type) {
             case TILEDB_UINT8:
                 return FormatTools.getPixelTypeString(FormatTools.UINT8);
@@ -183,14 +183,21 @@ String getPixelsType(Datatype type) {
     @Override
     public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
             throws IOException {
-        // TODO Auto-generated method stub
         log.info("getTile");
         Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
                 + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()) + "/" + Integer.toString(resolutionLevel));
         try (Context ctx = new Context();
                 Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
             PixelData d;
-            byte[] buffer = getData(array, ctx);
+            StringBuffer domStrBuf = new StringBuffer();
+            domStrBuf.append("[")
+                .append(t).append(",")
+                .append(c).append(",")
+                .append(z).append(",")
+                .append(y).append(":").append(y + h).append(",")
+                .append(x).append(":").append(x + w).append("]");
+            log.info(domStrBuf.toString());
+            byte[] buffer = getData(array, ctx, domStrBuf.toString());
             d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
@@ -431,7 +438,7 @@ String getPixelsType(Datatype type) {
                 Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
             Domain dom = array.getSchema().getDomain();
             return (int) ((long) dom.getDimension(dimName).getDomain().getSecond()
-                    + (long) dom.getDimension(dimName).getDomain().getFirst() + 1);
+                    - (long) dom.getDimension(dimName).getDomain().getFirst() + 1);
         } catch (TileDBError e) {
             log.error("TileDBError in TiledbPixelBuffer", e);
         }
@@ -526,6 +533,42 @@ String getPixelsType(Datatype type) {
         int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
                         * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
                         * bytesPerPixel;
+        log.info(Integer.toString(capacity));
+
+        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+        buffer.order(ByteOrder.nativeOrder());
+        //Dimensions in Dense Arrays must be the same type
+        try (Query query = new Query(array, QueryType.TILEDB_READ);
+                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
+            query.setSubarray(subArray);
+            query.setBuffer("a1", buffer);
+            query.submit();
+            byte[] outputBytes = new byte[buffer.capacity()];
+            buffer.get(outputBytes);
+            return outputBytes;
+        }
+    }
+
+    private byte[] getData(Array array, Context ctx, String subarrayString) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        Attribute attribute = schema.getAttribute("a1");
+
+        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
+
+        int num_dims = (int) domain.getNDim();
+        if (num_dims != 5) {
+            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                    + Integer.toString(num_dims));
+        }
+        long[] subarrayDomain = TiledbUtils.getSubarrayDomainFromString(subarrayString);
+        log.info(Arrays.toString(subarrayDomain));
+
+        int capacity = 1;
+        for(int i = 0; i < 5; i++) {
+            capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
+        }
+        capacity *= bytesPerPixel;
         log.info(Integer.toString(capacity));
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);

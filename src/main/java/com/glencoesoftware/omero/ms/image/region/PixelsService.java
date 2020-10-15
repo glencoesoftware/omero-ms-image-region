@@ -29,25 +29,12 @@ import java.util.Arrays;
 
 import org.slf4j.LoggerFactory;
 
-import io.tiledb.java.api.Array;
-import io.tiledb.java.api.ArraySchema;
-import io.tiledb.java.api.Attribute;
-import io.tiledb.java.api.Context;
-import io.tiledb.java.api.Datatype;
-import io.tiledb.java.api.Domain;
-import io.tiledb.java.api.NativeArray;
-import io.tiledb.java.api.Query;
-import io.tiledb.java.api.QueryType;
-import io.tiledb.java.api.TileDBError;
 import ome.api.IQuery;
-import ome.io.TiledbPixelBuffer;
 import ome.io.nio.BackOff;
 import ome.io.nio.FilePathResolver;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.TileSizes;
 import ome.model.core.Pixels;
-import omeis.providers.re.data.RegionDef;
-
 /**
  * Subclass which overrides series retrieval to avoid the need for
  * an injected {@link IQuery}.
