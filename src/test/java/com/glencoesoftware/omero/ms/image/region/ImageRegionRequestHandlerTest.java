@@ -61,7 +61,8 @@ public class ImageRegionRequestHandlerTest {
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
                 null, //PixelsService pixService,
-                1024); //maxTileLength);
+                1024, //maxTileLength,
+                ""); //ngffDir);
     }
 
     private void testFlip(
