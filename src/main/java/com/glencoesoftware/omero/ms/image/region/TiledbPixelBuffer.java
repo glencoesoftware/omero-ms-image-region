@@ -45,12 +45,13 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     Long filesetId;
 
-    int resolutionLevel = 0;
+    int resolutionLevel;
 
     public TiledbPixelBuffer(Pixels pixels, String ngffDir, Long filesetId) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;
         this.filesetId = filesetId;
+        this.resolutionLevel = this.getResolutionLevels() - 1;
     }
 
     private final static Logger log = LoggerFactory.getLogger(TiledbPixelBuffer.class);
@@ -490,12 +491,14 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     @Override
     public int getResolutionLevel() {
-        return resolutionLevel;
+        return Math.abs(
+                resolutionLevel - (getResolutionLevels() - 1));
     }
 
     @Override
     public void setResolutionLevel(int resolutionLevel) {
-        this.resolutionLevel = resolutionLevel;
+        this.resolutionLevel = Math.abs(
+                resolutionLevel - (getResolutionLevels() - 1));
     }
 
     @Override
@@ -511,7 +514,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
         List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
         int originalResolution = resolutionLevel;
         for(int i = 0; i < resLevels; i++) {
-            setResolutionLevel(i);
+            this.resolutionLevel = i;
             List<Integer> description = new ArrayList<Integer>();
             description.add(getSizeX());
             description.add(getSizeY());
