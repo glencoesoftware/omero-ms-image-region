@@ -27,11 +27,8 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -46,16 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import io.tiledb.java.api.Array;
-import io.tiledb.java.api.ArraySchema;
-import io.tiledb.java.api.Attribute;
-import io.tiledb.java.api.Context;
-import io.tiledb.java.api.Datatype;
-import io.tiledb.java.api.Domain;
-import io.tiledb.java.api.NativeArray;
-import io.tiledb.java.api.Query;
-import io.tiledb.java.api.QueryType;
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
@@ -344,20 +331,16 @@ public class ShapeMaskRequestHandler {
                 Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
-                    //Append the resolution level
                     resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
                 }
-                Path fullngffDir = labelImageShapePath.resolve(resolutionLevel);
-                log.info(fullngffDir.toString());
-                if (Files.exists(fullngffDir)) {
+                Path fullNgffDir = labelImageShapePath.resolve(resolutionLevel);
+                log.info(fullNgffDir.toString());
+                if (Files.exists(fullNgffDir)) {
                     log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
-                    try (Context ctx = new Context();
-                            Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
-                            if(shapeMaskCtx.subarrayDomainStr == null) {
-                                return TiledbUtils.getData(array, ctx);
-                            } else {
-                                return TiledbUtils.getData(array, ctx, shapeMaskCtx.subarrayDomainStr);
-                            }
+                    if(shapeMaskCtx.subarrayDomainStr == null) {
+                        return TiledbUtils.getBytes(fullNgffDir.toString());
+                    } else {
+                        return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr);
                     }
                 } else {
                     return mask.getBytes();
@@ -368,29 +351,6 @@ public class ShapeMaskRequestHandler {
             log.error("Exception while retrieving shape mask", e);
         }
         return null;
-    }
-
-
-    private String getStringMetadata(Array array, String key) throws TileDBError {
-        if(array.hasMetadataKey(key)) {
-            NativeArray strNativeArray = array.getMetadata(key, Datatype.TILEDB_CHAR);
-            return new String((byte[]) strNativeArray.toJavaArray(), StandardCharsets.UTF_8);
-        } else {
-            return null;
-        }
-    }
-
-    int getResolutionLevelCount(Path labelImageShapePath) {
-        File[] directories = new File(labelImageShapePath.toString()).listFiles(File::isDirectory);
-        int count = 0;
-        for(File dir : directories) {
-            try {
-                Integer.valueOf(dir.getName());
-                count++;
-            } catch(NumberFormatException e) {
-            }
-        }
-        return count;
     }
 
     /**
@@ -410,108 +370,18 @@ public class ShapeMaskRequestHandler {
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
-                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                        + ".tiledb/" + Integer.toString(series));
-                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
-                Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-                String resolutionLevel = "0";
+                int resolution = 0;
                 if(shapeMaskCtx.resolution != null) {
-                    //Append the resolution level
-                    resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
+                    resolution = shapeMaskCtx.resolution;
                 }
-                Path fullngffDir = labelImageShapePath.resolve(resolutionLevel);
-                log.info(fullngffDir.toString());
-                JsonObject multiscales = null;
-                if (Files.exists(fullngffDir)) {
-                    try (Context ctx = new Context();
-                        Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
-                            if(array.hasMetadataKey("multiscales")) {
-                                String multiscalesMetaStr = getStringMetadata(array, "multiscales");
-                                multiscales = new JsonObject(multiscalesMetaStr);
-                            }
-                        }
-                    try (Context ctx = new Context();
-                        Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
-                        ArraySchema schema = array.getSchema();
-                        Domain domain = schema.getDomain();
-                        Attribute attribute = schema.getAttribute("a1");
-
-                        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-                        int num_dims = (int) domain.getNDim();
-                        int capacity = 1;
-                        long[] subarrayDomain = new long[(int) num_dims*2];
-                        for(int i = 0; i < num_dims; i++) {
-                            if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
-                                throw new IllegalArgumentException("Dimension type "
-                                    + domain.getDimension(i).getType().toString() + " not supported");
-                            }
-                            long start = (long) (domain.getDimension(i).getDomain().getFirst());
-                            long end = (long) domain.getDimension(i).getDomain().getSecond();
-                            subarrayDomain[i*2] = start;
-                            subarrayDomain[i*2 + 1] = end;
-                            capacity *= (end - start + 1);
-                        }
-                        capacity *= bytesPerPixel;
-
-                        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-                        buffer.order(ByteOrder.nativeOrder());
-                        JsonObject metadata = new JsonObject();
-                        //Dimensions in Dense Arrays must be the same type
-                        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-                            query.setSubarray(subArray);
-                            query.setBuffer("a1", buffer);
-                            query.submit();
-                            long[] minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
-                            metadata.put("min", minMax[0]);
-                            metadata.put("max", minMax[1]);
-                            JsonObject size = new JsonObject();
-                            size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
-                                    (long) domain.getDimension("t").getDomain().getFirst() + 1);
-                            size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
-                                    (long) domain.getDimension("c").getDomain().getFirst() + 1);
-                            size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
-                                    (long) domain.getDimension("z").getDomain().getFirst() + 1);
-                            size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                                    (long) domain.getDimension("x").getDomain().getFirst() + 1);
-                            size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                                    (long) domain.getDimension("y").getDomain().getFirst() + 1);
-                            metadata.put("size", size);
-                            metadata.put("type", attribute.getType().toString());
-                            if(multiscales != null) {
-                                metadata.put("multiscales", multiscales);
-                            }
-                            metadata.put("uuid", uuid);
-                            metadata.put("levels", getResolutionLevelCount(labelImageShapePath));
-                        }
-                        return metadata;
-                    }
-                } else {
-                    return null;
-                }
+                return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+            } else {
+                return null;
             }
-            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving label image metadata", e);
         }
         return null;
-    }
-
-    long[] getFullArrayDomain(Domain domain) throws TileDBError {
-        int num_dims = (int) domain.getNDim();
-        long[] subarrayDomain = new long[(int) num_dims*2];
-        for(int i = 0; i < num_dims; i++) {
-            if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
-                throw new IllegalArgumentException("Dimension type "
-                    + domain.getDimension(i).getType().toString() + " not supported");
-            }
-            long start = (long) (domain.getDimension(i).getDomain().getFirst());
-            long end = (long) domain.getDimension(i).getDomain().getSecond();
-            subarrayDomain[i*2] = start;
-            subarrayDomain[i*2 + 1] = end;
-        }
-        return subarrayDomain;
     }
 
     /**

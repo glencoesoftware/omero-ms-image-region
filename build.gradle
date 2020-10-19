@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.5.3-SNAPSHOT-16'
+version = '0.5.3-SNAPSHOT-17'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
@@ -23,9 +23,6 @@ repositories {
     }
     maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
-    }
-    maven {
-        url 'https://repo.glencoesoftware.com/repository/tiledb-snapshots/'
     }
     maven {
         url 'https://maven.scijava.org/content/groups/public'
@@ -78,7 +75,7 @@ dependencies {
     implementation 'info.picocli:picocli:4.1.4'
     implementation 'com.univocity:univocity-parsers:2.8.3'
     implementation 'com.zeroc:icegrid:3.6.4'
-    implementation 'io.tiledb:tiledb-java:0.3.4-gs-SNAPSHOT'
+    implementation 'io.tiledb:tiledb-java:0.3.3-SNAPSHOT'
     implementation 'com.google.code.gson:gson:2.8.6'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.+'
