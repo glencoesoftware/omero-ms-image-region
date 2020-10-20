@@ -281,13 +281,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     @Override
     public byte[] getPlaneDirect(Integer z, Integer c, Integer t, byte[] buffer)
             throws IOException, DimensionsOutOfBoundsException {
-        Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()) + "/" + Integer.toString(resolutionLevel));
-        try (Context ctx = new Context();
-                Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
-        } catch (TileDBError e) {
-            log.error("TileDBError when trying to getPlaneDirect", e);
-        }
         return null;
     }
 

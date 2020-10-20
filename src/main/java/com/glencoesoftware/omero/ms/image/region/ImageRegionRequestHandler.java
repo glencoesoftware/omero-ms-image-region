@@ -241,7 +241,8 @@ public class ImageRegionRequestHandler {
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
         try {
-            return pixelsService.getPixelBuffer(pixels, false, ngffDir, 0);
+            PixelBuffer pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
+            return pixelsService.getPixelBuffer(pixels, false);
         } finally {
             span.finish();
         }
