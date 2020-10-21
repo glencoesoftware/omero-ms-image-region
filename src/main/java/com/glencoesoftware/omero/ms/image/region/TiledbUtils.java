@@ -188,24 +188,19 @@ public class TiledbUtils {
         Domain domain = schema.getDomain();
         Attribute attribute = schema.getAttribute("a1");
 
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
         int num_dims = (int) domain.getNDim();
         if (num_dims != 5) {
             throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
                     + Integer.toString(num_dims));
         }
-        long[] subarrayDomain = new long[5*2];
 
-        subarrayDomain[6] = (long) domain.getDimension("y").getDomain().getFirst();
-        subarrayDomain[7] = (long) domain.getDimension("y").getDomain().getSecond();
-        subarrayDomain[8] = (long) domain.getDimension("x").getDomain().getFirst();
-        subarrayDomain[9] = (long) domain.getDimension("x").getDomain().getSecond();
-        log.info(Arrays.toString(subarrayDomain));
-
-        int capacity = ((int) (subarrayDomain[7] - subarrayDomain[6] + 1))
-                        * ((int) (subarrayDomain[9] - subarrayDomain[8] + 1))
-                        * bytesPerPixel;
+        long[] subarrayDomain = getFullArrayDomain(domain);
+        int capacity = 1;
+        for(int i = 0; i < subarrayDomain.length/2; i++) {
+            capacity *= subarrayDomain[i*2 + 1] - subarrayDomain[i*2] + 1;
+        }
+        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
+        capacity *= bytesPerPixel;
         log.info(Integer.toString(capacity));
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
