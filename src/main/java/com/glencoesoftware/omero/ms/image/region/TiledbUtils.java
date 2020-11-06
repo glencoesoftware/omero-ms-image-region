@@ -262,6 +262,18 @@ public class TiledbUtils {
         }
     }
 
+    public static long[] getMinMaxMetadata(Array array) throws TileDBError {
+        String key = "minmax";
+        log.info(array.getMetadataMap().keySet().toString());
+        if(array.hasMetadataKey(key)) {
+            NativeArray minMaxNativeArray = array.getMetadata(key, Datatype.TILEDB_INT32);
+            log.info(minMaxNativeArray.getJavaType().toString());
+            return (long[]) minMaxNativeArray.toJavaArray();
+        } else {
+            return null;
+        }
+    }
+
     public static int getResolutionLevelCount(Path labelImageShapePath) {
         File[] directories = new File(labelImageShapePath.toString()).listFiles(File::isDirectory);
         int count = 0;
@@ -288,11 +300,13 @@ public class TiledbUtils {
             Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
             Path fullngffDir = labelImageShapePath.resolve(Integer.toString(resolution));
             JsonObject multiscales = null;
+            long[] minMax = null;
             if (Files.exists(fullngffDir)) {
                 try (Context ctx = new Context();
                     Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
                     if(array.hasMetadataKey("multiscales")) {
                         String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
+                        minMax = getMinMaxMetadata(array);
                         multiscales = new JsonObject(multiscalesMetaStr);
                     }
                 } catch (Exception e) {
@@ -304,55 +318,29 @@ public class TiledbUtils {
                     Domain domain = schema.getDomain();
                     Attribute attribute = schema.getAttribute("a1");
 
-                    int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-
-                    int num_dims = (int) domain.getNDim();
-                    int capacity = 1;
-                    long[] subarrayDomain = new long[(int) num_dims*2];
-                    for(int i = 0; i < num_dims; i++) {
-                        if (domain.getDimension(i).getType() != Datatype.TILEDB_INT64) {
-                            throw new IllegalArgumentException("Dimension type "
-                                + domain.getDimension(i).getType().toString() + " not supported");
-                        }
-                        long start = (long) (domain.getDimension(i).getDomain().getFirst());
-                        long end = (long) domain.getDimension(i).getDomain().getSecond();
-                        subarrayDomain[i*2] = start;
-                        subarrayDomain[i*2 + 1] = end;
-                        capacity *= (end - start + 1);
-                    }
-                    capacity *= bytesPerPixel;
-
-                    ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-                    buffer.order(ByteOrder.nativeOrder());
                     JsonObject metadata = new JsonObject();
-                    //Dimensions in Dense Arrays must be the same type
-                    try (Query query = new Query(array, QueryType.TILEDB_READ);
-                            NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-                        query.setSubarray(subArray);
-                        query.setBuffer("a1", buffer);
-                        query.submit();
-                        long[] minMax = TiledbUtils.getMinMax(buffer, attribute.getType());
+                    if(minMax != null) {
                         metadata.put("min", minMax[0]);
                         metadata.put("max", minMax[1]);
-                        JsonObject size = new JsonObject();
-                        size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
-                                (long) domain.getDimension("t").getDomain().getFirst() + 1);
-                        size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
-                                (long) domain.getDimension("c").getDomain().getFirst() + 1);
-                        size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
-                                (long) domain.getDimension("z").getDomain().getFirst() + 1);
-                        size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                                (long) domain.getDimension("x").getDomain().getFirst() + 1);
-                        size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                                (long) domain.getDimension("y").getDomain().getFirst() + 1);
-                        metadata.put("size", size);
-                        metadata.put("type", attribute.getType().toString());
-                        if(multiscales != null) {
-                            metadata.put("multiscales", multiscales);
-                        }
-                        metadata.put("uuid", uuid);
-                        metadata.put("levels", getResolutionLevelCount(labelImageShapePath));
                     }
+                    JsonObject size = new JsonObject();
+                    size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
+                            (long) domain.getDimension("t").getDomain().getFirst() + 1);
+                    size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
+                            (long) domain.getDimension("c").getDomain().getFirst() + 1);
+                    size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
+                            (long) domain.getDimension("z").getDomain().getFirst() + 1);
+                    size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
+                            (long) domain.getDimension("x").getDomain().getFirst() + 1);
+                    size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
+                            (long) domain.getDimension("y").getDomain().getFirst() + 1);
+                    metadata.put("size", size);
+                    metadata.put("type", attribute.getType().toString());
+                    if(multiscales != null) {
+                        metadata.put("multiscales", multiscales);
+                    }
+                    metadata.put("uuid", uuid);
+                    metadata.put("levels", getResolutionLevelCount(labelImageShapePath));
                     return metadata;
                 } catch (Exception e) {
                     log.error("Exception while retrieving label image metadata", e);
