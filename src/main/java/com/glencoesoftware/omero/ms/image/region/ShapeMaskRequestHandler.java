@@ -64,14 +64,18 @@ public class ShapeMaskRequestHandler {
     /** Location of ngff files */
     private final String ngffDir;
 
+    /** Max Tile Length */
+    private final Integer maxTileLength;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
+        this.maxTileLength = maxTileLength;
     }
 
     /**
@@ -340,7 +344,7 @@ public class ShapeMaskRequestHandler {
                     if(shapeMaskCtx.subarrayDomainStr == null) {
                         return TiledbUtils.getBytes(fullNgffDir.toString());
                     } else {
-                        return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr);
+                        return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength);
                     }
                 } else {
                     return mask.getBytes();

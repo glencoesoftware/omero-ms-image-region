@@ -130,7 +130,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
+                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -212,8 +212,10 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         try (OmeroRequest request = new OmeroRequest(
                  host, port, shapeMaskCtx.omeroSessionKey))
         {
+            String maxTileLengthStr =
+                config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
             ShapeMaskRequestHandler requestHandler =
-                    new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
+                    new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr));
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -276,7 +278,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 host, port, shapeMaskCtx.omeroSessionKey))
        {
            ShapeMaskRequestHandler requestHandler =
-                   new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir);
+                   new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
 
            // The PNG is not in the cache we have to create it
            JsonObject metadata = request.execute(

@@ -176,10 +176,10 @@ public class TiledbUtils {
         }
     }
 
-    public static byte[] getBytes(String fullNgffPath, String domainStr) throws TileDBError {
+    public static byte[] getBytes(String fullNgffPath, String domainStr, Integer maxTileLength) throws TileDBError {
         try (Context ctx = new Context();
                 Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
-                    return TiledbUtils.getData(array, ctx, domainStr);
+                    return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
         }
     }
 
@@ -217,7 +217,27 @@ public class TiledbUtils {
         }
     }
 
-    public static byte[] getData(Array array, Context ctx, String subarrayString) throws TileDBError {
+    public static void rescaleSubarrayDomain(long[] subarrayDomain, Domain domain) throws TileDBError {
+        if(subarrayDomain[0] > (long) domain.getDimension("t").getDomain().getFirst() ||
+                subarrayDomain[2] > (long) domain.getDimension("c").getDomain().getFirst() ||
+                subarrayDomain[4] > (long) domain.getDimension("z").getDomain().getFirst() ||
+                subarrayDomain[6] > (long) domain.getDimension("y").getDomain().getFirst() ||
+                subarrayDomain[8] > (long) domain.getDimension("x").getDomain().getFirst()) {
+            throw new IllegalArgumentException("Starting index exceeds image size");
+        }
+        subarrayDomain[1] = subarrayDomain[1] > (long) domain.getDimension("t").getDomain().getSecond() ?
+                (long) domain.getDimension("t").getDomain().getSecond() : subarrayDomain[1];
+        subarrayDomain[3] = subarrayDomain[3] > (long) domain.getDimension("c").getDomain().getSecond() ?
+                (long) domain.getDimension("c").getDomain().getSecond() : subarrayDomain[3];
+        subarrayDomain[5] = subarrayDomain[5] > (long) domain.getDimension("z").getDomain().getSecond() ?
+                (long) domain.getDimension("z").getDomain().getSecond() : subarrayDomain[5];
+        subarrayDomain[7] = subarrayDomain[7] > (long) domain.getDimension("y").getDomain().getSecond() ?
+                (long) domain.getDimension("y").getDomain().getSecond() : subarrayDomain[7];
+        subarrayDomain[9] = subarrayDomain[9] > (long) domain.getDimension("x").getDomain().getSecond() ?
+                (long) domain.getDimension("x").getDomain().getSecond() : subarrayDomain[9];
+    }
+
+    public static byte[] getData(Array array, Context ctx, String subarrayString, Integer maxTileLength) throws TileDBError {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
         Attribute attribute = schema.getAttribute("a1");
@@ -231,7 +251,12 @@ public class TiledbUtils {
         }
         long[] subarrayDomain = getSubarrayDomainFromString(subarrayString);
         log.info(Arrays.toString(subarrayDomain));
-
+        if(subarrayDomain[7] - subarrayDomain[6] > maxTileLength ||
+                subarrayDomain[9] - subarrayDomain[8] > maxTileLength) {
+            throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
+        }
+        //Rescale subdomain to not exceed image bounds
+        rescaleSubarrayDomain(subarrayDomain, domain);
         int capacity = 1;
         for(int i = 0; i < 5; i++) {
             capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
