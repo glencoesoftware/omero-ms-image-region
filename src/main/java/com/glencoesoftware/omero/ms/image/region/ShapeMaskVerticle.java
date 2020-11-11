@@ -48,6 +48,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     public static final String GET_LABEL_IMAGE_METADATA_EVENT =
             "omero.get_label_image_metadata";
 
+    public static final String GET_BYTES_S3_EVENT =
+            "omero.get_bytes_s3";
+
     /** OMERO server host */
     private String host;
 
@@ -56,6 +59,15 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
 
     /** Label Image Location */
     private String ngffDir;
+
+    /** AWS Access Key */
+    public String accessKey;
+
+    /** AWS Secret Key */
+    public String secretKey;
+
+    /** AWS S3 Endpoint Override */
+    public String s3EndpointOverride;
 
     /**
      * Default constructor.
@@ -78,6 +90,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             host = omero.getString("host");
             port = omero.getInteger("port");
             ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+            accessKey = config().getJsonObject("aws").getString("access-key");
+            secretKey = config().getJsonObject("aws").getString("secret-key");
+            s3EndpointOverride = config().getJsonObject("aws").getString("ngff-s3-endpoint");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -89,6 +104,10 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             vertx.eventBus().<String>consumer(
                     GET_LABEL_IMAGE_METADATA_EVENT, event -> {
                         getLabelImageMetadata(event);
+                    });
+            vertx.eventBus().<String>consumer(
+                    GET_BYTES_S3_EVENT, event -> {
+                        getBytesS3(event);
                     });
         } catch (Exception e) {
             startPromise.fail(e);
@@ -291,6 +310,62 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
            }
            span.finish();
            message.reply(metadata);
+       } catch (PermissionDeniedException
+               | CannotCreateSessionException e) {
+           String v = "Permission denied";
+           log.debug(v);
+           span.error(e);
+           message.fail(403, v);
+       } catch (IllegalArgumentException e) {
+           log.debug(
+               "Illegal argument received while retrieving shape mask", e);
+           span.error(e);
+           message.fail(400, e.getMessage());
+       } catch (Exception e) {
+           String v = "Exception while retrieving shape mask";
+           log.error(v, e);
+           span.error(e);
+           message.fail(500, v);
+       }
+    }
+
+    private void getBytesS3(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
+        try {
+            String body = message.body();
+            shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "handle_render_shape_mask",
+                    extractor().extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
+        } catch (Exception e) {
+            String v = "Illegal shape mask context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, shapeMaskCtx.omeroSessionKey))
+        {
+            String maxTileLengthStr =
+                    config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
+            ShapeMaskRequestHandler requestHandler =
+                   new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr),
+                           accessKey, secretKey, s3EndpointOverride);
+
+           // The PNG is not in the cache we have to create it
+           byte[] data = request.execute(
+                   requestHandler::getBytesS3);
+           if (data == null) {
+               span.finish();
+               message.fail(404, "Cannot get Label Image Metadata:" +
+                       shapeMaskCtx.shapeId);
+               return;
+           }
+           span.finish();
+           message.reply(data);
        } catch (PermissionDeniedException
                | CannotCreateSessionException e) {
            String v = "Permission denied";

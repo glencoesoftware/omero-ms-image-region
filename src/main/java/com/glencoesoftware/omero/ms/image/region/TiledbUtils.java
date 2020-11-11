@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import io.tiledb.java.api.Array;
 import io.tiledb.java.api.ArraySchema;
 import io.tiledb.java.api.Attribute;
+import io.tiledb.java.api.Config;
 import io.tiledb.java.api.Context;
 import io.tiledb.java.api.Datatype;
 import io.tiledb.java.api.Domain;
@@ -24,6 +25,7 @@ import io.tiledb.java.api.NativeArray;
 import io.tiledb.java.api.Query;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
+import io.tiledb.java.api.VFS;
 import io.vertx.core.json.JsonObject;
 import omero.model.Image;
 import omero.model.MaskI;
@@ -181,6 +183,53 @@ public class TiledbUtils {
                 Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
                     return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
         }
+    }
+
+    public static byte[] getBytesS3(String fullNgffPath, String accessKey,
+            String secretKey, String region) throws TileDBError {
+        try (Context ctx = new Context();
+                Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
+                    return TiledbUtils.getData(array, ctx);
+        }
+    }
+
+    public static byte[] getBytesS3(String fullNgffPath, String domainStr, Integer maxTileLength,
+            String accessKey, String secretKey, String s3EndpointOverride) throws TileDBError {
+        log.info(fullNgffPath);
+        log.info(domainStr);
+        log.info(accessKey);
+        log.info(secretKey);
+        log.info(s3EndpointOverride);
+        log.info(s3EndpointOverride.split("\\.")[0]);
+        try(Config config = new Config()) {
+            config.set("vfs.s3.aws_access_key_id", accessKey);
+            config.set("vfs.s3.aws_secret_access_key", secretKey);
+            //config.set("vfs.s3.aws_secret_access_key", "abc");
+            config.set("vfs.s3.scheme", "https");
+            config.set("vfs.s3.region", "us-east-1");
+            config.set("vfs.s3.endpoint_override", s3EndpointOverride);
+            config.set("vfs.s3.use_virtual_addressing", "true");
+            try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
+                        return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
+            }
+        }
+        /*
+        try(Config config = new Config()) {
+            config.set("vfs.s3.aws_access_key_id", accessKey);
+            config.set("vfs.s3.aws_secret_access_key", secretKey);
+            //config.set("vfs.s3.aws_secret_access_key", "abc");
+            config.set("vfs.s3.scheme", "https");
+            //config.set("vfs.s3.region", s3EndpointOverride.split("\\.")[0]);
+            config.set("vfs.s3.region", "us-east-1");
+            config.set("vfs.s3.endpoint_override", s3EndpointOverride);
+            config.set("vfs.s3.use_virtual_addressing", "true");
+            try (Context ctx = new Context(config);
+                    VFS vfs = new VFS(ctx)){
+                log.info(Boolean.toString(vfs.isBucket("s3://zarr-bucket")));
+            }
+        }
+        */
     }
 
     public static byte[] getData(Array array, Context ctx) throws TileDBError {

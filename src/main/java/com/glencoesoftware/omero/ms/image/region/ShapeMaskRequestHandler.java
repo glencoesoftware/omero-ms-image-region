@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
@@ -67,6 +68,15 @@ public class ShapeMaskRequestHandler {
     /** Max Tile Length */
     private final Integer maxTileLength;
 
+    /** AWS Access Key */
+    public String accessKey;
+
+    /** AWS Secret Key */
+    public String secretKey;
+
+    /** AWS S3 Endpoint Override */
+    public String s3EndpointOverride;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
@@ -76,6 +86,17 @@ public class ShapeMaskRequestHandler {
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
         this.maxTileLength = maxTileLength;
+    }
+
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength,
+            String accessKey, String secretKey, String s3EndpointOverride) {
+        log.info("Setting up handler");
+        this.shapeMaskCtx = shapeMaskCtx;
+        this.ngffDir = ngffDir;
+        this.maxTileLength = maxTileLength;
+        this.accessKey = accessKey;
+        this.secretKey = secretKey;
+        this.s3EndpointOverride = s3EndpointOverride;
     }
 
     /**
@@ -353,6 +374,42 @@ public class ShapeMaskRequestHandler {
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public byte[] getBytesS3(omero.client client) {
+        try {
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
+                long filesetId = image.getFileset().getId().getValue();
+                int series = image.getSeries().getValue();
+                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                        + ".tiledb/" + Integer.toString(series));
+                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+                Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
+                String resolutionLevel = "0";
+                if(shapeMaskCtx.resolution != null) {
+                    resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
+                }
+                Path fullNgffDir = labelImageShapePath.resolve(resolutionLevel);
+                return TiledbUtils.getBytesS3("s3://zarr-bucket/107222.tiledb/0/labels/ffc02c1e-8b48-4e59-9fd8-30990d8d88d8/0/", shapeMaskCtx.subarrayDomainStr, maxTileLength,
+                        accessKey, secretKey, s3EndpointOverride
+                        );
+            }
+        } catch (TileDBError e) {
+            log.error("Error getting tiledb from S3", e);
+            return null;
+        } catch (Exception e) {
+            log.error("Unknown exception while getting tiledb from S3", e);
         }
         return null;
     }
