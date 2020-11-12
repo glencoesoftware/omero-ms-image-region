@@ -77,6 +77,9 @@ public class ShapeMaskRequestHandler {
     /** AWS S3 Endpoint Override */
     public String s3EndpointOverride;
 
+    /** Bucket Name */
+    private String bucketName;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
@@ -89,7 +92,7 @@ public class ShapeMaskRequestHandler {
     }
 
     public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength,
-            String accessKey, String secretKey, String s3EndpointOverride) {
+            String accessKey, String secretKey, String s3EndpointOverride, String bucketName) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
@@ -97,6 +100,7 @@ public class ShapeMaskRequestHandler {
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.s3EndpointOverride = s3EndpointOverride;
+        this.bucketName = bucketName;
     }
 
     /**
@@ -392,16 +396,20 @@ public class ShapeMaskRequestHandler {
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
-                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                        + ".tiledb/" + Integer.toString(series));
-                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
-                Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
                 String resolutionLevel = "0";
                 if(shapeMaskCtx.resolution != null) {
                     resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
                 }
-                Path fullNgffDir = labelImageShapePath.resolve(resolutionLevel);
-                return TiledbUtils.getBytesS3("s3://zarr-bucket/107222.tiledb/0/labels/ffc02c1e-8b48-4e59-9fd8-30990d8d88d8/0/", shapeMaskCtx.subarrayDomainStr, maxTileLength,
+                StringBuilder s3PathBuilder = new StringBuilder();
+                s3PathBuilder.append("s3://")
+                    .append(bucketName).append("/")
+                    .append(filesetId).append(".tiledb").append("/")
+                    .append(series).append("/")
+                    .append("labels").append("/")
+                    .append(uuid).append("/")
+                    .append(resolutionLevel).append("/");
+                log.info(s3PathBuilder.toString());
+                return TiledbUtils.getBytesS3(s3PathBuilder.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength,
                         accessKey, secretKey, s3EndpointOverride
                         );
             }

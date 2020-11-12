@@ -61,13 +61,16 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     private String ngffDir;
 
     /** AWS Access Key */
-    public String accessKey;
+    private String accessKey;
 
     /** AWS Secret Key */
-    public String secretKey;
+    private String secretKey;
 
     /** AWS S3 Endpoint Override */
-    public String s3EndpointOverride;
+    private String s3EndpointOverride;
+
+    /** Bucket Name */
+    private String bucketName;
 
     /**
      * Default constructor.
@@ -93,6 +96,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             accessKey = config().getJsonObject("aws").getString("access-key");
             secretKey = config().getJsonObject("aws").getString("secret-key");
             s3EndpointOverride = config().getJsonObject("aws").getString("ngff-s3-endpoint");
+            bucketName = config().getJsonObject("aws").getString("bucket-name");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -353,7 +357,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
             ShapeMaskRequestHandler requestHandler =
                    new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr),
-                           accessKey, secretKey, s3EndpointOverride);
+                           accessKey, secretKey, s3EndpointOverride, bucketName);
 
            // The PNG is not in the cache we have to create it
            byte[] data = request.execute(

@@ -195,41 +195,23 @@ public class TiledbUtils {
 
     public static byte[] getBytesS3(String fullNgffPath, String domainStr, Integer maxTileLength,
             String accessKey, String secretKey, String s3EndpointOverride) throws TileDBError {
-        log.info(fullNgffPath);
-        log.info(domainStr);
-        log.info(accessKey);
-        log.info(secretKey);
-        log.info(s3EndpointOverride);
-        log.info(s3EndpointOverride.split("\\.")[0]);
         try(Config config = new Config()) {
             config.set("vfs.s3.aws_access_key_id", accessKey);
             config.set("vfs.s3.aws_secret_access_key", secretKey);
-            //config.set("vfs.s3.aws_secret_access_key", "abc");
             config.set("vfs.s3.scheme", "https");
             config.set("vfs.s3.region", "us-east-1");
             config.set("vfs.s3.endpoint_override", s3EndpointOverride);
             config.set("vfs.s3.use_virtual_addressing", "true");
+            //First check that the file exists
+            try (Context ctx = new Context(config);
+                    VFS vfs = new VFS(ctx)) {
+
+            }
             try (Context ctx = new Context(config);
                     Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
                         return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
             }
         }
-        /*
-        try(Config config = new Config()) {
-            config.set("vfs.s3.aws_access_key_id", accessKey);
-            config.set("vfs.s3.aws_secret_access_key", secretKey);
-            //config.set("vfs.s3.aws_secret_access_key", "abc");
-            config.set("vfs.s3.scheme", "https");
-            //config.set("vfs.s3.region", s3EndpointOverride.split("\\.")[0]);
-            config.set("vfs.s3.region", "us-east-1");
-            config.set("vfs.s3.endpoint_override", s3EndpointOverride);
-            config.set("vfs.s3.use_virtual_addressing", "true");
-            try (Context ctx = new Context(config);
-                    VFS vfs = new VFS(ctx)){
-                log.info(Boolean.toString(vfs.isBucket("s3://zarr-bucket")));
-            }
-        }
-        */
     }
 
     public static byte[] getData(Array array, Context ctx) throws TileDBError {
