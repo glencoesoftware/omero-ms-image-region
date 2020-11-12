@@ -299,21 +299,26 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         }
         try (OmeroRequest request = new OmeroRequest(
                 host, port, shapeMaskCtx.omeroSessionKey))
-       {
-           ShapeMaskRequestHandler requestHandler =
-                   new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
-
-           // The PNG is not in the cache we have to create it
-           JsonObject metadata = request.execute(
-                   requestHandler::getLabelImageMetadata);
-           if (metadata == null) {
-               span.finish();
-               message.fail(404, "Cannot get Label Image Metadata:" +
+        {
+            JsonObject metadata = null;
+            ShapeMaskRequestHandler requestHandler = null;
+            if(ngffDir.startsWith("s3")) {
+                requestHandler =
+                        new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null, accessKey, secretKey, s3EndpointOverride);
+            } else {
+                requestHandler =
+                       new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
+            }
+            metadata = request.execute(
+                    requestHandler::getLabelImageMetadata);
+            if (metadata == null) {
+                span.finish();
+                message.fail(404, "Cannot get Label Image Metadata:" +
                        shapeMaskCtx.shapeId);
-               return;
-           }
-           span.finish();
-           message.reply(metadata);
+                return;
+            }
+            span.finish();
+            message.reply(metadata);
        } catch (PermissionDeniedException
                | CannotCreateSessionException e) {
            String v = "Permission denied";
@@ -357,7 +362,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
             ShapeMaskRequestHandler requestHandler =
                    new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr),
-                           accessKey, secretKey, s3EndpointOverride, bucketName);
+                           accessKey, secretKey, s3EndpointOverride);
 
            // The PNG is not in the cache we have to create it
            byte[] data = request.execute(

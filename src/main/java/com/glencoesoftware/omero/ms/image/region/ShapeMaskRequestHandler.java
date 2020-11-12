@@ -77,9 +77,6 @@ public class ShapeMaskRequestHandler {
     /** AWS S3 Endpoint Override */
     public String s3EndpointOverride;
 
-    /** Bucket Name */
-    private String bucketName;
-
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
@@ -92,7 +89,7 @@ public class ShapeMaskRequestHandler {
     }
 
     public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength,
-            String accessKey, String secretKey, String s3EndpointOverride, String bucketName) {
+            String accessKey, String secretKey, String s3EndpointOverride) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
@@ -100,7 +97,6 @@ public class ShapeMaskRequestHandler {
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.s3EndpointOverride = s3EndpointOverride;
-        this.bucketName = bucketName;
     }
 
     /**
@@ -401,9 +397,11 @@ public class ShapeMaskRequestHandler {
                     resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
                 }
                 StringBuilder s3PathBuilder = new StringBuilder();
-                s3PathBuilder.append("s3://")
-                    .append(bucketName).append("/")
-                    .append(filesetId).append(".tiledb").append("/")
+                s3PathBuilder.append(ngffDir);
+                if(!s3PathBuilder.toString().endsWith("/")) {
+                    s3PathBuilder.append("/");
+                }
+                s3PathBuilder.append(filesetId).append(".tiledb").append("/")
                     .append(series).append("/")
                     .append("labels").append("/")
                     .append(uuid).append("/")
@@ -442,6 +440,10 @@ public class ShapeMaskRequestHandler {
                 int resolution = 0;
                 if(shapeMaskCtx.resolution != null) {
                     resolution = shapeMaskCtx.resolution;
+                }
+                if(ngffDir.startsWith("s3")) {
+                    return TiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution,
+                            accessKey, secretKey, s3EndpointOverride);
                 }
                 return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {

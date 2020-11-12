@@ -200,7 +200,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
                 .append(y).append(":").append(y + h).append(",")
                 .append(x).append(":").append(x + w).append("]");
             log.info(domStrBuf.toString());
-            byte[] buffer = TiledbUtils.getData(array, ctx, domStrBuf.toString());
+            byte[] buffer = TiledbUtils.getData(array, ctx, domStrBuf.toString(), Integer.max(w, h));
             d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());

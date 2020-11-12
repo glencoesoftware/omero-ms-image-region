@@ -330,8 +330,8 @@ public class TiledbUtils {
         }
     }
 
-    public static int getResolutionLevelCount(Path labelImageShapePath) {
-        File[] directories = new File(labelImageShapePath.toString()).listFiles(File::isDirectory);
+    public static int getResolutionLevelCount(String labelImageShapePath) {
+        File[] directories = new File(labelImageShapePath).listFiles(File::isDirectory);
         int count = 0;
         for(File dir : directories) {
             try {
@@ -339,6 +339,16 @@ public class TiledbUtils {
                 count++;
             } catch(NumberFormatException e) {
             }
+        }
+        return count;
+    }
+
+    public static int getResolutionLevelCountS3(VFS vfs, String labelImageShapePath) throws TileDBError {
+        int count = 0;
+        String testPath = labelImageShapePath + "/" + Integer.toString(count);
+        while(vfs.isDirectory(testPath)) {
+            count += 1;
+            testPath = labelImageShapePath + "/" + Integer.toString(count);
         }
         return count;
     }
@@ -396,13 +406,100 @@ public class TiledbUtils {
                         metadata.put("multiscales", multiscales);
                     }
                     metadata.put("uuid", uuid);
-                    metadata.put("levels", getResolutionLevelCount(labelImageShapePath));
+                    metadata.put("levels", getResolutionLevelCount(labelImageShapePath.toString()));
                     return metadata;
                 } catch (Exception e) {
                     log.error("Exception while retrieving label image metadata", e);
                 }
             } else {
                 return null;
+            }
+        return null;
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public static JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution,
+            String accessKey, String secretKey, String s3EndpointOverride) {
+            StringBuilder s3PathBuilder = new StringBuilder();
+            s3PathBuilder.append(ngffDir);
+            if(!s3PathBuilder.toString().endsWith("/")) {
+                s3PathBuilder.append("/");
+            }
+            s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+                .append(series).append("/")
+                .append("labels").append("/")
+                .append(uuid);
+            String labelImageShapePath = s3PathBuilder.toString();
+            s3PathBuilder.append("/")
+                .append(resolution).append("/");
+            String fullNgffPath = s3PathBuilder.toString();
+            JsonObject multiscales = null;
+            long[] minMax = null;
+            Integer resolutionLevelCount;
+
+            try(Config config = new Config()) {
+                config.set("vfs.s3.aws_access_key_id", accessKey);
+                config.set("vfs.s3.aws_secret_access_key", secretKey);
+                config.set("vfs.s3.scheme", "https");
+                config.set("vfs.s3.region", "us-east-1");
+                config.set("vfs.s3.endpoint_override", s3EndpointOverride);
+                config.set("vfs.s3.use_virtual_addressing", "true");
+                //First check that the file exists
+                try (Context ctx = new Context(config);
+                        VFS vfs = new VFS(ctx)) {
+                    resolutionLevelCount = getResolutionLevelCountS3(vfs, labelImageShapePath);
+                }
+                try (Context ctx = new Context(config);
+                        Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
+
+                    if(array.hasMetadataKey("multiscales")) {
+                        String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
+                        minMax = getMinMaxMetadata(array);
+                        multiscales = new JsonObject(multiscalesMetaStr);
+                    }
+                } catch (Exception e) {
+                    log.error("Exception while retrieving label image metadata", e);
+                }
+                try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, fullNgffPath.toString(), QueryType.TILEDB_READ)){
+                    ArraySchema schema = array.getSchema();
+                    Domain domain = schema.getDomain();
+                    Attribute attribute = schema.getAttribute("a1");
+
+                    JsonObject metadata = new JsonObject();
+                    if(minMax != null) {
+                        metadata.put("min", minMax[0]);
+                        metadata.put("max", minMax[1]);
+                    }
+                    JsonObject size = new JsonObject();
+                    size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
+                            (long) domain.getDimension("t").getDomain().getFirst() + 1);
+                    size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
+                            (long) domain.getDimension("c").getDomain().getFirst() + 1);
+                    size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
+                            (long) domain.getDimension("z").getDomain().getFirst() + 1);
+                    size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
+                            (long) domain.getDimension("x").getDomain().getFirst() + 1);
+                    size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
+                            (long) domain.getDimension("y").getDomain().getFirst() + 1);
+                    metadata.put("size", size);
+                    metadata.put("type", attribute.getType().toString());
+                    if(multiscales != null) {
+                        metadata.put("multiscales", multiscales);
+                    }
+                    metadata.put("uuid", uuid);
+                    metadata.put("levels", resolutionLevelCount);
+                    return metadata;
+                } catch (Exception e) {
+                    log.error("Exception while retrieving label image metadata", e);
+                }
+            } catch (TileDBError e) {
+                log.error("TiledbError when trying to get metadata from S3", e);
             }
         return null;
     }

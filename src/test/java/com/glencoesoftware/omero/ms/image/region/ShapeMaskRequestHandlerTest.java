@@ -51,7 +51,7 @@ public class ShapeMaskRequestHandlerTest {
         params.add("color", "0");
         params.add("flip", "");
 
-        handler = new ShapeMaskRequestHandler(new ShapeMaskCtx(params, ""), "");
+        handler = new ShapeMaskRequestHandler(new ShapeMaskCtx(params, ""), "", null);
     }
 
     @Test
