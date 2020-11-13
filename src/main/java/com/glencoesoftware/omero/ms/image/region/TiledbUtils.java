@@ -230,40 +230,6 @@ public class TiledbUtils {
         }
     }
 
-    public static byte[] getData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
-        }
-
-        long[] subarrayDomain = getFullArrayDomain(domain);
-        int capacity = 1;
-        for(int i = 0; i < subarrayDomain.length/2; i++) {
-            capacity *= subarrayDomain[i*2 + 1] - subarrayDomain[i*2] + 1;
-        }
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-        capacity *= bytesPerPixel;
-        log.info(Integer.toString(capacity));
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-                NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        }
-    }
-
     public static void rescaleSubarrayDomain(long[] subarrayDomain, Domain domain) throws TileDBError {
         if(subarrayDomain[0] > (long) domain.getDimension("t").getDomain().getSecond() ||
                 subarrayDomain[2] > (long) domain.getDimension("c").getDomain().getSecond() ||
@@ -284,12 +250,23 @@ public class TiledbUtils {
                 (long) domain.getDimension("x").getDomain().getSecond() : subarrayDomain[9];
     }
 
+    public static byte[] getData(Array array, Context ctx) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+
+        int num_dims = (int) domain.getNDim();
+        if (num_dims != 5) {
+            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                    + Integer.toString(num_dims));
+        }
+
+        long[] subarrayDomain = getFullArrayDomain(domain);
+        return getTiledbBytes(array, ctx, subarrayDomain);
+    }
+
     public static byte[] getData(Array array, Context ctx, String subarrayString, Integer maxTileLength) throws TileDBError {
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
-
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
 
         int num_dims = (int) domain.getNDim();
         if (num_dims != 5) {
@@ -302,14 +279,19 @@ public class TiledbUtils {
                 subarrayDomain[9] - subarrayDomain[8] > maxTileLength) {
             throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
         }
-        //Rescale subdomain to not exceed image bounds
-        rescaleSubarrayDomain(subarrayDomain, domain);
+        return getTiledbBytes(array, ctx, subarrayDomain);
+    }
+
+    private static byte[] getTiledbBytes(Array array, Context ctx, long[] subarrayDomain) throws TileDBError {
+        rescaleSubarrayDomain(subarrayDomain, array.getSchema().getDomain());
         int capacity = 1;
         for(int i = 0; i < 5; i++) {
             capacity *= ((int) (subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
         }
+
+        Attribute attribute = array.getSchema().getAttribute("a1");
+        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
         capacity *= bytesPerPixel;
-        log.info(Integer.toString(capacity));
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
         buffer.order(ByteOrder.nativeOrder());
