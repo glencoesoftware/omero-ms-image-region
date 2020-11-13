@@ -350,72 +350,33 @@ public class ShapeMaskRequestHandler {
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
-                Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                        + ".tiledb/" + Integer.toString(series));
-                Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
-                Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-                String resolutionLevel = "0";
-                if(shapeMaskCtx.resolution != null) {
-                    resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
-                }
-                Path fullNgffDir = labelImageShapePath.resolve(resolutionLevel);
-                log.info(fullNgffDir.toString());
-                if (Files.exists(fullNgffDir)) {
-                    log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
-                    if(shapeMaskCtx.subarrayDomainStr == null) {
-                        return TiledbUtils.getBytes(fullNgffDir.toString());
-                    } else {
-                        return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength);
-                    }
+                Integer resolution = shapeMaskCtx.resolution == null ? 0 : shapeMaskCtx.resolution;
+                if(ngffDir.startsWith("s3://")) {
+                    log.info("Getting mask bytes from S3");
+                    return TiledbUtils.getBytesS3(ngffDir, filesetId, series, uuid, resolution,
+                            shapeMaskCtx.subarrayDomainStr, maxTileLength,
+                            accessKey, secretKey, s3EndpointOverride);
                 } else {
-                    return mask.getBytes();
+                    Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                            + ".tiledb/" + Integer.toString(series));
+                    Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+                    Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
+                    Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
+                    if (Files.exists(fullNgffDir)) {
+                        log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
+                        if(shapeMaskCtx.subarrayDomainStr == null) {
+                            return TiledbUtils.getBytes(fullNgffDir.toString());
+                        } else {
+                            return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength);
+                        }
+                    } else {
+                        return mask.getBytes();
+                    }
                 }
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
-        }
-        return null;
-    }
-
-    /**
-     * Get shape mask bytes request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
-     */
-    public byte[] getBytesS3(omero.client client) {
-        try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-            if (mask != null) {
-                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
-                String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
-                long filesetId = image.getFileset().getId().getValue();
-                int series = image.getSeries().getValue();
-                String resolutionLevel = "0";
-                if(shapeMaskCtx.resolution != null) {
-                    resolutionLevel = Integer.toString(shapeMaskCtx.resolution);
-                }
-                StringBuilder s3PathBuilder = new StringBuilder();
-                s3PathBuilder.append(ngffDir);
-                if(!s3PathBuilder.toString().endsWith("/")) {
-                    s3PathBuilder.append("/");
-                }
-                s3PathBuilder.append(filesetId).append(".tiledb").append("/")
-                    .append(series).append("/")
-                    .append("labels").append("/")
-                    .append(uuid).append("/")
-                    .append(resolutionLevel).append("/");
-                log.info(s3PathBuilder.toString());
-                return TiledbUtils.getBytesS3(s3PathBuilder.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength,
-                        accessKey, secretKey, s3EndpointOverride
-                        );
-            }
-        } catch (TileDBError e) {
-            log.error("Error getting tiledb from S3", e);
-            return null;
-        } catch (Exception e) {
-            log.error("Unknown exception while getting tiledb from S3", e);
         }
         return null;
     }
@@ -441,7 +402,8 @@ public class ShapeMaskRequestHandler {
                 if(shapeMaskCtx.resolution != null) {
                     resolution = shapeMaskCtx.resolution;
                 }
-                if(ngffDir.startsWith("s3")) {
+                if(ngffDir.startsWith("s3://")) {
+                    log.info("Getting metadata from S3");
                     return TiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution,
                             accessKey, secretKey, s3EndpointOverride);
                 }

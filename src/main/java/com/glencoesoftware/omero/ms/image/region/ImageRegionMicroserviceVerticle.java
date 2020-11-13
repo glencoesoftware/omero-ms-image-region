@@ -343,9 +343,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/omero_ms_image_region/get_label_image_metadata/:shapeId*")
             .handler(this::getLabelImageMetadata);
-        router.get(
-                "/omero_ms_image_region/get_bytes_s3/:shapeId*")
-            .handler(this::getBytesS3);
 
         MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
 
@@ -622,43 +619,4 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
         });
     }
-
-    /**
-     * Get shape mask bytes event handler.
-     * Responds with raws image bytes on success based
-     * on the <code>shapeId</code> encoded in the URL or HTTP 404 if the
-     * {@link Shape} does not exist or the user does not have permissions to
-     * access it.
-     * @param event Current routing context.
-     */
-    private void getBytesS3(RoutingContext event) {
-        log.info("Getting shape mask bytes");
-        HttpServerRequest request = event.request();
-        ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
-                request.params(), event.get("omero.session_key"));
-        shapeMaskCtx.injectCurrentTraceContext();
-
-        final HttpServerResponse response = event.response();
-        vertx.eventBus().<byte[]>request(
-                ShapeMaskVerticle.GET_BYTES_S3_EVENT,
-                Json.encode(shapeMaskCtx), result -> {
-            try {
-                if (handleResultFailed(result, response)) {
-                    return;
-                }
-                byte[] shapeMask = result.result().body();
-                response.headers().set("Content-Type", "application/octet-stream");
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(shapeMask.length));
-                response.write(Buffer.buffer(shapeMask));
-            } finally {
-                if (!response.closed()) {
-                    response.end();
-                }
-                log.debug("Response ended");
-            }
-        });
-    }
-
 }

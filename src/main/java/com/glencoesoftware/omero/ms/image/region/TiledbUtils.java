@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.checkerframework.common.reflection.qual.GetMethod;
 import org.slf4j.LoggerFactory;
 
 import io.tiledb.java.api.Array;
@@ -193,9 +194,25 @@ public class TiledbUtils {
         }
     }
 
-    public static byte[] getBytesS3(String fullNgffPath, String domainStr, Integer maxTileLength,
+    public static byte[] getBytesS3(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
+            String domainStr, Integer maxTileLength,
             String accessKey, String secretKey, String s3EndpointOverride) throws TileDBError {
+        StringBuilder s3PathBuilder = new StringBuilder();
+        s3PathBuilder.append(ngffDir);
+        if(!s3PathBuilder.toString().endsWith("/")) {
+            s3PathBuilder.append("/");
+        }
+        s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+            .append(series).append("/")
+            .append("labels").append("/")
+            .append(uuid).append("/")
+            .append(resolution).append("/");
+        String s3PathStr = s3PathBuilder.toString();
+        log.info(s3PathStr);
         try(Config config = new Config()) {
+            log.info(accessKey);
+            log.info(secretKey);
+            log.info(s3EndpointOverride);
             config.set("vfs.s3.aws_access_key_id", accessKey);
             config.set("vfs.s3.aws_secret_access_key", secretKey);
             config.set("vfs.s3.scheme", "https");
@@ -205,10 +222,9 @@ public class TiledbUtils {
             //First check that the file exists
             try (Context ctx = new Context(config);
                     VFS vfs = new VFS(ctx)) {
-
             }
             try (Context ctx = new Context(config);
-                    Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
+                    Array array = new Array(ctx, s3PathStr, QueryType.TILEDB_READ)){
                         return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
             }
         }
@@ -249,11 +265,11 @@ public class TiledbUtils {
     }
 
     public static void rescaleSubarrayDomain(long[] subarrayDomain, Domain domain) throws TileDBError {
-        if(subarrayDomain[0] > (long) domain.getDimension("t").getDomain().getFirst() ||
-                subarrayDomain[2] > (long) domain.getDimension("c").getDomain().getFirst() ||
-                subarrayDomain[4] > (long) domain.getDimension("z").getDomain().getFirst() ||
-                subarrayDomain[6] > (long) domain.getDimension("y").getDomain().getFirst() ||
-                subarrayDomain[8] > (long) domain.getDimension("x").getDomain().getFirst()) {
+        if(subarrayDomain[0] > (long) domain.getDimension("t").getDomain().getSecond() ||
+                subarrayDomain[2] > (long) domain.getDimension("c").getDomain().getSecond() ||
+                subarrayDomain[4] > (long) domain.getDimension("z").getDomain().getSecond() ||
+                subarrayDomain[6] > (long) domain.getDimension("y").getDomain().getSecond() ||
+                subarrayDomain[8] > (long) domain.getDimension("x").getDomain().getSecond()) {
             throw new IllegalArgumentException("Starting index exceeds image size");
         }
         subarrayDomain[1] = subarrayDomain[1] > (long) domain.getDimension("t").getDomain().getSecond() ?
@@ -353,6 +369,37 @@ public class TiledbUtils {
         return count;
     }
 
+    private static JsonObject getMetadataFromArray(Array array, long[] minMax,
+            JsonObject multiscales, int resolutionLevelCount, String uuid) throws TileDBError {
+        ArraySchema schema = array.getSchema();
+        Domain domain = schema.getDomain();
+        Attribute attribute = schema.getAttribute("a1");
+
+        JsonObject metadata = new JsonObject();
+        if(minMax != null) {
+            metadata.put("min", minMax[0]);
+            metadata.put("max", minMax[1]);
+        }
+        JsonObject size = new JsonObject();
+        size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
+                (long) domain.getDimension("t").getDomain().getFirst() + 1);
+        size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
+                (long) domain.getDimension("c").getDomain().getFirst() + 1);
+        size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
+                (long) domain.getDimension("z").getDomain().getFirst() + 1);
+        size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
+                (long) domain.getDimension("x").getDomain().getFirst() + 1);
+        size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
+                (long) domain.getDimension("y").getDomain().getFirst() + 1);
+        metadata.put("size", size);
+        metadata.put("type", attribute.getType().toString());
+        if(multiscales != null) {
+            metadata.put("multiscales", multiscales);
+        }
+        metadata.put("uuid", uuid);
+        return metadata;
+    }
+
     /**
      * Get shape mask bytes request handler.
      * @param client OMERO client to use for querying.
@@ -380,34 +427,8 @@ public class TiledbUtils {
                 }
                 try (Context ctx = new Context();
                     Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
-                    ArraySchema schema = array.getSchema();
-                    Domain domain = schema.getDomain();
-                    Attribute attribute = schema.getAttribute("a1");
-
-                    JsonObject metadata = new JsonObject();
-                    if(minMax != null) {
-                        metadata.put("min", minMax[0]);
-                        metadata.put("max", minMax[1]);
-                    }
-                    JsonObject size = new JsonObject();
-                    size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
-                            (long) domain.getDimension("t").getDomain().getFirst() + 1);
-                    size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
-                            (long) domain.getDimension("c").getDomain().getFirst() + 1);
-                    size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
-                            (long) domain.getDimension("z").getDomain().getFirst() + 1);
-                    size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                            (long) domain.getDimension("x").getDomain().getFirst() + 1);
-                    size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                            (long) domain.getDimension("y").getDomain().getFirst() + 1);
-                    metadata.put("size", size);
-                    metadata.put("type", attribute.getType().toString());
-                    if(multiscales != null) {
-                        metadata.put("multiscales", multiscales);
-                    }
-                    metadata.put("uuid", uuid);
-                    metadata.put("levels", getResolutionLevelCount(labelImageShapePath.toString()));
-                    return metadata;
+                    int resolutionLevelCount = getResolutionLevelCount(labelImageShapePath.toString());
+                    return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
                 } catch (Exception e) {
                     log.error("Exception while retrieving label image metadata", e);
                 }
@@ -467,34 +488,7 @@ public class TiledbUtils {
                 }
                 try (Context ctx = new Context(config);
                     Array array = new Array(ctx, fullNgffPath.toString(), QueryType.TILEDB_READ)){
-                    ArraySchema schema = array.getSchema();
-                    Domain domain = schema.getDomain();
-                    Attribute attribute = schema.getAttribute("a1");
-
-                    JsonObject metadata = new JsonObject();
-                    if(minMax != null) {
-                        metadata.put("min", minMax[0]);
-                        metadata.put("max", minMax[1]);
-                    }
-                    JsonObject size = new JsonObject();
-                    size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
-                            (long) domain.getDimension("t").getDomain().getFirst() + 1);
-                    size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
-                            (long) domain.getDimension("c").getDomain().getFirst() + 1);
-                    size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
-                            (long) domain.getDimension("z").getDomain().getFirst() + 1);
-                    size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                            (long) domain.getDimension("x").getDomain().getFirst() + 1);
-                    size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                            (long) domain.getDimension("y").getDomain().getFirst() + 1);
-                    metadata.put("size", size);
-                    metadata.put("type", attribute.getType().toString());
-                    if(multiscales != null) {
-                        metadata.put("multiscales", multiscales);
-                    }
-                    metadata.put("uuid", uuid);
-                    metadata.put("levels", resolutionLevelCount);
-                    return metadata;
+                    return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
                 } catch (Exception e) {
                     log.error("Exception while retrieving label image metadata", e);
                 }
