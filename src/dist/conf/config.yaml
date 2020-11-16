@@ -61,3 +61,10 @@ session-store:
 
 # The string to be used as the Cache-Control header provided in responses
 cache-control-header: "private, max-age=3600"
+
+# For S3/Cloud-backed TileDB images
+aws:
+    ngff-s3-endpoint: "nyc3.digitaloceanspaces.com"
+    bucket-name: "bucket-name"
+    access-key: "accesskey"
+    secret-key: "secretkey"
