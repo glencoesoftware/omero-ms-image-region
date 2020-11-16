@@ -103,5 +103,33 @@ public class PixelsService extends ome.io.nio.PixelsService {
             return null;
         }
     }
+
+    /**
+     * Returns a TiledbPixelBuffer for a given set of pixels.
+     * @param pixels Pixels set to retrieve a pixel buffer for.
+     * @param write Whether or not to open the pixel buffer as read-write.
+     * <code>true</code> opens as read-write, <code>false</code> opens as
+     * read-only.
+     * @return A pixel buffer instance.
+     * @since OMERO-Beta4.3
+     */
+    public PixelBuffer getTiledbPixelBuffer(Pixels pixels, String ngffDir,
+            String accessKey, String secretKey, String awsRegion, String s3EndpointOverride)
+    {
+        log.info("In getTiledbPixelBuffer");
+        log.info(ngffDir);
+        //If there is tiledb data, set the region to be the tiledb data buffer
+
+        Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
+                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()));
+        log.info(tiledbDataPath.toString());
+        if (Files.exists(tiledbDataPath)) {
+            log.info("Getting image from tiledb for image " + Long.toString(pixels.getImage().getId()));
+            return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId());
+        } else {
+            log.info("Could not find tiledb file for image " + Long.toString(pixels.getImage().getId()));
+            return null;
+        }
+    }
 }
 

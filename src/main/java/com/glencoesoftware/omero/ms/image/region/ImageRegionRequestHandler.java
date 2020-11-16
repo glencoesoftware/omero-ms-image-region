@@ -113,6 +113,18 @@ public class ImageRegionRequestHandler {
     /** Location of label image files */
     private final String ngffDir;
 
+    /** AWS Access Key */
+    private String accessKey;
+
+    /** AWS Secret Key */
+    private String secretKey;
+
+    /** AWS Region */
+    private String awsRegion;
+
+    /** AWS S3 Endpoint Override */
+    private String s3EndpointOverride;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -132,6 +144,38 @@ public class ImageRegionRequestHandler {
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.ngffDir = ngffDir;
+
+        pixelsService = pixService;
+        projectionService = new ProjectionService();
+        compressionSrv = compSrv;
+    }
+
+    /**
+     * AWS constructor.
+     * @param imageRegionCtx {@link ImageRegionCtx} object
+     */
+    public ImageRegionRequestHandler(
+            ImageRegionCtx imageRegionCtx,
+            List<Family> families, List<RenderingModel> renderingModels,
+            LutProvider lutProvider,
+            PixelsService pixService,
+            LocalCompress compSrv,
+            int maxTileLength,
+            String ngffDir,
+            String accessKey,
+            String secretKey,
+            String awsRegion,
+            String s3EndpointOverride) {
+        log.info("Setting up handler");
+        this.imageRegionCtx = imageRegionCtx;
+        this.families = families;
+        this.renderingModels = renderingModels;
+        this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
+        this.ngffDir = ngffDir;
+        this.accessKey = accessKey;
+        this.secretKey = secretKey;
+        this.awsRegion = awsRegion;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
@@ -240,9 +284,23 @@ public class ImageRegionRequestHandler {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
+        PixelBuffer pb = null;
         try {
-            PixelBuffer pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
-            return pixelsService.getPixelBuffer(pixels, false);
+            try {
+                if (ngffDir.startsWith("s3://")) {
+                    return pixelsService.getTiledbPixelBuffer(pixels, ngffDir,
+                            accessKey, secretKey, awsRegion, s3EndpointOverride);
+                } else {
+                    pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
+                }
+            } catch(Exception e) {
+                log.error("Error when getting TieldbPixelBuffer", e);
+                log.info("Getting TiledbPixelBuffer failed - attempting to get local data");
+            }
+            if(pb == null) {
+                pb = pixelsService.getPixelBuffer(pixels, false);
+            }
+            return pb;
         } finally {
             span.finish();
         }

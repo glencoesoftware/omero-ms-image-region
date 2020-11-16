@@ -69,13 +69,16 @@ public class ShapeMaskRequestHandler {
     private final Integer maxTileLength;
 
     /** AWS Access Key */
-    public String accessKey;
+    private String accessKey;
 
     /** AWS Secret Key */
-    public String secretKey;
+    private String secretKey;
+
+    /** AWS Region */
+    private String region;
 
     /** AWS S3 Endpoint Override */
-    public String s3EndpointOverride;
+    private String s3EndpointOverride;
 
     /**
      * Default constructor.
@@ -96,6 +99,7 @@ public class ShapeMaskRequestHandler {
         this.maxTileLength = maxTileLength;
         this.accessKey = accessKey;
         this.secretKey = secretKey;
+        this.region = region;
         this.s3EndpointOverride = s3EndpointOverride;
     }
 
@@ -355,7 +359,7 @@ public class ShapeMaskRequestHandler {
                     log.info("Getting mask bytes from S3");
                     return TiledbUtils.getBytesS3(ngffDir, filesetId, series, uuid, resolution,
                             shapeMaskCtx.subarrayDomainStr, maxTileLength,
-                            accessKey, secretKey, s3EndpointOverride);
+                            accessKey, secretKey, region, s3EndpointOverride);
                 } else {
                     Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
                             + ".tiledb/" + Integer.toString(series));
@@ -405,7 +409,7 @@ public class ShapeMaskRequestHandler {
                 if(ngffDir.startsWith("s3://")) {
                     log.info("Getting metadata from S3");
                     return TiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution,
-                            accessKey, secretKey, s3EndpointOverride);
+                            accessKey, secretKey, region, s3EndpointOverride);
                 }
                 return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {

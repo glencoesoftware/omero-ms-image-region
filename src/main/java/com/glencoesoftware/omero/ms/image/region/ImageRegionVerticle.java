@@ -161,16 +161,35 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            byte[] imageRegion = request.execute(
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx,
-                            families,
-                            renderingModels,
-                            lutProvider,
-                            pixelsService,
-                            compressionService,
-                            maxTileLength,
-                            config().getJsonObject("omero.server").getString("omero.ngff.dir"))::renderImageRegion);
+            String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+            byte[] imageRegion = null;
+            if(ngffDir != null && ngffDir.startsWith("s3://")) {
+                imageRegion = request.execute(
+                        new ImageRegionRequestHandler(
+                                imageRegionCtx,
+                                families,
+                                renderingModels,
+                                lutProvider,
+                                pixelsService,
+                                compressionService,
+                                maxTileLength,
+                                ngffDir,
+                                config().getJsonObject("aws").getString("access-key"),
+                                config().getJsonObject("aws").getString("secret-key"),
+                                config().getJsonObject("aws").getString("region"),
+                                config().getJsonObject("aws").getString("ngff-s3-endpoint"))::renderImageRegion);
+            } else {
+                imageRegion = request.execute(
+                        new ImageRegionRequestHandler(
+                                imageRegionCtx,
+                                families,
+                                renderingModels,
+                                lutProvider,
+                                pixelsService,
+                                compressionService,
+                                maxTileLength,
+                                ngffDir)::renderImageRegion);
+            }
             span.finish();
             if (imageRegion == null) {
                 message.fail(

@@ -28,6 +28,8 @@ import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
 import io.tiledb.java.api.VFS;
 import io.vertx.core.json.JsonObject;
+import loci.formats.FormatTools;
+import ome.util.PixelData;
 import omero.model.Image;
 import omero.model.MaskI;
 
@@ -35,6 +37,29 @@ public class TiledbUtils {
 
     private static final org.slf4j.Logger log =
         LoggerFactory.getLogger(ShapeMaskRequestHandler.class);
+
+    public static String getPixelsType(Datatype type) {
+        switch (type) {
+            case TILEDB_UINT8:
+                return FormatTools.getPixelTypeString(FormatTools.UINT8);
+            case TILEDB_INT8:
+                return FormatTools.getPixelTypeString(FormatTools.INT8);
+            case TILEDB_UINT16:
+                return FormatTools.getPixelTypeString(FormatTools.UINT16);
+            case TILEDB_INT16:
+                return FormatTools.getPixelTypeString(FormatTools.INT16);
+            case TILEDB_UINT32:
+                return FormatTools.getPixelTypeString(FormatTools.UINT32);
+            case TILEDB_INT32:
+                return FormatTools.getPixelTypeString(FormatTools.INT32);
+            case TILEDB_FLOAT32:
+                return FormatTools.getPixelTypeString(FormatTools.FLOAT);
+            case TILEDB_FLOAT64:
+                return FormatTools.getPixelTypeString(FormatTools.DOUBLE);
+            default:
+                throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
+        }
+    }
 
     public static long[] getMinMax(ByteBuffer buf, Datatype type) {
         if (!buf.hasRemaining()) {
@@ -186,17 +211,21 @@ public class TiledbUtils {
         }
     }
 
-    public static byte[] getBytesS3(String fullNgffPath, String accessKey,
-            String secretKey, String region) throws TileDBError {
-        try (Context ctx = new Context();
-                Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
-                    return TiledbUtils.getData(array, ctx);
+    private static void setupAwsConfig(Config config, String accessKey, String secretKey,
+            String region, String s3EndpointOverride) throws TileDBError {
+        config.set("vfs.s3.aws_access_key_id", accessKey);
+        config.set("vfs.s3.aws_secret_access_key", secretKey);
+        config.set("vfs.s3.scheme", "https");
+        if(region != null) {
+            config.set("vfs.s3.region", "us-east-1");
         }
+        if(s3EndpointOverride != null) {
+            config.set("vfs.s3.endpoint_override", s3EndpointOverride);
+        }
+        config.set("vfs.s3.use_virtual_addressing", "true");
     }
 
-    public static byte[] getBytesS3(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
-            String domainStr, Integer maxTileLength,
-            String accessKey, String secretKey, String s3EndpointOverride) throws TileDBError {
+    public static String getS3LabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
         StringBuilder s3PathBuilder = new StringBuilder();
         s3PathBuilder.append(ngffDir);
         if(!s3PathBuilder.toString().endsWith("/")) {
@@ -207,25 +236,64 @@ public class TiledbUtils {
             .append("labels").append("/")
             .append(uuid).append("/")
             .append(resolution).append("/");
-        String s3PathStr = s3PathBuilder.toString();
-        log.info(s3PathStr);
+        return s3PathBuilder.toString();
+    }
+
+    public static byte[] getLabelImageBytesS3(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
+            String domainStr, Integer maxTileLength,
+            String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
+        String s3PathStr = getS3LabelImagePath(ngffDir, filesetId, series, uuid, resolution);
+        return getBytesS3(s3PathStr, domainStr, maxTileLength, accessKey, secretKey, region, s3EndpointOverride);
+    }
+
+    public static String getS3ImageDataPath(String ngffDir, long filesetId, int series, Integer resolution) {
+        StringBuilder s3PathBuilder = new StringBuilder();
+        s3PathBuilder.append(ngffDir);
+        if(!s3PathBuilder.toString().endsWith("/")) {
+            s3PathBuilder.append("/");
+        }
+        s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+            .append(series).append("/")
+            .append(resolution).append("/");
+        return s3PathBuilder.toString();
+    }
+
+    public static PixelData getImagePixelDataS3(String ngffDir, Long filesetId, Integer series, Integer resolution,
+            String domainStr, Integer maxTileLength,
+            String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
+        String s3PathStr = getS3ImageDataPath(ngffDir, filesetId, series, resolution);
+        return getPixelDataS3(s3PathStr, domainStr, maxTileLength, accessKey, secretKey, region, s3EndpointOverride);
+    }
+
+    public static byte[] getBytesS3(String ngffPath, String domainStr, Integer maxTileLength,
+            String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
         try(Config config = new Config()) {
-            log.info(accessKey);
-            log.info(secretKey);
-            log.info(s3EndpointOverride);
-            config.set("vfs.s3.aws_access_key_id", accessKey);
-            config.set("vfs.s3.aws_secret_access_key", secretKey);
-            config.set("vfs.s3.scheme", "https");
-            config.set("vfs.s3.region", "us-east-1");
-            config.set("vfs.s3.endpoint_override", s3EndpointOverride);
-            config.set("vfs.s3.use_virtual_addressing", "true");
+            setupAwsConfig(config, accessKey, secretKey, region, s3EndpointOverride);
             //First check that the file exists
             try (Context ctx = new Context(config);
                     VFS vfs = new VFS(ctx)) {
             }
             try (Context ctx = new Context(config);
-                    Array array = new Array(ctx, s3PathStr, QueryType.TILEDB_READ)){
+                    Array array = new Array(ctx, ngffPath, QueryType.TILEDB_READ)){
                         return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
+            }
+        }
+    }
+
+    public static PixelData getPixelDataS3(String ngffPath, String domainStr, Integer maxTileLength,
+            String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
+        try(Config config = new Config()) {
+            setupAwsConfig(config, accessKey, secretKey, region, s3EndpointOverride);
+            //First check that the file exists
+            try (Context ctx = new Context(config);
+                    VFS vfs = new VFS(ctx)) {
+            }
+            try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, ngffPath, QueryType.TILEDB_READ)){
+                        byte[] buffer = TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
+                        PixelData d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
+                        d.setOrder(ByteOrder.nativeOrder());
+                        return d;
             }
         }
     }
@@ -427,7 +495,7 @@ public class TiledbUtils {
      * provided by <code>shapeMaskCtx</code>.
      */
     public static JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution,
-            String accessKey, String secretKey, String s3EndpointOverride) {
+            String accessKey, String secretKey, String region, String s3EndpointOverride) {
             StringBuilder s3PathBuilder = new StringBuilder();
             s3PathBuilder.append(ngffDir);
             if(!s3PathBuilder.toString().endsWith("/")) {
@@ -446,12 +514,7 @@ public class TiledbUtils {
             Integer resolutionLevelCount;
 
             try(Config config = new Config()) {
-                config.set("vfs.s3.aws_access_key_id", accessKey);
-                config.set("vfs.s3.aws_secret_access_key", secretKey);
-                config.set("vfs.s3.scheme", "https");
-                config.set("vfs.s3.region", "us-east-1");
-                config.set("vfs.s3.endpoint_override", s3EndpointOverride);
-                config.set("vfs.s3.use_virtual_addressing", "true");
+                setupAwsConfig(config, accessKey, secretKey, region, s3EndpointOverride);
                 //First check that the file exists
                 try (Context ctx = new Context(config);
                         VFS vfs = new VFS(ctx)) {

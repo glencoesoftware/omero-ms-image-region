@@ -66,5 +66,6 @@ cache-control-header: "private, max-age=3600"
 aws:
     ngff-s3-endpoint: "nyc3.digitaloceanspaces.com"
     bucket-name: "bucket-name"
+    region: "us-east-1"
     access-key: "accesskey"
     secret-key: "secretkey"

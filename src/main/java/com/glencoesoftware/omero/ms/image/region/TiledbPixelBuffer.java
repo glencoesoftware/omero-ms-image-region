@@ -56,29 +56,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     private final static Logger log = LoggerFactory.getLogger(TiledbPixelBuffer.class);
 
-    String getPixelsType(Datatype type) {
-        switch (type) {
-            case TILEDB_UINT8:
-                return FormatTools.getPixelTypeString(FormatTools.UINT8);
-            case TILEDB_INT8:
-                return FormatTools.getPixelTypeString(FormatTools.INT8);
-            case TILEDB_UINT16:
-                return FormatTools.getPixelTypeString(FormatTools.UINT16);
-            case TILEDB_INT16:
-                return FormatTools.getPixelTypeString(FormatTools.INT16);
-            case TILEDB_UINT32:
-                return FormatTools.getPixelTypeString(FormatTools.UINT32);
-            case TILEDB_INT32:
-                return FormatTools.getPixelTypeString(FormatTools.INT32);
-            case TILEDB_FLOAT32:
-                return FormatTools.getPixelTypeString(FormatTools.FLOAT);
-            case TILEDB_FLOAT64:
-                return FormatTools.getPixelTypeString(FormatTools.DOUBLE);
-            default:
-                throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
-        }
-    }
-
     @Override
     public void close() throws IOException {
         // TODO Auto-generated method stub
@@ -201,7 +178,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
                 .append(x).append(":").append(x + w).append("]");
             log.info(domStrBuf.toString());
             byte[] buffer = TiledbUtils.getData(array, ctx, domStrBuf.toString(), Integer.max(w, h));
-            d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
+            d = new PixelData(TiledbUtils.getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
             return d;
@@ -292,7 +269,7 @@ public class TiledbPixelBuffer implements PixelBuffer {
                 Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
             PixelData d;
             byte[] buffer = TiledbUtils.getData(array, ctx);
-            d = new PixelData(getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
+            d = new PixelData(TiledbUtils.getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
             log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
             return d;

@@ -63,6 +63,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     /** AWS Secret Key */
     private String secretKey;
 
+    /** AWS Region */
+    private String region;
+
     /** AWS S3 Endpoint Override */
     private String s3EndpointOverride;
 
@@ -92,6 +95,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
             accessKey = config().getJsonObject("aws").getString("access-key");
             secretKey = config().getJsonObject("aws").getString("secret-key");
+            region = config().getJsonObject("aws").getString("region");
             s3EndpointOverride = config().getJsonObject("aws").getString("ngff-s3-endpoint");
             bucketName = config().getJsonObject("aws").getString("bucket-name");
             vertx.eventBus().<String>consumer(
