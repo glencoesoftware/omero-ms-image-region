@@ -357,7 +357,7 @@ public class ShapeMaskRequestHandler {
                 Integer resolution = shapeMaskCtx.resolution == null ? 0 : shapeMaskCtx.resolution;
                 if(ngffDir.startsWith("s3://")) {
                     log.info("Getting mask bytes from S3");
-                    return TiledbUtils.getBytesS3(ngffDir, filesetId, series, uuid, resolution,
+                    return TiledbUtils.getLabelImageBytesS3(ngffDir, filesetId, series, uuid, resolution,
                             shapeMaskCtx.subarrayDomainStr, maxTileLength,
                             accessKey, secretKey, region, s3EndpointOverride);
                 } else {

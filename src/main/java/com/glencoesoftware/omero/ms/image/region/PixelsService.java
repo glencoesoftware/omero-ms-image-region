@@ -116,20 +116,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
     public PixelBuffer getTiledbPixelBuffer(Pixels pixels, String ngffDir,
             String accessKey, String secretKey, String awsRegion, String s3EndpointOverride)
     {
-        log.info("In getTiledbPixelBuffer");
-        log.info(ngffDir);
-        //If there is tiledb data, set the region to be the tiledb data buffer
-
-        Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()));
-        log.info(tiledbDataPath.toString());
-        if (Files.exists(tiledbDataPath)) {
-            log.info("Getting image from tiledb for image " + Long.toString(pixels.getImage().getId()));
-            return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId());
-        } else {
-            log.info("Could not find tiledb file for image " + Long.toString(pixels.getImage().getId()));
-            return null;
-        }
+        log.info("Getting image from S3 tiledb for image " + Long.toString(pixels.getImage().getId()));
+        return new TiledbS3PixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(),
+                accessKey, secretKey, awsRegion, s3EndpointOverride);
     }
 }
 

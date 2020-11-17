@@ -176,6 +176,7 @@ public class ImageRegionRequestHandler {
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.awsRegion = awsRegion;
+        this.s3EndpointOverride = s3EndpointOverride;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();

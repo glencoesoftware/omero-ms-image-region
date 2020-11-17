@@ -15,6 +15,8 @@ import java.util.List;
 import org.checkerframework.common.reflection.qual.GetMethod;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.Module.SetupContext;
+
 import io.tiledb.java.api.Array;
 import io.tiledb.java.api.ArraySchema;
 import io.tiledb.java.api.Attribute;
@@ -211,12 +213,14 @@ public class TiledbUtils {
         }
     }
 
-    private static void setupAwsConfig(Config config, String accessKey, String secretKey,
-            String region, String s3EndpointOverride) throws TileDBError {
+    public static void setupAwsConfig(Config config, String accessKey, String secretKey,
+            String awsRegion, String s3EndpointOverride) throws TileDBError {
         config.set("vfs.s3.aws_access_key_id", accessKey);
         config.set("vfs.s3.aws_secret_access_key", secretKey);
         config.set("vfs.s3.scheme", "https");
-        if(region != null) {
+        if(awsRegion != null) {
+            config.set("vfs.s3.region", awsRegion);
+        } else {
             config.set("vfs.s3.region", "us-east-1");
         }
         if(s3EndpointOverride != null) {
@@ -409,12 +413,29 @@ public class TiledbUtils {
         return count;
     }
 
-    public static int getResolutionLevelCountS3(VFS vfs, String labelImageShapePath) throws TileDBError {
+    public static int getResolutionLevelCountS3(String parentPath, String accessKey,
+            String secretKey, String awsRegion, String s3EndpointOverride) throws TileDBError {
+        try (Config config = new Config()) {
+            setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
+            try (Context ctx = new Context(config);
+                    VFS vfs = new VFS(ctx)) {
+                int count = 0;
+                String testPath = parentPath + "/" + Integer.toString(count);
+                while(vfs.isDirectory(testPath)) {
+                    count += 1;
+                    testPath = parentPath + "/" + Integer.toString(count);
+                }
+                return count;
+            }
+        }
+    }
+
+    public static int getResolutionLevelCountS3(VFS vfs, String parentPath) throws TileDBError {
         int count = 0;
-        String testPath = labelImageShapePath + "/" + Integer.toString(count);
+        String testPath = parentPath + "/" + Integer.toString(count);
         while(vfs.isDirectory(testPath)) {
             count += 1;
-            testPath = labelImageShapePath + "/" + Integer.toString(count);
+            testPath = parentPath + "/" + Integer.toString(count);
         }
         return count;
     }
