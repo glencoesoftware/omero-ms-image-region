@@ -31,6 +31,9 @@ import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -292,7 +295,14 @@ public class ImageRegionRequestHandler {
                     return pixelsService.getTiledbPixelBuffer(pixels, ngffDir,
                             accessKey, secretKey, awsRegion, s3EndpointOverride);
                 } else {
-                    pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
+                    Path dataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId()) + ".tiledb")
+                            .resolve(pixels.getImage().getSeries().toString())
+                            .resolve("0");
+                    log.info("Checking for pixel data at " + dataPath.toString());
+                    if (Files.isDirectory(dataPath)) {
+                        //There is pixel data for this image
+                        pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
+                    }
                 }
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
