@@ -43,7 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;

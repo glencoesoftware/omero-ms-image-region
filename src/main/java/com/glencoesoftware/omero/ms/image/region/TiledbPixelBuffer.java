@@ -9,31 +9,19 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import org.hibernate.util.xml.OriginImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.image.region.TiledbUtils;
 
 import io.tiledb.java.api.Array;
-import io.tiledb.java.api.ArraySchema;
-import io.tiledb.java.api.Attribute;
 import io.tiledb.java.api.Context;
-import io.tiledb.java.api.Datatype;
-import io.tiledb.java.api.Domain;
-import io.tiledb.java.api.NativeArray;
-import io.tiledb.java.api.Query;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
-import loci.formats.FormatTools;
-import ome.io.bioformats.BfPixelBuffer;
-import ome.io.bioformats.BfPixelsWrapper;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
-import ome.io.nio.RomioPixelBuffer;
 import ome.model.core.Pixels;
 import ome.util.PixelData;
 
@@ -47,10 +35,13 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     int resolutionLevel;
 
-    public TiledbPixelBuffer(Pixels pixels, String ngffDir, Long filesetId) {
+    TiledbUtils tiledbUtils;
+
+    public TiledbPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, TiledbUtils tiledbUtils) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;
         this.filesetId = filesetId;
+        this.tiledbUtils = tiledbUtils;
         this.resolutionLevel = this.getResolutionLevels() - 1;
     }
 
@@ -164,24 +155,16 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
             throws IOException {
         log.info("getTile");
-        Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()) + "/" + Integer.toString(resolutionLevel));
-        try (Context ctx = new Context();
-                Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
-            PixelData d;
-            StringBuffer domStrBuf = new StringBuffer();
-            domStrBuf.append("[")
-                .append(t).append(",")
-                .append(c).append(",")
-                .append(z).append(",")
-                .append(y).append(":").append(y + h).append(",")
-                .append(x).append(":").append(x + w).append("]");
-            log.info(domStrBuf.toString());
-            byte[] buffer = TiledbUtils.getData(array, ctx, domStrBuf.toString(), Integer.max(w, h));
-            d = new PixelData(TiledbUtils.getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
-            log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
-            d.setOrder(ByteOrder.nativeOrder());
-            return d;
+        StringBuffer domStrBuf = new StringBuffer();
+        domStrBuf.append("[")
+            .append(t).append(",")
+            .append(c).append(",")
+            .append(z).append(",")
+            .append(y).append(":").append(y + h).append(",")
+            .append(x).append(":").append(x + w).append("]");
+        try {
+            return tiledbUtils.getPixelData(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel,
+                    domStrBuf.toString());
         } catch (TileDBError e) {
             log.error("TileDBError when trying to getPlaneDirect", e);
         }
@@ -394,8 +377,9 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     @Override
     public String getPath() {
-        return Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()) + "/" + Integer.toString(resolutionLevel)).toString();
+        return Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId()) + ".tiledb")
+                .resolve(Integer.toString(pixels.getImage().getSeries()))
+                .resolve(Integer.toString(resolutionLevel)).toString();
     }
 
     @Override
@@ -404,59 +388,34 @@ public class TiledbPixelBuffer implements PixelBuffer {
         return 0;
     }
 
-    private int getDimSize(String dimName) {
-        Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId())
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()) + "/" + Integer.toString(resolutionLevel));
-        try (Context ctx = new Context();
-                Array array = new Array(ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
-            Domain dom = array.getSchema().getDomain();
-            return (int) ((long) dom.getDimension(dimName).getDomain().getSecond()
-                    - (long) dom.getDimension(dimName).getDomain().getFirst() + 1);
-        } catch (TileDBError e) {
-            log.error("TileDBError in TiledbPixelBuffer", e);
-        }
-        return 0;
-    }
-
     @Override
     public int getSizeX() {
-        return getDimSize("x");
+        return tiledbUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, "x");
     }
 
     @Override
     public int getSizeY() {
-        return getDimSize("y");
+        return tiledbUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, "y");
     }
 
     @Override
     public int getSizeZ() {
-        return getDimSize("z");
+        return tiledbUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, "z");
     }
 
     @Override
     public int getSizeC() {
-        return getDimSize("c");
+        return tiledbUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, "c");
     }
 
     @Override
     public int getSizeT() {
-        return getDimSize("t");
+        return tiledbUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, "t");
     }
 
     @Override
     public int getResolutionLevels() {
-        Path tiledbSeriesPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                + ".tiledb/" + Integer.toString(pixels.getImage().getSeries()));
-        File[] directories = new File(tiledbSeriesPath.toString()).listFiles(File::isDirectory);
-        int count = 0;
-        for(File dir : directories) {
-            try {
-                Integer.valueOf(dir.getName());
-                count++;
-            } catch(NumberFormatException e) {
-            }
-        }
-        return count;
+        return tiledbUtils.getResolutionLevels(ngffDir, filesetId, pixels.getImage().getSeries());
     }
 
     @Override

@@ -86,6 +86,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    private final TiledbUtils tiledbUtils;
+
     /**
      * Default constructor.
      */
@@ -93,12 +95,14 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            int maxTileLength)
+            int maxTileLength,
+            TiledbUtils tiledbUtils)
     {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        this.tiledbUtils = tiledbUtils;
     }
 
     /* (non-Javadoc)
@@ -163,33 +167,17 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             }
             String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
             byte[] imageRegion = null;
-            if(ngffDir != null && ngffDir.startsWith("s3://")) {
-                imageRegion = request.execute(
-                        new ImageRegionRequestHandler(
-                                imageRegionCtx,
-                                families,
-                                renderingModels,
-                                lutProvider,
-                                pixelsService,
-                                compressionService,
-                                maxTileLength,
-                                ngffDir,
-                                config().getJsonObject("aws").getString("access-key"),
-                                config().getJsonObject("aws").getString("secret-key"),
-                                config().getJsonObject("aws").getString("region"),
-                                config().getJsonObject("aws").getString("ngff-s3-endpoint"))::renderImageRegion);
-            } else {
-                imageRegion = request.execute(
-                        new ImageRegionRequestHandler(
-                                imageRegionCtx,
-                                families,
-                                renderingModels,
-                                lutProvider,
-                                pixelsService,
-                                compressionService,
-                                maxTileLength,
-                                ngffDir)::renderImageRegion);
-            }
+            imageRegion = request.execute(
+                    new ImageRegionRequestHandler(
+                            imageRegionCtx,
+                            families,
+                            renderingModels,
+                            lutProvider,
+                            pixelsService,
+                            compressionService,
+                            maxTileLength,
+                            ngffDir,
+                            tiledbUtils)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(

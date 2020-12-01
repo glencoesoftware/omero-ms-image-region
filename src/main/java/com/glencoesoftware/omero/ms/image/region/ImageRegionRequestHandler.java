@@ -31,9 +31,6 @@ import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -116,17 +113,8 @@ public class ImageRegionRequestHandler {
     /** Location of label image files */
     private final String ngffDir;
 
-    /** AWS Access Key */
-    private String accessKey;
-
-    /** AWS Secret Key */
-    private String secretKey;
-
-    /** AWS Region */
-    private String awsRegion;
-
-    /** AWS S3 Endpoint Override */
-    private String s3EndpointOverride;
+    //** Configured TiledbUtils */
+    private final TiledbUtils tiledbUtils;
 
     /**
      * Default constructor.
@@ -139,36 +127,8 @@ public class ImageRegionRequestHandler {
             PixelsService pixService,
             LocalCompress compSrv,
             int maxTileLength,
-            String ngffDir) {
-        log.info("Setting up handler");
-        this.imageRegionCtx = imageRegionCtx;
-        this.families = families;
-        this.renderingModels = renderingModels;
-        this.lutProvider = lutProvider;
-        this.maxTileLength = maxTileLength;
-        this.ngffDir = ngffDir;
-
-        pixelsService = pixService;
-        projectionService = new ProjectionService();
-        compressionSrv = compSrv;
-    }
-
-    /**
-     * AWS constructor.
-     * @param imageRegionCtx {@link ImageRegionCtx} object
-     */
-    public ImageRegionRequestHandler(
-            ImageRegionCtx imageRegionCtx,
-            List<Family> families, List<RenderingModel> renderingModels,
-            LutProvider lutProvider,
-            PixelsService pixService,
-            LocalCompress compSrv,
-            int maxTileLength,
             String ngffDir,
-            String accessKey,
-            String secretKey,
-            String awsRegion,
-            String s3EndpointOverride) {
+            TiledbUtils tiledbUtils) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
@@ -176,10 +136,7 @@ public class ImageRegionRequestHandler {
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.ngffDir = ngffDir;
-        this.accessKey = accessKey;
-        this.secretKey = secretKey;
-        this.awsRegion = awsRegion;
-        this.s3EndpointOverride = s3EndpointOverride;
+        this.tiledbUtils = tiledbUtils;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
@@ -291,19 +248,7 @@ public class ImageRegionRequestHandler {
         PixelBuffer pb = null;
         try {
             try {
-                if (ngffDir.startsWith("s3://")) {
-                    return pixelsService.getTiledbPixelBuffer(pixels, ngffDir,
-                            accessKey, secretKey, awsRegion, s3EndpointOverride);
-                } else {
-                    Path dataPath = Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId()) + ".tiledb")
-                            .resolve(pixels.getImage().getSeries().toString())
-                            .resolve("0");
-                    log.info("Checking for pixel data at " + dataPath.toString());
-                    if (Files.isDirectory(dataPath)) {
-                        //There is pixel data for this image
-                        pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir);
-                    }
-                }
+                pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir, tiledbUtils);
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
                 log.info("Getting TiledbPixelBuffer failed - attempting to get local data");
