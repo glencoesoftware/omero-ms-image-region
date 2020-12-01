@@ -57,26 +57,15 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     /** Label Image Location */
     private String ngffDir;
 
-    /** AWS Access Key */
-    private String accessKey;
-
-    /** AWS Secret Key */
-    private String secretKey;
-
-    /** AWS Region */
-    private String region;
-
-    /** AWS S3 Endpoint Override */
-    private String s3EndpointOverride;
-
-    /** Bucket Name */
-    private String bucketName;
+    /** Configured TiledbUtils */
+    TiledbUtils tiledbUtils;
 
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle()
+    public ShapeMaskVerticle(TiledbUtils tiledbUtils)
     {
+        this.tiledbUtils = tiledbUtils;
     }
 
     /* (non-Javadoc)
@@ -93,11 +82,6 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             host = omero.getString("host");
             port = omero.getInteger("port");
             ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
-            accessKey = config().getJsonObject("aws").getString("access-key");
-            secretKey = config().getJsonObject("aws").getString("secret-key");
-            region = config().getJsonObject("aws").getString("region");
-            s3EndpointOverride = config().getJsonObject("aws").getString("ngff-s3-endpoint");
-            bucketName = config().getJsonObject("aws").getString("bucket-name");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -150,7 +134,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
+                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -235,12 +219,8 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             String maxTileLengthStr =
                 config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
             ShapeMaskRequestHandler requestHandler = null;
-            if(ngffDir.startsWith("s3://")) {
-                requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr),
-                            accessKey, secretKey, s3EndpointOverride);
-            } else {
-                requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, Integer.parseInt(maxTileLengthStr));
-            }
+            requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir,
+                        tiledbUtils);
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -303,14 +283,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 host, port, shapeMaskCtx.omeroSessionKey))
         {
             JsonObject metadata = null;
-            ShapeMaskRequestHandler requestHandler = null;
-            if(ngffDir.startsWith("s3")) {
-                requestHandler =
-                        new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null, accessKey, secretKey, s3EndpointOverride);
-            } else {
-                requestHandler =
-                       new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, null);
-            }
+            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils);
             metadata = request.execute(
                     requestHandler::getLabelImageMetadata);
             if (metadata == null) {

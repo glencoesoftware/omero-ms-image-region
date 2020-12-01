@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
@@ -64,42 +65,19 @@ public class ShapeMaskRequestHandler {
     /** Location of ngff files */
     private final String ngffDir;
 
-    /** Max Tile Length */
-    private final Integer maxTileLength;
-
-    /** AWS Access Key */
-    private String accessKey;
-
-    /** AWS Secret Key */
-    private String secretKey;
-
-    /** AWS Region */
-    private String region;
-
-    /** AWS S3 Endpoint Override */
-    private String s3EndpointOverride;
+    /** Configured TiledbUtils */
+    TiledbUtils tiledbUtils;
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength) {
+    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir,
+            TiledbUtils tiledbUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
-        this.maxTileLength = maxTileLength;
-    }
-
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir, Integer maxTileLength,
-            String accessKey, String secretKey, String s3EndpointOverride) {
-        log.info("Setting up handler");
-        this.shapeMaskCtx = shapeMaskCtx;
-        this.ngffDir = ngffDir;
-        this.maxTileLength = maxTileLength;
-        this.accessKey = accessKey;
-        this.secretKey = secretKey;
-        this.region = region;
-        this.s3EndpointOverride = s3EndpointOverride;
+        this.tiledbUtils = tiledbUtils;
     }
 
     /**
@@ -354,27 +332,12 @@ public class ShapeMaskRequestHandler {
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
                 Integer resolution = shapeMaskCtx.resolution == null ? 0 : shapeMaskCtx.resolution;
-                if(ngffDir.startsWith("s3://")) {
-                    log.info("Getting mask bytes from S3");
-                    return TiledbUtils.getLabelImageBytesS3(ngffDir, filesetId, series, uuid, resolution,
-                            shapeMaskCtx.subarrayDomainStr, maxTileLength,
-                            accessKey, secretKey, region, s3EndpointOverride);
-                } else {
-                    Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                            + ".tiledb/" + Integer.toString(series));
-                    Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
-                    Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-                    Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
-                    if (Files.exists(fullNgffDir)) {
-                        log.info("Getting mask from tiledb for shape " + Long.toString(shapeMaskCtx.shapeId));
-                        if(shapeMaskCtx.subarrayDomainStr == null) {
-                            return TiledbUtils.getBytes(fullNgffDir.toString());
-                        } else {
-                            return TiledbUtils.getBytes(fullNgffDir.toString(), shapeMaskCtx.subarrayDomainStr, maxTileLength);
-                        }
-                    } else {
-                        return mask.getBytes();
-                    }
+                try {
+                    return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution,
+                            shapeMaskCtx.subarrayDomainStr);
+                } catch (Exception e) {
+                    log.error("Error getting label image bytes from TileDB", e);
+                    return mask.getBytes();
                 }
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
@@ -407,10 +370,9 @@ public class ShapeMaskRequestHandler {
                 }
                 if(ngffDir.startsWith("s3://")) {
                     log.info("Getting metadata from S3");
-                    return TiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution,
-                            accessKey, secretKey, region, s3EndpointOverride);
+                    return tiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
                 }
-                return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+                return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {
                 return null;
             }

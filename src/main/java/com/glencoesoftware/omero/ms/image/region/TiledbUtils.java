@@ -260,7 +260,7 @@ public class TiledbUtils {
         }
     }
 
-    public static String getS3LabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
+    private String getS3LabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
         StringBuilder s3PathBuilder = new StringBuilder();
         s3PathBuilder.append(ngffDir);
         if(!s3PathBuilder.toString().endsWith("/")) {
@@ -274,11 +274,30 @@ public class TiledbUtils {
         return s3PathBuilder.toString();
     }
 
-    public static byte[] getLabelImageBytesS3(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
-            String domainStr, Integer maxTileLength,
-            String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
-        String s3PathStr = getS3LabelImagePath(ngffDir, filesetId, series, uuid, resolution);
-        return getBytesS3(s3PathStr, domainStr, maxTileLength, accessKey, secretKey, region, s3EndpointOverride);
+    private String getLocalLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
+        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                + ".tiledb/" + Integer.toString(series));
+        Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+        Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
+        Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
+        return fullNgffDir.toString();
+    }
+
+    public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
+            String domainStr) throws TileDBError {
+        try(Config config = new Config()) {
+            String ngffPath;
+            if (ngffDir.startsWith("s3://")) {
+                setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
+                ngffPath = getS3LabelImagePath(ngffDir, filesetId, series, uuid, resolution);
+            } else {
+                ngffPath = getLocalLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
+            }
+            try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, ngffPath, QueryType.TILEDB_READ)){
+                        return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
+            }
+        }
     }
 
     public static String getS3ImageDataPath(String ngffDir, long filesetId, int series, Integer resolution) {
@@ -638,8 +657,7 @@ public class TiledbUtils {
      * @return A response body in accordance with the initial settings
      * provided by <code>shapeMaskCtx</code>.
      */
-    public static JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution,
-            String accessKey, String secretKey, String region, String s3EndpointOverride) {
+    public JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution) {
             StringBuilder s3PathBuilder = new StringBuilder();
             s3PathBuilder.append(ngffDir);
             if(!s3PathBuilder.toString().endsWith("/")) {
@@ -658,7 +676,7 @@ public class TiledbUtils {
             Integer resolutionLevelCount;
 
             try(Config config = new Config()) {
-                setupAwsConfig(config, accessKey, secretKey, region, s3EndpointOverride);
+                setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
                 //First check that the file exists
                 try (Context ctx = new Context(config);
                         VFS vfs = new VFS(ctx)) {

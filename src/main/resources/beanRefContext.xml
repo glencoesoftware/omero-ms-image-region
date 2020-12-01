@@ -76,6 +76,7 @@
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
+    <constructor-arg ref="tiledb-utils" />
   </bean>
 
   <bean id="tiledb-utils"
