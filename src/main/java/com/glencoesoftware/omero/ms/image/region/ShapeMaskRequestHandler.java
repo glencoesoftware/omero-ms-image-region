@@ -328,6 +328,10 @@ public class ShapeMaskRequestHandler {
                     return mask.getBytes();
                 }
                 Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                if (mask.getDetails().getExternalInfo() == null) {
+                    log.error("No UUID associated with shape " + shapeMaskCtx.shapeId);
+                    return mask.getBytes();
+                }
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
@@ -361,6 +365,9 @@ public class ShapeMaskRequestHandler {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
                 Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                if (mask.getDetails().getExternalInfo() == null) {
+                    throw new IllegalArgumentException("No UUID for shape " + shapeMaskCtx.shapeId);
+                }
                 String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
@@ -372,7 +379,7 @@ public class ShapeMaskRequestHandler {
                     log.info("Getting metadata from S3");
                     return tiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
                 }
-                return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+                return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {
                 return null;
             }
