@@ -27,6 +27,10 @@ omero.server:
     omero.pixeldata.max_tile_length: "2048"
     omero.ngff.dir: "/opt/omero/data/labelimages/"
     omero.ngff.type: "tiledb"
+    aws.bucket-name: "zarr-bucket"
+    aws.region: "us-east-1"
+    aws.access-key: "accesskey"
+    aws.secret-key: "secretkey"
 # OMERO.web configuration
 omero.web:
     session_cookie_name: "sessionid"
@@ -61,11 +65,3 @@ session-store:
 
 # The string to be used as the Cache-Control header provided in responses
 cache-control-header: "private, max-age=3600"
-
-# For S3/Cloud-backed TileDB images
-aws:
-    ngff-s3-endpoint: "nyc3.digitaloceanspaces.com"
-    bucket-name: "bucket-name"
-    region: "us-east-1"
-    access-key: "accesskey"
-    secret-key: "secretkey"

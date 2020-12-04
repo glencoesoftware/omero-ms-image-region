@@ -683,7 +683,7 @@ public class TiledbUtils {
                     resolutionLevelCount = getResolutionLevelCountS3(vfs, labelImageShapePath);
                 }
                 try (Context ctx = new Context(config);
-                        Array array = new Array(ctx, fullNgffPath, QueryType.TILEDB_READ)){
+                        Array array = new Array(ctx, labelImageShapePath, QueryType.TILEDB_READ)){
                     if(array.hasMetadataKey("multiscales")) {
                         String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
                         minMax = getMinMaxMetadata(array);
