@@ -613,13 +613,34 @@ public class TiledbUtils {
         return metadata;
     }
 
+
     /**
-     * Get shape mask bytes request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
+     * Get label image metadata request handler.
+     * @param ngffDir The base directory for ngff data
+     * @param filesetId The fileset ID of the image
+     * @param series The series ID of the image in the fileset
+     * @param uuid The External Info UUID of the shape associated with the label image
+     * @param ngffDir the base directory for ngff data
+     * @return A JsonObject with the label image metadata
      */
-    public static JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+    public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+        if (ngffDir.startsWith("s3://")) {
+            return getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
+        } else {
+            return getLabelImageMetadataLocal(ngffDir, filesetId, series, uuid, resolution);
+        }
+    }
+
+    /**
+     * Get label image metadata for local label image.
+     * @param ngffDir The base directory for ngff data
+     * @param filesetId The fileset ID of the image
+     * @param series The series ID of the image in the fileset
+     * @param uuid The External Info UUID of the shape associated with the label image
+     * @param ngffDir the base directory for ngff data
+     * @return A JsonObject with the label image metadata
+     */
+    private JsonObject getLabelImageMetadataLocal(String ngffDir, long filesetId, int series, String uuid, int resolution) {
             Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
                     + ".tiledb").resolve(Integer.toString(series));
             Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
@@ -651,13 +672,17 @@ public class TiledbUtils {
         return null;
     }
 
+
     /**
-     * Get shape mask bytes request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
+     * Get label image metadata for S3 label image.
+     * @param ngffDir The base directory for ngff data
+     * @param filesetId The fileset ID of the image
+     * @param series The series ID of the image in the fileset
+     * @param uuid The External Info UUID of the shape associated with the label image
+     * @param ngffDir the base directory for ngff data
+     * @return A JsonObject with the label image metadata
      */
-    public JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+    private JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution) {
             StringBuilder s3PathBuilder = new StringBuilder();
             s3PathBuilder.append(ngffDir);
             if(!s3PathBuilder.toString().endsWith("/")) {

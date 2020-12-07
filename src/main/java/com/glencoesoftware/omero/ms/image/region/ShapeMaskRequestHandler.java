@@ -375,11 +375,7 @@ public class ShapeMaskRequestHandler {
                 if(shapeMaskCtx.resolution != null) {
                     resolution = shapeMaskCtx.resolution;
                 }
-                if(ngffDir.startsWith("s3://")) {
-                    log.info("Getting metadata from S3");
-                    return tiledbUtils.getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
-                }
-                return TiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+                return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {
                 return null;
             }
