@@ -18,7 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import org.json.JSONObject;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -216,10 +215,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         try (OmeroRequest request = new OmeroRequest(
                  host, port, shapeMaskCtx.omeroSessionKey))
         {
-            String maxTileLengthStr =
-                config().getJsonObject("omero.server").getString("omero.pixeldata.max_tile_length");
-            ShapeMaskRequestHandler requestHandler = null;
-            requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir,
+            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir,
                         tiledbUtils);
 
             // The PNG is not in the cache we have to create it

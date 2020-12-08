@@ -29,9 +29,6 @@ import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
@@ -336,6 +332,9 @@ public class ShapeMaskRequestHandler {
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
                 Integer resolution = shapeMaskCtx.resolution == null ? 0 : shapeMaskCtx.resolution;
+                if (shapeMaskCtx.subarrayDomainStr == null) {
+                    throw new IllegalArgumentException("Failed to supply domain parameter to getShapeMaskBytes");
+                }
                 try {
                     return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution,
                             shapeMaskCtx.subarrayDomainStr);
@@ -345,6 +344,9 @@ public class ShapeMaskRequestHandler {
                 }
             }
             log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+        } catch (IllegalArgumentException e) {
+            log.error("Missing domain parameter - rethrowing");
+            throw e;
         } catch (Exception e) {
             log.error("Exception while retrieving shape mask", e);
         }
