@@ -87,6 +87,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @since OMERO-Beta4.3
      */
     public PixelBuffer getTiledbPixelBuffer(Pixels pixels, String ngffDir, TiledbUtils tiledbUtils) {
+        log.info("Creating TiledbPixelBuffer");
         return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
     }
 }

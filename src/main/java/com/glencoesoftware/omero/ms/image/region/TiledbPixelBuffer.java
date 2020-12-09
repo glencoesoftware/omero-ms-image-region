@@ -43,6 +43,9 @@ public class TiledbPixelBuffer implements PixelBuffer {
         this.filesetId = filesetId;
         this.tiledbUtils = tiledbUtils;
         this.resolutionLevel = this.getResolutionLevels() - 1;
+        if (this.resolutionLevel < 0) {
+            throw new IllegalArgumentException("This TileDB file has no pixel data");
+        }
     }
 
     private final static Logger log = LoggerFactory.getLogger(TiledbPixelBuffer.class);

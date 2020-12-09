@@ -300,6 +300,7 @@ public class ImageRegionRequestHandler {
         }
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+            log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
                 pixels, getRenderingDef(iPixels, pixels.getId()),
@@ -311,6 +312,7 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
+            log.info("Resolution level count: " + Integer.toString(countResolutionLevels));
             List<List<Integer>> resolutionLevels;
             if (countResolutionLevels > 1) {
                 resolutionLevels = pixelBuffer.getResolutionDescriptions();
