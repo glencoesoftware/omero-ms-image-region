@@ -279,18 +279,23 @@ public class TiledbUtils {
 
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
             String domainStr) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_bytes");
         try(Config config = new Config()) {
             String ngffPath;
             if (ngffDir.startsWith("s3://")) {
+                span.tag("location", "s3");
                 setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
                 ngffPath = getS3LabelImagePath(ngffDir, filesetId, series, uuid, resolution);
             } else {
+                span.tag("location", "local");
                 ngffPath = getLocalLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
             }
             try (Context ctx = new Context(config);
                     Array array = new Array(ctx, ngffPath, QueryType.TILEDB_READ)){
                         return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
             }
+        } finally {
+            span.finish();
         }
     }
 
@@ -316,10 +321,6 @@ public class TiledbUtils {
             String accessKey, String secretKey, String region, String s3EndpointOverride) throws TileDBError {
         try(Config config = new Config()) {
             setupAwsConfig(config, accessKey, secretKey, region, s3EndpointOverride);
-            //First check that the file exists
-            try (Context ctx = new Context(config);
-                    VFS vfs = new VFS(ctx)) {
-            }
             try (Context ctx = new Context(config);
                     Array array = new Array(ctx, ngffPath, QueryType.TILEDB_READ)){
                         return TiledbUtils.getData(array, ctx, domainStr, maxTileLength);
@@ -346,6 +347,7 @@ public class TiledbUtils {
     }
 
     public PixelData getPixelData(String ngffPath, String domainStr, Integer maxTileLength) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_path");
         try(Config config = new Config()) {
             if (ngffPath.startsWith("s3://")) {
                 setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
@@ -357,11 +359,14 @@ public class TiledbUtils {
                         d.setOrder(ByteOrder.nativeOrder());
                         return d;
             }
+        } finally {
+            span.finish();
         }
     }
 
     public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel,
             String domainStr) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_dir");
         String ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
         try(Config config = new Config()) {
             if (ngffPath.startsWith("s3://")) {
@@ -374,6 +379,8 @@ public class TiledbUtils {
                         d.setOrder(ByteOrder.nativeOrder());
                         return d;
             }
+        } finally {
+            span.finish();
         }
     }
 
@@ -731,8 +738,10 @@ public class TiledbUtils {
                     VFS vfs = new VFS(ctx)) {
                 resolutionLevelCount = getResolutionLevelCountS3(vfs, labelImageShapePath);
             }
+            ScopedSpan arraySpan = Tracing.currentTracer().startScopedSpan("setup_label_shape_array_s3");
             try (Context ctx = new Context(config);
                     Array array = new Array(ctx, labelImageShapePath, QueryType.TILEDB_READ)){
+                arraySpan.finish();
                 if(array.hasMetadataKey("multiscales")) {
                     String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
                     minMax = getMinMaxMetadata(array);
@@ -741,8 +750,10 @@ public class TiledbUtils {
             } catch (Exception e) {
                 log.error("Exception while retrieving label image metadata", e);
             }
+            arraySpan = Tracing.currentTracer().startScopedSpan("setup_label_image_data_array_s3");
             try (Context ctx = new Context(config);
                 Array array = new Array(ctx, fullNgffPath.toString(), QueryType.TILEDB_READ)){
+                arraySpan.finish();
                 return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
             } catch (Exception e) {
                 log.error("Exception while retrieving label image metadata", e);
