@@ -266,7 +266,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             String body = message.body();
             shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
             span = Tracing.currentTracer().startScopedSpanWithParent(
-                    "handle_render_shape_mask",
+                    "get_label_image_metadata_verticle",
                     extractor().extract(shapeMaskCtx.traceContext).context());
             span.tag("ctx", body);
         } catch (Exception e) {

@@ -360,6 +360,7 @@ public class ShapeMaskRequestHandler {
      * provided by <code>shapeMaskCtx</code>.
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_metadata_handler");
         try {
             if (ngffDir == null) {
                 throw new IllegalArgumentException("Label image configs not properly set");
@@ -383,6 +384,8 @@ public class ShapeMaskRequestHandler {
             }
         } catch (Exception e) {
             log.error("Exception while retrieving label image metadata", e);
+        } finally {
+                span.finish();
         }
         return null;
     }

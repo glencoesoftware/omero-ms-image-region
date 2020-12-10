@@ -3,20 +3,16 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.ShortBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
-import org.checkerframework.common.reflection.qual.GetMethod;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.Module.SetupContext;
-
+import brave.ScopedSpan;
+import brave.Tracing;
 import io.tiledb.java.api.Array;
 import io.tiledb.java.api.ArraySchema;
 import io.tiledb.java.api.Attribute;
@@ -32,8 +28,6 @@ import io.tiledb.java.api.VFS;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
 import ome.util.PixelData;
-import omero.model.Image;
-import omero.model.MaskI;
 
 public class TiledbUtils {
 
@@ -436,6 +430,7 @@ public class TiledbUtils {
     }
 
     private static byte[] getTiledbBytes(Array array, Context ctx, long[] subarrayDomain) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_tiledb_bytes");
         rescaleSubarrayDomain(subarrayDomain, array.getSchema().getDomain());
         int capacity = 1;
         for(int i = 0; i < 5; i++) {
@@ -457,6 +452,8 @@ public class TiledbUtils {
             byte[] outputBytes = new byte[buffer.capacity()];
             buffer.get(outputBytes);
             return outputBytes;
+        } finally {
+            span.finish();
         }
     }
 
@@ -491,27 +488,36 @@ public class TiledbUtils {
     }
 
     public static String getStringMetadata(Array array, String key) throws TileDBError {
-        if(array.hasMetadataKey(key)) {
-            NativeArray strNativeArray = array.getMetadata(key, Datatype.TILEDB_CHAR);
-            return new String((byte[]) strNativeArray.toJavaArray(), StandardCharsets.UTF_8);
-        } else {
-            return null;
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_string_metadata");
+        try {
+            if(array.hasMetadataKey(key)) {
+                NativeArray strNativeArray = array.getMetadata(key, Datatype.TILEDB_CHAR);
+                return new String((byte[]) strNativeArray.toJavaArray(), StandardCharsets.UTF_8);
+            } else {
+                return null;
+            }
+        } finally {
+            span.finish();
         }
     }
 
     public static long[] getMinMaxMetadata(Array array) throws TileDBError {
-        String key = "minmax";
-        log.info(array.getMetadataMap().keySet().toString());
-        if(array.hasMetadataKey(key)) {
-            NativeArray minMaxNativeArray = array.getMetadata(key, Datatype.TILEDB_INT32);
-            log.info(minMaxNativeArray.getJavaType().toString());
-            return (long[]) minMaxNativeArray.toJavaArray();
-        } else {
-            return null;
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_minmax_metadata");
+        try {
+            String key = "minmax";
+            if(array.hasMetadataKey(key)) {
+                NativeArray minMaxNativeArray = array.getMetadata(key, Datatype.TILEDB_INT32);
+                return (long[]) minMaxNativeArray.toJavaArray();
+            } else {
+                return null;
+            }
+        } finally {
+            span.finish();
         }
     }
 
     public static int getResolutionLevelCount(String labelImageShapePath) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_local");
         File[] directories = new File(labelImageShapePath).listFiles(File::isDirectory);
         int count = 0;
         for(File dir : directories) {
@@ -521,10 +527,12 @@ public class TiledbUtils {
             } catch(NumberFormatException e) {
             }
         }
+        span.finish();
         return count;
     }
 
     public int getResolutionLevelCountS3(String parentPath) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_s3_path");
         try (Config config = new Config()) {
             setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
             try (Context ctx = new Context(config);
@@ -537,22 +545,28 @@ public class TiledbUtils {
                 }
                 return count;
             }
+        } finally {
+            span.finish();
         }
     }
 
     public static int getResolutionLevelCountS3(VFS vfs, String parentPath) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_s3_vfs");
         int count = 0;
         String testPath = parentPath + "/" + Integer.toString(count);
         while(vfs.isDirectory(testPath)) {
             count += 1;
             testPath = parentPath + "/" + Integer.toString(count);
         }
+        span.finish();
         return count;
     }
 
     public int getDimSize(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel, String dimName) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size");
         String tiledbPath;
         if (ngffDir.startsWith("s3://")) {
+            span.tag("location", "s3");
             StringBuilder s3PathBuilder = new StringBuilder().append(ngffDir);
             if (!ngffDir.endsWith("/")) {
                 s3PathBuilder.append("/");
@@ -562,6 +576,7 @@ public class TiledbUtils {
                 .append(resolutionLevel);
             tiledbPath = s3PathBuilder.toString();
         } else {
+            span.tag("location", "local");
             Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
                     + ".tiledb").resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
             tiledbPath = tiledbDataPath.toString();
@@ -578,12 +593,15 @@ public class TiledbUtils {
             }
         } catch (TileDBError e) {
             log.error("TileDBError in getDimSize", e);
+        } finally {
+            span.finish();
         }
         return 0;
     }
 
     private static JsonObject getMetadataFromArray(Array array, long[] minMax,
             JsonObject multiscales, int resolutionLevelCount, String uuid) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_metadata_from_array");
         ArraySchema schema = array.getSchema();
         Domain domain = schema.getDomain();
         Attribute attribute = schema.getAttribute("a1");
@@ -610,6 +628,7 @@ public class TiledbUtils {
             metadata.put("multiscales", multiscales);
         }
         metadata.put("uuid", uuid);
+        span.finish();
         return metadata;
     }
 
@@ -641,34 +660,35 @@ public class TiledbUtils {
      * @return A JsonObject with the label image metadata
      */
     private JsonObject getLabelImageMetadataLocal(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-            Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                    + ".tiledb").resolve(Integer.toString(series));
-            Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
-            Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
-            Path fullngffDir = labelImageShapePath.resolve(Integer.toString(resolution));
-            JsonObject multiscales = null;
-            long[] minMax = null;
-            int resolutionLevelCount = getResolutionLevelCount(labelImageShapePath.toString());
-            if (Files.exists(fullngffDir)) {
-                try (Context ctx = new Context();
-                    Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
-                    if(array.hasMetadataKey("multiscales")) {
-                        String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
-                        minMax = getMinMaxMetadata(array);
-                        multiscales = new JsonObject(multiscalesMetaStr);
-                    }
-                } catch (Exception e) {
-                    log.error("Exception while retrieving label image metadata", e);
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size");
+        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                + ".tiledb").resolve(Integer.toString(series));
+        Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+        Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
+        Path fullngffDir = labelImageShapePath.resolve(Integer.toString(resolution));
+        JsonObject multiscales = null;
+        long[] minMax = null;
+        int resolutionLevelCount = getResolutionLevelCount(labelImageShapePath.toString());
+        if (Files.exists(fullngffDir)) {
+            try (Context ctx = new Context();
+                Array array = new Array(ctx, labelImageShapePath.toString(), QueryType.TILEDB_READ)) {
+                if(array.hasMetadataKey("multiscales")) {
+                    String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
+                    minMax = getMinMaxMetadata(array);
+                    multiscales = new JsonObject(multiscalesMetaStr);
                 }
-                try (Context ctx = new Context();
-                    Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
-                    return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
-                } catch (Exception e) {
-                    log.error("Exception while retrieving label image metadata", e);
-                }
-            } else {
-                return null;
+            } catch (Exception e) {
+                log.error("Exception while retrieving label image metadata", e);
             }
+            try (Context ctx = new Context();
+                Array array = new Array(ctx, fullngffDir.toString(), QueryType.TILEDB_READ)){
+                return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
+            } catch (Exception e) {
+                log.error("Exception while retrieving label image metadata", e);
+            } finally {
+                span.finish();
+            }
+        }
         return null;
     }
 
@@ -683,49 +703,58 @@ public class TiledbUtils {
      * @return A JsonObject with the label image metadata
      */
     private JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-            StringBuilder s3PathBuilder = new StringBuilder();
-            s3PathBuilder.append(ngffDir);
-            if(!s3PathBuilder.toString().endsWith("/")) {
-                s3PathBuilder.append("/");
-            }
-            s3PathBuilder.append(filesetId).append(".tiledb").append("/")
-                .append(series).append("/")
-                .append("labels").append("/")
-                .append(uuid);
-            String labelImageShapePath = s3PathBuilder.toString();
-            s3PathBuilder.append("/")
-                .append(resolution).append("/");
-            String fullNgffPath = s3PathBuilder.toString();
-            JsonObject multiscales = null;
-            long[] minMax = null;
-            Integer resolutionLevelCount;
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_metadata_s3");
+        ScopedSpan configSpan = Tracing.currentTracer().startScopedSpan("get_label_image_metadata_s3_config");
+        StringBuilder s3PathBuilder = new StringBuilder();
+        s3PathBuilder.append(ngffDir);
+        if(!s3PathBuilder.toString().endsWith("/")) {
+            s3PathBuilder.append("/");
+        }
+        s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+            .append(series).append("/")
+            .append("labels").append("/")
+            .append(uuid);
+        String labelImageShapePath = s3PathBuilder.toString();
+        s3PathBuilder.append("/")
+            .append(resolution).append("/");
+        String fullNgffPath = s3PathBuilder.toString();
+        JsonObject multiscales = null;
+        long[] minMax = null;
+        Integer resolutionLevelCount;
 
-            try(Config config = new Config()) {
-                setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
-                //First check that the file exists
-                try (Context ctx = new Context(config);
-                        VFS vfs = new VFS(ctx)) {
-                    resolutionLevelCount = getResolutionLevelCountS3(vfs, labelImageShapePath);
-                }
-                try (Context ctx = new Context(config);
-                        Array array = new Array(ctx, labelImageShapePath, QueryType.TILEDB_READ)){
-                    if(array.hasMetadataKey("multiscales")) {
-                        String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
-                        minMax = getMinMaxMetadata(array);
-                        multiscales = new JsonObject(multiscalesMetaStr);
-                    }
-                } catch (Exception e) {
-                    log.error("Exception while retrieving label image metadata", e);
-                }
-                try (Context ctx = new Context(config);
-                    Array array = new Array(ctx, fullNgffPath.toString(), QueryType.TILEDB_READ)){
-                    return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
-                } catch (Exception e) {
-                    log.error("Exception while retrieving label image metadata", e);
-                }
-            } catch (TileDBError e) {
-                log.error("TiledbError when trying to get metadata from S3", e);
+        try(Config config = new Config()) {
+            setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
+            configSpan.finish();
+            //ScopedSpan resLvlSpan = Tracing.currentTracer().startScopedSpan("get_label_image_metadata_s3_res_lvl_cnt");
+            //First check that the file exists
+            try (Context ctx = new Context(config);
+                    VFS vfs = new VFS(ctx)) {
+                resolutionLevelCount = getResolutionLevelCountS3(vfs, labelImageShapePath);
             }
+            try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, labelImageShapePath, QueryType.TILEDB_READ)){
+                if(array.hasMetadataKey("multiscales")) {
+                    String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
+                    minMax = getMinMaxMetadata(array);
+                    multiscales = new JsonObject(multiscalesMetaStr);
+                }
+            } catch (Exception e) {
+                log.error("Exception while retrieving label image metadata", e);
+            }
+            try (Context ctx = new Context(config);
+                Array array = new Array(ctx, fullNgffPath.toString(), QueryType.TILEDB_READ)){
+                return getMetadataFromArray(array, minMax, multiscales, resolutionLevelCount, uuid);
+            } catch (Exception e) {
+                log.error("Exception while retrieving label image metadata", e);
+                span.error(e);
+            } finally {
+                span.finish();
+            }
+        } catch (TileDBError e) {
+            log.error("TiledbError when trying to get metadata from S3", e);
+            span.error(e);
+            span.finish();
+        }
         return null;
     }
 }
