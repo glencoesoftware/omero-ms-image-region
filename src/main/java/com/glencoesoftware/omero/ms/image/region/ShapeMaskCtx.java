@@ -18,16 +18,12 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
-import brave.Tracing;
-import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
 import ome.model.roi.Mask;
 import omeis.providers.re.data.RegionDef;
@@ -51,9 +47,6 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
 
     /** Whether or not to flip vertically */
     public boolean flipVertical;
-
-    /** Current trace context to be propagated */
-    public Map<String, String> traceContext = new HashMap<String, String>();
 
     public RegionDef region;
 

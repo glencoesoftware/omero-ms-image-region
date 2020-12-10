@@ -29,6 +29,7 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
+import brave.propagation.TraceContext;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
@@ -265,9 +266,11 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         try {
             String body = message.body();
             shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
+            TraceContext traceCtx = extractor().extract(
+                    shapeMaskCtx.traceContext).context();
             span = Tracing.currentTracer().startScopedSpanWithParent(
                     "get_label_image_metadata_verticle",
-                    extractor().extract(shapeMaskCtx.traceContext).context());
+                    traceCtx);
             span.tag("ctx", body);
         } catch (Exception e) {
             String v = "Illegal shape mask context";
