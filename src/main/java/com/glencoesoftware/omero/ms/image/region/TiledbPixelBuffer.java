@@ -157,7 +157,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     @Override
     public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
             throws IOException {
-        log.info("getTile");
         StringBuffer domStrBuf = new StringBuffer();
         domStrBuf.append("[")
             .append(t).append(",")
@@ -435,8 +434,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
 
     @Override
     public Dimension getTileSize() {
-        // TODO Auto-generated method stub
-        log.info("getTileSize");
         return new Dimension(getSizeX(), getSizeY());
     }
 

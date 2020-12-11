@@ -25,6 +25,7 @@ import io.tiledb.java.api.Query;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
 import io.tiledb.java.api.VFS;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
 import ome.util.PixelData;
@@ -543,30 +544,15 @@ public class TiledbUtils {
         try (Config config = new Config()) {
             setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
             try (Context ctx = new Context(config);
-                    VFS vfs = new VFS(ctx)) {
-                int count = 0;
-                String testPath = parentPath + "/" + Integer.toString(count);
-                while(vfs.isDirectory(testPath)) {
-                    count += 1;
-                    testPath = parentPath + "/" + Integer.toString(count);
-                }
-                return count;
+                    Array array = new Array(ctx, parentPath)) {
+                String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
+                JsonObject multiscales = new JsonObject(multiscalesMetaStr);
+                JsonArray datasets = multiscales.getJsonArray("datasets");
+                return datasets.size();
             }
         } finally {
             span.finish();
         }
-    }
-
-    public static int getResolutionLevelCountS3(VFS vfs, String parentPath) throws TileDBError {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_s3_vfs");
-        int count = 0;
-        String testPath = parentPath + "/" + Integer.toString(count);
-        while(vfs.isDirectory(testPath)) {
-            count += 1;
-            testPath = parentPath + "/" + Integer.toString(count);
-        }
-        span.finish();
-        return count;
     }
 
     public int getDimSize(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel, String dimName) {
