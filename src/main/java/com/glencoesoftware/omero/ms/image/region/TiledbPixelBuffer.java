@@ -1,7 +1,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
-import java.io.File;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
@@ -445,8 +444,9 @@ public class TiledbPixelBuffer implements PixelBuffer {
         for(int i = 0; i < resLevels; i++) {
             this.resolutionLevel = i;
             List<Integer> description = new ArrayList<Integer>();
-            description.add(getSizeX());
-            description.add(getSizeY());
+            Integer[] xy = tiledbUtils.getSizeXandY(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel);
+            description.add(xy[0]);
+            description.add(xy[1]);
             resolutionDescriptions.add(description);
         }
         setResolutionLevel(originalResolution);

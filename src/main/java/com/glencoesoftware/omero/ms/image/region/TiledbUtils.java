@@ -592,6 +592,48 @@ public class TiledbUtils {
         return 0;
     }
 
+    public Integer[] getSizeXandY(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_size_x_and_y");
+        String tiledbPath;
+        if (ngffDir.startsWith("s3://")) {
+            span.tag("location", "s3");
+            StringBuilder s3PathBuilder = new StringBuilder().append(ngffDir);
+            if (!ngffDir.endsWith("/")) {
+                s3PathBuilder.append("/");
+            }
+            s3PathBuilder.append(filesetId).append(".tiledb/")
+                .append(series).append("/")
+                .append(resolutionLevel);
+            tiledbPath = s3PathBuilder.toString();
+        } else {
+            span.tag("location", "local");
+            Path tiledbDataPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                    + ".tiledb").resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
+            tiledbPath = tiledbDataPath.toString();
+        }
+        try (Config config = new Config()) {
+            if (ngffDir.startsWith("s3://")) {
+                TiledbUtils.setupAwsConfig(config, accessKey, secretKey, awsRegion, s3EndpointOverride);
+            }
+            try (Context ctx = new Context(config);
+                    Array array = new Array(ctx, tiledbPath, QueryType.TILEDB_READ)){
+                Domain dom = array.getSchema().getDomain();
+                Integer[] xy = new Integer[2];
+                xy[0] = (int) ((long) dom.getDimension("x").getDomain().getSecond()
+                        - (long) dom.getDimension("x").getDomain().getFirst() + 1);
+                xy[1] = (int) ((long) dom.getDimension("y").getDomain().getSecond()
+                        - (long) dom.getDimension("y").getDomain().getFirst() + 1);
+                return xy;
+            }
+        } catch (TileDBError e) {
+            log.error("TileDBError in getDimSize", e);
+            span.error(e);
+        } finally {
+            span.finish();
+        }
+        return null;
+    }
+
     private static JsonObject getMetadataFromArray(Array array, long[] minMax,
             JsonObject multiscales, String uuid) throws TileDBError {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_metadata_from_array");
