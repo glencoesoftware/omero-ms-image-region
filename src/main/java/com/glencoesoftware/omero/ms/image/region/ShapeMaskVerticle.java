@@ -60,12 +60,16 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     /** Configured TiledbUtils */
     TiledbUtils tiledbUtils;
 
+    /** Configured TiledbUtils */
+    ZarrUtils zarrUtils;
+
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle(TiledbUtils tiledbUtils)
+    public ShapeMaskVerticle(TiledbUtils tiledbUtils, ZarrUtils zarrUtils)
     {
         this.tiledbUtils = tiledbUtils;
+        this.zarrUtils = zarrUtils;
     }
 
     /* (non-Javadoc)
@@ -134,7 +138,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils);
+                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -217,7 +221,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                  host, port, shapeMaskCtx.omeroSessionKey))
         {
             ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir,
-                        tiledbUtils);
+                        tiledbUtils, zarrUtils);
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -282,7 +286,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 host, port, shapeMaskCtx.omeroSessionKey))
         {
             JsonObject metadata = null;
-            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils);
+            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
             metadata = request.execute(
                     requestHandler::getLabelImageMetadata);
             if (metadata == null) {

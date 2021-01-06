@@ -116,6 +116,9 @@ public class ImageRegionRequestHandler {
     //** Configured TiledbUtils */
     private final TiledbUtils tiledbUtils;
 
+  //** Configured ZarrUtils */
+    private final ZarrUtils zarrUtils;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
@@ -128,7 +131,8 @@ public class ImageRegionRequestHandler {
             LocalCompress compSrv,
             int maxTileLength,
             String ngffDir,
-            TiledbUtils tiledbUtils) {
+            TiledbUtils tiledbUtils,
+            ZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
@@ -137,6 +141,7 @@ public class ImageRegionRequestHandler {
         this.maxTileLength = maxTileLength;
         this.ngffDir = ngffDir;
         this.tiledbUtils = tiledbUtils;
+        this.zarrUtils = zarrUtils;
 
         pixelsService = pixService;
         projectionService = new ProjectionService();
@@ -150,6 +155,7 @@ public class ImageRegionRequestHandler {
      * provided by <code>imageRegionCtx</code>.
      */
     public byte[] renderImageRegion(omero.client client) {
+        log.info("renderImageRegion");
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
@@ -248,7 +254,8 @@ public class ImageRegionRequestHandler {
         PixelBuffer pb = null;
         try {
             try {
-                pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir, tiledbUtils);
+                //pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir, tiledbUtils);
+                pb = pixelsService.getZarrPixelBuffer(pixels, ngffDir, zarrUtils);
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
                 log.info("Getting TiledbPixelBuffer failed - attempting to get local data");

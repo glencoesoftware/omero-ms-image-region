@@ -88,6 +88,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     private final TiledbUtils tiledbUtils;
 
+    private final ZarrUtils zarrUtils;
+
     /**
      * Default constructor.
      */
@@ -96,13 +98,15 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength,
-            TiledbUtils tiledbUtils)
+            TiledbUtils tiledbUtils,
+            ZarrUtils zarrUtils)
     {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.tiledbUtils = tiledbUtils;
+        this.zarrUtils = zarrUtils;
     }
 
     /* (non-Javadoc)
@@ -177,7 +181,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             compressionService,
                             maxTileLength,
                             ngffDir,
-                            tiledbUtils)::renderImageRegion);
+                            tiledbUtils,
+                            zarrUtils)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(

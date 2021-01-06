@@ -29,6 +29,7 @@ import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,10 @@ import java.util.Optional;
 import javax.imageio.ImageIO;
 
 import org.slf4j.LoggerFactory;
+
+import com.bc.zarr.ArrayParams;
+import com.bc.zarr.DataType;
+import com.bc.zarr.ZarrArray;
 
 import brave.ScopedSpan;
 import brave.Tracing;
@@ -49,6 +54,7 @@ import omero.api.IQueryPrx;
 import omero.model.Image;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
+import ucar.ma2.InvalidRangeException;
 
 public class ShapeMaskRequestHandler {
 
@@ -62,18 +68,22 @@ public class ShapeMaskRequestHandler {
     private final String ngffDir;
 
     /** Configured TiledbUtils */
-    TiledbUtils tiledbUtils;
+    private final TiledbUtils tiledbUtils;
+
+    /** Configured ZarrUtils */
+    private final ZarrUtils zarrUtils;
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
     public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir,
-            TiledbUtils tiledbUtils) {
+            TiledbUtils tiledbUtils, ZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
         this.tiledbUtils = tiledbUtils;
+        this.zarrUtils = zarrUtils;
     }
 
     /**

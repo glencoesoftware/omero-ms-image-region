@@ -71,16 +71,28 @@
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
     <constructor-arg ref="tiledb-utils" />
+    <constructor-arg ref="zarr-utils" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
     <constructor-arg ref="tiledb-utils" />
+    <constructor-arg ref="zarr-utils" />
   </bean>
 
   <bean id="tiledb-utils"
         class="com.glencoesoftware.omero.ms.image.region.TiledbUtils"
+        scope="prototype">
+        <constructor-arg value="${aws.access-key:}" />
+        <constructor-arg value="${aws.secret-key:}" />
+        <constructor-arg value="${aws.region:}" />
+        <constructor-arg value="${aws.ngff-s3-endpoint:}" />
+        <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
+  </bean>
+  
+  <bean id="zarr-utils"
+        class="com.glencoesoftware.omero.ms.image.region.ZarrUtils"
         scope="prototype">
         <constructor-arg value="${aws.access-key:}" />
         <constructor-arg value="${aws.secret-key:}" />

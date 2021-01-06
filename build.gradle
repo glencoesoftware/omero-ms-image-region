@@ -30,6 +30,10 @@ repositories {
     maven {
         url 'https://oss.sonatype.org/content/repositories/snapshots/'
     }
+    maven {
+        name 'Brockmann-Consult Public Maven Repository'
+        url 'http://nexus.senbox.net/nexus/content/groups/public/'
+    }
 }
 
 configurations.all {
@@ -77,6 +81,7 @@ dependencies {
     implementation 'com.zeroc:icegrid:3.6.4'
     implementation 'io.tiledb:tiledb-java:0.3.3-SNAPSHOT'
     implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'com.bc.zarr:jzarr:0.3.2'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.+'
 }

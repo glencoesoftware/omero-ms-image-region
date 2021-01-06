@@ -90,5 +90,19 @@ public class PixelsService extends ome.io.nio.PixelsService {
         log.info("Creating TiledbPixelBuffer");
         return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
     }
+
+    /**
+     * Returns a ZarrPixelBuffer for a given set of pixels.
+     * @param pixels Pixels set to retrieve a pixel buffer for.
+     * @param write Whether or not to open the pixel buffer as read-write.
+     * <code>true</code> opens as read-write, <code>false</code> opens as
+     * read-only.
+     * @return A pixel buffer instance.
+     * @since OMERO-Beta4.3
+     */
+    public PixelBuffer getZarrPixelBuffer(Pixels pixels, String ngffDir, ZarrUtils zarrUtils) {
+        log.info("Creating ZarrPixelBuffer");
+        return new ZarrPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
+    }
 }
 

@@ -63,7 +63,8 @@ public class ImageRegionRequestHandlerTest {
                 null, //PixelsService pixService,
                 1024, //maxTileLength,
                 "", //ngffDir
-                null); //tiledbUtils);
+                null, //tiledbUtils
+                null); //zarrUtils);
     }
 
     private void testFlip(
