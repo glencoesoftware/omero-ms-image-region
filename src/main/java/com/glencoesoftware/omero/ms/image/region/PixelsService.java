@@ -100,7 +100,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return A pixel buffer instance.
      * @since OMERO-Beta4.3
      */
-    public PixelBuffer getZarrPixelBuffer(Pixels pixels, String ngffDir, ZarrUtils zarrUtils) {
+    public PixelBuffer getZarrPixelBuffer(Pixels pixels, String ngffDir, OmeroZarrUtils zarrUtils) {
         log.info("Creating ZarrPixelBuffer");
         return new ZarrPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
     }

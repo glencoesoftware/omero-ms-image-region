@@ -117,7 +117,7 @@ public class ImageRegionRequestHandler {
     private final TiledbUtils tiledbUtils;
 
   //** Configured ZarrUtils */
-    private final ZarrUtils zarrUtils;
+    private final OmeroZarrUtils zarrUtils;
 
     /**
      * Default constructor.
@@ -132,7 +132,7 @@ public class ImageRegionRequestHandler {
             int maxTileLength,
             String ngffDir,
             TiledbUtils tiledbUtils,
-            ZarrUtils zarrUtils) {
+            OmeroZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;

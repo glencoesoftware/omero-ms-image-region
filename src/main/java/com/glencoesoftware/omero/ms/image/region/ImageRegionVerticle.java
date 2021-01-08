@@ -88,7 +88,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     private final TiledbUtils tiledbUtils;
 
-    private final ZarrUtils zarrUtils;
+    private final OmeroZarrUtils zarrUtils;
 
     /**
      * Default constructor.
@@ -99,7 +99,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LutProvider lutProvider,
             int maxTileLength,
             TiledbUtils tiledbUtils,
-            ZarrUtils zarrUtils)
+            OmeroZarrUtils zarrUtils)
     {
         this.pixelsService = pixelsService;
         this.compressionService = compressionService;

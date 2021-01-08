@@ -61,12 +61,12 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     TiledbUtils tiledbUtils;
 
     /** Configured TiledbUtils */
-    ZarrUtils zarrUtils;
+    OmeroZarrUtils zarrUtils;
 
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle(TiledbUtils tiledbUtils, ZarrUtils zarrUtils)
+    public ShapeMaskVerticle(TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils)
     {
         this.tiledbUtils = tiledbUtils;
         this.zarrUtils = zarrUtils;

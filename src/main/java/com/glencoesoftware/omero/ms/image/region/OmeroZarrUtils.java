@@ -7,23 +7,35 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
 import com.bc.zarr.DataType;
 import com.bc.zarr.ZarrArray;
+import com.bc.zarr.ZarrGroup;
+import com.bc.zarr.ZarrUtils;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.tiledb.java.api.Array;
+import io.tiledb.java.api.ArraySchema;
+import io.tiledb.java.api.Attribute;
+import io.tiledb.java.api.Context;
+import io.tiledb.java.api.Domain;
+import io.tiledb.java.api.QueryType;
+import io.tiledb.java.api.TileDBError;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 
-public class ZarrUtils {
+public class OmeroZarrUtils {
 
     String accessKey;
     String secretKey;
@@ -31,7 +43,7 @@ public class ZarrUtils {
     String s3EndpointOverride;
     Integer maxTileLength;
 
-    public ZarrUtils(String accessKey, String secretKey, String awsRegion, String s3EndpointOverride, Integer maxTileLength) {
+    public OmeroZarrUtils(String accessKey, String secretKey, String awsRegion, String s3EndpointOverride, Integer maxTileLength) {
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.awsRegion = awsRegion;
@@ -40,7 +52,7 @@ public class ZarrUtils {
     }
 
     private static final org.slf4j.Logger log =
-        LoggerFactory.getLogger(ZarrUtils.class);
+        LoggerFactory.getLogger(OmeroZarrUtils.class);
 
     public static String getPixelsType(DataType type) {
         switch (type) {
@@ -227,7 +239,7 @@ public class ZarrUtils {
 
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
             String domainStr) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_bytes");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_label_image_bytes");
         try {
             String ngffPath;
             if (ngffDir.startsWith("s3://")) {
@@ -237,6 +249,10 @@ public class ZarrUtils {
                 span.tag("location", "local");
                 ngffPath = getLocalLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
             }
+            ZarrArray zarray = ZarrArray.open(ngffPath);
+            return OmeroZarrUtils.getData(zarray, domainStr, maxTileLength);
+        } catch (IOException | InvalidRangeException e) {
+            log.error("Failed to get label image bytes", e);
             return null;
         } finally {
             span.finish();
@@ -249,7 +265,7 @@ public class ZarrUtils {
         if(!s3PathBuilder.toString().endsWith("/")) {
             s3PathBuilder.append("/");
         }
-        s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+        s3PathBuilder.append(filesetId).append(".zarr").append("/")
             .append(series).append("/")
             .append(resolution).append("/");
         return s3PathBuilder.toString();
@@ -271,7 +287,7 @@ public class ZarrUtils {
         try {
             log.info("getPixelData " + ngffPath);
             ZarrArray array = ZarrArray.open(ngffPath);
-            byte[] buffer = ZarrUtils.getData(array, domainStr, maxTileLength);
+            byte[] buffer = OmeroZarrUtils.getData(array, domainStr, maxTileLength);
             PixelData d = new PixelData(getPixelsType(array.getDataType()), ByteBuffer.wrap(buffer));
             d.setOrder(ByteOrder.nativeOrder());
             return d;
@@ -329,7 +345,7 @@ public class ZarrUtils {
         if(shapeAndStart[0][3] > maxTileLength || shapeAndStart[0][4] > maxTileLength) {
             throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
         }
-        return ZarrUtils.getBytes(zarray, shapeAndStart[0], shapeAndStart[1]);
+        return OmeroZarrUtils.getBytes(zarray, shapeAndStart[0], shapeAndStart[1]);
     }
 
     public static byte[] getBytes(ZarrArray zarray, int[] shape, int[] offset) {
@@ -484,7 +500,44 @@ public class ZarrUtils {
      * @return A JsonObject with the label image metadata
      */
     public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-        return getLabelImageMetadataLocal(ngffDir, filesetId, series, uuid, resolution);
+        if (ngffDir.startsWith("s3://")) {
+            return getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
+        } else {
+            return getLabelImageMetadataLocal(ngffDir, filesetId, series, uuid, resolution);
+        }
+    }
+
+    private static JsonObject getMetadataFromArray(ZarrArray zarray, int[] minMax,
+            JsonObject multiscales, String uuid) throws TileDBError {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_metadata_from_array");
+        int[] shape = zarray.getShape();
+
+        JsonObject metadata = new JsonObject();
+        if(minMax != null) {
+            metadata.put("min", minMax[0]);
+            metadata.put("max", minMax[1]);
+        }
+        JsonObject size = new JsonObject();
+        size.put("t", shape[0]);
+        size.put("c", shape[1]);
+        size.put("z", shape[2]);
+        size.put("height", shape[3]);
+        size.put("width", shape[4]);
+
+        metadata.put("size", size);
+        metadata.put("type", zarray.getDataType().toString());
+        if(multiscales != null) {
+            metadata.put("multiscales", multiscales);
+        }
+        metadata.put("uuid", uuid);
+        span.finish();
+        return metadata;
+    }
+
+    private JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid,
+            int resolution) {
+        // TODO Auto-generated method stub
+        return null;
     }
 
     /**
@@ -497,9 +550,37 @@ public class ZarrUtils {
      * @return A JsonObject with the label image metadata
      */
     private JsonObject getLabelImageMetadataLocal(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_label_image_metadata");
+        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                + ".zarr").resolve(Integer.toString(series));
+        Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+        Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
+        Path fullngffDir = labelImageShapePath.resolve(Integer.toString(resolution));
+        JsonObject multiscales = null;
+        int[] minMax = null;
+        if (Files.exists(fullngffDir)) {
+            try {
+                ZarrGroup labelImageShapeGroup = ZarrGroup.open(labelImageShapePath);
+                JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(labelImageShapeGroup.getAttributes()));
+                if (jsonAttrs.containsKey("multiscales")) {
+                    multiscales = jsonAttrs.getJsonObject("multiscales");
+                } if (jsonAttrs.containsKey("minmax")) {
+                    JsonArray minMaxArray = jsonAttrs.getJsonArray("minmax");
+                    minMax = new int[] {minMaxArray.getInteger(0), minMaxArray.getInteger(1)};
+                }
+            } catch (Exception e) {
+                log.error("Exception while retrieving lzarr abel image metadata", e);
+            }
+            try {
+                ZarrArray zarray = ZarrArray.open(fullngffDir);
+                return getMetadataFromArray(zarray, minMax, multiscales, uuid);
+            } catch (Exception e) {
+                log.error("Exception while retrieving label image metadata", e);
+            } finally {
+                span.finish();
+            }
+        }
         span.finish();
         return null;
     }
-
 }

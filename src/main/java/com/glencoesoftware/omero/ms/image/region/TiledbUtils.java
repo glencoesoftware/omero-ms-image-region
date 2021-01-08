@@ -270,8 +270,8 @@ public class TiledbUtils {
     }
 
     private String getLocalLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
-        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                + ".tiledb/" + Integer.toString(series));
+        Path labelImageBasePath = Paths.get(ngffDir, Long.toString(filesetId)
+                + ".tiledb", Integer.toString(series));
         Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
         Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
         Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
@@ -695,7 +695,7 @@ public class TiledbUtils {
      * @return A JsonObject with the label image metadata
      */
     private JsonObject getLabelImageMetadataLocal(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("tiledb_get_label_image_metadata");
         Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
                 + ".tiledb").resolve(Integer.toString(series));
         Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
@@ -765,9 +765,9 @@ public class TiledbUtils {
                 arraySpan = Tracing.currentTracer().startScopedSpan("get_multiscales_minmax_metadata");
                 if(array.hasMetadataKey("multiscales")) {
                     String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "multiscales");
-                    minMax = getMinMaxMetadata(array);
                     multiscales = new JsonObject(multiscalesMetaStr);
                 }
+                minMax = getMinMaxMetadata(array);
                 arraySpan.finish();
             } catch (Exception e) {
                 log.error("Exception while retrieving label image metadata", e);

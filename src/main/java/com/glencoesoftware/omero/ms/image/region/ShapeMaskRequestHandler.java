@@ -67,23 +67,19 @@ public class ShapeMaskRequestHandler {
     /** Location of ngff files */
     private final String ngffDir;
 
-    /** Configured TiledbUtils */
-    private final TiledbUtils tiledbUtils;
-
-    /** Configured ZarrUtils */
-    private final ZarrUtils zarrUtils;
+    /** NgffUtils */
+    private final NgffUtils ngffUtils;
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
     public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir,
-            TiledbUtils tiledbUtils, ZarrUtils zarrUtils) {
+            TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
-        this.tiledbUtils = tiledbUtils;
-        this.zarrUtils = zarrUtils;
+        this.ngffUtils = new NgffUtils(tiledbUtils, zarrUtils);
     }
 
     /**
@@ -346,8 +342,7 @@ public class ShapeMaskRequestHandler {
                     throw new IllegalArgumentException("Failed to supply domain parameter to getShapeMaskBytes");
                 }
                 try {
-                    return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution,
-                            shapeMaskCtx.subarrayDomainStr);
+                    return ngffUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, shapeMaskCtx.subarrayDomainStr);
                 } catch (Exception e) {
                     log.error("Error getting label image bytes from TileDB", e);
                     return mask.getBytes();
@@ -388,7 +383,7 @@ public class ShapeMaskRequestHandler {
                 if(shapeMaskCtx.resolution != null) {
                     resolution = shapeMaskCtx.resolution;
                 }
-                return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+                return ngffUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
             } else {
                 return null;
             }

@@ -92,7 +92,7 @@
   </bean>
   
   <bean id="zarr-utils"
-        class="com.glencoesoftware.omero.ms.image.region.ZarrUtils"
+        class="com.glencoesoftware.omero.ms.image.region.OmeroZarrUtils"
         scope="prototype">
         <constructor-arg value="${aws.access-key:}" />
         <constructor-arg value="${aws.secret-key:}" />

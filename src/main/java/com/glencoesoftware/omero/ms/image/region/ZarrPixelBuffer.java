@@ -23,9 +23,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     int resolutionLevel;
 
-    ZarrUtils zarrUtils;
+    OmeroZarrUtils zarrUtils;
 
-    public ZarrPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, ZarrUtils zarrUtils) {
+    public ZarrPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, OmeroZarrUtils zarrUtils) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;
         this.filesetId = filesetId;
