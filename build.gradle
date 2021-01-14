@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.5.4-SNAPSHOT-10'
+version = '0.5.4-SNAPSHOT-11'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
@@ -43,12 +43,12 @@ configurations.all {
     exclude group: 'com.mortennobel'
     exclude group: 'com.zeroc', module: 'icestorm'
     exclude group: 'commons-beanutils'
-    exclude group: 'commons-codec'
+    //exclude group: 'commons-codec'
     exclude group: 'geronimo-spec'
     exclude group: 'gnu.getopt'
     exclude group: 'net.sf.ehcache'
-    exclude group: 'org.apache.commons'
-    exclude group: 'org.apache.httpcomponents'
+    //exclude group: 'org.apache.commons'
+    //exclude group: 'org.apache.httpcomponents'
     exclude group: 'org.apache.pdfbox'
     exclude group: 'org.apache.xmlgraphics'
     exclude group: 'org.ini4j'
@@ -82,6 +82,7 @@ dependencies {
     implementation 'io.tiledb:tiledb-java:0.3.3-SNAPSHOT'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.bc.zarr:jzarr:0.3.2'
+    implementation 'org.lasersonlab:s3fs:2.2.3'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.+'
 }

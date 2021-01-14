@@ -32,7 +32,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
         this.zarrUtils = zarrUtils;
         this.resolutionLevel = this.getResolutionLevels() - 1;
         if (this.resolutionLevel < 0) {
-            throw new IllegalArgumentException("This TileDB file has no pixel data");
+            throw new IllegalArgumentException("This Zarr file has no pixel data");
         }
     }
 

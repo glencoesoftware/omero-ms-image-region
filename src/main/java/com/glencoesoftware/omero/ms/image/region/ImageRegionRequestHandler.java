@@ -622,6 +622,14 @@ public class ImageRegionRequestHandler {
     protected void truncateRegionDef(
             int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
+        if (regionDef.getX() > sizeX ||
+                regionDef.getY() > sizeY) {
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.append("Start position (").append(regionDef.getX())
+                .append(",").append(regionDef.getY()).append(") exceeds image size (")
+                .append(sizeX).append(",").append(sizeY).append(")");
+            throw new IllegalArgumentException(messageBuilder.toString());
+        }
         regionDef.setWidth(Math.min(
                 regionDef.getWidth(), sizeX - regionDef.getX()));
         regionDef.setHeight(Math.min(

@@ -99,5 +99,14 @@
         <constructor-arg value="${aws.region:}" />
         <constructor-arg value="${aws.ngff-s3-endpoint:}" />
         <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
+        <constructor-arg ref="s3fs"/>
+  </bean>
+  
+  <bean id="s3fs"
+        class="com.glencoesoftware.omero.ms.image.region.S3FilesystemWrapper"
+        scope="singleton">
+        <constructor-arg value="${aws.access-key:}" />
+        <constructor-arg value="${aws.secret-key:}" />
+        <constructor-arg value="s3.amazonaws.com" />
   </bean>
 </beans>

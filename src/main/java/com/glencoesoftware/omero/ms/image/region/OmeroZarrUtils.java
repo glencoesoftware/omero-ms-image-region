@@ -7,11 +7,11 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
@@ -22,12 +22,6 @@ import com.bc.zarr.ZarrUtils;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import io.tiledb.java.api.Array;
-import io.tiledb.java.api.ArraySchema;
-import io.tiledb.java.api.Attribute;
-import io.tiledb.java.api.Context;
-import io.tiledb.java.api.Domain;
-import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -43,12 +37,20 @@ public class OmeroZarrUtils {
     String s3EndpointOverride;
     Integer maxTileLength;
 
-    public OmeroZarrUtils(String accessKey, String secretKey, String awsRegion, String s3EndpointOverride, Integer maxTileLength) {
+    FileSystem s3fs;
+
+    public OmeroZarrUtils(String accessKey,
+            String secretKey,
+            String awsRegion,
+            String s3EndpointOverride,
+            Integer maxTileLength,
+            S3FilesystemWrapper s3fsWrapper) {
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.awsRegion = awsRegion;
         this.s3EndpointOverride = s3EndpointOverride;
         this.maxTileLength = maxTileLength;
+        this.s3fs = s3fsWrapper.getS3fs();
     }
 
     private static final org.slf4j.Logger log =
@@ -196,59 +198,28 @@ public class OmeroZarrUtils {
         return shapeAndStart;
     }
 
-    public String getImageDataPath(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) {
-        if (ngffDir.startsWith("s3://")) {
-            StringBuilder s3PathBuilder = new StringBuilder().append(ngffDir);
-            if (!ngffDir.endsWith("/")) {
-                s3PathBuilder.append("/");
-            }
-            s3PathBuilder.append(filesetId).append(".zarr/")
-                .append(series).append("/")
-                .append(resolutionLevel);
-            return s3PathBuilder.toString();
-        } else {
-            Path zarrDataPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                    + ".zarr").resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
-            log.info(zarrDataPath.toString());
-            return zarrDataPath.toString();
-        }
+    public Path getImageDataPath(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) throws IOException {
+        Path imageDataPath = getLocalOrS3Path(ngffDir);
+        imageDataPath = imageDataPath.resolve(Long.toString(filesetId)
+                + ".zarr").resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
+        return imageDataPath;
     }
 
-    private String getS3LabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
-        StringBuilder s3PathBuilder = new StringBuilder();
-        s3PathBuilder.append(ngffDir);
-        if(!s3PathBuilder.toString().endsWith("/")) {
-            s3PathBuilder.append("/");
-        }
-        s3PathBuilder.append(filesetId).append(".zarr").append("/")
-            .append(series).append("/")
-            .append("labels").append("/")
-            .append(uuid).append("/")
-            .append(resolution).append("/");
-        return s3PathBuilder.toString();
-    }
-
-    private String getLocalLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) {
-        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+    private Path getLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) throws IOException {
+        Path labelImageBasePath = getLocalOrS3Path(ngffDir);
+        labelImageBasePath = labelImageBasePath.resolve(Long.toString(filesetId)
                 + ".zarr/" + Integer.toString(series));
         Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
         Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
         Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
-        return fullNgffDir.toString();
+        return fullNgffDir;
     }
 
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
             String domainStr) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_label_image_bytes");
         try {
-            String ngffPath;
-            if (ngffDir.startsWith("s3://")) {
-                span.tag("location", "s3");
-                ngffPath = getS3LabelImagePath(ngffDir, filesetId, series, uuid, resolution);
-            } else {
-                span.tag("location", "local");
-                ngffPath = getLocalLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
-            }
+            Path ngffPath = getLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
             ZarrArray zarray = ZarrArray.open(ngffPath);
             return OmeroZarrUtils.getData(zarray, domainStr, maxTileLength);
         } catch (IOException | InvalidRangeException e) {
@@ -257,18 +228,6 @@ public class OmeroZarrUtils {
         } finally {
             span.finish();
         }
-    }
-
-    public static String getS3ImageDataPath(String ngffDir, long filesetId, int series, Integer resolution) {
-        StringBuilder s3PathBuilder = new StringBuilder();
-        s3PathBuilder.append(ngffDir);
-        if(!s3PathBuilder.toString().endsWith("/")) {
-            s3PathBuilder.append("/");
-        }
-        s3PathBuilder.append(filesetId).append(".zarr").append("/")
-            .append(series).append("/")
-            .append(resolution).append("/");
-        return s3PathBuilder.toString();
     }
 
     public PixelData getPixelData(String ngffPath, String domainStr, Integer maxTileLength) {
@@ -281,9 +240,9 @@ public class OmeroZarrUtils {
     }
 
     public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel,
-            String domainStr) {
+            String domainStr) throws IOException {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_dir");
-        String ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
+        Path ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
         try {
             log.info("getPixelData " + ngffPath);
             ZarrArray array = ZarrArray.open(ngffPath);
@@ -393,58 +352,50 @@ public class OmeroZarrUtils {
         }
     }
 
-    public int getResolutionLevels(String ngffDir, Long filesetId, Integer series) {
-        if (ngffDir.startsWith("s3://")) {
-            return 0;
-        } else {
-            Path zarrSeriesPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                    + ".tiledb").resolve(Integer.toString(series));
-            File[] directories = new File(zarrSeriesPath.toString()).listFiles(File::isDirectory);
-            int count = 0;
-            for(File dir : directories) {
-                try {
-                    Integer.valueOf(dir.getName());
-                    count++;
-                } catch(NumberFormatException e) {
-                }
-            }
-            return count;
-        }
-    }
-/*
-    public static String getStringMetadata(Array array, String key) throws TileDBError {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_string_metadata");
-        try {
-            if(array.hasMetadataKey(key)) {
-                NativeArray strNativeArray = array.getMetadata(key, Datatype.TILEDB_CHAR);
-                return new String((byte[]) strNativeArray.toJavaArray(), StandardCharsets.UTF_8);
-            } else {
-                return null;
-            }
-        } finally {
-            span.finish();
-        }
-    }
-    */
 
-    public static long[] getMinMaxMetadata(ZarrArray array) {
-        /*
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_minmax_metadata");
+    public int getResolutionLevels(String ngffDir, Long filesetId, Integer series) {
+        Path basePath;
         try {
-            String key = "minmax";
-            if(array.hasMetadataKey(key)) {
-                NativeArray minMaxNativeArray = array.getMetadata(key, Datatype.TILEDB_INT32);
-                return (long[]) minMaxNativeArray.toJavaArray();
-            } else {
-                return null;
+            basePath = getLocalOrS3Path(ngffDir);
+        } catch (IOException e) {
+            log.error("Failed to get resolution levels form S3", e);
+            return 0;
+        }
+        Path zarrSeriesPath = basePath.resolve(Long.toString(filesetId)
+                + ".zarr").resolve(Integer.toString(series));
+        /*
+        File[] directories = new File(zarrSeriesPath.toString()).listFiles(File::isDirectory);
+        int count = 0;
+        for(File dir : directories) {
+            try {
+                Integer.valueOf(dir.getName());
+                count++;
+            } catch(NumberFormatException e) {
             }
-        } finally {
-            span.finish();
         }
         */
-        return null;
+        int count = 0;
+        while(Files.isDirectory(zarrSeriesPath.resolve(Integer.toString(count)))) {
+            count++;
+        }
+        return count;
     }
 
+    public Path getLocalOrS3Path(String ngffDir) throws IOException {
+        Path path;
+        if(ngffDir.startsWith("s3://")) {
+            if (s3fs == null) {
+                throw new IOException("Cannot get s3 path from null FileSystem");
+            }
+            String s3BucketName = ngffDir.substring(5); // Remove s3://
+            Path bucketPath = s3fs.getPath("/" + s3BucketName);
+            return bucketPath;
+        } else {
+            path = Paths.get(ngffDir);
+        }
+        return path;
+    }
+/*
     public static int getResolutionLevelCount(String labelImageShapePath) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_local");
         File[] directories = new File(labelImageShapePath).listFiles(File::isDirectory);
@@ -463,11 +414,12 @@ public class OmeroZarrUtils {
     public int getResolutionLevelCountS3(String parentPath) {
         return 0;
     }
+    */
 
     public int getDimSize(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel, Integer dimIdx) {
         try {
-            String imageDataPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
-            log.info(imageDataPath);
+            Path imageDataPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
+            log.info(imageDataPath.toString());
             ZarrArray zarray = ZarrArray.open(imageDataPath);
             return zarray.getShape()[dimIdx];
         } catch (IOException e) {
@@ -489,23 +441,6 @@ public class OmeroZarrUtils {
         }
     }
 
-
-    /**
-     * Get label image metadata request handler.
-     * @param ngffDir The base directory for ngff data
-     * @param filesetId The fileset ID of the image
-     * @param series The series ID of the image in the fileset
-     * @param uuid The External Info UUID of the shape associated with the label image
-     * @param ngffDir the base directory for ngff data
-     * @return A JsonObject with the label image metadata
-     */
-    public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
-        if (ngffDir.startsWith("s3://")) {
-            return getLabelImageMetadataS3(ngffDir, filesetId, series, uuid, resolution);
-        } else {
-            return getLabelImageMetadataLocal(ngffDir, filesetId, series, uuid, resolution);
-        }
-    }
 
     private static JsonObject getMetadataFromArray(ZarrArray zarray, int[] minMax,
             JsonObject multiscales, String uuid) throws TileDBError {
@@ -534,14 +469,8 @@ public class OmeroZarrUtils {
         return metadata;
     }
 
-    private JsonObject getLabelImageMetadataS3(String ngffDir, long filesetId, int series, String uuid,
-            int resolution) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     /**
-     * Get label image metadata for local label image.
+     * Get label image metadata request handler.
      * @param ngffDir The base directory for ngff data
      * @param filesetId The fileset ID of the image
      * @param series The series ID of the image in the fileset
@@ -549,9 +478,19 @@ public class OmeroZarrUtils {
      * @param ngffDir the base directory for ngff data
      * @return A JsonObject with the label image metadata
      */
-    private JsonObject getLabelImageMetadataLocal(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+    public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+        log.info("Getting label image metadata from zarr in dir " + ngffDir);
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_label_image_metadata");
-        Path labelImageBasePath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+        Path basePath;
+        try {
+            basePath = getLocalOrS3Path(ngffDir);
+        } catch (IOException e) {
+            log.error("Error getting metadata from s3", e);
+            return null;
+        } finally {
+            span.finish();
+        }
+        Path labelImageBasePath = basePath.resolve(Long.toString(filesetId)
                 + ".zarr").resolve(Integer.toString(series));
         Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
         Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
