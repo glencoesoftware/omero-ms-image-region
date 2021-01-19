@@ -466,32 +466,37 @@ public class TiledbUtils {
     }
 
     public int getResolutionLevels(String ngffDir, Long filesetId, Integer series) {
-        if (ngffDir.startsWith("s3://")) {
-            StringBuilder parentPathBuidler = new StringBuilder().append(ngffDir);
-            if(!ngffDir.endsWith("/")) {
-                parentPathBuidler.append("/");
-            }
-            parentPathBuidler.append(filesetId).append(".tiledb").append("/")
-                .append(series).append("/");
-            try {
-                return getResolutionLevelCountS3(parentPathBuidler.toString());
-            } catch (TileDBError e) {
-                log.error("Error getting s3 TileDB resolution level count for image fileset" + Long.toString(filesetId), e);
-                return -1;
-            }
-        } else {
-            Path tiledbSeriesPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
-                    + ".tiledb").resolve(Integer.toString(series));
-            File[] directories = new File(tiledbSeriesPath.toString()).listFiles(File::isDirectory);
-            int count = 0;
-            for(File dir : directories) {
-                try {
-                    Integer.valueOf(dir.getName());
-                    count++;
-                } catch(NumberFormatException e) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_resolution_levels_tiledb");
+        try {
+            if (ngffDir.startsWith("s3://")) {
+                StringBuilder parentPathBuidler = new StringBuilder().append(ngffDir);
+                if(!ngffDir.endsWith("/")) {
+                    parentPathBuidler.append("/");
                 }
+                parentPathBuidler.append(filesetId).append(".tiledb").append("/")
+                    .append(series).append("/");
+                try {
+                    return getResolutionLevelCountS3(parentPathBuidler.toString());
+                } catch (TileDBError e) {
+                    log.error("Error getting s3 TileDB resolution level count for image fileset" + Long.toString(filesetId), e);
+                    return -1;
+                }
+            } else {
+                Path tiledbSeriesPath = Paths.get(ngffDir).resolve(Long.toString(filesetId)
+                        + ".tiledb").resolve(Integer.toString(series));
+                File[] directories = new File(tiledbSeriesPath.toString()).listFiles(File::isDirectory);
+                int count = 0;
+                for(File dir : directories) {
+                    try {
+                        Integer.valueOf(dir.getName());
+                        count++;
+                    } catch(NumberFormatException e) {
+                    }
+                }
+                return count;
             }
-            return count;
+        } finally {
+            span.finish();
         }
     }
 

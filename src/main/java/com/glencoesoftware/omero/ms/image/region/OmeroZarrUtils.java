@@ -217,7 +217,7 @@ public class OmeroZarrUtils {
 
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
             String domainStr) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_label_image_bytes");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_bytes_zarr");
         try {
             Path ngffPath = getLabelImagePath(ngffDir, filesetId, series, uuid, resolution);
             ZarrArray zarray = ZarrArray.open(ngffPath);
@@ -230,21 +230,11 @@ public class OmeroZarrUtils {
         }
     }
 
-    public PixelData getPixelData(String ngffPath, String domainStr, Integer maxTileLength) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_path");
-        try {
-            return null;
-        } finally {
-            span.finish();
-        }
-    }
-
     public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel,
             String domainStr) throws IOException {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_dir");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_zarr");
         Path ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
         try {
-            log.info("getPixelData " + ngffPath);
             ZarrArray array = ZarrArray.open(ngffPath);
             byte[] buffer = OmeroZarrUtils.getData(array, domainStr, maxTileLength);
             PixelData d = new PixelData(getPixelsType(array.getDataType()), ByteBuffer.wrap(buffer));
@@ -266,48 +256,47 @@ public class OmeroZarrUtils {
            fromPosition[4] >  shape[4]) {
             throw new IllegalArgumentException("Starting index exceeds image size");
         }
-        /*
-        requestedShape[0] = requestedShape[0] + fromPosition[0] > shape[0] ?
-                (long) domain.getDimension("t").getDomain().getSecond() : subarrayDomain[1];
-        subarrayDomain[3] = subarrayDomain[3] > (long) domain.getDimension("c").getDomain().getSecond() ?
-                (long) domain.getDimension("c").getDomain().getSecond() : subarrayDomain[3];
-        subarrayDomain[5] = subarrayDomain[5] > (long) domain.getDimension("z").getDomain().getSecond() ?
-                (long) domain.getDimension("z").getDomain().getSecond() : subarrayDomain[5];
-        subarrayDomain[7] = subarrayDomain[7] > (long) domain.getDimension("y").getDomain().getSecond() ?
-                (long) domain.getDimension("y").getDomain().getSecond() : subarrayDomain[7];
-        subarrayDomain[9] = subarrayDomain[9] > (long) domain.getDimension("x").getDomain().getSecond() ?
-                (long) domain.getDimension("x").getDomain().getSecond() : subarrayDomain[9];
-                */
     }
 
     public static byte[] getData(ZarrArray zarray) throws IOException, InvalidRangeException {
-        int[] shape = zarray.getShape();
-        int num_dims = shape.length;
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_entire_data_from_zarr");
+        try {
+            int[] shape = zarray.getShape();
+            int num_dims = shape.length;
+            if (num_dims != 5) {
+                throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                        + Integer.toString(num_dims));
+            }
+            return OmeroZarrUtils.getBytes(zarray, zarray.getShape(), new int[] {0,0,0,0,0});
+        } finally {
+            span.finish();
         }
-        return getBytes(zarray, zarray.getShape(), new int[] {0,0,0,0,0});
     }
 
     public static byte[] getData(ZarrArray zarray, String subarrayString, Integer maxTileLength) throws IOException, InvalidRangeException {
-        int[] shape = zarray.getShape();
-        int num_dims = shape.length;
-        if (num_dims != 5) {
-            throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_subregion_data_from_zarr");
+        try {
+            int[] shape = zarray.getShape();
+            int num_dims = shape.length;
+            if (num_dims != 5) {
+                throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
+                        + Integer.toString(num_dims));
+            }
+            log.info(subarrayString);
+            int[][] shapeAndStart = getShapeAndStartFromString(subarrayString);
+            log.info(Arrays.toString(shapeAndStart[0]));
+            log.info(Arrays.toString(shapeAndStart[1]));
+            if(shapeAndStart[0][3] > maxTileLength || shapeAndStart[0][4] > maxTileLength) {
+                throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
+            }
+            return OmeroZarrUtils.getBytes(zarray, shapeAndStart[0], shapeAndStart[1]);
+        } finally {
+            span.finish();
         }
-        log.info(subarrayString);
-        int[][] shapeAndStart = getShapeAndStartFromString(subarrayString);
-        log.info(Arrays.toString(shapeAndStart[0]));
-        log.info(Arrays.toString(shapeAndStart[1]));
-        if(shapeAndStart[0][3] > maxTileLength || shapeAndStart[0][4] > maxTileLength) {
-            throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
-        }
-        return OmeroZarrUtils.getBytes(zarray, shapeAndStart[0], shapeAndStart[1]);
     }
 
     public static byte[] getBytes(ZarrArray zarray, int[] shape, int[] offset) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_bytes_zarr");
         DataType type = zarray.getDataType();
         try {
             switch(type) {
@@ -317,7 +306,9 @@ public class OmeroZarrUtils {
                 case u2:
                 case i2:
                 {
+                    ScopedSpan readSpan = Tracing.currentTracer().startScopedSpan("zarr_read");
                     short[] data = (short[]) zarray.read(shape, offset);
+                    readSpan.finish();
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 2);
                     ShortBuffer sbuf = bbuf.asShortBuffer();
                     sbuf.put(data);
@@ -326,7 +317,9 @@ public class OmeroZarrUtils {
                 case u4:
                 case i4:
                 {
+                    ScopedSpan readSpan = Tracing.currentTracer().startScopedSpan("zarr_read");
                     int[] data = (int[]) zarray.read(shape, offset);
+                    readSpan.finish();
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 4);
                     IntBuffer ibuf = bbuf.asIntBuffer();
                     ibuf.put(data);
@@ -334,7 +327,9 @@ public class OmeroZarrUtils {
                 }
                 case i8:
                 {
+                    ScopedSpan readSpan = Tracing.currentTracer().startScopedSpan("zarr_read");
                     long[] data = (long[]) zarray.read(shape, offset);
+                    readSpan.finish();
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 8);
                     LongBuffer lbuf = bbuf.asLongBuffer();
                     lbuf.put(data);
@@ -349,36 +344,32 @@ public class OmeroZarrUtils {
         } catch(InvalidRangeException|IOException e) {
             log.error("Error getting zarr PixelData", e);
             return null;
+        } finally {
+            span.finish();
         }
     }
 
 
     public int getResolutionLevels(String ngffDir, Long filesetId, Integer series) {
-        Path basePath;
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_resolution_levels_zarr");
         try {
-            basePath = getLocalOrS3Path(ngffDir);
-        } catch (IOException e) {
-            log.error("Failed to get resolution levels form S3", e);
-            return 0;
-        }
-        Path zarrSeriesPath = basePath.resolve(Long.toString(filesetId)
-                + ".zarr").resolve(Integer.toString(series));
-        /*
-        File[] directories = new File(zarrSeriesPath.toString()).listFiles(File::isDirectory);
-        int count = 0;
-        for(File dir : directories) {
+            Path basePath;
             try {
-                Integer.valueOf(dir.getName());
-                count++;
-            } catch(NumberFormatException e) {
+                basePath = getLocalOrS3Path(ngffDir);
+            } catch (IOException e) {
+                log.error("Failed to get resolution levels form S3", e);
+                return 0;
             }
+            Path zarrSeriesPath = basePath.resolve(Long.toString(filesetId)
+                    + ".zarr").resolve(Integer.toString(series));
+            int count = 0;
+            while(Files.isDirectory(zarrSeriesPath.resolve(Integer.toString(count)))) {
+                count++;
+            }
+            return count;
+        } finally {
+            span.finish();
         }
-        */
-        int count = 0;
-        while(Files.isDirectory(zarrSeriesPath.resolve(Integer.toString(count)))) {
-            count++;
-        }
-        return count;
     }
 
     public Path getLocalOrS3Path(String ngffDir) throws IOException {
@@ -395,28 +386,9 @@ public class OmeroZarrUtils {
         }
         return path;
     }
-/*
-    public static int getResolutionLevelCount(String labelImageShapePath) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_res_lvl_count_local");
-        File[] directories = new File(labelImageShapePath).listFiles(File::isDirectory);
-        int count = 0;
-        for(File dir : directories) {
-            try {
-                Integer.valueOf(dir.getName());
-                count++;
-            } catch(NumberFormatException e) {
-            }
-        }
-        span.finish();
-        return count;
-    }
-
-    public int getResolutionLevelCountS3(String parentPath) {
-        return 0;
-    }
-    */
 
     public int getDimSize(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel, Integer dimIdx) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size_zarr");
         try {
             Path imageDataPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
             log.info(imageDataPath.toString());
@@ -424,11 +396,14 @@ public class OmeroZarrUtils {
             return zarray.getShape()[dimIdx];
         } catch (IOException e) {
             log.error("Error while getting zarr dimension size", e);
+        } finally {
+            span.finish();
         }
         return -1;
     }
 
     public Integer[] getSizeXandY(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_size_xy_zarr");
         Integer[] xy = new Integer[2];
         try {
             ZarrArray zarray = ZarrArray.open(getImageDataPath(ngffDir, filesetId, series, resolutionLevel));
@@ -438,6 +413,8 @@ public class OmeroZarrUtils {
         } catch (IOException e) {
             log.error("Error in zarr getSizeXandY", e);
             return null;
+        } finally {
+            span.finish();
         }
     }
 
