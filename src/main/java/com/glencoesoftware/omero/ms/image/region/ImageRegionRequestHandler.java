@@ -255,7 +255,8 @@ public class ImageRegionRequestHandler {
         try {
             try {
                 //pb = pixelsService.getTiledbPixelBuffer(pixels, ngffDir, tiledbUtils);
-                pb = pixelsService.getZarrPixelBuffer(pixels, ngffDir, zarrUtils);
+                //pb = pixelsService.getZarrPixelBuffer(pixels, ngffDir, zarrUtils);
+                pb = pixelsService.getNgffPixelBuffer(pixels, ngffDir, tiledbUtils, zarrUtils);
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
                 log.info("Getting TiledbPixelBuffer failed - attempting to get local data");

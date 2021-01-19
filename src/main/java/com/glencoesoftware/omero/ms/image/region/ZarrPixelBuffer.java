@@ -23,6 +23,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     int resolutionLevel;
 
+    int resolutionLevels = -1;
+
     OmeroZarrUtils zarrUtils;
 
     public ZarrPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, OmeroZarrUtils zarrUtils) {
@@ -30,7 +32,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
         this.ngffDir = ngffDir;
         this.filesetId = filesetId;
         this.zarrUtils = zarrUtils;
-        this.resolutionLevel = this.getResolutionLevels() - 1;
+        this.resolutionLevels = this.getResolutionLevels();
+        this.resolutionLevel = this.resolutionLevels - 1;
         if (this.resolutionLevel < 0) {
             throw new IllegalArgumentException("This Zarr file has no pixel data");
         }
@@ -375,20 +378,23 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getResolutionLevels() {
-        // TODO Auto-generated method stub
+        if (resolutionLevels < 0) {
         return zarrUtils.getResolutionLevels(ngffDir, filesetId, pixels.getImage().getSeries());
+        } else {
+            return resolutionLevels;
+        }
     }
 
     @Override
     public int getResolutionLevel() {
         return Math.abs(
-                resolutionLevel - (getResolutionLevels() - 1));
+                resolutionLevel - (resolutionLevels - 1));
     }
 
     @Override
     public void setResolutionLevel(int resolutionLevel) {
         this.resolutionLevel = Math.abs(
-                resolutionLevel - (getResolutionLevels() - 1));
+                resolutionLevel - (resolutionLevels - 1));
     }
 
     @Override
@@ -398,10 +404,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
-        int resLevels = getResolutionLevels();
         List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
         int originalResolution = resolutionLevel;
-        for(int i = 0; i < resLevels; i++) {
+        for(int i = 0; i < resolutionLevels; i++) {
             this.resolutionLevel = i;
             List<Integer> description = new ArrayList<Integer>();
             Integer[] xy = zarrUtils.getSizeXandY(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel);
