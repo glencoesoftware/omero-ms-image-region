@@ -61,5 +61,4 @@ public class NgffUtils {
         log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
         return null;
     }
-
 }

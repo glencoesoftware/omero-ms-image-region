@@ -418,6 +418,29 @@ public class OmeroZarrUtils {
         }
     }
 
+    private static String getStdTypeFromZarrType(DataType zarrType) {
+        switch (zarrType) {
+        case u1:
+            return FormatTools.getPixelTypeString(FormatTools.UINT8);
+        case i1:
+            return FormatTools.getPixelTypeString(FormatTools.INT8);
+        case u2:
+            return FormatTools.getPixelTypeString(FormatTools.UINT16);
+        case i2:
+            return FormatTools.getPixelTypeString(FormatTools.INT16);
+        case u4:
+            return FormatTools.getPixelTypeString(FormatTools.UINT32);
+        case i4:
+            return FormatTools.getPixelTypeString(FormatTools.INT32);
+        case i8:
+            return "int64";
+        case f4:
+            return "float";
+        case f8:
+            return "double";
+        }
+        return null;
+    }
 
     private static JsonObject getMetadataFromArray(ZarrArray zarray, int[] minMax,
             JsonObject multiscales, String uuid) throws TileDBError {
@@ -437,7 +460,7 @@ public class OmeroZarrUtils {
         size.put("width", shape[4]);
 
         metadata.put("size", size);
-        metadata.put("type", zarray.getDataType().toString());
+        metadata.put("type", getStdTypeFromZarrType(zarray.getDataType()));
         if(multiscales != null) {
             metadata.put("multiscales", multiscales);
         }
@@ -463,9 +486,8 @@ public class OmeroZarrUtils {
             basePath = getLocalOrS3Path(ngffDir);
         } catch (IOException e) {
             log.error("Error getting metadata from s3", e);
-            return null;
-        } finally {
             span.finish();
+            return null;
         }
         Path labelImageBasePath = basePath.resolve(Long.toString(filesetId)
                 + ".zarr").resolve(Integer.toString(series));

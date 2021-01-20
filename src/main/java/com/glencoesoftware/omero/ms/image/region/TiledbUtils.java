@@ -11,6 +11,8 @@ import java.util.Arrays;
 
 import org.slf4j.LoggerFactory;
 
+import com.bc.zarr.DataType;
+
 import brave.ScopedSpan;
 import brave.Tracing;
 import io.tiledb.java.api.Array;
@@ -639,6 +641,30 @@ public class TiledbUtils {
         return null;
     }
 
+    private static String getStdTypeFromTiledbType(Datatype tdbType) {
+        switch (tdbType) {
+        case TILEDB_UINT8:
+            return FormatTools.getPixelTypeString(FormatTools.UINT8);
+        case TILEDB_INT8:
+            return FormatTools.getPixelTypeString(FormatTools.INT8);
+        case TILEDB_UINT16:
+            return FormatTools.getPixelTypeString(FormatTools.UINT16);
+        case TILEDB_INT16:
+            return FormatTools.getPixelTypeString(FormatTools.INT16);
+        case TILEDB_UINT32:
+            return FormatTools.getPixelTypeString(FormatTools.UINT32);
+        case TILEDB_INT32:
+            return FormatTools.getPixelTypeString(FormatTools.INT32);
+        case TILEDB_INT64:
+            return "int64";
+        case TILEDB_FLOAT32:
+            return "float";
+        case TILEDB_FLOAT64:
+            return "double";
+        }
+        return null;
+    }
+
     private static JsonObject getMetadataFromArray(Array array, long[] minMax,
             JsonObject multiscales, String uuid) throws TileDBError {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_metadata_from_array");
@@ -663,7 +689,7 @@ public class TiledbUtils {
         size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
                 (long) domain.getDimension("y").getDomain().getFirst() + 1);
         metadata.put("size", size);
-        metadata.put("type", attribute.getType().toString());
+        metadata.put("type", getStdTypeFromTiledbType(attribute.getType()));
         if(multiscales != null) {
             metadata.put("multiscales", multiscales);
         }
