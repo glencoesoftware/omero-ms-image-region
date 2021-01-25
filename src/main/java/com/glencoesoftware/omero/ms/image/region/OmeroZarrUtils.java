@@ -7,6 +7,7 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -363,8 +364,20 @@ public class OmeroZarrUtils {
             Path zarrSeriesPath = basePath.resolve(Long.toString(filesetId)
                     + ".zarr").resolve(Integer.toString(series));
             int count = 0;
-            while(Files.isDirectory(zarrSeriesPath.resolve(Integer.toString(count)))) {
-                count++;
+            try {
+                DirectoryStream<Path> stream = Files.newDirectoryStream(zarrSeriesPath);
+                for (Path entry : stream) {
+                    try {
+                        Integer.parseInt(entry.getFileName().toString());
+                        count++;
+                    } catch (NumberFormatException e) {
+                        continue;
+                    }
+                }
+            } catch (IOException e) {
+                log.error("Error counting resolution levels", e);
+                span.error(e);
+                return -1;
             }
             return count;
         } finally {

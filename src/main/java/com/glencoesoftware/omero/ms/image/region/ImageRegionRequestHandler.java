@@ -321,16 +321,10 @@ public class ImageRegionRequestHandler {
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
             log.info("Resolution level count: " + Integer.toString(countResolutionLevels));
-            List<List<Integer>> resolutionLevels;
-            if (countResolutionLevels > 1) {
-                resolutionLevels = pixelBuffer.getResolutionDescriptions();
-            } else {
-                resolutionLevels = new ArrayList<List<Integer>>();
-                resolutionLevels.add(
-                        Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
-            }
-            planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
-            setResolutionLevel(renderer, resolutionLevels);
+            setResolutionLevel(renderer, countResolutionLevels);
+            Integer sizeX = pixels.getSizeX();
+            Integer sizeY = pixels.getSizeY();
+            planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));
             if (imageRegionCtx.compressionQuality != null) {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
@@ -343,7 +337,7 @@ public class ImageRegionRequestHandler {
                 // buffer.  However, just in case an exception is thrown before
                 // reaching this point a double close may occur due to the
                 // surrounding try-with-resources block.
-                return render(renderer, resolutionLevels, pixels, planeDef);
+                return render(renderer, sizeX, sizeY, pixels, planeDef);
             } finally {
                 span.finish();
             }
@@ -364,10 +358,10 @@ public class ImageRegionRequestHandler {
      * @throws QuantizationException
      */
     private byte[] render(
-            Renderer renderer, List<List<Integer>> resolutionLevels,
+            Renderer renderer, Integer sizeX, Integer sizeY,
             Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
-        checkPlaneDef(resolutionLevels, planeDef);
+        checkPlaneDef(sizeX, sizeY, planeDef);
 
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
@@ -438,8 +432,8 @@ public class ImageRegionRequestHandler {
 
         String format = imageRegionCtx.format;
         RegionDef region = planeDef.getRegion();
-        int sizeX = region != null? region.getWidth() : pixels.getSizeX();
-        int sizeY = region != null? region.getHeight() : pixels.getSizeY();
+        sizeX = region != null? region.getWidth() : pixels.getSizeX();
+        sizeY = region != null? region.getHeight() : pixels.getSizeY();
         buf = flip(buf, sizeX, sizeY,
                 imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
         BufferedImage image = ImageUtil.createBufferedImage(
@@ -519,16 +513,12 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      */
     private void checkPlaneDef(
-            List<List<Integer>> resolutionLevels, PlaneDef planeDef)
+            Integer sizeX, Integer sizeY, PlaneDef planeDef)
                     throws ServerError{
         RegionDef rd = planeDef.getRegion();
         if (rd == null) {
             return;
         }
-        int resolution =
-                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
-        int sizeX = resolutionLevels.get(resolution).get(0);
-        int sizeY = resolutionLevels.get(resolution).get(1);
         if (rd.getWidth() + rd.getX() > sizeX) {
             int newWidth = sizeX - rd.getX();
             log.debug("Resetting out of bounds region XOffset {} width {}" +
@@ -669,13 +659,9 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      */
     protected RegionDef getRegionDef(
-            List<List<Integer>> resolutionLevels, PixelBuffer pixelBuffer)
+            Integer sizeX, Integer sizeY, PixelBuffer pixelBuffer)
                     throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
-        int resolution =
-                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
-        int sizeX = resolutionLevels.get(resolution).get(0);
-        int sizeY = resolutionLevels.get(resolution).get(1);
         RegionDef regionDef = new RegionDef();
         Dimension imageTileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
@@ -723,16 +709,16 @@ public class ImageRegionRequestHandler {
      */
     private void setResolutionLevel(
             Renderer renderer,
-            List<List<Integer>> resolutionLevels)
+            Integer resolutionLevelCount)
                     throws ServerError {
         log.debug("Number of available resolution levels: {}",
-                resolutionLevels.size());
+                resolutionLevelCount);
 
         if (imageRegionCtx.resolution != null) {
             log.debug("Setting resolution level: {}",
                     imageRegionCtx.resolution);
             Integer level =
-                    resolutionLevels.size() - imageRegionCtx.resolution - 1;
+                    resolutionLevelCount - imageRegionCtx.resolution - 1;
             log.debug("Setting resolution level to: {}", level);
             renderer.setResolutionLevel(level);
         }
