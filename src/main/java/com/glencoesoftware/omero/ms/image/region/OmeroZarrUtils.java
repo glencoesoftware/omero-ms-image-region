@@ -404,7 +404,6 @@ public class OmeroZarrUtils {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size_zarr");
         try {
             Path imageDataPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
-            log.info(imageDataPath.toString());
             ZarrArray zarray = ZarrArray.open(imageDataPath);
             return zarray.getShape()[dimIdx];
         } catch (IOException e) {
@@ -520,7 +519,7 @@ public class OmeroZarrUtils {
                     minMax = new int[] {minMaxArray.getInteger(0), minMaxArray.getInteger(1)};
                 }
             } catch (Exception e) {
-                log.error("Exception while retrieving lzarr abel image metadata", e);
+                log.error("Exception while retrieving zarr label image metadata", e);
             }
             try {
                 ZarrArray zarray = ZarrArray.open(fullngffDir);

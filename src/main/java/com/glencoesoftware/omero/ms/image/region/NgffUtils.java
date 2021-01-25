@@ -24,22 +24,24 @@ public class NgffUtils {
     }
 
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
-            String domainStr) throws TileDBError {
-        if(ngffDir.startsWith("s3://")) {
-            //TODO Use AWS CLI to check file type (list with prefix?)
-            return null;
-        } else {
-            Path ngffRoot = Paths.get(ngffDir, Long.toString(filesetId) + ".tiledb");
-            if(Files.exists(ngffRoot)) {
-                return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
-            }
-            ngffRoot = Paths.get(ngffDir, Long.toString(filesetId) + ".zarr");
-            if(Files.exists(ngffRoot) ) {
-                return zarrUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
-            }
-            log.error("Ngff file missing or unsupported type: ", ngffDir, filesetId);
+        String domainStr) throws TileDBError {
+        Path basePath;
+        try {
+            basePath = zarrUtils.getLocalOrS3Path(ngffDir);
+        } catch (IOException e) {
+            log.error("Error connecting to S3", e);
             return null;
         }
+        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
+        if(Files.exists(ngffRoot)) {
+            return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
+        }
+        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
+        if(Files.exists(ngffRoot) ) {
+            return zarrUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
+        }
+        log.error("Ngff file missing or unsupported type: ", ngffDir, filesetId);
+        return null;
     }
 
     public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
