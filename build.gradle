@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.5.4-SNAPSHOT-16'
+version = '0.5.4-SNAPSHOT-17'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
@@ -57,6 +57,7 @@ configurations.all {
     exclude group: 'org.subethamail'
     exclude group: 'xerces'
     exclude group: 'xalan'
+    exclude group: 'edu.ucar', 'module': 'cdm'
 }
 
 dependencies {

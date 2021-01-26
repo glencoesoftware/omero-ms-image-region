@@ -18,7 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -157,9 +156,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     public void deploy(JsonObject config, Promise<Void> prom) {
         log.info("Deploying verticle");
-        ClassLoader classLoader = ucar.ma2.DataType.class.getClassLoader();
-        URL resource = classLoader.getResource("ucar/ma2/DataType.class");
-        log.info(resource.toString());
 
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
