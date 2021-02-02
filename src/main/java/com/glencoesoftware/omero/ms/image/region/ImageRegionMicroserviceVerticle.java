@@ -61,6 +61,7 @@ import omero.model.Image;
 import zipkin2.Span;
 import zipkin2.reporter.AsyncReporter;
 import zipkin2.reporter.okhttp3.OkHttpSender;
+import brave.ScopedSpan;
 import brave.Tracing;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;
@@ -344,6 +345,44 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/omero_ms_image_region/get_label_image_metadata/:shapeId*")
             .handler(this::getLabelImageMetadata);
 
+        // Thumbnail Request Handler
+        router.get(
+                "/webclient/render_thumbnail/size/:longestSide/:imageId*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webclient/render_thumbnail/:imageId*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webgateway/render_thumbnail/:imageId/:longestSide*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webgateway/render_thumbnail/:imageId*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webclient/render_birds_eye_view/:imageId/:longestSide*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webclient/render_birds_eye_view/:imageId*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webgateway/render_birds_eye_view/:imageId/:longestSide*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webgateway/render_birds_eye_view/:imageId*")
+            .handler(this::renderThumbnail);
+        router.get(
+                "/webgateway/get_thumbnails/:longestSide*")
+            .handler(this::getThumbnails);
+        router.get(
+                "/webgateway/get_thumbnails*")
+            .handler(this::getThumbnails);
+        router.get(
+                "/webclient/get_thumbnails/:longestSide*")
+            .handler(this::getThumbnails);
+        router.get(
+                "/webclient/get_thumbnails*")
+            .handler(this::getThumbnails);
+
         MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
 
         int port = config.getInteger("port");
@@ -615,6 +654,105 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 if (!response.closed()) {
                     response.end();
                 }
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /******* THUMBNAIL HANDLERS *********/
+    /**
+     * Render thumbnail event handler. Responds with a <code>image/jpeg</code>
+     * body on success based on the <code>longestSide</code> and
+     * <code>imageId</code> encoded in the URL or HTTP 404 if the {@link Image}
+     * does not exist or the user does not have permissions to access it.
+     * @param event Current routing context.
+     */
+    private void renderThumbnail(RoutingContext event) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("ms_render_thumbnail");
+        final HttpServerRequest request = event.request();
+        final HttpServerResponse response = event.response();
+        final ThumbnailCtx thumbnailCtx;
+        try {
+            thumbnailCtx = new ThumbnailCtx(request.params(),
+                    event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        }
+
+        thumbnailCtx.injectCurrentTraceContext();
+        vertx.eventBus().<byte[]>request(
+                ThumbnailVerticle.RENDER_THUMBNAIL_EVENT,
+                Json.encode(thumbnailCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                byte[] thumbnail = result.result().body();
+                response.headers().set("Content-Type", "image/jpeg");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(thumbnail.length));
+                response.write(Buffer.buffer(thumbnail));
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                span.finish();
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /**
+     * Get thumbnails event handler. Responds with a JSON dictionary of Base64
+     * encoded <code>image/jpeg</code> thumbnails keyed by {@link Image}
+     * identifier. Each dictionary value is prefixed with
+     * <code>data:image/jpeg;base64,</code> so that it can be used with
+     * <a href="http://caniuse.com/#feat=datauri">data URIs</a>.
+     * @param event Current routing context.
+     */
+    private void getThumbnails(RoutingContext event) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("ms_get_thumbnails");
+        final HttpServerRequest request = event.request();
+        final HttpServerResponse response = event.response();
+        final String callback = request.getParam("callback");
+        final ThumbnailCtx thumbnailCtx;
+        try {
+            thumbnailCtx = new ThumbnailCtx(request.params(),
+                    event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        }
+        thumbnailCtx.injectCurrentTraceContext();
+
+        vertx.eventBus().<String>request(
+                ThumbnailVerticle.GET_THUMBNAILS_EVENT,
+                Json.encode(thumbnailCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                String json = result.result().body();
+                String contentType = "application/json";
+                if (callback != null) {
+                    json = String.format("%s(%s);", callback, json);
+                    contentType = "application/javascript";
+                }
+                response.headers().set("Content-Type", contentType);
+                response.headers().set(
+                        "Content-Length", String.valueOf(json.length()));
+                response.write(json);
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                span.finish();
                 log.debug("Response ended");
             }
         });

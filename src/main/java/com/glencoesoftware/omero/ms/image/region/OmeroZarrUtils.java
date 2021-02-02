@@ -249,6 +249,23 @@ public class OmeroZarrUtils {
         }
     }
 
+    public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) throws IOException {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_zarr");
+        Path ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
+        try {
+            ZarrArray array = ZarrArray.open(ngffPath);
+            byte[] buffer = OmeroZarrUtils.getData(array);
+            PixelData d = new PixelData(getPixelsType(array.getDataType()), ByteBuffer.wrap(buffer));
+            d.setOrder(ByteOrder.nativeOrder());
+            return d;
+        } catch (IOException | InvalidRangeException e) {
+            log.error("Error getting Zarr pixel data",e);
+            return null;
+        } finally {
+            span.finish();
+        }
+    }
+
     public static void rescaleSubarrayDomain(int[] requestedShape, int[] fromPosition, int[] shape) {
         if(fromPosition[0] >  shape[0] ||
            fromPosition[1] >  shape[1] ||
