@@ -7,34 +7,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.spi.IIORegistry;
-import javax.imageio.spi.ServiceRegistry;
-import javax.imageio.stream.ImageOutputStream;
 
 import org.slf4j.LoggerFactory;
-
-import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriter;
-import com.sun.media.imageioimpl.plugins.tiff.TIFFImageWriterSpi;
 
 import brave.ScopedSpan;
 import brave.Tracer;
 import brave.Tracing;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
-import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
-import ome.model.display.ChannelBinding;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -205,8 +193,8 @@ public class ThumbnailsRequestHandler {
                 pixels, RenderingUtils.getRenderingDef(iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
-            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, 1);
-            planeDef.setZ(1);
+            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, 0);
+            planeDef.setZ(0);
 
             List<List<Integer>> resDescriptions = pixelBuffer.getResolutionDescriptions();
             log.info("Resolution level count: " + Integer.toString(resDescriptions.size()));
