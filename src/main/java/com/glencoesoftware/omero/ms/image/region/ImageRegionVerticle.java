@@ -61,12 +61,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
 
-    public static final String RENDER_THUMBNAIL_EVENT =
-            "omero.render_thumbnail";
-
-    public static final String GET_THUMBNAILS_EVENT =
-            "omero.get_thumbnails";
-
     /** OMERO server host */
     private String host;
 
@@ -88,18 +82,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
-    /** OMERO server pixels service */
-    private final PixelsService pixelsService;
-
     /** Reference to the compression service */
     private final LocalCompress compressionService;
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
-    private final TiledbUtils tiledbUtils;
-
-    private final OmeroZarrUtils zarrUtils;
+    private final RenderingUtils renderingUtils;
 
     /**
      * Default constructor.
@@ -109,16 +98,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength,
-            TiledbUtils tiledbUtils,
-            OmeroZarrUtils zarrUtils,
-            IScale iscale)
+            RenderingUtils renderingUtils)
     {
-        this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
-        this.tiledbUtils = tiledbUtils;
-        this.zarrUtils = zarrUtils;
+        this.renderingUtils = renderingUtils;
     }
 
     /* (non-Javadoc)
@@ -138,10 +123,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     RENDER_IMAGE_REGION_EVENT, event -> {
                         renderImageRegion(event);
                     });
-            vertx.eventBus().<String>consumer(
-                    RENDER_THUMBNAIL_EVENT, this::renderThumbnail);
-            vertx.eventBus().<String>consumer(
-                    GET_THUMBNAILS_EVENT, this::getThumbnails);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -188,17 +169,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
             byte[] imageRegion = null;
             imageRegion = request.execute(
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx,
+                    new ImageRegionRequestHandler(imageRegionCtx,
                             families,
                             renderingModels,
                             lutProvider,
-                            pixelsService,
                             compressionService,
                             maxTileLength,
-                            ngffDir,
-                            tiledbUtils,
-                            zarrUtils)::renderImageRegion);
+                            renderingUtils)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(
@@ -276,130 +253,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             span.error(e);
             // *Should* never happen
             throw new RuntimeException(e);
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Render thumbnail event handler. Responds with a <code>image/jpeg</code>
-     * body on success or a failure.
-     * @param message JSON encoded event data. Required keys are
-     * <code>omeroSessionKey</code> (String), <code>longestSide</code>
-     * (Integer), and <code>imageId</code> (Long).
-     */
-    private void renderThumbnail(Message<String> message) {
-        ObjectMapper mapper = new ObjectMapper();
-        ThumbnailCtx thumbnailCtx;
-        log.info(message.body());
-        try {
-            thumbnailCtx = mapper.readValue(message.body(), ThumbnailCtx.class);
-        } catch (Exception e) {
-            String v = "Illegal tile context";
-            log.error(v + ": {}", message.body(), e);
-            message.fail(400, v);
-            return;
-        }
-
-        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
-                "render_thumbnail",
-                extractor().extract(thumbnailCtx.traceContext).context());
-        String omeroSessionKey = thumbnailCtx.omeroSessionKey;
-        int longestSide = thumbnailCtx.longestSide;
-        long imageId = thumbnailCtx.imageId;
-        Optional<Long> renderingDefId = Optional.ofNullable(thumbnailCtx.renderingDefId);
-        log.debug(
-            "Render thumbnail request Image:{} longest side {} RenderingDef:{}",
-            imageId, longestSide, renderingDefId.orElse(null));
-
-        try (OmeroRequest request = new OmeroRequest(
-                 host, port, omeroSessionKey)) {
-            String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
-            byte[] thumbnail = request.execute(new ThumbnailRequestHandler(
-                    ngffDir, tiledbUtils, zarrUtils,
-                    longestSide, imageId, renderingDefId)::renderThumbnail);
-            if (thumbnail == null) {
-                message.fail(404, "Cannot find Image:" + imageId);
-            } else {
-                message.reply(thumbnail);
-            }
-        } catch (PermissionDeniedException
-                 | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (Exception e) {
-            String v = "Exception while retrieving thumbnail";
-            log.error(v, e);
-            message.fail(500, v);
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Get thumbnails event handler. Responds with a JSON dictionary of Base64
-     * encoded <code>image/jpeg</code> thumbnails keyed by {@link Image}
-     * identifier. Each dictionary value is prefixed with
-     * <code>data:image/jpeg;base64,</code> so that it can be used with
-     * <a href="http://caniuse.com/#feat=datauri">data URIs</a>.
-     * @param message JSON encoded event data. Required keys are
-     * <code>omeroSessionKey</code> (String), <code>longestSide</code>
-     * (Integer), and <code>imageIds</code> (List<Long>).
-     */
-    private void getThumbnails(Message<String> message) {
-        ObjectMapper mapper = new ObjectMapper();
-        ThumbnailCtx thumbnailCtx;
-        try {
-            thumbnailCtx = mapper.readValue(message.body(), ThumbnailCtx.class);
-        } catch (Exception e) {
-            String v = "Illegal tile context";
-            log.error(v + ": {}", message.body(), e);
-            message.fail(400, v);
-            return;
-        }
-        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
-                "get_thumbnails",
-                extractor().extract(thumbnailCtx.traceContext).context());
-        String omeroSessionKey = thumbnailCtx.omeroSessionKey;
-        int longestSide = thumbnailCtx.longestSide;
-        JsonArray imageIdsJson = new JsonArray(thumbnailCtx.imageIds);
-        List<Long> imageIds = new ArrayList<Long>();
-        for (int i = 0; i < imageIdsJson.size(); i++) {
-            imageIds.add(imageIdsJson.getLong(i));
-        }
-        log.debug(
-            "Render thumbnail request ImageIds:{} longest side {}",
-            imageIds, longestSide);
-
-        try (OmeroRequest request = new OmeroRequest(
-                host, port, omeroSessionKey)) {
-            String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
-            Map<Long, byte[]> thumbnails = request.execute(
-                    new ThumbnailsRequestHandler(
-                            ngffDir, tiledbUtils, zarrUtils, longestSide, imageIds)::renderThumbnails);
-
-            if (thumbnails == null) {
-                message.fail(404, "Cannot find one or more Images");
-            } else {
-                Map<Long, String> thumbnailsJson = new HashMap<Long, String>();
-                for (Entry<Long, byte[]> v : thumbnails.entrySet()) {
-                    thumbnailsJson.put(
-                        v.getKey(),
-                        "data:image/jpeg;base64," + Base64.encode(v.getValue())
-                    );
-                }
-                message.reply(Json.encode(thumbnailsJson));
-            }
-        } catch (PermissionDeniedException
-                 | CannotCreateSessionException e) {
-            String v = "Permission denied";
-            log.debug(v);
-            message.fail(403, v);
-        } catch (Exception e) {
-            String v = "Exception while retrieving thumbnail";
-            log.error(v, e);
-            message.fail(500, v);
         } finally {
             span.finish();
         }

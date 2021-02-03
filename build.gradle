@@ -40,7 +40,7 @@ configurations.all {
     resolutionStrategy.cacheChangingModulesFor 0, 'minutes'
     exclude group: 'com.drewnoakes'
     exclude group: 'com.jamonapi'
-    exclude group: 'com.mortennobel'
+    //exclude group: 'com.mortennobel'
     exclude group: 'com.zeroc', module: 'icestorm'
     exclude group: 'commons-beanutils'
     //exclude group: 'commons-codec'

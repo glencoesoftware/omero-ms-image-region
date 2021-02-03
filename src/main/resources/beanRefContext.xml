@@ -63,6 +63,8 @@
     <property name="metrics" ref="metrics"/>
   </bean>
 
+  <bean id="iscale" class="ome.logic.JavaImageScalingService"/>
+
   <bean id="omero-ms-image-region-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
         scope="prototype">
@@ -70,13 +72,32 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-    <constructor-arg ref="tiledb-utils" />
-    <constructor-arg ref="zarr-utils" />
+    <constructor-arg ref="rendering-utils"/>
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
+    <constructor-arg ref="tiledb-utils" />
+    <constructor-arg ref="zarr-utils" />
+  </bean>
+  
+  <bean id="omero-ms-thumbnail-verticle"
+        class="com.glencoesoftware.omero.ms.image.region.ThumbnailVerticle"
+        scope="prototype">
+    <constructor-arg ref="iscale" />
+    <constructor-arg ref="rendering-utils"/>
+    <constructor-arg ref="internal-ome.api.ICompress" />
+    <constructor-arg ref="lutProvider" />
+    <constructor-arg ref="tiledb-utils" />
+    <constructor-arg ref="zarr-utils" />
+  </bean>
+  
+  <bean id="rendering-utils"
+        class="com.glencoesoftware.omero.ms.image.region.RenderingUtils"
+        scope="prototype">
+    <constructor-arg ref="/OMERO/Pixels2" />
+    <constructor-arg value="${omero.ngff.dir}" />
     <constructor-arg ref="tiledb-utils" />
     <constructor-arg ref="zarr-utils" />
   </bean>

@@ -175,7 +175,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "classpath*:service-ms.core.PixelsService.xml");
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
-
         JsonObject httpTracingConfig =
                 config.getJsonObject("http-tracing", new JsonObject());
         Boolean tracingEnabled =
@@ -244,6 +243,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setWorker(true)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-shape-mask-pool")
+                        .setWorkerPoolSize(workerPoolSize)
+                        .setConfig(config));
+        vertx.deployVerticle("omero:omero-ms-thumbnail-verticle",
+                new DeploymentOptions()
+                        .setWorker(true)
+                        .setInstances(workerPoolSize)
+                        .setWorkerPoolName("thumbnail-pool")
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 

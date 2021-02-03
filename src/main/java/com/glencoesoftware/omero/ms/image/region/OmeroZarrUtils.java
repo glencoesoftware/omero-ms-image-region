@@ -12,7 +12,9 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.slf4j.LoggerFactory;
 
@@ -549,5 +551,19 @@ public class OmeroZarrUtils {
         }
         span.finish();
         return null;
+    }
+
+
+    public List<List<Integer>> getResolutionDescriptions(String ngffDir, long filesetId, int series) {
+        List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
+        int resLvlCount = getResolutionLevels(ngffDir, filesetId, series);
+        for(int i = 0; i < resLvlCount; i++) {
+            List<Integer> description = new ArrayList<Integer>();
+            Integer[] xy = getSizeXandY(ngffDir, filesetId, series, i);
+            description.add(xy[0]);
+            description.add(xy[1]);
+            resolutionDescriptions.add(description);
+        }
+        return resolutionDescriptions;
     }
 }

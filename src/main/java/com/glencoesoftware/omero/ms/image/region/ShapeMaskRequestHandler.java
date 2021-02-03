@@ -114,7 +114,7 @@ public class ShapeMaskRequestHandler {
             if (shapeMaskCtx.color != null) {
                 // Color came from the request so we override the default
                 // color the mask was assigned.
-                int[] rgba = ImageRegionRequestHandler
+                int[] rgba = RenderingUtils
                         .splitHTMLColor(shapeMaskCtx.color);
                 fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
             }
