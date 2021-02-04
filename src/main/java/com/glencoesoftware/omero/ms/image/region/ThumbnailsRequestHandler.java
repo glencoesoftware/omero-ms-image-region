@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -382,6 +383,11 @@ public class ThumbnailsRequestHandler {
                     + channel + "'");
             }
         }
+        log.info(channels.toString());
+        for(Float[] f : windows) {
+            log.info(Arrays.toString(f));
+        }
+        log.info(colors.toString());
     }
 
 }
