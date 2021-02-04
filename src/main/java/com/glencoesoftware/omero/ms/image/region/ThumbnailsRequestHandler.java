@@ -210,7 +210,7 @@ public class ThumbnailsRequestHandler {
             regionDef.setHeight(sizeY);
             log.info(regionDef.toString());
             planeDef.setRegion(regionDef);
-            updateSettings(renderer);
+            RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -285,54 +285,7 @@ public class ThumbnailsRequestHandler {
         return resolutionLevel;
     }
 
-    /**
-     * Update settings on the rendering engine based on the current context.
-     * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
-     * @throws ServerError
-     */
-    private void updateSettings(Renderer renderer) throws ServerError {
-        log.debug("Setting active channels");
-        int idx = 0; // index of windows/colors args
-        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
-            log.debug("Setting for channel {}", c);
-            boolean isActive = channels.contains(c + 1);
-            log.debug("\tChannel active {}", isActive);
-            renderer.setActive(c, isActive);
-
-            if (isActive) {
-                if (windows != null) {
-                    double min = (double) windows.get(idx)[0];
-                    double max = (double) windows.get(idx)[1];
-                    log.debug("\tMin-Max: [{}, {}]", min, max);
-                    renderer.setChannelWindow(c, min, max);
-                }
-                if (colors != null) {
-                    String color = colors.get(idx);
-                    if (color.endsWith(".lut")) {
-                        renderer.setChannelLookupTable(c, color);
-                        log.debug("\tLUT: {}", color);
-                    } else {
-                        int[] rgba = RenderingUtils.splitHTMLColor(color);
-                        renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
-                        log.debug("\tColor: [{}, {}, {}, {}]",
-                                  rgba[0], rgba[1], rgba[2], rgba[3]);
-                    }
-                }
-            }
-
-            idx += 1;
-        }
-        for (RenderingModel renderingModel : renderingModels) {
-            if ("rgb".equals(renderingModel.getValue())) {
-                renderer.setModel(renderingModel);
-                break;
-            }
-        }
-    }
-
-    /**
+     /**
      * Parses a string to channel rendering settings.
      * Populates channels, windows and colors lists.
      * @param channelInfo string describing the channel rendering settings:
