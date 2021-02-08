@@ -89,8 +89,7 @@
     <constructor-arg ref="rendering-utils"/>
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
-    <constructor-arg ref="tiledb-utils" />
-    <constructor-arg ref="zarr-utils" />
+    <constructor-arg ref="ngff-utils" />
   </bean>
   
   <bean id="rendering-utils"
@@ -121,6 +120,13 @@
         <constructor-arg value="${aws.ngff-s3-endpoint:}" />
         <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
         <constructor-arg ref="s3fs"/>
+  </bean>
+  
+  <bean id="ngff-utils"
+        class="com.glencoesoftware.omero.ms.image.region.NgffUtils"
+        scope="prototype">
+        <constructor-arg ref="tiledb-utils" />
+        <constructor-arg ref="zarr-utils" />
   </bean>
   
   <bean id="s3fs"

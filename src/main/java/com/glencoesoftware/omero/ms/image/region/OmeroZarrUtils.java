@@ -566,4 +566,31 @@ public class OmeroZarrUtils {
         }
         return resolutionDescriptions;
     }
+
+    public JsonObject getOmeroMetadata(String ngffDir, long filesetId, int series) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_omero_metadata");
+        Path basePath;
+        try {
+            basePath = getLocalOrS3Path(ngffDir);
+        } catch (IOException e) {
+            log.error("Error getting metadata from s3", e);
+            span.error(e);
+            span.finish();
+            return null;
+        }
+        Path ngffPath = basePath.resolve(Long.toString(filesetId)
+                + ".zarr").resolve(Integer.toString(series));
+        try {
+            ZarrGroup zarrGroup = ZarrGroup.open(ngffPath);
+            JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(zarrGroup.getAttributes()));
+            return jsonAttrs.getJsonObject("omero", null);
+        } catch (Exception e) {
+            log.error("Error getting omero metadata from zarr");
+            span.error(e);
+            return null;
+        } finally {
+            span.finish();
+        }
+    }
+
 }

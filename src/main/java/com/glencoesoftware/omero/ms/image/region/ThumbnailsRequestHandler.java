@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import brave.ScopedSpan;
 import brave.Tracer;
 import brave.Tracing;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelBuffer;
@@ -52,13 +54,17 @@ public class ThumbnailsRequestHandler {
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
-    private final IScale iScale;
-
     /** Available families */
     private final List<Family> families;
 
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
+
+    private final IScale iScale;
+
+    private final NgffUtils ngffUtils;
+
+    private final String ngffDir;
 
     /** Longest side of the thumbnail. */
     protected final int longestSide;
@@ -89,15 +95,19 @@ public class ThumbnailsRequestHandler {
             List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             IScale iScale,
+            NgffUtils ngffUtils,
+            String ngffDir,
             int longestSide,
             List<Long> imageIds) {
         this.thumbnailCtx = thumbnailCtx;
         this.renderingUtils = renderingUtils;
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
-        this.iScale = iScale;
         this.families = families;
         this.renderingModels = renderingModels;
+        this.iScale = iScale;
+        this.ngffUtils = ngffUtils;
+        this.ngffDir = ngffDir;
         this.longestSide = longestSide;
         this.imageIds = imageIds;
         getChannelInfoFromString("1|0:255$FF0000,2|0:255$00FF00,3|0:255$0000FF");
@@ -210,6 +220,7 @@ public class ThumbnailsRequestHandler {
             regionDef.setHeight(sizeY);
             log.info(regionDef.toString());
             planeDef.setRegion(regionDef);
+            updateRenderingSettings(pixels);
             RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
@@ -223,6 +234,29 @@ public class ThumbnailsRequestHandler {
                 span.finish();
             }
         }
+    }
+
+    private void updateRenderingSettings(Pixels pixels) {
+        JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(ngffDir,
+                pixels.getImage().getFileset().getId(), pixels.getImage().getSeries());
+        if (omeroMetadata != null) {
+            channels.clear();
+            windows.clear();
+            colors.clear();
+            JsonArray ngffChannels = omeroMetadata.getJsonArray("channels");
+            for (int i = 0; i < ngffChannels.size(); i++) {
+                JsonObject channelInfo = ngffChannels.getJsonObject(i);
+                channels.add(channelInfo.getInteger("coefficient"));
+                JsonObject window = channelInfo.getJsonObject("window");
+                windows.add(new Float[] {Float.valueOf(window.getFloat("start")), Float.valueOf(window.getFloat("end"))});
+                colors.add(channelInfo.getString("color"));
+            }
+        }
+        log.info(channels.toString());
+        for(Float[] f : windows) {
+            log.info(Arrays.toString(f));
+        }
+        log.info(colors.toString());
     }
 
     /**
@@ -336,11 +370,6 @@ public class ThumbnailsRequestHandler {
                     + channel + "'");
             }
         }
-        log.info(channels.toString());
-        for(Float[] f : windows) {
-            log.info(Arrays.toString(f));
-        }
-        log.info(colors.toString());
     }
 
 }

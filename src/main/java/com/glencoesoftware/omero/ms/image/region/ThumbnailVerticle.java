@@ -93,6 +93,10 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
+    private final NgffUtils ngffUtils;
+
+    private String ngffDir;
+
     /**
      * Mapper between <code>omero.model</code> client side Ice backed objects
      * and <code>ome.model</code> server side Hibernate backed objects.
@@ -108,12 +112,12 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             RenderingUtils renderingUtils,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            TiledbUtils tiledbUtils,
-            OmeroZarrUtils zarrUtils) {
+            NgffUtils ngffUtils) {
         this.iScale = iScale;
         this.renderingUtils = renderingUtils;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
+        this.ngffUtils = ngffUtils;
     }
 
     /* (non-Javadoc)
@@ -130,6 +134,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
         }
         host = omero.getString("host");
         port = omero.getInteger("port");
+        ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
 
         vertx.eventBus().<String>consumer(
                 RENDER_THUMBNAIL_EVENT, this::renderThumbnail);
@@ -183,6 +188,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                     renderingModels,
                     lutProvider,
                     iScale,
+                    ngffUtils,
+                    ngffDir,
                     longestSide,
                     imageId)::renderThumbnail);
             if (thumbnail == null) {
@@ -249,6 +256,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                             renderingModels,
                             lutProvider,
                             iScale,
+                            ngffUtils,
+                            ngffDir,
                             longestSide,
                             imageIds)::renderThumbnails);
 

@@ -63,4 +63,24 @@ public class NgffUtils {
         log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
         return null;
     }
+
+    public JsonObject getOmeroMetadata(String ngffDir, long filesetId, int series) {
+        Path basePath;
+        try {
+            basePath = zarrUtils.getLocalOrS3Path(ngffDir);
+        } catch (IOException e) {
+            log.error("Error connecting to S3", e);
+            return null;
+        }/*
+        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
+        if(Files.exists(ngffRoot)) {
+            return null;
+        }*/
+        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
+        if(Files.exists(ngffRoot) ) {
+            return zarrUtils.getOmeroMetadata(ngffDir, filesetId, series);
+        }
+        log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
+        return null;
+    }
 }

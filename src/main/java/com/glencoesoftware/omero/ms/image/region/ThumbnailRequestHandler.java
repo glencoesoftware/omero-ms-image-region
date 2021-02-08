@@ -47,9 +47,12 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             IScale iScale,
+            NgffUtils ngffUtils,
+            String ngffDir,
             int longestSide,
             Long imageId) {
-        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, longestSide, Arrays.asList(imageId));
+        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, ngffUtils,
+                ngffDir, longestSide, Arrays.asList(imageId));
     }
 
     public ThumbnailRequestHandler(
@@ -60,10 +63,13 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             List<RenderingModel> renderingModels,
             LutProvider lutProvider,
             IScale iScale,
+            NgffUtils ngffUtils,
+            String ngffDir,
             int longestSide,
             List<Long> imageIds,
             Optional<Long> renderingDefId) {
-        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, longestSide, imageIds);
+        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, ngffUtils,
+                ngffDir, longestSide, imageIds);
         this.renderingDefId = renderingDefId;
     }
 
