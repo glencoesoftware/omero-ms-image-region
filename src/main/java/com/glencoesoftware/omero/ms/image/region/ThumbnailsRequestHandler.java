@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -21,9 +23,11 @@ import io.vertx.core.json.JsonObject;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelBuffer;
+import ome.logic.PixelsImpl;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.parameters.Parameters;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.data.PlaneDef;
@@ -35,7 +39,10 @@ import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
+import omero.model.IObject;
 import omero.model.Image;
+import omero.model.RenderingDef;
+import omero.model.ChannelBinding;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
@@ -78,10 +85,11 @@ public class ThumbnailsRequestHandler {
      */
     private final IceMapper mapper = new IceMapper();
 
-    /** Channel settings - handled at the Verticle level*/
+    /*
     private List<Integer> channels;
-    private List<Float[]> windows;
+    private List<Double[]> windows;
     private List<String> colors;
+    */
 
 
     /** Renderer */
@@ -110,7 +118,7 @@ public class ThumbnailsRequestHandler {
         this.ngffDir = ngffDir;
         this.longestSide = longestSide;
         this.imageIds = imageIds;
-        getChannelInfoFromString("1|0:255$FF0000,2|0:255$00FF00,3|0:255$0000FF");
+        //getChannelInfoFromString("1|0:255$FF0000,2|0:255$00FF00,3|0:255$0000FF");
     }
 
     /**
@@ -189,7 +197,7 @@ public class ThumbnailsRequestHandler {
      * @throws QuantizationException
      */
     protected byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
+            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries, long userId)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");
@@ -220,8 +228,7 @@ public class ThumbnailsRequestHandler {
             regionDef.setHeight(sizeY);
             log.info(regionDef.toString());
             planeDef.setRegion(regionDef);
-            updateRenderingSettings(pixels);
-            RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
+            updateRenderingSettings(iQuery, pixels, userId);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -236,7 +243,75 @@ public class ThumbnailsRequestHandler {
         }
     }
 
-    private void updateRenderingSettings(Pixels pixels) {
+    private void updateRenderingSettings(IQueryPrx iQuery, Pixels pixels, long userId) {
+        //First check if there are user-specific rendering settings
+        Set<Long> pixelsIds = new HashSet<Long>();
+        pixelsIds.add(pixels.getId());
+        ParametersI p;
+        String sql;
+        if (userId >= 0) {
+            // Load the rendering settings of the specified owner
+            p = new ParametersI();
+            p.addIds(pixelsIds);
+            p.addId(userId);
+            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
+                    + "rdef.pixels.id in (:ids) and "
+                    + "rdef.details.owner.id = :id";
+        } else {
+            // Load the rendering settings of the pixels owner
+            p = new ParametersI();
+            p.addIds(pixelsIds);
+
+            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
+                    + "rdef.pixels.id in (:ids) and "
+                    + "rdef.details.owner.id = rdef.pixels.details.owner.id";
+        }
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        try {
+            List<IObject> settingsList = iQuery.findAllByQuery(sql, p, ctx);
+            List<Integer> channels = new ArrayList<Integer>();
+            List<Double[]> windows = new ArrayList<Double[]>();
+            List<Integer[]> colors = new ArrayList<Integer[]>();
+            if (settingsList.size() > 0) {
+                RenderingDef rdef = (RenderingDef) settingsList.get(0);
+                int i = 0;
+                while(true) {
+                    ChannelBinding cb;
+                    try {
+                        cb = rdef.getChannelBinding(i);
+                    } catch (IndexOutOfBoundsException e) {
+                        break;
+                    }
+                    if (cb.getActive().getValue()) {
+                        channels.add(i+1);
+                        Double[] window = new Double[] {(cb.getInputStart().getValue()), cb.getInputEnd().getValue()};
+                        windows.add(window);
+                        Integer[] rgba = new Integer[] {cb.getRed().getValue(),
+                                cb.getGreen().getValue(), cb.getBlue().getValue(), cb.getAlpha().getValue()};
+                        colors.add(rgba);
+                    }
+                    i++;
+                }
+            }
+            log.info("Updating rendering settings from user settings");
+            log.info(channels.toString());
+            for(Double[] f : windows) {
+                log.info(Arrays.toString(f));
+            }
+            for(Integer[] c : colors) {
+                log.info(Arrays.toString(c));
+            }
+            RenderingUtils.updateSettingsIntColors(renderer, channels, windows, colors, null, renderingModels, "rgb");
+            return;
+        } catch (ServerError e) {
+            log.error("Error getting rendering setttings from server", e);
+        }
+
+        //If not, load rendering settings from NGFF Metadata
+        List<Integer> channels = new ArrayList<Integer>();
+        List<Double[]> windows = new ArrayList<Double[]>();
+        List<String> colors = new ArrayList<String>();
         JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(ngffDir,
                 pixels.getImage().getFileset().getId(), pixels.getImage().getSeries());
         if (omeroMetadata != null) {
@@ -248,15 +323,17 @@ public class ThumbnailsRequestHandler {
                 JsonObject channelInfo = ngffChannels.getJsonObject(i);
                 channels.add(channelInfo.getInteger("coefficient"));
                 JsonObject window = channelInfo.getJsonObject("window");
-                windows.add(new Float[] {Float.valueOf(window.getFloat("start")), Float.valueOf(window.getFloat("end"))});
+                windows.add(new Double[] {Double.valueOf(window.getFloat("start")), Double.valueOf(window.getFloat("end"))});
                 colors.add(channelInfo.getString("color"));
             }
         }
+        log.info("Updating rendering settings from NGFF metadata");
         log.info(channels.toString());
-        for(Float[] f : windows) {
+        for(Double[] f : windows) {
             log.info(Arrays.toString(f));
         }
         log.info(colors.toString());
+        RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
     }
 
     /**
@@ -317,59 +394,6 @@ public class ThumbnailsRequestHandler {
             throw new IllegalArgumentException("longestSide exceeds image size");
         }
         return resolutionLevel;
-    }
-
-     /**
-     * Parses a string to channel rendering settings.
-     * Populates channels, windows and colors lists.
-     * @param channelInfo string describing the channel rendering settings:
-     * "-1|0:65535$0000FF,2|1755:51199$00FF00,3|3218:26623$FF0000"
-     */
-    private void getChannelInfoFromString(String channelInfo) {
-        if (channelInfo == null) {
-            return;
-        }
-        String[] channelArray = channelInfo.split(",", -1);
-        channels = new ArrayList<Integer>();
-        windows = new ArrayList<Float[]>();
-        colors = new ArrayList<String>();
-        for (String channel : channelArray) {
-            try {
-                // chan  1|12:1386r$0000FF
-                // temp ['1', '12:1386r$0000FF']
-                String[] temp = channel.split("\\|", 2);
-                String active = temp[0];
-                String color = null;
-                Float[] range = new Float[2];
-                String window = null;
-                // temp = '1'
-                // Not normally used...
-                if (active.indexOf("$") >= 0) {
-                    String[] split = active.split("\\$", -1);
-                    active = split[0];
-                    color = split[1];
-                }
-                channels.add(Integer.parseInt(active));
-                if (temp.length > 1) {
-                    if (temp[1].indexOf("$") >= 0) {
-                        window = temp[1].split("\\$")[0];
-                        color = temp[1].split("\\$")[1];
-                    }
-                    String[] rangeStr = window.split(":");
-                    if (rangeStr.length > 1) {
-                        range[0] = Float.parseFloat(rangeStr[0]);
-                        range[1] = Float.parseFloat(rangeStr[1]);
-                    }
-                }
-                colors.add(color);
-                windows.add(range);
-                log.debug("Adding channel: {}, color: {}, window: {}",
-                        active, color, window);
-            } catch (Exception e)  {
-                throw new IllegalArgumentException("Failed to parse channel '"
-                    + channel + "'");
-            }
-        }
     }
 
 }

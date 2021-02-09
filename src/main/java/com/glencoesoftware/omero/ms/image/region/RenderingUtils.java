@@ -340,11 +340,11 @@ public class RenderingUtils {
      */
     public static void updateSettings(Renderer renderer,
             List<Integer> channels,
-            List<Float[]> windows,
+            List<Double[]> windows,
             List<String> colors,
             List<Map<String, Map<String, Object>>> maps,
             List<RenderingModel> renderingModels,
-            String colorMode) throws ServerError {
+            String colorMode) {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
@@ -355,8 +355,8 @@ public class RenderingUtils {
 
             if (isActive) {
                 if (windows != null) {
-                    double min = (double) windows.get(idx)[0];
-                    double max = (double) windows.get(idx)[1];
+                    double min = windows.get(idx)[0];
+                    double max = windows.get(idx)[1];
                     log.debug("\tMin-Max: [{}, {}]", min, max);
                     renderer.setChannelWindow(c, min, max);
                 }
@@ -386,9 +386,74 @@ public class RenderingUtils {
                         }
                     }
                 }
-            }
 
-            idx += 1;
+                idx += 1;
+            }
+        }
+        for (RenderingModel renderingModel : renderingModels) {
+            if (colorMode.equals(renderingModel.getValue())) {
+                renderer.setModel(renderingModel);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Update settings on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @param sizeC number of channels
+     * @param ctx OMERO context (group)
+     * @throws ServerError
+     */
+    public static void updateSettingsIntColors(Renderer renderer,
+            List<Integer> channels,
+            List<Double[]> windows,
+            List<Integer[]> colors,
+            List<Map<String, Map<String, Object>>> maps,
+            List<RenderingModel> renderingModels,
+            String colorMode) {
+        log.debug("Setting active channels");
+        int idx = 0; // index of windows/colors args
+        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
+            log.debug("Setting for channel {}", c);
+            boolean isActive = channels.contains(c + 1);
+            log.debug("\tChannel active {}", isActive);
+            renderer.setActive(c, isActive);
+
+            if (isActive) {
+                if (windows != null) {
+                    double min = windows.get(idx)[0];
+                    double max = windows.get(idx)[1];
+                    log.debug("\tMin-Max: [{}, {}]", min, max);
+                    renderer.setChannelWindow(c, min, max);
+                }
+                Integer[] rgba = colors.get(idx);
+                if (rgba.length < 4) {
+                    renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], 255);
+                    log.debug("\tColor: [{}, {}, {}, {}]",
+                            rgba[0], rgba[1], rgba[2], 255);
+                } else {
+                    renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
+                    log.debug("\tColor: [{}, {}, {}, {}]",
+                            rgba[0], rgba[1], rgba[2], rgba[3]);
+                }
+                if (maps != null) {
+                    if (c < maps.size()) {
+                        Map<String, Map<String, Object>> map =
+                                maps.get(c);
+                        if (map != null) {
+                            Map<String, Object> reverse = map.get("reverse");
+                            if (reverse != null
+                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
+                                renderer.getCodomainChain(c).add(
+                                        new ReverseIntensityContext());
+                            }
+                        }
+                    }
+                }
+
+                idx += 1;
+            }
         }
         for (RenderingModel renderingModel : renderingModels) {
             if (colorMode.equals(renderingModel.getValue())) {

@@ -57,9 +57,9 @@ public class ImageRegionCtxTest {
     final private int channel0 = -1;
     final private int channel1 = 2;
     final private int channel2 = -3;
-    final private float[] window0 = new float[]{0, 65535};
-    final private float[] window1 = new float[]{1755, 51199};
-    final private float[] window2 = new float[]{3218, 26623};
+    final private double[] window0 = new double[]{0, 65535};
+    final private double[] window1 = new double[]{1755, 51199};
+    final private double[] window2 = new double[]{3218, 26623};
     final private String color0 = "0000FF";
     final private String color1 = "00FF00";
     final private String color2 = "FF0000";

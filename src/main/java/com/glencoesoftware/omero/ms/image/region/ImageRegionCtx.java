@@ -65,7 +65,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
 
     /** Channel settings - handled at the Verticle level*/
     public List<Integer> channels;
-    public List<Float[]> windows;
+    public List<Double[]> windows;
     public List<String> colors;
 
     /** Color mode (g == grey scale; c == rgb) */
@@ -249,7 +249,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
         String[] channelArray = channelInfo.split(",", -1);
         channels = new ArrayList<Integer>();
-        windows = new ArrayList<Float[]>();
+        windows = new ArrayList<Double[]>();
         colors = new ArrayList<String>();
         for (String channel : channelArray) {
             try {
@@ -258,7 +258,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 String[] temp = channel.split("\\|", 2);
                 String active = temp[0];
                 String color = null;
-                Float[] range = new Float[2];
+                Double[] range = new Double[2];
                 String window = null;
                 // temp = '1'
                 // Not normally used...
@@ -275,8 +275,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                     }
                     String[] rangeStr = window.split(":");
                     if (rangeStr.length > 1) {
-                        range[0] = Float.parseFloat(rangeStr[0]);
-                        range[1] = Float.parseFloat(rangeStr[1]);
+                        range[0] = Double.parseDouble(rangeStr[0]);
+                        range[1] = Double.parseDouble(rangeStr[1]);
                     }
                 }
                 colors.add(color);

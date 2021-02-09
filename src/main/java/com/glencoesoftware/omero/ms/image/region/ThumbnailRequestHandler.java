@@ -83,12 +83,13 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
                 Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
+            long userId = sf.getAdminService().getEventContext().userId;
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
                     iQuery, thumbnailCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+                return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId);
             }
             log.debug("Cannot find Image:{}", thumbnailCtx.imageId);
         } catch (Exception e) {
