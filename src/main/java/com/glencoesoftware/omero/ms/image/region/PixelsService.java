@@ -107,9 +107,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
 
     public PixelBuffer getNgffPixelBuffer(Pixels pixels, String ngffDir, TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
         try {
-            return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
-        } catch (Exception e) {
             return new ZarrPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
+        } catch (Exception e) {
+            return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
         }
     }
 }

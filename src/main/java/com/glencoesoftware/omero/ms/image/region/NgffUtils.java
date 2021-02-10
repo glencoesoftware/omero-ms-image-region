@@ -32,13 +32,13 @@ public class NgffUtils {
             log.error("Error connecting to S3", e);
             return null;
         }
-        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
-        if(Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
-        }
-        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
+        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
         if(Files.exists(ngffRoot) ) {
             return zarrUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
+        }
+        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
+        if(Files.exists(ngffRoot)) {
+            return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
         }
         log.error("Ngff file missing or unsupported type: ", ngffDir, filesetId);
         return null;
@@ -52,13 +52,13 @@ public class NgffUtils {
             log.error("Error connecting to S3", e);
             return null;
         }
-        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
-        if(Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
-        }
-        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
+        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
         if(Files.exists(ngffRoot) ) {
             return zarrUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+        }
+        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
+        if(Files.exists(ngffRoot)) {
+            return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
         }
         log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
         return null;
@@ -71,15 +71,16 @@ public class NgffUtils {
         } catch (IOException e) {
             log.error("Error connecting to S3", e);
             return null;
-        }/*
-        Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
-        if(Files.exists(ngffRoot)) {
-            return null;
-        }*/
+        }
         Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ".zarr");
         if(Files.exists(ngffRoot) ) {
             return zarrUtils.getOmeroMetadata(ngffDir, filesetId, series);
         }
+        ngffRoot = basePath.resolve(Long.toString(filesetId) + ".tiledb");
+        if(Files.exists(ngffRoot)) {
+            return tiledbUtils.getOmeroMetadata(ngffDir, filesetId, series);
+        }
+
         log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
         return null;
     }

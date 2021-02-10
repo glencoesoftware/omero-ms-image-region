@@ -1,6 +1,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -820,5 +821,40 @@ public class TiledbUtils {
             span.finish();
         }
         return null;
+    }
+
+    public JsonObject getOmeroMetadata(String ngffDir, long filesetId, int series) {
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("tiledb_get_omero_metadata");
+        log.info("Getting tiledb omero metadata");
+        String metadataPath;
+        if (ngffDir.startsWith("s3://")) {
+            StringBuilder s3PathBuilder = new StringBuilder();
+            s3PathBuilder.append(ngffDir);
+            if(!s3PathBuilder.toString().endsWith("/")) {
+                s3PathBuilder.append("/");
+            }
+            s3PathBuilder.append(filesetId).append(".tiledb").append("/")
+                .append(series);
+            metadataPath = s3PathBuilder.toString();
+        } else {
+            Path localPath = Paths.get(ngffDir)
+                    .resolve(Long.toString(filesetId) + ".tiledb")
+                    .resolve(Integer.toString(series));
+            metadataPath = localPath.toString();
+        }
+        try (Context ctx = new Context();
+                Array array = new Array(ctx, metadataPath, QueryType.TILEDB_READ)) {
+            if(array.hasMetadataKey("omero")) {
+                String multiscalesMetaStr = TiledbUtils.getStringMetadata(array, "omero");
+                return new JsonObject(multiscalesMetaStr);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Exception while retrieving label image metadata", e);
+            return null;
+        } finally {
+            span.finish();
+        }
     }
 }
