@@ -353,40 +353,40 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Thumbnail Request Handler
         router.get(
-                "/webclient/render_thumbnail/size/:longestSide/:imageId*")
+                "/webclient/render_thumbnail_ngff/size/:longestSide/:imageId*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webclient/render_thumbnail/:imageId*")
+                "/webclient/render_thumbnail_ngff/:imageId*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webgateway/render_thumbnail/:imageId/:longestSide*")
+                "/webgateway/render_thumbnail_ngff/:imageId/:longestSide*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webgateway/render_thumbnail/:imageId*")
+                "/webgateway/render_thumbnail_ngff/:imageId*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webclient/render_birds_eye_view/:imageId/:longestSide*")
+                "/webclient/render_birds_eye_view_ngff/:imageId/:longestSide*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webclient/render_birds_eye_view/:imageId*")
+                "/webclient/render_birds_eye_view_ngff/:imageId*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webgateway/render_birds_eye_view/:imageId/:longestSide*")
+                "/webgateway/render_birds_eye_view_ngff/:imageId/:longestSide*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webgateway/render_birds_eye_view/:imageId*")
+                "/webgateway/render_birds_eye_view_ngff/:imageId*")
             .handler(this::renderThumbnail);
         router.get(
-                "/webgateway/get_thumbnails/:longestSide*")
+                "/webgateway/get_thumbnails_ngff/:longestSide*")
             .handler(this::getThumbnails);
         router.get(
-                "/webgateway/get_thumbnails*")
+                "/webgateway/get_thumbnails_ngff*")
             .handler(this::getThumbnails);
         router.get(
-                "/webclient/get_thumbnails/:longestSide*")
+                "/webclient/get_thumbnails_ngff/:longestSide*")
             .handler(this::getThumbnails);
         router.get(
-                "/webclient/get_thumbnails*")
+                "/webclient/get_thumbnails_ngff*")
             .handler(this::getThumbnails);
 
         MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
