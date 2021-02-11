@@ -289,15 +289,17 @@ public class ThumbnailsRequestHandler {
                 }
             }
             log.info("Updating rendering settings from user settings");
-            log.info(channels.toString());
-            for(Double[] f : windows) {
-                log.info(Arrays.toString(f));
+            if(channels.size() > 0) {
+                log.info(channels.toString());
+                for(Double[] f : windows) {
+                    log.info(Arrays.toString(f));
+                }
+                for(Integer[] c : colors) {
+                    log.info(Arrays.toString(c));
+                }
+                RenderingUtils.updateSettingsIntColors(renderer, channels, windows, colors, null, renderingModels, "rgb");
+                return;
             }
-            for(Integer[] c : colors) {
-                log.info(Arrays.toString(c));
-            }
-            RenderingUtils.updateSettingsIntColors(renderer, channels, windows, colors, null, renderingModels, "rgb");
-            return;
         } catch (ServerError e) {
             log.error("Error getting rendering setttings from server", e);
         }
