@@ -320,6 +320,9 @@ public class ThumbnailsRequestHandler {
                 windows.add(new Double[] {Double.valueOf(window.getFloat("start")), Double.valueOf(window.getFloat("end"))});
                 colors.add(channelInfo.getString("color"));
             }
+        } else {
+            throw new IllegalArgumentException(String.format(
+                    "NGFF Fileset %d missing omero metadata", pixels.getImage().getFileset().getId()));
         }
         log.info("Updating rendering settings from NGFF metadata");
         log.info(channels.toString());

@@ -532,7 +532,13 @@ public class OmeroZarrUtils {
                 ZarrGroup labelImageShapeGroup = ZarrGroup.open(labelImageShapePath);
                 JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(labelImageShapeGroup.getAttributes()));
                 if (jsonAttrs.containsKey("multiscales")) {
+                    try {
                     multiscales = jsonAttrs.getJsonObject("multiscales");
+                    } catch (Exception e) {
+                        //Attempt to retrieve as String
+                        log.debug("Getting multiscales as String");
+                        multiscales = new JsonObject(jsonAttrs.getString("multiscales"));
+                    }
                 } if (jsonAttrs.containsKey("minmax")) {
                     JsonArray minMaxArray = jsonAttrs.getJsonArray("minmax");
                     minMax = new int[] {minMaxArray.getInteger(0), minMaxArray.getInteger(1)};
@@ -583,7 +589,15 @@ public class OmeroZarrUtils {
         try {
             ZarrGroup zarrGroup = ZarrGroup.open(ngffPath);
             JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(zarrGroup.getAttributes()));
-            return jsonAttrs.getJsonObject("omero", null);
+            if (!jsonAttrs.containsKey("omero")) {
+                return null;
+            }
+            try {
+                return jsonAttrs.getJsonObject("omero");
+            } catch (Exception e) {
+                log.debug("Getting omero metadata as string");
+                return new JsonObject(jsonAttrs.getString("omero"));
+            }
         } catch (Exception e) {
             log.error("Error getting omero metadata from zarr");
             span.error(e);
