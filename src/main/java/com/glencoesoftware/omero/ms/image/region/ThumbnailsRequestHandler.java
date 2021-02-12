@@ -276,6 +276,7 @@ public class ThumbnailsRequestHandler {
             if (settingsList.size() > 0) {
                 RenderingDef rdef = (RenderingDef) settingsList.get(0);
                 int numCbs = rdef.sizeOfWaveRendering();
+                log.info("Number of channel bindings in user settings: " + Integer.toString(numCbs));
                 for (int i = 0; i < numCbs; i++) {
                     ChannelBinding cb = rdef.getChannelBinding(i);
                     if (cb.getActive().getValue()) {
@@ -288,8 +289,8 @@ public class ThumbnailsRequestHandler {
                     }
                 }
             }
-            log.info("Updating rendering settings from user settings");
             if(channels.size() > 0) {
+                log.info("Updating rendering settings from user settings");
                 log.info(channels.toString());
                 for(Double[] f : windows) {
                     log.info(Arrays.toString(f));
@@ -317,10 +318,12 @@ public class ThumbnailsRequestHandler {
             JsonArray ngffChannels = omeroMetadata.getJsonArray("channels");
             for (int i = 0; i < ngffChannels.size(); i++) {
                 JsonObject channelInfo = ngffChannels.getJsonObject(i);
-                channels.add(i+1);
-                JsonObject window = channelInfo.getJsonObject("window");
-                windows.add(new Double[] {Double.valueOf(window.getFloat("start")), Double.valueOf(window.getFloat("end"))});
-                colors.add(channelInfo.getString("color"));
+                if (channelInfo.getBoolean("active")) {
+                    channels.add(i+1);
+                    JsonObject window = channelInfo.getJsonObject("window");
+                    windows.add(new Double[] {Double.valueOf(window.getFloat("start")), Double.valueOf(window.getFloat("end"))});
+                    colors.add(channelInfo.getString("color"));
+                }
             }
         } else {
             throw new IllegalArgumentException(String.format(
