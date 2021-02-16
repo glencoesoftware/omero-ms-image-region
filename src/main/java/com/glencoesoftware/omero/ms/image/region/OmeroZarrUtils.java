@@ -34,6 +34,8 @@ import ucar.ma2.InvalidRangeException;
 
 public class OmeroZarrUtils {
 
+    private static final String MULTISCALES_KEY = "multiscales";
+
     String accessKey;
     String secretKey;
     String awsRegion;
@@ -493,7 +495,7 @@ public class OmeroZarrUtils {
         metadata.put("size", size);
         metadata.put("type", getStdTypeFromZarrType(zarray.getDataType()));
         if(multiscales != null) {
-            metadata.put("multiscales", multiscales);
+            metadata.put(MULTISCALES_KEY, multiscales);
         }
         metadata.put("uuid", uuid);
         span.finish();
@@ -531,13 +533,16 @@ public class OmeroZarrUtils {
             try {
                 ZarrGroup labelImageShapeGroup = ZarrGroup.open(labelImageShapePath);
                 JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(labelImageShapeGroup.getAttributes()));
-                if (jsonAttrs.containsKey("multiscales")) {
+                if (jsonAttrs.containsKey(MULTISCALES_KEY)) {
                     try {
-                    multiscales = jsonAttrs.getJsonObject("multiscales");
+                    multiscales = jsonAttrs.getJsonArray(MULTISCALES_KEY).getJsonObject(0);
                     } catch (Exception e) {
-                        //Attempt to retrieve as String
-                        log.debug("Getting multiscales as String");
-                        multiscales = new JsonObject(jsonAttrs.getString("multiscales"));
+                        try {
+                            log.warn("Failed to get multiscales as array - attempting as object");
+                            multiscales = jsonAttrs.getJsonObject(MULTISCALES_KEY);
+                        } catch (Exception e2) {
+                            log.error("Failed to get multiscales metadata as array or object");
+                        }
                     }
                 } if (jsonAttrs.containsKey("minmax")) {
                     JsonArray minMaxArray = jsonAttrs.getJsonArray("minmax");
