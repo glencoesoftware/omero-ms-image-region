@@ -27,7 +27,6 @@ import ome.logic.PixelsImpl;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.parameters.Parameters;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.data.PlaneDef;
@@ -39,6 +38,7 @@ import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
+import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.model.RenderingDef;
@@ -118,7 +118,6 @@ public class ThumbnailsRequestHandler {
         this.ngffDir = ngffDir;
         this.longestSide = longestSide;
         this.imageIds = imageIds;
-        //getChannelInfoFromString("1|0:255$FF0000,2|0:255$00FF00,3|0:255$0000FF");
     }
 
     /**
@@ -127,9 +126,13 @@ public class ThumbnailsRequestHandler {
      */
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
         try {
+            ServiceFactoryPrx sf = client.getSession();
+            long userId = sf.getAdminService().getEventContext().userId;
+            IQueryPrx iQuery = sf.getQueryService();
+            IPixelsPrx iPixels = sf.getPixelsService();
             List<Image> images = getImages(client, imageIds);
             if (images.size() != 0) {
-                return getThumbnails(images, longestSide);
+                return getThumbnails(iQuery, iPixels, userId, images, longestSide);
             } else {
                 log.debug("Cannot find any Images with Ids {}", imageIds);
             }
@@ -165,8 +168,16 @@ public class ThumbnailsRequestHandler {
         }
     }
 
-    protected byte[] getThumbnail(Image image, int longestSide) throws IOException {
-        return null;
+    protected byte[] getThumbnail(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
+            Image image, int longestSide) throws IOException {
+        try {
+        List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
+                iQuery, image.getId().getValue());
+        return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId);
+        } catch (Exception e) {
+            log.error("Error getting thumbnail " + Long.toString(image.getId().getValue()), e);
+            return new byte[0];
+        }
     }
 
     /**
@@ -178,10 +189,11 @@ public class ThumbnailsRequestHandler {
      * @return Map of {@link Image} identifier to JPEG thumbnail byte array.
      * @throws IOException
      */
-    protected Map<Long, byte[]> getThumbnails( List<Image> images, int longestSide) throws IOException {
+    protected Map<Long, byte[]> getThumbnails(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
+            List<Image> images, int longestSide) throws IOException {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         for(Image image : images) {
-            thumbnails.put(image.getId().getValue(), getThumbnail(image, longestSide));
+            thumbnails.put(image.getId().getValue(), getThumbnail(iQuery, iPixels, userId, image, longestSide));
         }
         return thumbnails;
     }

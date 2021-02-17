@@ -721,7 +721,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * @param event Current routing context.
      */
     private void getThumbnails(RoutingContext event) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("ms_get_thumbnails");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_thumbnails_ngff");
         final HttpServerRequest request = event.request();
         final HttpServerResponse response = event.response();
         final String callback = request.getParam("callback");

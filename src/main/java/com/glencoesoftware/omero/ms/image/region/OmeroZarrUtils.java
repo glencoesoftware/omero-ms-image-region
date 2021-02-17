@@ -1,6 +1,5 @@
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -35,6 +34,8 @@ import ucar.ma2.InvalidRangeException;
 public class OmeroZarrUtils {
 
     private static final String MULTISCALES_KEY = "multiscales";
+    private static final String MINMAX_KEY = "minmax";
+
 
     String accessKey;
     String secretKey;
@@ -544,8 +545,8 @@ public class OmeroZarrUtils {
                             log.error("Failed to get multiscales metadata as array or object");
                         }
                     }
-                } if (jsonAttrs.containsKey("minmax")) {
-                    JsonArray minMaxArray = jsonAttrs.getJsonArray("minmax");
+                } if (jsonAttrs.containsKey(MINMAX_KEY)) {
+                    JsonArray minMaxArray = jsonAttrs.getJsonArray(MINMAX_KEY);
                     minMax = new int[] {minMaxArray.getInteger(0), minMaxArray.getInteger(1)};
                 }
             } catch (Exception e) {

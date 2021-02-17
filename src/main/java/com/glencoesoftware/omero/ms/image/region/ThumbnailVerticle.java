@@ -248,6 +248,12 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
 
         try (OmeroRequest request = new OmeroRequest(
                 host, port, omeroSessionKey)) {
+            if (families == null) {
+                request.execute(this::updateFamilies);
+            }
+            if (renderingModels == null) {
+                request.execute(this::updateRenderingModels);
+            }
             Map<Long, byte[]> thumbnails = request.execute(
                     new ThumbnailsRequestHandler(thumbnailCtx,
                             renderingUtils,

@@ -1,6 +1,5 @@
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -11,21 +10,13 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
-import ome.io.nio.PixelBuffer;
-import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import omeis.providers.re.Renderer;
-import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.lut.LutProvider;
-import omeis.providers.re.quantum.QuantizationException;
-import omeis.providers.re.quantum.QuantumFactory;
 import omero.RType;
-import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.model.Image;
 
 
 public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
