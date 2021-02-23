@@ -55,7 +55,7 @@ public class ThumbnailCtx extends OmeroRequestCtx {
                 .orElse(null);
 
         this.renderingDefId = Optional.ofNullable(params.get("rdefId"))
-        .map(Long::parseLong).orElse(null);
+                .map(Long::parseLong).orElse(null);
 
     }
 }

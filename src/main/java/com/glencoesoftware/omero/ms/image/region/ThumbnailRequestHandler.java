@@ -30,6 +30,20 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
      */
     protected Optional<Long> renderingDefId;
 
+    /**
+     *
+     * @param thumbnailCtx
+     * @param renderingUtils
+     * @param compressionSrv
+     * @param families
+     * @param renderingModels
+     * @param lutProvider
+     * @param iScale
+     * @param ngffUtils
+     * @param ngffDir
+     * @param longestSide
+     * @param imageId
+     */
     public ThumbnailRequestHandler(
             ThumbnailCtx thumbnailCtx,
             RenderingUtils renderingUtils,
@@ -41,26 +55,10 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             NgffUtils ngffUtils,
             String ngffDir,
             int longestSide,
-            Long imageId) {
-        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, ngffUtils,
-                ngffDir, longestSide, Arrays.asList(imageId));
-    }
-
-    public ThumbnailRequestHandler(
-            ThumbnailCtx thumbnailCtx,
-            RenderingUtils renderingUtils,
-            LocalCompress compressionSrv,
-            List<Family> families,
-            List<RenderingModel> renderingModels,
-            LutProvider lutProvider,
-            IScale iScale,
-            NgffUtils ngffUtils,
-            String ngffDir,
-            int longestSide,
-            List<Long> imageIds,
+            Long imageId,
             Optional<Long> renderingDefId) {
         super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, ngffUtils,
-                ngffDir, longestSide, imageIds);
+                ngffDir, longestSide, Arrays.asList(imageId));
         this.renderingDefId = renderingDefId;
     }
 
@@ -80,7 +78,7 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
                     iQuery, thumbnailCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId);
+                return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, this.renderingDefId);
             }
             log.debug("Cannot find Image:{}", thumbnailCtx.imageId);
         } catch (Exception e) {

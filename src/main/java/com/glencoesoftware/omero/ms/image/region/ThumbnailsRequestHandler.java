@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,7 @@ public class ThumbnailsRequestHandler {
 
     ThumbnailCtx thumbnailCtx;
 
+    /** Rendering helper class */
     protected final RenderingUtils renderingUtils;
 
     /** Reference to the compression service. */
@@ -67,10 +69,13 @@ public class ThumbnailsRequestHandler {
     /** Available rendering models */
     private final List<RenderingModel> renderingModels;
 
+    /** Scaling service */
     private final IScale iScale;
 
+    /** Interface for NGFF operations */
     private final NgffUtils ngffUtils;
 
+    /** On-Disk or cloud location for NGFF files */
     private final String ngffDir;
 
     /** Longest side of the thumbnail. */
@@ -168,12 +173,22 @@ public class ThumbnailsRequestHandler {
         }
     }
 
+    /**
+     * Retrieves a byte array of rendered pixel data for the thumbnail
+     * @param iQuery The query service proxy
+     * @param iPixels The pixels service proxy
+     * @param userId The Omero user ID
+     * @param image The Image the use wants a thumbnail of
+     * @param longestSide The longest side length of the final thumbnail
+     * @return
+     * @throws IOException
+     */
     protected byte[] getThumbnail(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
             Image image, int longestSide) throws IOException {
         try {
         List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
-        return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId);
+        return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
         } catch (Exception e) {
             log.error("Error getting thumbnail " + Long.toString(image.getId().getValue()), e);
             return new byte[0];
@@ -199,8 +214,7 @@ public class ThumbnailsRequestHandler {
     }
 
     /**
-     * Retrieves a single region from the server in the requested format as
-     * defined by <code>imageRegionCtx.format</code>.
+     * Retrieves a single thumbnail region from the NGFF file in jpeg format
      * @param iQuery OMERO query service to use for metadata access.
      * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
@@ -209,7 +223,7 @@ public class ThumbnailsRequestHandler {
      * @throws QuantizationException
      */
     protected byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries, long userId)
+            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries, long userId, Optional<Long> renderingDefId)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");
@@ -240,7 +254,7 @@ public class ThumbnailsRequestHandler {
             regionDef.setHeight(sizeY);
             log.info(regionDef.toString());
             planeDef.setRegion(regionDef);
-            updateRenderingSettings(iQuery, pixels, userId);
+            updateRenderingSettings(iQuery, pixels, userId, renderingDefId);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -255,13 +269,28 @@ public class ThumbnailsRequestHandler {
         }
     }
 
-    private void updateRenderingSettings(IQueryPrx iQuery, Pixels pixels, long userId) {
-        //First check if there are user-specific rendering settings
+    /**
+     * Updates the settings in the rendering engine based on the user's settings if they exist and
+     * the NGFF settings otherwise
+     * @param iQuery The Query Service proxy for finding user's rendering def
+     * @param pixels The pixels object of the image
+     * @param userId The user requesting the thumbnail
+     */
+    private void updateRenderingSettings(IQueryPrx iQuery, Pixels pixels, long userId, Optional<Long> renderingDefId) {
+        //Check for client-provided rendering def, then user def, then pixels owner def, then NGFF def
         Set<Long> pixelsIds = new HashSet<Long>();
         pixelsIds.add(pixels.getId());
         ParametersI p;
         String sql;
-        if (userId >= 0) {
+        if (renderingDefId.isPresent()) {
+            log.info("Using rendering def " + Long.toString(renderingDefId.get()));
+            p = new ParametersI();
+            List<Long> idList = new ArrayList<Long>();
+            idList.add(renderingDefId.get());
+            p.addIds(idList);
+            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
+                    + "rdef.id in (:ids)";
+        } else if (userId >= 0) {
             // Load the rendering settings of the specified owner
             p = new ParametersI();
             p.addIds(pixelsIds);
@@ -288,7 +317,6 @@ public class ThumbnailsRequestHandler {
             if (settingsList.size() > 0) {
                 RenderingDef rdef = (RenderingDef) settingsList.get(0);
                 int numCbs = rdef.sizeOfWaveRendering();
-                log.info("Number of channel bindings in user settings: " + Integer.toString(numCbs));
                 for (int i = 0; i < numCbs; i++) {
                     ChannelBinding cb = rdef.getChannelBinding(i);
                     if (cb.getActive().getValue()) {
@@ -303,13 +331,6 @@ public class ThumbnailsRequestHandler {
             }
             if(channels.size() > 0) {
                 log.info("Updating rendering settings from user settings");
-                log.info(channels.toString());
-                for(Double[] f : windows) {
-                    log.info(Arrays.toString(f));
-                }
-                for(Integer[] c : colors) {
-                    log.info(Arrays.toString(c));
-                }
                 RenderingUtils.updateSettingsIntColors(renderer, channels, windows, colors, null, renderingModels, "rgb");
                 return;
             }
@@ -342,23 +363,17 @@ public class ThumbnailsRequestHandler {
                     "NGFF Fileset %d missing omero metadata", pixels.getImage().getFileset().getId()));
         }
         log.info("Updating rendering settings from NGFF metadata");
-        log.info(channels.toString());
-        for(Double[] f : windows) {
-            log.info(Arrays.toString(f));
-        }
-        log.info(colors.toString());
         RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
     }
 
     /**
-     * Performs conditional rendering in the requested format as defined by
-     * <code>imageRegionCtx.format</code>.
+     * Renders the thumbail as a jpeg
      * @param renderer fully initialized renderer
-     * @param resolutionLevels complete definition of all resolution levels
-     * for the image.
+     * @param sizeX X size of the image (not final thumbnail)
+     * @param sizeY Y size of the image (not final thumbnail)
      * @param pixels pixels metadata
      * @param planeDef plane definition to use for rendering
-     * @return Image region as a byte array.
+     * @return
      * @throws ServerError
      * @throws IOException
      * @throws QuantizationException

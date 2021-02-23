@@ -667,7 +667,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /******* THUMBNAIL HANDLERS *********/
     /**
-     * Render thumbnail event handler. Responds with a <code>image/jpeg</code>
+     * Render thumbnail event handler for NGFF images. Responds with a <code>image/jpeg</code>
      * body on success based on the <code>longestSide</code> and
      * <code>imageId</code> encoded in the URL or HTTP 404 if the {@link Image}
      * does not exist or the user does not have permissions to access it.
@@ -713,7 +713,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     }
 
     /**
-     * Get thumbnails event handler. Responds with a JSON dictionary of Base64
+     * Get thumbnails event handler for NGFF images. Responds with a JSON dictionary of Base64
      * encoded <code>image/jpeg</code> thumbnails keyed by {@link Image}
      * identifier. Each dictionary value is prefixed with
      * <code>data:image/jpeg;base64,</code> so that it can be used with

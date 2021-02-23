@@ -191,7 +191,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                     ngffUtils,
                     ngffDir,
                     longestSide,
-                    imageId)::renderThumbnail);
+                    imageId,
+                    renderingDefId)::renderThumbnail);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:" + imageId);
             } else {
