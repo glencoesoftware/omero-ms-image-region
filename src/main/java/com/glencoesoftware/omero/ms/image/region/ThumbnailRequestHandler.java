@@ -31,18 +31,19 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
     protected Optional<Long> renderingDefId;
 
     /**
-     *
-     * @param thumbnailCtx
-     * @param renderingUtils
-     * @param compressionSrv
-     * @param families
-     * @param renderingModels
-     * @param lutProvider
-     * @param iScale
-     * @param ngffUtils
-     * @param ngffDir
-     * @param longestSide
-     * @param imageId
+     * Constructor for ThumbnailRequestHandler
+     * @param thumbnailCtx Thumbanil context object
+     * @param renderingUtils configured RenderingUtils instance
+     * @param compressionSrv compression service
+     * @param families list of families
+     * @param renderingModels list or rendering models
+     * @param lutProvider lookup table provider
+     * @param iScale scaling service
+     * @param ngffUtils Configured NgffUtils instance
+     * @param ngffDir directory (local or cloud) of NGFF files
+     * @param longestSide longest side of final thumbnail
+     * @param imageId image to get thumbnail of
+     * @param renderingDefId optional specific rendering definition id
      */
     public ThumbnailRequestHandler(
             ThumbnailCtx thumbnailCtx,

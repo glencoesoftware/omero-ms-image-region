@@ -105,8 +105,10 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
 
     /**
      * Default constructor.
-     * @param tiledbUtils Configured TiledbUtils.
-     * @param zarrUtils Configured OmeroZarrUtils.
+     * @param iScale Scaling service
+     * @param compressionService Compression service
+     * @param lutProvider Lookup table provider
+     * @param ngffUtils Configured NgffUtils instance
      */
     public ThumbnailVerticle(IScale iScale,
             RenderingUtils renderingUtils,

@@ -90,16 +90,23 @@ public class ThumbnailsRequestHandler {
      */
     private final IceMapper mapper = new IceMapper();
 
-    /*
-    private List<Integer> channels;
-    private List<Double[]> windows;
-    private List<String> colors;
-    */
-
-
     /** Renderer */
     private Renderer renderer;
 
+    /**
+     * Default constructor
+     * @param thumbnailCtx ThumbnailCtx object
+     * @param renderingUtils Configured RenderingUtils
+     * @param compressionSrv Compression service
+     * @param families List of families
+     * @param renderingModels List of renering models
+     * @param lutProvider Lookup table provider
+     * @param iScale Scaling service
+     * @param ngffUtils Configured NgffUtils
+     * @param ngffDir Location (local or cloud) of NGFF files
+     * @param longestSide Longest side of the final thumbnail
+     * @param imageIds imageIds {@link Image} identifiers to get thumbnails for
+     */
     public ThumbnailsRequestHandler(
             ThumbnailCtx thumbnailCtx,
             RenderingUtils renderingUtils,
@@ -180,7 +187,7 @@ public class ThumbnailsRequestHandler {
      * @param userId The Omero user ID
      * @param image The Image the use wants a thumbnail of
      * @param longestSide The longest side length of the final thumbnail
-     * @return
+     * @return Byte array of jpeg thumbnail data
      * @throws IOException
      */
     protected byte[] getThumbnail(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
@@ -214,12 +221,16 @@ public class ThumbnailsRequestHandler {
     }
 
     /**
-     * Retrieves a single thumbnail region from the NGFF file in jpeg format
+     *
      * @param iQuery OMERO query service to use for metadata access.
      * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
-     * @return Image region as a byte array.
+     * @param pixelsIdAndSeries {@link Pixels} identifier and Bio-Formats series
+     * @param userId ID of user making the request
+     * @param renderingDefId Specific Rendering Def ID to use for this thumbnail
+     * @return Thumbnail region as a byte array
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     * @throws IOException
      * @throws QuantizationException
      */
     protected byte[] getRegion(
@@ -275,6 +286,7 @@ public class ThumbnailsRequestHandler {
      * @param iQuery The Query Service proxy for finding user's rendering def
      * @param pixels The pixels object of the image
      * @param userId The user requesting the thumbnail
+     * @param renderingDefId Optional specific rendering def ID to use with this thumbnail
      */
     private void updateRenderingSettings(IQueryPrx iQuery, Pixels pixels, long userId, Optional<Long> renderingDefId) {
         //Check for client-provided rendering def, then user def, then pixels owner def, then NGFF def
@@ -410,6 +422,11 @@ public class ThumbnailsRequestHandler {
         return output.toByteArray();
     }
 
+    /**
+     * Calculate the first resolution level larger than the thumbnail
+     * @param resolutionDescriptions
+     * @return
+     */
     private int getResolutionForThumbnail(List<List<Integer>> resolutionDescriptions) {
         int resolutionLevel = 0;
         for(; resolutionLevel < resolutionDescriptions.size(); resolutionLevel++) {
