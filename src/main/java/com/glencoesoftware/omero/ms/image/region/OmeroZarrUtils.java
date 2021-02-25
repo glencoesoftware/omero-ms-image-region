@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.slf4j.LoggerFactory;
@@ -24,7 +23,6 @@ import com.bc.zarr.ZarrUtils;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
@@ -37,7 +35,10 @@ public class OmeroZarrUtils {
     private static final String MINMAX_KEY = "minmax";
 
 
+    /** AWS/Cloud Access key */
     String accessKey;
+
+    /** AWS/Cloud secret key */
     String secretKey;
     String awsRegion;
     String s3EndpointOverride;
@@ -100,9 +101,38 @@ public class OmeroZarrUtils {
     }
 
     /**
-     *
-     * @param buf
-     * @param type
+     * Get PixelType String from Zarr DataType
+     * @param type The Zarr type
+     * @return
+     */
+    private static String getStdTypeFromZarrType(DataType zarrType) {
+        switch (zarrType) {
+        case u1:
+            return FormatTools.getPixelTypeString(FormatTools.UINT8);
+        case i1:
+            return FormatTools.getPixelTypeString(FormatTools.INT8);
+        case u2:
+            return FormatTools.getPixelTypeString(FormatTools.UINT16);
+        case i2:
+            return FormatTools.getPixelTypeString(FormatTools.INT16);
+        case u4:
+            return FormatTools.getPixelTypeString(FormatTools.UINT32);
+        case i4:
+            return FormatTools.getPixelTypeString(FormatTools.INT32);
+        case i8:
+            return "int64";
+        case f4:
+            return "float";
+        case f8:
+            return "double";
+        }
+        return null;
+    }
+
+    /**
+     * Get min and max values for metadata
+     * @param buf Contains the data
+     * @param type The Zarr DataType of the data in the ByteBuffer
      * @return
      */
     public static long[] getMinMax(ByteBuffer buf, DataType type) {
@@ -176,6 +206,11 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get bytes per pixel for a given DataType
+     * @param type Zarr DataType
+     * @return
+     */
     public static int getBytesPerPixel(DataType type) {
         switch (type) {
             case u1:
@@ -194,6 +229,11 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get the region shape and the start (offset) from the string
+     * @param domainStr The string which describes the domain
+     * @return 2D int array [[shape_dim1,...],[start_dim1,...]]
+     */
     public static int[][] getShapeAndStartFromString(String domainStr) {
         //String like [0,1,0,100:150,200:250]
         if(domainStr.length() == 0) {
@@ -224,6 +264,15 @@ public class OmeroZarrUtils {
         return shapeAndStart;
     }
 
+    /**
+     * Get the image data path from the constituent components
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId FilesetID
+     * @param series Series
+     * @param resolutionLevel Requested resolution level
+     * @return Path to the image pixel data
+     * @throws IOException
+     */
     public Path getImageDataPath(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) throws IOException {
         Path imageDataPath = getLocalOrS3Path(ngffDir);
         imageDataPath = imageDataPath.resolve(Long.toString(filesetId)
@@ -231,6 +280,16 @@ public class OmeroZarrUtils {
         return imageDataPath;
     }
 
+    /**
+     * Get the path to the label image data from constituent components
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param uuid Shape UUID
+     * @param resolution Requested resolution level
+     * @return Path to the reqeusted label image data
+     * @throws IOException
+     */
     private Path getLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) throws IOException {
         Path labelImageBasePath = getLocalOrS3Path(ngffDir);
         labelImageBasePath = labelImageBasePath.resolve(Long.toString(filesetId)
@@ -241,6 +300,16 @@ public class OmeroZarrUtils {
         return fullNgffDir;
     }
 
+    /**
+     * Get byte array of label image data
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param uuid Shape UUID
+     * @param resolution Requested resolution
+     * @param domainStr String like [0,1,0,100:150,200:250] denoting the region to return
+     * @return The NGFF label image data
+     */
     public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
             String domainStr) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_bytes_zarr");
@@ -256,6 +325,16 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get the NGFF image pixel data
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param resolutionLevel Requested resolution level
+     * @param domainStr String like [0,1,0,100:150,200:250] denoting the region to return
+     * @return
+     * @throws IOException
+     */
     public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel,
             String domainStr) throws IOException {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_zarr");
@@ -274,6 +353,15 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get image pixel data for entire image
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param resolutionLevel Requested resolution level
+     * @return The pixel data for the image
+     * @throws IOException
+     */
     public PixelData getPixelData(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) throws IOException {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_pixel_data_from_zarr");
         Path ngffPath = getImageDataPath(ngffDir, filesetId, series, resolutionLevel);
@@ -291,16 +379,13 @@ public class OmeroZarrUtils {
         }
     }
 
-    public static void rescaleSubarrayDomain(int[] requestedShape, int[] fromPosition, int[] shape) {
-        if(fromPosition[0] >  shape[0] ||
-           fromPosition[1] >  shape[1] ||
-           fromPosition[2] >  shape[2] ||
-           fromPosition[3] >  shape[3] ||
-           fromPosition[4] >  shape[4]) {
-            throw new IllegalArgumentException("Starting index exceeds image size");
-        }
-    }
-
+    /**
+     * Get data from ZarrArray as byte[]
+     * @param zarray The ZarrArray to get data from
+     * @return A byte array of data in the ZarrArray
+     * @throws IOException
+     * @throws InvalidRangeException
+     */
     public static byte[] getData(ZarrArray zarray) throws IOException, InvalidRangeException {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_entire_data_from_zarr");
         try {
@@ -316,6 +401,15 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get data from subarray of the ZarrArray
+     * @param zarray The ZarrArray to get data from
+     * @param subarrayString string like [0,1,0,100:150,200:250] describing the region to retrieve
+     * @param maxTileLength The max region size to return
+     * @return
+     * @throws IOException
+     * @throws InvalidRangeException
+     */
     public static byte[] getData(ZarrArray zarray, String subarrayString, Integer maxTileLength) throws IOException, InvalidRangeException {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_subregion_data_from_zarr");
         try {
@@ -325,10 +419,8 @@ public class OmeroZarrUtils {
                 throw new IllegalArgumentException("Number of dimensions must be 5. Actual was: "
                         + Integer.toString(num_dims));
             }
-            log.info(subarrayString);
+            log.debug(subarrayString);
             int[][] shapeAndStart = getShapeAndStartFromString(subarrayString);
-            log.info(Arrays.toString(shapeAndStart[0]));
-            log.info(Arrays.toString(shapeAndStart[1]));
             if(shapeAndStart[0][3] > maxTileLength || shapeAndStart[0][4] > maxTileLength) {
                 throw new IllegalArgumentException("Tile size exceeds max size of " + Integer.toString(maxTileLength));
             }
@@ -338,6 +430,13 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get byte array from ZarrArray
+     * @param zarray The ZarrArray to get data from
+     * @param shape The shape of the region to retrieve
+     * @param offset The offset of the region
+     * @return byte array of data from the ZarrArray
+     */
     public static byte[] getBytes(ZarrArray zarray, int[] shape, int[] offset) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_bytes_zarr");
         DataType type = zarray.getDataType();
@@ -395,7 +494,13 @@ public class OmeroZarrUtils {
         }
     }
 
-
+    /**
+     * Get the number of resolution levels in NGFF image data
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @return Number of resolution levels
+     */
     public int getResolutionLevels(String ngffDir, Long filesetId, Integer series) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_resolution_levels_zarr");
         try {
@@ -430,6 +535,12 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     * Get the correct path (either local or cloud) to the NGFF files
+     * @param ngffDir Top-level directory containing NGFF files
+     * @return Path object to the NGFF directory
+     * @throws IOException
+     */
     public Path getLocalOrS3Path(String ngffDir) throws IOException {
         Path path;
         if(ngffDir.startsWith("s3://")) {
@@ -445,6 +556,15 @@ public class OmeroZarrUtils {
         return path;
     }
 
+    /**
+     * Get the size of the image in the given dimension
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param resolutionLevel Requested resolution level
+     * @param dimIdx The index of the dimension
+     * @return Size of the requested dimension
+     */
     public int getDimSize(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel, Integer dimIdx) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_dim_size_zarr");
         try {
@@ -459,6 +579,14 @@ public class OmeroZarrUtils {
         return -1;
     }
 
+    /**
+     * Get the X and Y sizes of the given image at the given resolution level
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @param resolutionLevel Requested resolution level
+     * @return Integer array [sizeX, sizeY]
+     */
     public Integer[] getSizeXandY(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_size_xy_zarr");
         Integer[] xy = new Integer[2];
@@ -475,32 +603,16 @@ public class OmeroZarrUtils {
         }
     }
 
-    private static String getStdTypeFromZarrType(DataType zarrType) {
-        switch (zarrType) {
-        case u1:
-            return FormatTools.getPixelTypeString(FormatTools.UINT8);
-        case i1:
-            return FormatTools.getPixelTypeString(FormatTools.INT8);
-        case u2:
-            return FormatTools.getPixelTypeString(FormatTools.UINT16);
-        case i2:
-            return FormatTools.getPixelTypeString(FormatTools.INT16);
-        case u4:
-            return FormatTools.getPixelTypeString(FormatTools.UINT32);
-        case i4:
-            return FormatTools.getPixelTypeString(FormatTools.INT32);
-        case i8:
-            return "int64";
-        case f4:
-            return "float";
-        case f8:
-            return "double";
-        }
-        return null;
-    }
-
+    /**
+     * Get produce metadata JsonObject from ZarrArray info and other metadata info
+     * @param zarray ZarrArray to get metadata from
+     * @param minMax Min and max values of the data
+     * @param multiscales Multiscales metadata object
+     * @param uuid Shape uuid
+     * @return Metadata JsonObject
+     */
     private static JsonObject getMetadataFromArray(ZarrArray zarray, int[] minMax,
-            JsonObject multiscales, String uuid) throws TileDBError {
+            JsonObject multiscales, String uuid) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_metadata_from_array");
         int[] shape = zarray.getShape();
 
@@ -528,7 +640,7 @@ public class OmeroZarrUtils {
 
     /**
      * Get label image metadata request handler.
-     * @param ngffDir The base directory for ngff data
+     * @param ngffDir Top-level directory containing NGFF files
      * @param filesetId The fileset ID of the image
      * @param series The series ID of the image in the fileset
      * @param uuid The External Info UUID of the shape associated with the label image
@@ -588,7 +700,13 @@ public class OmeroZarrUtils {
         return null;
     }
 
-
+    /**
+     * Get a list of resolution descriptions (X and Y sizes)
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @return List of Resolution level sizes
+     */
     public List<List<Integer>> getResolutionDescriptions(String ngffDir, long filesetId, int series) {
         List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
         int resLvlCount = getResolutionLevels(ngffDir, filesetId, series);
@@ -602,6 +720,13 @@ public class OmeroZarrUtils {
         return resolutionDescriptions;
     }
 
+    /**
+     * Get 'omero' metadata for the image
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param filesetId Fileset ID
+     * @param series Series
+     * @return JsonObject containing 'omero' metadata
+     */
     public JsonObject getOmeroMetadata(String ngffDir, long filesetId, int series) {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("zarr_get_omero_metadata");
         Path basePath;
