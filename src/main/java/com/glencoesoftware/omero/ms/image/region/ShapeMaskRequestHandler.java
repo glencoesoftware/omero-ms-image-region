@@ -337,7 +337,7 @@ public class ShapeMaskRequestHandler {
                 try {
                     return ngffUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, shapeMaskCtx.subarrayDomainStr);
                 } catch (Exception e) {
-                    log.error("Error getting label image bytes from TileDB", e);
+                    log.error("Error getting label image bytes from NGFF", e);
                     return mask.getBytes();
                 }
             }

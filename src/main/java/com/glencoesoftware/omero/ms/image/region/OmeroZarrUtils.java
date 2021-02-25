@@ -45,6 +45,15 @@ public class OmeroZarrUtils {
 
     FileSystem s3fs;
 
+    /**
+     * Default constructor
+     * @param accessKey AWS/Cloud Access Key
+     * @param secretKey AWS/Cloud Secret Key
+     * @param awsRegion AWS/Cloud Region
+     * @param s3EndpointOverride For non-aws object storage endpoint
+     * @param maxTileLength Max tile length
+     * @param s3fsWrapper Configured S3 filesystem wrapper
+     */
     public OmeroZarrUtils(String accessKey,
             String secretKey,
             String awsRegion,
@@ -62,6 +71,11 @@ public class OmeroZarrUtils {
     private static final org.slf4j.Logger log =
         LoggerFactory.getLogger(OmeroZarrUtils.class);
 
+    /**
+     * Get PixelType String from Zarr DataType
+     * @param type The Zarr type
+     * @return
+     */
     public static String getPixelsType(DataType type) {
         switch (type) {
             case u1:
@@ -85,6 +99,12 @@ public class OmeroZarrUtils {
         }
     }
 
+    /**
+     *
+     * @param buf
+     * @param type
+     * @return
+     */
     public static long[] getMinMax(ByteBuffer buf, DataType type) {
         if (!buf.hasRemaining()) {
             throw new IllegalArgumentException("Cannot get max of empty buffer");
@@ -335,6 +355,7 @@ public class OmeroZarrUtils {
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 2);
                     ShortBuffer sbuf = bbuf.asShortBuffer();
                     sbuf.put(data);
+                    bbuf.order(ByteOrder.BIG_ENDIAN);
                     return bbuf.array();
                 }
                 case u4:
@@ -346,6 +367,7 @@ public class OmeroZarrUtils {
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 4);
                     IntBuffer ibuf = bbuf.asIntBuffer();
                     ibuf.put(data);
+                    bbuf.order(ByteOrder.BIG_ENDIAN);
                     return bbuf.array();
                 }
                 case i8:
@@ -356,6 +378,7 @@ public class OmeroZarrUtils {
                     ByteBuffer bbuf = ByteBuffer.allocate(data.length * 8);
                     LongBuffer lbuf = bbuf.asLongBuffer();
                     lbuf.put(data);
+                    bbuf.order(ByteOrder.BIG_ENDIAN);
                     return bbuf.array();
                 }
                 case f4:
