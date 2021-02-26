@@ -33,17 +33,27 @@ public class OmeroZarrUtils {
 
     private static final String MULTISCALES_KEY = "multiscales";
     private static final String MINMAX_KEY = "minmax";
+    private static final String OMERO_KEY = "omero";
+    private static final String LABELS = "labels";
 
+    public static final String ZARR_EXTN = ".zarr";
 
     /** AWS/Cloud Access key */
     String accessKey;
 
     /** AWS/Cloud secret key */
     String secretKey;
+
+    /** AWS/Cloud Region */
     String awsRegion;
+
+    /** Cloud Endpoint Override */
     String s3EndpointOverride;
+
+    /** Max Tile Length */
     Integer maxTileLength;
 
+    /** S3 filesystem object */
     FileSystem s3fs;
 
     /**
@@ -133,7 +143,7 @@ public class OmeroZarrUtils {
      * Get min and max values for metadata
      * @param buf Contains the data
      * @param type The Zarr DataType of the data in the ByteBuffer
-     * @return
+     * @return long array [min, max]
      */
     public static long[] getMinMax(ByteBuffer buf, DataType type) {
         if (!buf.hasRemaining()) {
@@ -209,7 +219,7 @@ public class OmeroZarrUtils {
     /**
      * Get bytes per pixel for a given DataType
      * @param type Zarr DataType
-     * @return
+     * @return Number of bytes per pixel for the given DataType
      */
     public static int getBytesPerPixel(DataType type) {
         switch (type) {
@@ -276,7 +286,7 @@ public class OmeroZarrUtils {
     public Path getImageDataPath(String ngffDir, Long filesetId, Integer series, Integer resolutionLevel) throws IOException {
         Path imageDataPath = getLocalOrS3Path(ngffDir);
         imageDataPath = imageDataPath.resolve(Long.toString(filesetId)
-                + ".zarr").resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
+                + ZARR_EXTN).resolve(Integer.toString(series)).resolve(Integer.toString(resolutionLevel));
         return imageDataPath;
     }
 
@@ -293,8 +303,8 @@ public class OmeroZarrUtils {
     private Path getLabelImagePath(String ngffDir, long filesetId, int series, String uuid, Integer resolution) throws IOException {
         Path labelImageBasePath = getLocalOrS3Path(ngffDir);
         labelImageBasePath = labelImageBasePath.resolve(Long.toString(filesetId)
-                + ".zarr/" + Integer.toString(series));
-        Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+                + ZARR_EXTN).resolve(Integer.toString(series));
+        Path labelImageLabelsPath = labelImageBasePath.resolve(LABELS);
         Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
         Path fullNgffDir = labelImageShapePath.resolve(Integer.toString(resolution));
         return fullNgffDir;
@@ -660,7 +670,7 @@ public class OmeroZarrUtils {
         }
         Path labelImageBasePath = basePath.resolve(Long.toString(filesetId)
                 + ".zarr").resolve(Integer.toString(series));
-        Path labelImageLabelsPath = labelImageBasePath.resolve("labels");
+        Path labelImageLabelsPath = labelImageBasePath.resolve(LABELS);
         Path labelImageShapePath = labelImageLabelsPath.resolve(uuid);
         Path fullngffDir = labelImageShapePath.resolve(Integer.toString(resolution));
         JsonObject multiscales = null;
@@ -743,14 +753,14 @@ public class OmeroZarrUtils {
         try {
             ZarrGroup zarrGroup = ZarrGroup.open(ngffPath);
             JsonObject jsonAttrs = new JsonObject(ZarrUtils.toJson(zarrGroup.getAttributes()));
-            if (!jsonAttrs.containsKey("omero")) {
+            if (!jsonAttrs.containsKey(OMERO_KEY)) {
                 return null;
             }
             try {
-                return jsonAttrs.getJsonObject("omero");
+                return jsonAttrs.getJsonObject(OMERO_KEY);
             } catch (Exception e) {
                 log.debug("Getting omero metadata as string");
-                return new JsonObject(jsonAttrs.getString("omero"));
+                return new JsonObject(jsonAttrs.getString(OMERO_KEY));
             }
         } catch (Exception e) {
             log.error("Error getting omero metadata from zarr");
