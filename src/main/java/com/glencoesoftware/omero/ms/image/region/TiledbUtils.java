@@ -619,7 +619,7 @@ public class TiledbUtils {
         capacity *= bytesPerPixel;
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.BIG_ENDIAN);
+        buffer.order(ByteOrder.nativeOrder());
         //Dimensions in Dense Arrays must be the same type
         try (Query query = new Query(array, QueryType.TILEDB_READ);
                 NativeArray subArray = new NativeArray(ctx, subarrayDomain, Datatype.TILEDB_INT64)){
