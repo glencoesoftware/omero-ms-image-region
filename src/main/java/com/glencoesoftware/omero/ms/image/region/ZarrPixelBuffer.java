@@ -15,18 +15,31 @@ import ome.util.PixelData;
 
 public class ZarrPixelBuffer implements PixelBuffer {
 
+    /** The Pixels object represented by this PixelBuffer */
     Pixels pixels;
 
+    /** Top-level directory for NGFF files */
     String ngffDir;
 
+    /** Fileset ID */
     Long filesetId;
 
+    /** Requested resolution level */
     int resolutionLevel;
 
+    /** Total number of resolution levels */
     int resolutionLevels = -1;
 
+    /** For performing zarr operations */
     OmeroZarrUtils zarrUtils;
 
+    /**
+     * Default constructor
+     * @param pixels The Pixels object represented by this PixelBuffer
+     * @param ngffDir Top-level directory for NGFF files
+     * @param filesetId Fileset ID
+     * @param zarrUtils For performing zarr operations
+     */
     public ZarrPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, OmeroZarrUtils zarrUtils) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;

@@ -26,16 +26,31 @@ import ome.util.PixelData;
 
 public class TiledbPixelBuffer implements PixelBuffer {
 
+    /** The Pixels object represented by this PixelBuffer */
     Pixels pixels;
 
+    /** Top-level directory for NGFF files */
     String ngffDir;
 
+    /** Fileset ID */
     Long filesetId;
 
+    /** Requested resolution level */
     int resolutionLevel;
 
+    /** Total number of resolution levels */
+    int resolutionLevels = -1;
+
+    /** For performing TileDB operations */
     TiledbUtils tiledbUtils;
 
+    /**
+     * Default constructor
+     * @param pixels The Pixels object represented by this PixelBuffer
+     * @param ngffDir Top-level directory for NGFF files
+     * @param filesetId Fileset ID
+     * @param tiledbUtils For performing TileDB operations
+     */
     public TiledbPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, TiledbUtils tiledbUtils) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;
@@ -133,7 +148,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public PixelData getHypercube(List<Integer> offset, List<Integer> size, List<Integer> step)
             throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getHypercube");
         return null;
     }
 
@@ -141,7 +155,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public byte[] getHypercubeDirect(List<Integer> offset, List<Integer> size, List<Integer> step, byte[] buffer)
             throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getHypercubeDirect");
         return null;
     }
 
@@ -149,7 +162,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public byte[] getPlaneRegionDirect(Integer z, Integer c, Integer t, Integer count, Integer offset, byte[] buffer)
             throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getPlaneRegionDirect");
         return null;
     }
 
@@ -176,21 +188,18 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public byte[] getTileDirect(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h,
             byte[] buffer) throws IOException {
         // TODO Auto-generated method stub
-        log.info("getTileDirect");
         return null;
     }
 
     @Override
     public PixelData getRegion(Integer size, Long offset) throws IOException {
         // TODO Auto-generated method stub
-        log.info("getRegion");
         return null;
     }
 
     @Override
     public byte[] getRegionDirect(Integer size, Long offset, byte[] buffer) throws IOException {
         // TODO Auto-generated method stub
-        log.info("getRegionDirect");
         return null;
     }
 
@@ -198,7 +207,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public PixelData getRow(Integer y, Integer z, Integer c, Integer t)
             throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getRow");
         return null;
     }
 
@@ -206,7 +214,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public PixelData getCol(Integer x, Integer z, Integer c, Integer t)
             throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getCol");
         return null;
     }
 
@@ -227,7 +234,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     @Override
     public PixelData getPlane(Integer z, Integer c, Integer t) throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getPlane");
         return null;
     }
 
@@ -235,7 +241,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
     public PixelData getPlaneRegion(Integer x, Integer y, Integer width, Integer height, Integer z, Integer c,
             Integer t, Integer stride) throws IOException, DimensionsOutOfBoundsException {
         // TODO Auto-generated method stub
-        log.info("getPlaneRegion");
         return null;
     }
 
@@ -254,7 +259,6 @@ public class TiledbPixelBuffer implements PixelBuffer {
             PixelData d;
             byte[] buffer = TiledbUtils.getData(array, ctx);
             d = new PixelData(TiledbUtils.getPixelsType(array.getSchema().getAttribute("a1").getType()), ByteBuffer.wrap(buffer));
-            log.info("PIXEL DATA BYTES PER PIXEL: " + Integer.toString(d.bytesPerPixel()));
             d.setOrder(ByteOrder.nativeOrder());
             return d;
         } catch (TileDBError e) {
