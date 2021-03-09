@@ -690,6 +690,18 @@ public class OmeroZarrUtils {
                             log.error("Failed to get multiscales metadata as array or object");
                         }
                     }
+                    JsonArray datasets = multiscales.getJsonArray("datasets");
+                    JsonArray resLvlArray = datasets;
+                    for (int i = 0; i < resLvlArray.size(); i++) {
+                        Path resPath = labelImageShapePath.resolve(Integer.toString(i));
+                        ZarrArray za = ZarrArray.open(resPath);
+                        JsonArray chunkArray = new JsonArray();
+                        int[] chunks = za.getChunks();
+                        for (int j = 0; j < chunks.length; j++) {
+                            chunkArray.add(chunks[j]);
+                        }
+                        datasets.getJsonObject(i).put("chunksize", chunkArray);
+                    }
                 } if (jsonAttrs.containsKey(MINMAX_KEY)) {
                     JsonArray minMaxArray = jsonAttrs.getJsonArray(MINMAX_KEY);
                     minMax = new int[] {minMaxArray.getInteger(0), minMaxArray.getInteger(1)};
