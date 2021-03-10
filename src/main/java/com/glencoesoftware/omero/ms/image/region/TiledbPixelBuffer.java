@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tiledb.java.api.Array;
+import io.tiledb.java.api.ArraySchema;
+import io.tiledb.java.api.Attribute;
 import io.tiledb.java.api.Context;
 import io.tiledb.java.api.QueryType;
 import io.tiledb.java.api.TileDBError;
@@ -265,11 +267,13 @@ public class TiledbPixelBuffer implements PixelBuffer {
                 "/" + Integer.toString(resolutionLevel));
         try (Context ctx = new Context();
              Array array = new Array(
-                     ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ)){
+                     ctx, tiledbDataPath.toString(), QueryType.TILEDB_READ);
+                ArraySchema schema = array.getSchema();
+                Attribute a1 = schema.getAttribute("a1")){
             PixelData d;
             byte[] buffer = TiledbUtils.getData(array, ctx);
             d = new PixelData(TiledbUtils.getPixelsType(
-                    array.getSchema().getAttribute("a1").getType()),
+                    a1.getType()),
                     ByteBuffer.wrap(buffer));
             d.setOrder(ByteOrder.nativeOrder());
             return d;

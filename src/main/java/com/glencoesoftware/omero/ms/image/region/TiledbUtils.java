@@ -19,6 +19,7 @@ import io.tiledb.java.api.Attribute;
 import io.tiledb.java.api.Config;
 import io.tiledb.java.api.Context;
 import io.tiledb.java.api.Datatype;
+import io.tiledb.java.api.Dimension;
 import io.tiledb.java.api.Domain;
 import io.tiledb.java.api.NativeArray;
 import io.tiledb.java.api.Query;
@@ -251,10 +252,12 @@ public class TiledbUtils {
                     domain.getDimension(i).getType().toString() +
                     " not supported");
             }
-            long start = (long) (domain.getDimension(i).getDomain().getFirst());
-            long end = (long) domain.getDimension(i).getDomain().getSecond();
-            subarrayDomain[i*2] = start;
-            subarrayDomain[i*2 + 1] = end;
+                try (Dimension dim = domain.getDimension(i)) {
+                long start = (long) (dim.getDomain().getFirst());
+                long end = (long) dim.getDomain().getSecond();
+                subarrayDomain[i*2] = start;
+                subarrayDomain[i*2 + 1] = end;
+            }
         }
         return subarrayDomain;
     }
@@ -522,12 +525,13 @@ public class TiledbUtils {
             }
             try (Context ctx = new Context(config);
                  Array array = new Array(
-                         ctx, s3PathStr, QueryType.TILEDB_READ)) {
+                         ctx, s3PathStr, QueryType.TILEDB_READ);
+                 ArraySchema schema = array.getSchema();
+                 Attribute a1 = schema.getAttribute("a1")) {
                 byte[] buffer = TiledbUtils.getData(
                         array, ctx, domainStr, maxTileLength);
                 PixelData d = new PixelData(
-                    getPixelsType(array.getSchema()
-                            .getAttribute("a1").getType()),
+                    getPixelsType(a1.getType()),
                     ByteBuffer.wrap(buffer));
                 d.setOrder(ByteOrder.nativeOrder());
                 return d;
@@ -561,12 +565,13 @@ public class TiledbUtils {
             }
             try (Context ctx = new Context(config);
                  Array array =
-                     new Array(ctx, ngffPath, QueryType.TILEDB_READ)) {
+                     new Array(ctx, ngffPath, QueryType.TILEDB_READ);
+                 ArraySchema schema = array.getSchema();
+                 Attribute a1 = schema.getAttribute("a1")) {
                 byte[] buffer = TiledbUtils.getData(
                         array, ctx, domainStr, maxTileLength);
                 PixelData d = new PixelData(getPixelsType(
-                        array.getSchema()
-                                .getAttribute("a1").getType()),
+                        a1.getType()),
                         ByteBuffer.wrap(buffer));
                 d.setOrder(ByteOrder.nativeOrder());
                 return d;
@@ -583,23 +588,29 @@ public class TiledbUtils {
      * @throws TileDBError
      */
     public static void rescaleSubarrayDomain(long[] subarrayDomain, Domain domain) throws TileDBError {
-        if (subarrayDomain[0] > (long) domain.getDimension("t").getDomain().getSecond() ||
-                subarrayDomain[2] > (long) domain.getDimension("c").getDomain().getSecond() ||
-                subarrayDomain[4] > (long) domain.getDimension("z").getDomain().getSecond() ||
-                subarrayDomain[6] > (long) domain.getDimension("y").getDomain().getSecond() ||
-                subarrayDomain[8] > (long) domain.getDimension("x").getDomain().getSecond()) {
-            throw new IllegalArgumentException("Starting index exceeds image size");
+        try (Dimension dimt = domain.getDimension("t");
+                Dimension dimc = domain.getDimension("c");
+                Dimension dimz = domain.getDimension("z");
+                Dimension dimy = domain.getDimension("y");
+                Dimension dimx = domain.getDimension("x")) {
+            if (subarrayDomain[0] > (long) dimt.getDomain().getSecond() ||
+                    subarrayDomain[2] > (long) dimc.getDomain().getSecond() ||
+                    subarrayDomain[4] > (long) dimz.getDomain().getSecond() ||
+                    subarrayDomain[6] > (long) dimy.getDomain().getSecond() ||
+                    subarrayDomain[8] > (long) dimx.getDomain().getSecond()) {
+                throw new IllegalArgumentException("Starting index exceeds image size");
+            }
+        subarrayDomain[1] = subarrayDomain[1] > (long) dimt.getDomain().getSecond() ?
+                (long) dimt.getDomain().getSecond() : subarrayDomain[1];
+        subarrayDomain[3] = subarrayDomain[3] > (long) dimc.getDomain().getSecond() ?
+                (long) dimc.getDomain().getSecond() : subarrayDomain[3];
+        subarrayDomain[5] = subarrayDomain[5] > (long) dimz.getDomain().getSecond() ?
+                (long) dimz.getDomain().getSecond() : subarrayDomain[5];
+        subarrayDomain[7] = subarrayDomain[7] > (long) dimy.getDomain().getSecond() ?
+                (long) dimy.getDomain().getSecond() : subarrayDomain[7];
+        subarrayDomain[9] = subarrayDomain[9] > (long) dimx.getDomain().getSecond() ?
+                (long) dimx.getDomain().getSecond() : subarrayDomain[9];
         }
-        subarrayDomain[1] = subarrayDomain[1] > (long) domain.getDimension("t").getDomain().getSecond() ?
-                (long) domain.getDimension("t").getDomain().getSecond() : subarrayDomain[1];
-        subarrayDomain[3] = subarrayDomain[3] > (long) domain.getDimension("c").getDomain().getSecond() ?
-                (long) domain.getDimension("c").getDomain().getSecond() : subarrayDomain[3];
-        subarrayDomain[5] = subarrayDomain[5] > (long) domain.getDimension("z").getDomain().getSecond() ?
-                (long) domain.getDimension("z").getDomain().getSecond() : subarrayDomain[5];
-        subarrayDomain[7] = subarrayDomain[7] > (long) domain.getDimension("y").getDomain().getSecond() ?
-                (long) domain.getDimension("y").getDomain().getSecond() : subarrayDomain[7];
-        subarrayDomain[9] = subarrayDomain[9] > (long) domain.getDimension("x").getDomain().getSecond() ?
-                (long) domain.getDimension("x").getDomain().getSecond() : subarrayDomain[9];
     }
 
     /**
@@ -610,18 +621,17 @@ public class TiledbUtils {
      * @throws TileDBError
      */
     public static byte[] getData(Array array, Context ctx) throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
+        try (ArraySchema schema = array.getSchema(); Domain domain = schema.getDomain();) {
+            int num_dims = (int) domain.getNDim();
+            if (num_dims != 5) {
+                throw new IllegalArgumentException(
+                        "Number of dimensions must be 5. Actual was: "
+                        + Integer.toString(num_dims));
+            }
 
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException(
-                    "Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
+            long[] subarrayDomain = getFullArrayDomain(domain);
+            return getTiledbBytes(array, ctx, subarrayDomain);
         }
-
-        long[] subarrayDomain = getFullArrayDomain(domain);
-        return getTiledbBytes(array, ctx, subarrayDomain);
     }
 
     /**
@@ -637,24 +647,23 @@ public class TiledbUtils {
     public static byte[] getData(
         Array array, Context ctx, String subarrayString, Integer maxTileLength)
                 throws TileDBError {
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-
-        int num_dims = (int) domain.getNDim();
-        if (num_dims != 5) {
-            throw new IllegalArgumentException(
-                    "Number of dimensions must be 5. Actual was: "
-                    + Integer.toString(num_dims));
+        try (ArraySchema schema = array.getSchema();
+            Domain domain = schema.getDomain()) {
+            int num_dims = (int) domain.getNDim();
+            if (num_dims != 5) {
+                throw new IllegalArgumentException(
+                        "Number of dimensions must be 5. Actual was: "
+                        + Integer.toString(num_dims));
+            }
+            long[] subarrayDomain = getSubarrayDomainFromString(subarrayString);
+            if (subarrayDomain[7] - subarrayDomain[6] > maxTileLength
+                || subarrayDomain[9] - subarrayDomain[8] > maxTileLength) {
+                throw new IllegalArgumentException(
+                    "Tile size exceeds max size of " +
+                    Integer.toString(maxTileLength));
+            }
+            return getTiledbBytes(array, ctx, subarrayDomain);
         }
-        long[] subarrayDomain = getSubarrayDomainFromString(subarrayString);
-        log.info(Arrays.toString(subarrayDomain));
-        if (subarrayDomain[7] - subarrayDomain[6] > maxTileLength
-            || subarrayDomain[9] - subarrayDomain[8] > maxTileLength) {
-            throw new IllegalArgumentException(
-                "Tile size exceeds max size of " +
-                Integer.toString(maxTileLength));
-        }
-        return getTiledbBytes(array, ctx, subarrayDomain);
     }
 
     /**
@@ -670,31 +679,33 @@ public class TiledbUtils {
             throws TileDBError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_tiledb_bytes");
-        rescaleSubarrayDomain(subarrayDomain, array.getSchema().getDomain());
-        int capacity = 1;
-        for (int i = 0; i < 5; i++) {
-            capacity *= ((int) (
-                    subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
-        }
+        try (ArraySchema schema = array.getSchema();
+             Domain domain = schema.getDomain();
+             Attribute a1 = schema.getAttribute("a1")) {
+            rescaleSubarrayDomain(subarrayDomain, domain);
+            int capacity = 1;
+            for (int i = 0; i < 5; i++) {
+                capacity *= ((int) (
+                        subarrayDomain[2*i + 1] - subarrayDomain[2*i] + 1));
+            }
+            int bytesPerPixel = TiledbUtils.getBytesPerPixel(a1.getType());
+            capacity *= bytesPerPixel;
 
-        Attribute attribute = array.getSchema().getAttribute("a1");
-        int bytesPerPixel = TiledbUtils.getBytesPerPixel(attribute.getType());
-        capacity *= bytesPerPixel;
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
-        buffer.order(ByteOrder.nativeOrder());
-        //Dimensions in Dense Arrays must be the same type
-        try (Query query = new Query(array, QueryType.TILEDB_READ);
-             NativeArray subArray = new NativeArray(
-                 ctx, subarrayDomain, Datatype.TILEDB_INT64)){
-            query.setSubarray(subArray);
-            query.setBuffer("a1", buffer);
-            query.submit();
-            byte[] outputBytes = new byte[buffer.capacity()];
-            buffer.get(outputBytes);
-            return outputBytes;
-        } finally {
-            span.finish();
+            ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+            buffer.order(ByteOrder.nativeOrder());
+            //Dimensions in Dense Arrays must be the same type
+            try (Query query = new Query(array, QueryType.TILEDB_READ);
+                 NativeArray subArray = new NativeArray(
+                     ctx, subarrayDomain, Datatype.TILEDB_INT64)){
+                query.setSubarray(subArray);
+                query.setBuffer("a1", buffer);
+                query.submit();
+                byte[] outputBytes = new byte[buffer.capacity()];
+                buffer.get(outputBytes);
+                return outputBytes;
+            } finally {
+                span.finish();
+            }
         }
     }
 
@@ -763,16 +774,15 @@ public class TiledbUtils {
             throws TileDBError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_string_metadata");
-        try {
-            if (array.hasMetadataKey(key)) {
-                NativeArray strNativeArray = array.getMetadata(
-                        key, Datatype.TILEDB_CHAR);
-                return new String(
-                        (byte[]) strNativeArray.toJavaArray(),
-                        StandardCharsets.UTF_8);
-            } else {
-                return null;
-            }
+        if (!array.hasMetadataKey(key)) {
+            span.finish();
+            return null;
+        }
+        try (NativeArray strNativeArray = array.getMetadata(
+                key, Datatype.TILEDB_CHAR)){
+            return new String(
+                    (byte[]) strNativeArray.toJavaArray(),
+                    StandardCharsets.UTF_8);
         } finally {
             span.finish();
         }
@@ -890,10 +900,12 @@ public class TiledbUtils {
             }
             try (Context ctx = new Context(config);
                  Array array = new Array(
-                         ctx, tiledbPath, QueryType.TILEDB_READ)) {
-                Domain dom = array.getSchema().getDomain();
-                return (int) ((long) dom.getDimension(dimName).getDomain().getSecond()
-                        - (long) dom.getDimension(dimName).getDomain().getFirst() + 1);
+                         ctx, tiledbPath, QueryType.TILEDB_READ);
+                 ArraySchema schema = array.getSchema();
+                 Domain domain = schema.getDomain();
+                 Dimension dim = domain.getDimension(dimName)) {
+                return (int) ((long) dim.getDomain().getSecond()
+                        - (long) dim.getDomain().getFirst() + 1);
             }
         } catch (TileDBError e) {
             log.error("TileDBError in getDimSize", e);
@@ -943,13 +955,17 @@ public class TiledbUtils {
             }
             try (Context ctx = new Context(config);
                  Array array = new Array(
-                         ctx, tiledbPath, QueryType.TILEDB_READ)) {
+                         ctx, tiledbPath, QueryType.TILEDB_READ);
+                 ArraySchema schema = array.getSchema();
+                 Domain domain = schema.getDomain();
+                 Dimension dimx = domain.getDimension("x");
+                 Dimension dimy = domain.getDimension("y")) {
                 Domain dom = array.getSchema().getDomain();
                 Integer[] xy = new Integer[2];
-                xy[0] = (int) ((long) dom.getDimension("x").getDomain().getSecond()
-                        - (long) dom.getDimension("x").getDomain().getFirst() + 1);
-                xy[1] = (int) ((long) dom.getDimension("y").getDomain().getSecond()
-                        - (long) dom.getDimension("y").getDomain().getFirst() + 1);
+                xy[0] = (int) ((long) dimx.getDomain().getSecond()
+                        - (long) dimx.getDomain().getFirst() + 1);
+                xy[1] = (int) ((long) dimy.getDomain().getSecond()
+                        - (long) dimy.getDomain().getFirst() + 1);
                 return xy;
             }
         } catch (TileDBError e) {
@@ -966,34 +982,40 @@ public class TiledbUtils {
             throws TileDBError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_metadata_from_array");
-        ArraySchema schema = array.getSchema();
-        Domain domain = schema.getDomain();
-        Attribute attribute = schema.getAttribute("a1");
+        try (ArraySchema schema = array.getSchema();
+             Domain domain = schema.getDomain();
+             Attribute attribute = schema.getAttribute("a1");
+                Dimension dimt = domain.getDimension("t");
+                Dimension dimc = domain.getDimension("c");
+                Dimension dimz = domain.getDimension("z");
+                Dimension dimy = domain.getDimension("y");
+                Dimension dimx = domain.getDimension("x")) {
 
-        JsonObject metadata = new JsonObject();
-        if(minMax != null) {
-            metadata.put("min", minMax[0]);
-            metadata.put("max", minMax[1]);
+            JsonObject metadata = new JsonObject();
+            if(minMax != null) {
+                metadata.put("min", minMax[0]);
+                metadata.put("max", minMax[1]);
+            }
+            JsonObject size = new JsonObject();
+            size.put("t", (long) dimt.getDomain().getSecond() -
+                    (long) dimt.getDomain().getFirst() + 1);
+            size.put("c", (long) dimc.getDomain().getSecond() -
+                    (long) dimc.getDomain().getFirst() + 1);
+            size.put("z", (long) dimz.getDomain().getSecond() -
+                    (long) dimz.getDomain().getFirst() + 1);
+            size.put("width", (long) dimx.getDomain().getSecond() -
+                    (long) dimx.getDomain().getFirst() + 1);
+            size.put("height", (long) dimy.getDomain().getSecond() -
+                    (long) dimy.getDomain().getFirst() + 1);
+            metadata.put("size", size);
+            metadata.put("type", getStdTypeFromTiledbType(attribute.getType()));
+            if(multiscales != null) {
+                metadata.put(MULTISCALES_KEY, multiscales);
+            }
+            metadata.put("uuid", uuid);
+            span.finish();
+            return metadata;
         }
-        JsonObject size = new JsonObject();
-        size.put("t", (long) domain.getDimension("t").getDomain().getSecond() -
-                (long) domain.getDimension("t").getDomain().getFirst() + 1);
-        size.put("c", (long) domain.getDimension("c").getDomain().getSecond() -
-                (long) domain.getDimension("c").getDomain().getFirst() + 1);
-        size.put("z", (long) domain.getDimension("z").getDomain().getSecond() -
-                (long) domain.getDimension("z").getDomain().getFirst() + 1);
-        size.put("width", (long) domain.getDimension("x").getDomain().getSecond() -
-                (long) domain.getDimension("x").getDomain().getFirst() + 1);
-        size.put("height", (long) domain.getDimension("y").getDomain().getSecond() -
-                (long) domain.getDimension("y").getDomain().getFirst() + 1);
-        metadata.put("size", size);
-        metadata.put("type", getStdTypeFromTiledbType(attribute.getType()));
-        if(multiscales != null) {
-            metadata.put(MULTISCALES_KEY, multiscales);
-        }
-        metadata.put("uuid", uuid);
-        span.finish();
-        return metadata;
     }
 
 
