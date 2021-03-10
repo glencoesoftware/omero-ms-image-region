@@ -351,7 +351,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/omero_ms_image_region/get_label_image_metadata/:shapeId*")
             .handler(this::getLabelImageMetadata);
 
-        // Thumbnail Request Handler
+        // Thumbnail request handlers
         router.get(
                 "/webclient/render_thumbnail_ngff/size/:longestSide/:imageId*")
             .handler(this::renderThumbnail);
@@ -613,7 +613,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     return;
                 }
                 byte[] shapeMask = result.result().body();
-                response.headers().set("Content-Type", "application/octet-stream");
+                response.headers()
+                        .set("Content-Type", "application/octet-stream");
                 response.headers().set(
                         "Content-Length",
                         String.valueOf(shapeMask.length));
@@ -667,14 +668,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
     /******* THUMBNAIL HANDLERS *********/
     /**
-     * Render thumbnail event handler for NGFF images. Responds with a <code>image/jpeg</code>
-     * body on success based on the <code>longestSide</code> and
-     * <code>imageId</code> encoded in the URL or HTTP 404 if the {@link Image}
-     * does not exist or the user does not have permissions to access it.
+     * Render thumbnail event handler for NGFF images. Responds with a
+     * <code>image/jpeg</code> body on success based on the
+     * <code>longestSide</code> and <code>imageId</code> encoded in the URL or
+     * HTTP 404 if the {@link Image} does not exist or the user does not have
+     * permissions to access it.
      * @param event Current routing context.
      */
     private void renderThumbnail(RoutingContext event) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("ms_render_thumbnail");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("ms_render_thumbnail");
         final HttpServerRequest request = event.request();
         final HttpServerResponse response = event.response();
         final ThumbnailCtx thumbnailCtx;
@@ -713,15 +716,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     }
 
     /**
-     * Get thumbnails event handler for NGFF images. Responds with a JSON dictionary of Base64
-     * encoded <code>image/jpeg</code> thumbnails keyed by {@link Image}
-     * identifier. Each dictionary value is prefixed with
+     * Get thumbnails event handler for NGFF images. Responds with a JSON
+     * dictionary of Base64 encoded <code>image/jpeg</code> thumbnails keyed
+     * by {@link Image} identifier. Each dictionary value is prefixed with
      * <code>data:image/jpeg;base64,</code> so that it can be used with
      * <a href="http://caniuse.com/#feat=datauri">data URIs</a>.
      * @param event Current routing context.
      */
     private void getThumbnails(RoutingContext event) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_thumbnails_ngff");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_thumbnails_ngff");
         final HttpServerRequest request = event.request();
         final HttpServerResponse response = event.response();
         final String callback = request.getParam("callback");

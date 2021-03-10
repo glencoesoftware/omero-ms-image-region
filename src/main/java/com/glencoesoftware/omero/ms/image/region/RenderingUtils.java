@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
-
 import brave.ScopedSpan;
 import brave.Tracing;
 import ome.io.nio.PixelBuffer;
@@ -39,6 +38,9 @@ public class RenderingUtils {
 
     private final OmeroZarrUtils zarrUtils;
 
+    private static final org.slf4j.Logger log =
+            LoggerFactory.getLogger(RenderingUtils.class);
+
     public RenderingUtils(PixelsService pixelsService,
             String ngffDir,
             TiledbUtils tiledbUtils,
@@ -49,10 +51,8 @@ public class RenderingUtils {
         this.zarrUtils = zarrUtils;
     }
 
-    private static final org.slf4j.Logger log =
-            LoggerFactory.getLogger(RenderingUtils.class);
-
-    public static PixelBuffer getPixelBuffer(PixelsService pixelsService, Pixels pixels,
+    public static PixelBuffer getPixelBuffer(
+            PixelsService pixelsService, Pixels pixels,
             String ngffDir, TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
@@ -60,10 +60,13 @@ public class RenderingUtils {
         PixelBuffer pb = null;
         try {
             try {
-                pb = pixelsService.getNgffPixelBuffer(pixels, ngffDir, tiledbUtils, zarrUtils);
-            } catch(Exception e) {
+                pb = pixelsService.getNgffPixelBuffer(
+                        pixels, ngffDir, tiledbUtils, zarrUtils);
+            } catch (Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
-                log.info("Getting TiledbPixelBuffer failed - attempting to get local data");
+                log.info(
+                    "Getting TiledbPixelBuffer failed - " +
+                    "attempting to get local data");
             }
             if(pb == null) {
                 pb = pixelsService.getPixelBuffer(pixels, false);
@@ -85,7 +88,8 @@ public class RenderingUtils {
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    public static List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
+    public static List<RType> getPixelsIdAndSeries(
+        IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -109,8 +113,10 @@ public class RenderingUtils {
         }
     }
 
-    public static Pixels retrievePixDescription(List<RType> pixelsIdAndSeries,
-            IceMapper mapper, IPixelsPrx iPixels, IQueryPrx iQuery) throws ApiUsageException, ServerError {
+    public static Pixels retrievePixDescription(
+        List<RType> pixelsIdAndSeries,
+        IceMapper mapper, IPixelsPrx iPixels, IQueryPrx iQuery)
+                throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
         Pixels pixels;
@@ -126,7 +132,8 @@ public class RenderingUtils {
             // avoids attempting to retrieve the series from the database
             // via IQuery later.
             Image image = new Image(pixels.getImage().getId(), true);
-            image.setFileset(new Fileset(getFilesetIdFromImageId(iQuery, pixels.getImage().getId()), true));
+            image.setFileset(new Fileset(getFilesetIdFromImageId(
+                    iQuery, pixels.getImage().getId()), true));
             image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
             pixels.setImage(image);
             return pixels;
@@ -156,7 +163,6 @@ public class RenderingUtils {
         }
     }
 
-
     public PixelBuffer getPixelBuffer(Pixels pixels) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
@@ -164,12 +170,15 @@ public class RenderingUtils {
         PixelBuffer pb = null;
         try {
             try {
-                pb = pixelsService.getNgffPixelBuffer(pixels, ngffDir, tiledbUtils, zarrUtils);
+                pb = pixelsService.getNgffPixelBuffer(
+                        pixels, ngffDir, tiledbUtils, zarrUtils);
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
-                log.info("Getting TiledbPixelBuffer failed - attempting to get local data");
+                log.info(
+                    "Getting TiledbPixelBuffer failed - " +
+                    "attempting to get local data");
             }
-            if(pb == null) {
+            if (pb == null) {
                 pb = pixelsService.getPixelBuffer(pixels, false);
             }
             return pb;
@@ -186,7 +195,8 @@ public class RenderingUtils {
      * @return See above.
      */
     public static RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId, IceMapper mapper) throws ServerError {
+        IPixelsPrx iPixels, final long pixelsId, IceMapper mapper)
+                throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         return (RenderingDef) mapper.reverse(
@@ -276,7 +286,8 @@ public class RenderingUtils {
         if (src == null) {
             throw new IllegalArgumentException("Attempted to flip null image");
         } else if (sizeX == 0 || sizeY == 0) {
-            throw new IllegalArgumentException("Attempted to flip image with 0 size");
+            throw new IllegalArgumentException(
+                    "Attempted to flip image with 0 size");
         }
 
         int[] dest = new int[src.length];

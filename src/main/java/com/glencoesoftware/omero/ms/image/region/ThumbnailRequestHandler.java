@@ -58,8 +58,10 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             int longestSide,
             Long imageId,
             Optional<Long> renderingDefId) {
-        super(thumbnailCtx, renderingUtils, compressionSrv, families, renderingModels, lutProvider, iScale, ngffUtils,
-                ngffDir, longestSide, Arrays.asList(imageId));
+        super(
+            thumbnailCtx, renderingUtils, compressionSrv, families,
+            renderingModels, lutProvider, iScale, ngffUtils,
+            ngffDir, longestSide, Arrays.asList(imageId));
         this.renderingDefId = renderingDefId;
     }
 
@@ -79,7 +81,9 @@ public class ThumbnailRequestHandler extends ThumbnailsRequestHandler {
             List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
                     iQuery, thumbnailCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, this.renderingDefId);
+                return getRegion(
+                    iQuery, iPixels, pixelsIdAndSeries, userId,
+                    this.renderingDefId);
             }
             log.debug("Cannot find Image:{}", thumbnailCtx.imageId);
         } catch (Exception e) {

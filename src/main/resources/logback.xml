@@ -10,6 +10,6 @@
   <root level="info">
     <appender-ref ref="STDOUT" />
   </root>
-  <Logger name="software.amazon.awssdk" level="WARN" />
-  <Logger name="com.amazonaws" level="WARN" />
+  <logger name="software.amazon.awssdk" level="WARN" />
+  <logger name="com.amazonaws" level="WARN" />
 </configuration>

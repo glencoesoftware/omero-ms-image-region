@@ -18,12 +18,9 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
@@ -34,18 +31,14 @@ import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
-import IceUtilInternal.Base64;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;

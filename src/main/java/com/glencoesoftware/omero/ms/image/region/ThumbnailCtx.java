@@ -12,7 +12,6 @@ import io.vertx.core.MultiMap;
 
 public class ThumbnailCtx extends OmeroRequestCtx {
 
-
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailCtx.class);
 
@@ -22,7 +21,7 @@ public class ThumbnailCtx extends OmeroRequestCtx {
     /** Image ID */
     public Long imageId;
 
-    /** Image IDs" */
+    /** Image IDs */
     public List<Long> imageIds;
 
     /** Rendering Definition ID */

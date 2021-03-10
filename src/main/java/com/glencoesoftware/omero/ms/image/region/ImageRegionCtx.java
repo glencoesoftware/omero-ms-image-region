@@ -116,7 +116,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         try {
             this.omeroSessionKey = omeroSessionKey;
             assignParams(params);
-        } catch(Exception e) {
+        } catch (Exception e) {
             log.error("Error creating ImageRegionCtx", e);
             throw e;
         }

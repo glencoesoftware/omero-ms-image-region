@@ -4,7 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -144,7 +143,8 @@ public class ThumbnailsRequestHandler {
             IPixelsPrx iPixels = sf.getPixelsService();
             List<Image> images = getImages(client, imageIds);
             if (images.size() != 0) {
-                return getThumbnails(iQuery, iPixels, userId, images, longestSide);
+                return getThumbnails(
+                        iQuery, iPixels, userId, images, longestSide);
             } else {
                 log.debug("Cannot find any Images with Ids {}", imageIds);
             }
@@ -190,12 +190,14 @@ public class ThumbnailsRequestHandler {
      * @return Byte array of jpeg thumbnail data
      * @throws IOException
      */
-    protected byte[] getThumbnail(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
-            Image image, int longestSide) throws IOException {
+    protected byte[] getThumbnail(
+        IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
+        Image image, int longestSide)
+            throws IOException {
         try {
-        List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
-        return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
+            return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
         } catch (Exception e) {
             log.error("Error getting thumbnail " + Long.toString(image.getId().getValue()), e);
             return new byte[0];
@@ -211,11 +213,15 @@ public class ThumbnailsRequestHandler {
      * @return Map of {@link Image} identifier to JPEG thumbnail byte array.
      * @throws IOException
      */
-    protected Map<Long, byte[]> getThumbnails(IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
-            List<Image> images, int longestSide) throws IOException {
+    protected Map<Long, byte[]> getThumbnails(
+        IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
+        List<Image> images, int longestSide)
+            throws IOException {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
-        for(Image image : images) {
-            thumbnails.put(image.getId().getValue(), getThumbnail(iQuery, iPixels, userId, image, longestSide));
+        for (Image image : images) {
+            thumbnails.put(
+                    image.getId().getValue(),
+                    getThumbnail(iQuery, iPixels, userId, image, longestSide));
         }
         return thumbnails;
     }
@@ -234,28 +240,33 @@ public class ThumbnailsRequestHandler {
      * @throws QuantizationException
      */
     protected byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries, long userId, Optional<Long> renderingDefId)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
+        IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries,
+        long userId, Optional<Long> renderingDefId)
+            throws IllegalArgumentException, ServerError, IOException,
+                QuantizationException {
         log.debug("Getting image region");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels = RenderingUtils.retrievePixDescription(pixelsIdAndSeries, mapper, iPixels, iQuery);
+        Pixels pixels = RenderingUtils.retrievePixDescription(
+                pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels)) {
             log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, RenderingUtils.getRenderingDef(iPixels, pixels.getId(), mapper),
+                pixels, RenderingUtils.getRenderingDef(
+                        iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, 0);
             planeDef.setZ(0);
 
-            List<List<Integer>> resDescriptions = pixelBuffer.getResolutionDescriptions();
+            List<List<Integer>> resDescriptions =
+                    pixelBuffer.getResolutionDescriptions();
             log.info("Resolution level count: " + Integer.toString(resDescriptions.size()));
             int resolutionLevel = getResolutionForThumbnail(resDescriptions);
-            RenderingUtils.setResolutionLevel(renderer, resDescriptions.size(), resolutionLevel);
+            RenderingUtils.setResolutionLevel(
+                    renderer, resDescriptions.size(), resolutionLevel);
             Integer sizeX = resDescriptions.get(resolutionLevel).get(0);
             Integer sizeY = resDescriptions.get(resolutionLevel).get(1);
             RegionDef regionDef = new RegionDef();
@@ -281,15 +292,19 @@ public class ThumbnailsRequestHandler {
     }
 
     /**
-     * Updates the settings in the rendering engine based on the user's settings if they exist and
-     * the NGFF settings otherwise
+     * Updates the settings in the rendering engine based on the user's
+     * settings if they exist and the NGFF settings otherwise
      * @param iQuery The Query Service proxy for finding user's rendering def
      * @param pixels The pixels object of the image
      * @param userId The user requesting the thumbnail
-     * @param renderingDefId Optional specific rendering def ID to use with this thumbnail
+     * @param renderingDefId Optional specific rendering def ID to use with this
+     * thumbnail
      */
-    private void updateRenderingSettings(IQueryPrx iQuery, Pixels pixels, long userId, Optional<Long> renderingDefId) {
-        //Check for client-provided rendering def, then user def, then pixels owner def, then NGFF def
+    private void updateRenderingSettings(
+            IQueryPrx iQuery, Pixels pixels, long userId,
+            Optional<Long> renderingDefId) {
+        //Check for client-provided rendering def, then user def,
+        //then pixels owner def, then NGFF def
         Set<Long> pixelsIds = new HashSet<Long>();
         pixelsIds.add(pixels.getId());
         ParametersI p;
@@ -333,17 +348,24 @@ public class ThumbnailsRequestHandler {
                     ChannelBinding cb = rdef.getChannelBinding(i);
                     if (cb.getActive().getValue()) {
                         channels.add(i+1);
-                        Double[] window = new Double[] {(cb.getInputStart().getValue()), cb.getInputEnd().getValue()};
+                        Double[] window = new Double[] {
+                                cb.getInputStart().getValue(),
+                                cb.getInputEnd().getValue()};
                         windows.add(window);
-                        Integer[] rgba = new Integer[] {cb.getRed().getValue(),
-                                cb.getGreen().getValue(), cb.getBlue().getValue(), cb.getAlpha().getValue()};
+                        Integer[] rgba = new Integer[] {
+                                cb.getRed().getValue(),
+                                cb.getGreen().getValue(),
+                                cb.getBlue().getValue(),
+                                cb.getAlpha().getValue()};
                         colors.add(rgba);
                     }
                 }
             }
-            if(channels.size() > 0) {
+            if (channels.size() > 0) {
                 log.info("Updating rendering settings from user settings");
-                RenderingUtils.updateSettingsIntColors(renderer, channels, windows, colors, null, renderingModels, "rgb");
+                RenderingUtils.updateSettingsIntColors(
+                        renderer, channels, windows, colors, null,
+                        renderingModels, "rgb");
                 return;
             }
         } catch (ServerError e) {
@@ -354,8 +376,9 @@ public class ThumbnailsRequestHandler {
         List<Integer> channels = new ArrayList<Integer>();
         List<Double[]> windows = new ArrayList<Double[]>();
         List<String> colors = new ArrayList<String>();
-        JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(ngffDir,
-                pixels.getImage().getFileset().getId(), pixels.getImage().getSeries());
+        JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(
+                ngffDir, pixels.getImage().getFileset().getId(),
+                pixels.getImage().getSeries());
         if (omeroMetadata != null) {
             channels.clear();
             windows.clear();
@@ -366,16 +389,21 @@ public class ThumbnailsRequestHandler {
                 if (channelInfo.getBoolean("active")) {
                     channels.add(i+1);
                     JsonObject window = channelInfo.getJsonObject("window");
-                    windows.add(new Double[] {Double.valueOf(window.getFloat("start")), Double.valueOf(window.getFloat("end"))});
+                    windows.add(new Double[] {
+                            Double.valueOf(window.getFloat("start")),
+                            Double.valueOf(window.getFloat("end"))});
                     colors.add(channelInfo.getString("color"));
                 }
             }
         } else {
             throw new IllegalArgumentException(String.format(
-                    "NGFF Fileset %d missing omero metadata", pixels.getImage().getFileset().getId()));
+                    "NGFF Fileset %d missing omero metadata",
+                    pixels.getImage().getFileset().getId()));
         }
         log.info("Updating rendering settings from NGFF metadata");
-        RenderingUtils.updateSettings(renderer, channels, windows, colors, null, renderingModels, "rgb");
+        RenderingUtils.updateSettings(
+                renderer, channels, windows, colors, null,
+                renderingModels, "rgb");
     }
 
     /**
@@ -427,17 +455,19 @@ public class ThumbnailsRequestHandler {
      * @param resolutionDescriptions
      * @return
      */
-    private int getResolutionForThumbnail(List<List<Integer>> resolutionDescriptions) {
+    private int getResolutionForThumbnail(
+            List<List<Integer>> rds) {
         int resolutionLevel = 0;
-        for(; resolutionLevel < resolutionDescriptions.size(); resolutionLevel++) {
-            if(resolutionDescriptions.get(resolutionLevel).get(0) < longestSide &&
-                    resolutionDescriptions.get(resolutionLevel).get(1) < longestSide) {
+        for (; resolutionLevel < rds.size(); resolutionLevel++) {
+            if (rds.get(resolutionLevel).get(0) < longestSide
+                && rds.get(resolutionLevel).get(1) < longestSide) {
                 break;
             }
         }
         resolutionLevel -= 1;
         if (resolutionLevel < 0) {
-            throw new IllegalArgumentException("longestSide exceeds image size");
+            throw new IllegalArgumentException(
+                    "longestSide exceeds image size");
         }
         return resolutionLevel;
     }

@@ -83,7 +83,7 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
             }
             getTileFromString(params.get("tile"));
             subarrayDomainStr = params.get("domain");
-        } catch(Exception e) {
+        } catch (Exception e) {
             log.error("Error creating ShapeMaskCtx", e);
             throw e;
         }

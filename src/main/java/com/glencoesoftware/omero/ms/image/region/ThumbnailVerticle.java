@@ -136,7 +136,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
         }
         host = omero.getString("host");
         port = omero.getInteger("port");
-        ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+        ngffDir = config().getJsonObject("omero.server")
+                .getString("omero.ngff.dir");
 
         vertx.eventBus().<String>consumer(
                 RENDER_THUMBNAIL_EVENT, this::renderThumbnail);
@@ -170,7 +171,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
         String omeroSessionKey = thumbnailCtx.omeroSessionKey;
         int longestSide = thumbnailCtx.longestSide;
         long imageId = thumbnailCtx.imageId;
-        Optional<Long> renderingDefId = Optional.ofNullable(thumbnailCtx.renderingDefId);
+        Optional<Long> renderingDefId =
+                Optional.ofNullable(thumbnailCtx.renderingDefId);
         log.debug(
             "Render thumbnail request Image:{} longest side {} RenderingDef:{}",
             imageId, longestSide, renderingDefId.orElse(null));
@@ -183,7 +185,9 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            byte[] thumbnail = request.execute(new ThumbnailRequestHandler(thumbnailCtx,
+            byte[] thumbnail = request.execute(
+                new ThumbnailRequestHandler(
+                    thumbnailCtx,
                     renderingUtils,
                     compressionService,
                     families,

@@ -17,7 +17,8 @@ public class S3FilesystemWrapper {
 
     private FileSystem s3fs;
 
-    public S3FilesystemWrapper(String accessKey, String secretKey, String s3server) {
+    public S3FilesystemWrapper(
+            String accessKey, String secretKey, String s3server) {
         String s3Server = "s3.amazonaws.com"; // example server name
         try {
             accessKey = URLEncoder.encode(accessKey, "UTF8");
@@ -27,7 +28,8 @@ public class S3FilesystemWrapper {
             return;
         }
 
-        URI uri = URI.create(MessageFormat.format("s3://{0}:{1}@{2}", accessKey, secretKey, s3Server));
+        URI uri = URI.create(MessageFormat.format(
+                "s3://{0}:{1}@{2}", accessKey, secretKey, s3Server));
         try {
             s3fs = FileSystems.newFileSystem(uri, null);
         } catch (IOException e) {

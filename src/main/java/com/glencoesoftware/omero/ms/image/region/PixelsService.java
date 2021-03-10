@@ -19,13 +19,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
 
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +42,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
             BackOff backOff, TileSizes sizes, IQuery iQuery) {
-        super(path, true, new File(new File(path), "BioFormatsCache"), memoizerWait, resolver, backOff, sizes, iQuery);
+        super(
+            path, true, new File(new File(path), "BioFormatsCache"),
+            memoizerWait, resolver, backOff, sizes, iQuery);
         log.info("Using image region PixelsService");
     }
 
@@ -86,9 +81,12 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return A pixel buffer instance.
      * @since OMERO-Beta4.3
      */
-    public PixelBuffer getTiledbPixelBuffer(Pixels pixels, String ngffDir, TiledbUtils tiledbUtils) {
+    public PixelBuffer getTiledbPixelBuffer(
+            Pixels pixels, String ngffDir, TiledbUtils tiledbUtils) {
         log.info("Creating TiledbPixelBuffer");
-        return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
+        return new TiledbPixelBuffer(
+            pixels, ngffDir, pixels.getImage().getFileset().getId(),
+            tiledbUtils);
     }
 
     /**
@@ -100,16 +98,24 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return A pixel buffer instance.
      * @since OMERO-Beta4.3
      */
-    public PixelBuffer getZarrPixelBuffer(Pixels pixels, String ngffDir, OmeroZarrUtils zarrUtils) {
+    public PixelBuffer getZarrPixelBuffer(
+            Pixels pixels, String ngffDir, OmeroZarrUtils zarrUtils) {
         log.info("Creating ZarrPixelBuffer");
-        return new ZarrPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
+        return new ZarrPixelBuffer(
+            pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
     }
 
-    public PixelBuffer getNgffPixelBuffer(Pixels pixels, String ngffDir, TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
+    public PixelBuffer getNgffPixelBuffer(
+            Pixels pixels, String ngffDir, TiledbUtils tiledbUtils,
+            OmeroZarrUtils zarrUtils) {
         try {
-            return new ZarrPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
+            return new ZarrPixelBuffer(
+                pixels, ngffDir, pixels.getImage().getFileset().getId(),
+                zarrUtils);
         } catch (Exception e) {
-            return new TiledbPixelBuffer(pixels, ngffDir, pixels.getImage().getFileset().getId(), tiledbUtils);
+            return new TiledbPixelBuffer(
+                pixels, ngffDir, pixels.getImage().getFileset().getId(),
+                tiledbUtils);
         }
     }
 }

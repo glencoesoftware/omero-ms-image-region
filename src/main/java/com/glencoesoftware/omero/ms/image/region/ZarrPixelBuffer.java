@@ -40,7 +40,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * @param filesetId Fileset ID
      * @param zarrUtils For performing zarr operations
      */
-    public ZarrPixelBuffer(Pixels pixels, String ngffDir, Long filesetId, OmeroZarrUtils zarrUtils) {
+    public ZarrPixelBuffer(
+            Pixels pixels, String ngffDir, Long filesetId,
+            OmeroZarrUtils zarrUtils) {
         this.pixels = pixels;
         this.ngffDir = ngffDir;
         this.filesetId = filesetId;
@@ -48,7 +50,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
         this.resolutionLevels = this.getResolutionLevels();
         this.resolutionLevel = this.resolutionLevels - 1;
         if (this.resolutionLevel < 0) {
-            throw new IllegalArgumentException("This Zarr file has no pixel data");
+            throw new IllegalArgumentException(
+                    "This Zarr file has no pixel data");
         }
     }
 
@@ -163,8 +166,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
             .append(z).append(",")
             .append(y).append(":").append(y + h).append(",")
             .append(x).append(":").append(x + w).append("]");
-        return zarrUtils.getPixelData(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel,
-                domStrBuf.toString());
+        return zarrUtils.getPixelData(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, domStrBuf.toString());
     }
 
     @Override
@@ -353,9 +357,12 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public String getPath() {
-        return Paths.get(ngffDir).resolve(Long.toString(pixels.getImage().getFileset().getId()) + ".tiledb")
-                .resolve(Integer.toString(pixels.getImage().getSeries()))
-                .resolve(Integer.toString(resolutionLevel)).toString();
+        return Paths.get(ngffDir)
+            .resolve(
+                Long.toString(
+                    pixels.getImage().getFileset().getId()) + ".tiledb")
+            .resolve(Integer.toString(pixels.getImage().getSeries()))
+            .resolve(Integer.toString(resolutionLevel)).toString();
     }
 
     @Override
@@ -366,33 +373,44 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getSizeX() {
-        return zarrUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, 4);
+        return zarrUtils.getDimSize(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, 4);
     }
 
     @Override
     public int getSizeY() {
-        return zarrUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, 3);
+        return zarrUtils.getDimSize(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, 3);
     }
 
     @Override
     public int getSizeZ() {
-        return zarrUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, 2);
+        return zarrUtils.getDimSize(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, 2);
     }
 
     @Override
     public int getSizeC() {
-        return zarrUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, 1);
+        return zarrUtils.getDimSize(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, 1);
     }
 
     @Override
     public int getSizeT() {
-        return zarrUtils.getDimSize(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel, 0);
+        return zarrUtils.getDimSize(
+                ngffDir, filesetId, pixels.getImage().getSeries(),
+                resolutionLevel, 0);
     }
 
     @Override
     public int getResolutionLevels() {
         if (resolutionLevels < 0) {
-        return zarrUtils.getResolutionLevels(ngffDir, filesetId, pixels.getImage().getSeries());
+            return zarrUtils.getResolutionLevels(
+                    ngffDir, filesetId, pixels.getImage().getSeries());
         } else {
             return resolutionLevels;
         }
@@ -417,12 +435,15 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
-        List<List<Integer>> resolutionDescriptions = new ArrayList<List<Integer>>();
+        List<List<Integer>> resolutionDescriptions =
+                new ArrayList<List<Integer>>();
         int originalResolution = resolutionLevel;
-        for(int i = 0; i < resolutionLevels; i++) {
+        for (int i = 0; i < resolutionLevels; i++) {
             this.resolutionLevel = i;
             List<Integer> description = new ArrayList<Integer>();
-            Integer[] xy = zarrUtils.getSizeXandY(ngffDir, filesetId, pixels.getImage().getSeries(), resolutionLevel);
+            Integer[] xy = zarrUtils.getSizeXandY(
+                    ngffDir, filesetId, pixels.getImage().getSeries(),
+                    resolutionLevel);
             description.add(xy[0]);
             description.add(xy[1]);
             resolutionDescriptions.add(description);

@@ -68,7 +68,8 @@ public class ShapeMaskRequestHandler {
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx, String ngffDir,
+    public ShapeMaskRequestHandler(
+            ShapeMaskCtx shapeMaskCtx, String ngffDir,
             TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
@@ -308,7 +309,6 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-
     /**
      * Get shape mask bytes request handler.
      * @param client OMERO client to use for querying.
@@ -322,20 +322,29 @@ public class ShapeMaskRequestHandler {
                 if (ngffDir == null) {
                     return mask.getBytes();
                 }
-                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                Image image = getImageFromShapeId(
+                        client.getSession().getQueryService(),
+                        shapeMaskCtx.shapeId);
                 if (mask.getDetails().getExternalInfo() == null) {
                     log.error("No UUID associated with shape " + shapeMaskCtx.shapeId);
                     return mask.getBytes();
                 }
-                String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
+                String uuid = mask.getDetails()
+                        .getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
-                Integer resolution = shapeMaskCtx.resolution == null ? 0 : shapeMaskCtx.resolution;
+                Integer resolution =
+                        shapeMaskCtx.resolution == null ? 0
+                                : shapeMaskCtx.resolution;
                 if (shapeMaskCtx.subarrayDomainStr == null) {
-                    throw new IllegalArgumentException("Failed to supply domain parameter to getShapeMaskBytes");
+                    throw new IllegalArgumentException(
+                        "Failed to supply domain parameter to " +
+                        "getShapeMaskBytes");
                 }
                 try {
-                    return ngffUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, shapeMaskCtx.subarrayDomainStr);
+                    return ngffUtils.getLabelImageBytes(
+                        ngffDir, filesetId, series, uuid, resolution,
+                        shapeMaskCtx.subarrayDomainStr);
                 } catch (Exception e) {
                     log.error("Error getting label image bytes from NGFF", e);
                     return mask.getBytes();
@@ -358,25 +367,32 @@ public class ShapeMaskRequestHandler {
      * provided by <code>shapeMaskCtx</code>.
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_label_image_metadata_handler");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_label_image_metadata_handler");
         try {
             if (ngffDir == null) {
-                throw new IllegalArgumentException("Label image configs not properly set");
+                throw new IllegalArgumentException(
+                        "Label image configs not properly set");
             }
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                Image image = getImageFromShapeId(client.getSession().getQueryService(), shapeMaskCtx.shapeId);
+                Image image = getImageFromShapeId(
+                        client.getSession().getQueryService(),
+                        shapeMaskCtx.shapeId);
                 if (mask.getDetails().getExternalInfo() == null) {
-                    throw new IllegalArgumentException("No UUID for shape " + shapeMaskCtx.shapeId);
+                    throw new IllegalArgumentException(
+                            "No UUID for shape " + shapeMaskCtx.shapeId);
                 }
-                String uuid = mask.getDetails().getExternalInfo().getUuid().getValue();
+                String uuid = mask.getDetails()
+                        .getExternalInfo().getUuid().getValue();
                 long filesetId = image.getFileset().getId().getValue();
                 int series = image.getSeries().getValue();
                 int resolution = 0;
                 if(shapeMaskCtx.resolution != null) {
                     resolution = shapeMaskCtx.resolution;
                 }
-                return ngffUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+                return ngffUtils.getLabelImageMetadata(
+                        ngffDir, filesetId, series, uuid, resolution);
             } else {
                 return null;
             }
@@ -398,7 +414,8 @@ public class ShapeMaskRequestHandler {
      */
     protected Image getImageFromShapeId(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
-        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_image_from_shape_id");
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_image_from_shape_id");
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ParametersI params = new ParametersI();

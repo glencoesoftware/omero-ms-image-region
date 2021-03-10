@@ -85,7 +85,8 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             }
             host = omero.getString("host");
             port = omero.getInteger("port");
-            ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+            ngffDir = config().getJsonObject("omero.server")
+                    .getString("omero.ngff.dir");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
@@ -138,7 +139,8 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
+                        new ShapeMaskRequestHandler(
+                                shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -220,8 +222,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         try (OmeroRequest request = new OmeroRequest(
                  host, port, shapeMaskCtx.omeroSessionKey))
         {
-            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir,
-                        tiledbUtils, zarrUtils);
+            ShapeMaskRequestHandler requestHandler =
+                new ShapeMaskRequestHandler(
+                    shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -286,7 +289,9 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 host, port, shapeMaskCtx.omeroSessionKey))
         {
             JsonObject metadata = null;
-            ShapeMaskRequestHandler requestHandler = new ShapeMaskRequestHandler(shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
+            ShapeMaskRequestHandler requestHandler =
+                    new ShapeMaskRequestHandler(
+                            shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
             metadata = request.execute(
                     requestHandler::getLabelImageMetadata);
             if (metadata == null) {

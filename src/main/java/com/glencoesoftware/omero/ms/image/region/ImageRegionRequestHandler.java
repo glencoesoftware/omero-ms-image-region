@@ -22,11 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
@@ -49,16 +45,12 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
-import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.model.fs.Fileset;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -69,7 +61,6 @@ import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler {
@@ -108,7 +99,6 @@ public class ImageRegionRequestHandler {
     private final int maxTileLength;
 
     private final RenderingUtils renderingUtils;
-
 
     /**
      * Default constructor.
@@ -180,13 +170,15 @@ public class ImageRegionRequestHandler {
         log.debug("Getting image region");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels = RenderingUtils.retrievePixDescription(pixelsIdAndSeries, mapper, iPixels, iQuery);
+        Pixels pixels = RenderingUtils.retrievePixDescription(
+                pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels)) {
             log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, RenderingUtils.getRenderingDef(iPixels, pixels.getId(), mapper),
+                pixels, RenderingUtils.getRenderingDef(
+                        iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -196,7 +188,8 @@ public class ImageRegionRequestHandler {
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
             log.info("Resolution level count: " + Integer.toString(countResolutionLevels));
-            RenderingUtils.setResolutionLevel(renderer, countResolutionLevels, imageRegionCtx.resolution);
+            RenderingUtils.setResolutionLevel(
+                    renderer, countResolutionLevels, imageRegionCtx.resolution);
             Integer sizeX = pixels.getSizeX();
             Integer sizeY = pixels.getSizeY();
             planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));
@@ -364,8 +357,9 @@ public class ImageRegionRequestHandler {
                 regionDef.getY() > sizeY) {
             StringBuilder messageBuilder = new StringBuilder();
             messageBuilder.append("Start position (").append(regionDef.getX())
-                .append(",").append(regionDef.getY()).append(") exceeds image size (")
-                .append(sizeX).append(",").append(sizeY).append(")");
+                .append(",").append(regionDef.getY())
+                .append(") exceeds image size (").append(sizeX).append(",")
+                .append(sizeY).append(")");
             throw new IllegalArgumentException(messageBuilder.toString());
         }
         regionDef.setWidth(Math.min(

@@ -11,8 +11,10 @@ import io.tiledb.java.api.Datatype;
 public class TiledbUtilTest {
 
     @Test public void getSubarrayDomainStdTest() {
-        long[] subArrayDomain = TiledbUtils.getSubarrayDomainFromString("[0,0,0,100:150,200:250]");
-        Assert.assertTrue(Arrays.equals(subArrayDomain, new long[] {0,0,0,0,0,0,100,149,200,249}));
+        long[] subArrayDomain = TiledbUtils.getSubarrayDomainFromString(
+                "[0,0,0,100:150,200:250]");
+        Assert.assertTrue(Arrays.equals(
+                subArrayDomain, new long[] {0,0,0,0,0,0,100,149,200,249}));
     }
 
     @Test public void minMaxTest() {
@@ -40,7 +42,8 @@ public class TiledbUtilTest {
         testBuf.asIntBuffer().put(testInts);
         testBuf.mark();
         minMax = TiledbUtils.getMinMax(testBuf, Datatype.TILEDB_INT32);
-        Assert.assertTrue(Arrays.equals(minMax, new long[] {-2147483648, 2147483647}));
+        Assert.assertTrue(
+                Arrays.equals(minMax, new long[] {-2147483648, 2147483647}));
         testBuf.reset();
         minMax = TiledbUtils.getMinMax(testBuf, Datatype.TILEDB_UINT32);
         Assert.assertTrue(Arrays.equals(minMax, new long[] {0, 4294967295L}));

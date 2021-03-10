@@ -40,12 +40,16 @@ public class NgffUtils {
      * @param series Series
      * @param uuid Shape UUID
      * @param resolution Requested resolution level
-     * @param domainStr String like [0,1,0,100:150,200:250] representing the region to retrieve
-     * @return A byte array containing the label image data for the requested region
+     * @param domainStr String like [0,1,0,100:150,200:250] representing the
+     * region to retrieve
+     * @return A byte array containing the label image data for the requested
+     * region
      * @throws TileDBError
      */
-    public byte[] getLabelImageBytes(String ngffDir, long filesetId, int series, String uuid, Integer resolution,
-        String domainStr) throws TileDBError {
+    public byte[] getLabelImageBytes(
+        String ngffDir, long filesetId, int series, String uuid,
+        Integer resolution, String domainStr)
+                throws TileDBError {
         Path basePath;
         try {
             basePath = zarrUtils.getLocalOrS3Path(ngffDir);
@@ -54,14 +58,17 @@ public class NgffUtils {
             return null;
         }
         Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ZARR_EXTN);
-        if(Files.exists(ngffRoot) ) {
-            return zarrUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
+        if (Files.exists(ngffRoot) ) {
+            return zarrUtils.getLabelImageBytes(
+                    ngffDir, filesetId, series, uuid, resolution, domainStr);
         }
         ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if(Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageBytes(ngffDir, filesetId, series, uuid, resolution, domainStr);
+        if (Files.exists(ngffRoot)) {
+            return tiledbUtils.getLabelImageBytes(
+                    ngffDir, filesetId, series, uuid, resolution, domainStr);
         }
-        log.error("Ngff file missing or unsupported type: ", ngffDir, filesetId);
+        log.error(
+            "Ngff file missing or unsupported type: ", ngffDir, filesetId);
         return null;
     }
 
@@ -74,7 +81,9 @@ public class NgffUtils {
      * @param resolution Requested resolution level
      * @return A JsonObject containing the label image metadata
      */
-    public JsonObject getLabelImageMetadata(String ngffDir, long filesetId, int series, String uuid, int resolution) {
+    public JsonObject getLabelImageMetadata(
+            String ngffDir, long filesetId, int series, String uuid,
+            int resolution) {
         Path basePath;
         try {
             basePath = zarrUtils.getLocalOrS3Path(ngffDir);
@@ -83,14 +92,18 @@ public class NgffUtils {
             return null;
         }
         Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ZARR_EXTN);
-        if(Files.exists(ngffRoot) ) {
-            return zarrUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+        if (Files.exists(ngffRoot) ) {
+            return zarrUtils.getLabelImageMetadata(
+                    ngffDir, filesetId, series, uuid, resolution);
         }
         ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if(Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageMetadata(ngffDir, filesetId, series, uuid, resolution);
+        if (Files.exists(ngffRoot)) {
+            return tiledbUtils.getLabelImageMetadata(
+                    ngffDir, filesetId, series, uuid, resolution);
         }
-        log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
+        log.error(
+            "Ngff file missing or unsupported type: " +
+            ngffDir + " "+ Long.toString(filesetId));
         return null;
     }
 
@@ -101,7 +114,8 @@ public class NgffUtils {
      * @param series Series
      * @return JsonObject containing 'omero' metadata
      */
-    public JsonObject getOmeroMetadata(String ngffDir, long filesetId, int series) {
+    public JsonObject getOmeroMetadata(
+            String ngffDir, long filesetId, int series) {
         Path basePath;
         try {
             basePath = zarrUtils.getLocalOrS3Path(ngffDir);
@@ -110,15 +124,17 @@ public class NgffUtils {
             return null;
         }
         Path ngffRoot = basePath.resolve(Long.toString(filesetId) + ZARR_EXTN);
-        if(Files.exists(ngffRoot) ) {
+        if (Files.exists(ngffRoot) ) {
             return zarrUtils.getOmeroMetadata(ngffDir, filesetId, series);
         }
         ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if(Files.exists(ngffRoot)) {
+        if (Files.exists(ngffRoot)) {
             return tiledbUtils.getOmeroMetadata(ngffDir, filesetId, series);
         }
 
-        log.error("Ngff file missing or unsupported type: " + ngffDir + " "+ Long.toString(filesetId));
+        log.error(
+            "Ngff file missing or unsupported type: " +
+            ngffDir + " "+ Long.toString(filesetId));
         return null;
     }
 }
