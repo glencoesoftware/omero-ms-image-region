@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2021 Glencoe Software, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.Arrays;
@@ -32,15 +50,25 @@ public class RenderingUtils {
     /** OMERO server pixels service. */
     private final PixelsService pixelsService;
 
+    /** Top-level directory containing NGFF files */
     private final String ngffDir;
 
+    /** Configured TiledbUtils */
     private final TiledbUtils tiledbUtils;
 
+    /** Configured TiledbUtils */
     private final OmeroZarrUtils zarrUtils;
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(RenderingUtils.class);
 
+    /**
+     * Default constructor
+     * @param pixelsService Configured PixelsService
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param tiledbUtils Configured TiledbUtils
+     * @param zarrUtils Configured OmeroZarrUtils
+     */
     public RenderingUtils(PixelsService pixelsService,
             String ngffDir,
             TiledbUtils tiledbUtils,
@@ -51,6 +79,15 @@ public class RenderingUtils {
         this.zarrUtils = zarrUtils;
     }
 
+    /**
+     *
+     * @param pixelsService Configured PixelsService
+     * @param pixels Pixels set to retrieve a pixel buffer for.
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param tiledbUtils Configured TiledbUtils
+     * @param zarrUtils Configured OmeroZarrUtils
+     * @return NGFF or standard PixelBuffer
+     */
     public static PixelBuffer getPixelBuffer(
             PixelsService pixelsService, Pixels pixels,
             String ngffDir, TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
@@ -88,7 +125,7 @@ public class RenderingUtils {
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    public static List<RType> getPixelsIdAndSeries(
+    public List<RType> getPixelsIdAndSeries(
         IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
@@ -113,6 +150,16 @@ public class RenderingUtils {
         }
     }
 
+    /**
+     * Get Pixels information from ID
+     * @param pixelsIdAndSeries ID and Series for this Pixels object
+     * @param mapper IceMapper
+     * @param iPixels Pixels proxy service
+     * @param iQuery Query proxy service
+     * @return Populated Pixels object
+     * @throws ApiUsageException
+     * @throws ServerError
+     */
     public static Pixels retrievePixDescription(
         List<RType> pixelsIdAndSeries,
         IceMapper mapper, IPixelsPrx iPixels, IQueryPrx iQuery)

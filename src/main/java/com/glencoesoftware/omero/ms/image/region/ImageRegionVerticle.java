@@ -87,7 +87,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
      * Default constructor.
      */
     public ImageRegionVerticle(
-            PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength,

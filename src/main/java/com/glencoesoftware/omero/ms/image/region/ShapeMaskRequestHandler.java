@@ -294,12 +294,12 @@ public class ShapeMaskRequestHandler {
     protected MaskI getMask(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_mask");
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(shapeId);
-        log.info("Getting mask for shape id " + Long.toString(shapeId));
         try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            ParametersI params = new ParametersI();
+            params.addId(shapeId);
+            log.info("Getting mask for shape id {}", Long.toString(shapeId));
             return (MaskI) iQuery.findByQuery(
                 "SELECT s from Shape s left outer join fetch s.details.externalInfo " +
                 "WHERE s.id = :id", params, ctx
@@ -326,7 +326,7 @@ public class ShapeMaskRequestHandler {
                         client.getSession().getQueryService(),
                         shapeMaskCtx.shapeId);
                 if (mask.getDetails().getExternalInfo() == null) {
-                    log.error("No UUID associated with shape " + shapeMaskCtx.shapeId);
+                    log.error("No UUID associated with shape {}", shapeMaskCtx.shapeId);
                     return mask.getBytes();
                 }
                 String uuid = mask.getDetails()
@@ -416,11 +416,11 @@ public class ShapeMaskRequestHandler {
             throws ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_image_from_shape_id");
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(shapeId);
         try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            ParametersI params = new ParametersI();
+            params.addId(shapeId);
             MaskI shape = (MaskI) iQuery.findByQuery(
                 "SELECT s from Shape s join fetch s.roi roi " +
                 "join fetch roi.image " +

@@ -98,6 +98,7 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Configured RenderingUtils */
     private final RenderingUtils renderingUtils;
 
     /**
@@ -131,14 +132,13 @@ public class ImageRegionRequestHandler {
      * provided by <code>imageRegionCtx</code>.
      */
     public byte[] renderImageRegion(omero.client client) {
-        log.info("renderImageRegion");
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
@@ -187,7 +187,6 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            log.info("Resolution level count: " + Integer.toString(countResolutionLevels));
             RenderingUtils.setResolutionLevel(
                     renderer, countResolutionLevels, imageRegionCtx.resolution);
             Integer sizeX = pixels.getSizeX();
@@ -355,12 +354,9 @@ public class ImageRegionRequestHandler {
         log.debug("Truncating RegionDef if required");
         if (regionDef.getX() > sizeX ||
                 regionDef.getY() > sizeY) {
-            StringBuilder messageBuilder = new StringBuilder();
-            messageBuilder.append("Start position (").append(regionDef.getX())
-                .append(",").append(regionDef.getY())
-                .append(") exceeds image size (").append(sizeX).append(",")
-                .append(sizeY).append(")");
-            throw new IllegalArgumentException(messageBuilder.toString());
+            throw new IllegalArgumentException(
+                    String.format("Start position (%d,%d) exceeds image size (%d, %d)",regionDef.getX(),
+                            regionDef.getY(), sizeX, sizeY));
         }
         regionDef.setWidth(Math.min(
                 regionDef.getWidth(), sizeX - regionDef.getX()));

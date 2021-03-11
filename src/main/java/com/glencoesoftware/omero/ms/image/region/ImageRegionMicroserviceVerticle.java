@@ -676,8 +676,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * @param event Current routing context.
      */
     private void renderThumbnail(RoutingContext event) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("ms_render_thumbnail");
         final HttpServerRequest request = event.request();
         final HttpServerResponse response = event.response();
         final ThumbnailCtx thumbnailCtx;
@@ -709,7 +707,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 if (!response.closed()) {
                     response.end();
                 }
-                span.finish();
                 log.debug("Response ended");
             }
         });
@@ -724,8 +721,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      * @param event Current routing context.
      */
     private void getThumbnails(RoutingContext event) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_thumbnails_ngff");
         final HttpServerRequest request = event.request();
         final HttpServerResponse response = event.response();
         final String callback = request.getParam("callback");
@@ -762,7 +757,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 if (!response.closed()) {
                     response.end();
                 }
-                span.finish();
                 log.debug("Response ended");
             }
         });

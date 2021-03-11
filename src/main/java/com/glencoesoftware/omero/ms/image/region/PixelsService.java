@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Glencoe Software, Inc. All rights reserved.
+ * Copyright (C) 2021 Glencoe Software, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +61,6 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * <code>true</code> opens as read-write, <code>false</code> opens as
      * read-only.
      * @return A pixel buffer instance.
-     * @since OMERO-Beta4.3
      */
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write)
     {
@@ -79,7 +78,6 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * <code>true</code> opens as read-write, <code>false</code> opens as
      * read-only.
      * @return A pixel buffer instance.
-     * @since OMERO-Beta4.3
      */
     public PixelBuffer getTiledbPixelBuffer(
             Pixels pixels, String ngffDir, TiledbUtils tiledbUtils) {
@@ -96,7 +94,6 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * <code>true</code> opens as read-write, <code>false</code> opens as
      * read-only.
      * @return A pixel buffer instance.
-     * @since OMERO-Beta4.3
      */
     public PixelBuffer getZarrPixelBuffer(
             Pixels pixels, String ngffDir, OmeroZarrUtils zarrUtils) {
@@ -105,6 +102,14 @@ public class PixelsService extends ome.io.nio.PixelsService {
             pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
     }
 
+    /**
+     * Get a ZarrPixelBuffer if possible, otherwise try to get a TiledbPixelBuffer
+     * @param pixels Pixels set to retrieve a pixel buffer for.
+     * @param ngffDir Top-level directory containing NGFF files
+     * @param tiledbUtils Configured TiledbUtils
+     * @param zarrUtils Configured OmeroZarrUtils
+     * @return ZarrPixelBuffer or TiledbPixelBuffer
+     */
     public PixelBuffer getNgffPixelBuffer(
             Pixels pixels, String ngffDir, TiledbUtils tiledbUtils,
             OmeroZarrUtils zarrUtils) {

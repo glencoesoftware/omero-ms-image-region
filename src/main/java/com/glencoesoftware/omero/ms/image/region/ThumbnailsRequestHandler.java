@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2021 Glencoe Software, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.image.BufferedImage;
@@ -195,11 +213,11 @@ public class ThumbnailsRequestHandler {
         Image image, int longestSide)
             throws IOException {
         try {
-            List<RType> pixelsIdAndSeries = RenderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
             return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
         } catch (Exception e) {
-            log.error("Error getting thumbnail " + Long.toString(image.getId().getValue()), e);
+            log.error("Error getting thumbnail {}", Long.toString(image.getId().getValue()), e);
             return new byte[0];
         }
     }
@@ -263,7 +281,6 @@ public class ThumbnailsRequestHandler {
 
             List<List<Integer>> resDescriptions =
                     pixelBuffer.getResolutionDescriptions();
-            log.info("Resolution level count: " + Integer.toString(resDescriptions.size()));
             int resolutionLevel = getResolutionForThumbnail(resDescriptions);
             RenderingUtils.setResolutionLevel(
                     renderer, resDescriptions.size(), resolutionLevel);
@@ -274,7 +291,6 @@ public class ThumbnailsRequestHandler {
             regionDef.setY(0);
             regionDef.setWidth(sizeX);
             regionDef.setHeight(sizeY);
-            log.info(regionDef.toString());
             planeDef.setRegion(regionDef);
             updateRenderingSettings(iQuery, pixels, userId, renderingDefId);
             span = Tracing.currentTracer().startScopedSpan("render");

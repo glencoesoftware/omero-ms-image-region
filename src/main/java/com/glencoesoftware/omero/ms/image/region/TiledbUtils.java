@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2020 Glencoe Software, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
@@ -7,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +47,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
 import ome.util.PixelData;
+import omero.model.StatsInfo;
 
 public class TiledbUtils {
 
@@ -96,6 +114,8 @@ public class TiledbUtils {
                 return FormatTools.getPixelTypeString(FormatTools.UINT32);
             case TILEDB_INT32:
                 return FormatTools.getPixelTypeString(FormatTools.INT32);
+            case TILEDB_INT64:
+                return "int64";
             case TILEDB_FLOAT32:
                 return FormatTools.getPixelTypeString(FormatTools.FLOAT);
             case TILEDB_FLOAT64:
@@ -103,35 +123,6 @@ public class TiledbUtils {
             default:
                 throw new IllegalArgumentException("Attribute type " + type.toString() + " not supported");
         }
-    }
-
-    /**
-     * Get Pixels Type String from Tiledb Datatype
-     * @param type TileDB Datatype
-     * @return String of the corresponding data type
-     */
-    private static String getStdTypeFromTiledbType(Datatype tdbType) {
-        switch (tdbType) {
-        case TILEDB_UINT8:
-            return FormatTools.getPixelTypeString(FormatTools.UINT8);
-        case TILEDB_INT8:
-            return FormatTools.getPixelTypeString(FormatTools.INT8);
-        case TILEDB_UINT16:
-            return FormatTools.getPixelTypeString(FormatTools.UINT16);
-        case TILEDB_INT16:
-            return FormatTools.getPixelTypeString(FormatTools.INT16);
-        case TILEDB_UINT32:
-            return FormatTools.getPixelTypeString(FormatTools.UINT32);
-        case TILEDB_INT32:
-            return FormatTools.getPixelTypeString(FormatTools.INT32);
-        case TILEDB_INT64:
-            return "int64";
-        case TILEDB_FLOAT32:
-            return "float";
-        case TILEDB_FLOAT64:
-            return "double";
-        }
-        return null;
     }
 
     /**
@@ -147,12 +138,12 @@ public class TiledbUtils {
         }
         switch(type) {
             case TILEDB_UINT8: {
-                long max = buf.get() & 0xff;
+                long max = Byte.toUnsignedLong(buf.get());
                 long min = max;
                 while(buf.hasRemaining()) {
-                    long val = buf.get() & 0xff;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    long val = Byte.toUnsignedLong(buf.get());
+                    min = Math.min(min, val);
+                    max = Math.max(max, val);
                 }
                 return new long[] {min, max};
             }
@@ -161,7 +152,6 @@ public class TiledbUtils {
                 long min = max;
                 while (buf.hasRemaining()) {
                     byte next = buf.get();
-                    log.info(Byte.toString(next));
                     min = next < min ? next : min;
                     max = next > max ? next : max;
                 }
@@ -171,9 +161,9 @@ public class TiledbUtils {
                 long max = buf.getShort() & 0xffff;
                 long min = max;
                 while(buf.hasRemaining()) {
-                    long val = buf.getShort() & 0xffff;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    long val = Short.toUnsignedLong(buf.getShort());
+                    min = Math.min(min, val);
+                    max = Math.max(max, val);
                 }
                 return new long[] {min, max};
             }
@@ -191,9 +181,9 @@ public class TiledbUtils {
                 long max = buf.getInt() & 0xffffffffl;
                 long min = max;
                 while(buf.hasRemaining()) {
-                    long val = buf.getInt() & 0xffffffffl;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    long val = Integer.toUnsignedLong(buf.getInt());
+                    min = Math.min(min, val);
+                    max = Math.max(max, val);
                 }
                 return new long[] {min, max};
             }
@@ -1008,7 +998,7 @@ public class TiledbUtils {
             size.put("height", (long) dimy.getDomain().getSecond() -
                     (long) dimy.getDomain().getFirst() + 1);
             metadata.put("size", size);
-            metadata.put("type", getStdTypeFromTiledbType(attribute.getType()));
+            metadata.put("type", getPixelsType(attribute.getType()));
             if(multiscales != null) {
                 metadata.put(MULTISCALES_KEY, multiscales);
             }
