@@ -44,6 +44,7 @@ import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
+import ome.model.stats.StatsInfo;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 
@@ -137,72 +138,72 @@ public class OmeroZarrUtils {
      * @param type The Zarr DataType of the data in the ByteBuffer
      * @return long array [min, max]
      */
-    public static long[] getMinMax(ByteBuffer buf, DataType type) {
+    public static StatsInfo getMinMax(ByteBuffer buf, DataType type) {
+        StatsInfo info = new StatsInfo();
         if (!buf.hasRemaining()) {
             throw new IllegalArgumentException(
                     "Cannot get max of empty buffer");
         }
         switch (type) {
             case u1: {
-                long max = buf.get() & 0xff;
-                long min = max;
+                info.setGlobalMax((double) Byte.toUnsignedInt(buf.get()));
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    long val = buf.get() & 0xff;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    double val = Byte.toUnsignedInt(buf.get());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case i1: {
-                long max = buf.get();
-                long min = max;
+                info.setGlobalMax((double) buf.get());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    byte next = buf.get();
-                    log.info(Byte.toString(next));
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    byte val = buf.get();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             case u2: {
-                long max = buf.getShort() & 0xffff;
-                long min = max;
+                info.setGlobalMax((double) Short.toUnsignedInt(buf.getShort()));
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    long val = buf.getShort() & 0xffff;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    double val = Short.toUnsignedInt(buf.getShort());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case i2: {
-                long max = buf.getShort();
-                long min = max;
+                info.setGlobalMax((double) buf.getShort());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    short next = buf.getShort();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    double val = buf.getShort();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             case u4:{
-                long max = buf.getInt() & 0xffffffffl;
-                long min = max;
+                info.setGlobalMax((double) Integer.toUnsignedLong(buf.getInt()));
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    long val = buf.getInt() & 0xffffffffl;
-                    min = val < min ? val : min;
-                    max = val > max ? val : max;
+                    double val = Integer.toUnsignedLong(buf.getInt());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case i4: {
-                long max = buf.getInt();
-                long min = max;
+                info.setGlobalMax((double) buf.getInt());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    int next = buf.getInt();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    double val = buf.getInt();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             default:
                 throw new IllegalArgumentException(

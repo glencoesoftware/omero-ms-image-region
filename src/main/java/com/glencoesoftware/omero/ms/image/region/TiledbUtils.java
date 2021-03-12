@@ -28,6 +28,8 @@ import java.nio.file.Paths;
 
 import org.slf4j.LoggerFactory;
 
+import com.bc.zarr.DataType;
+
 import brave.ScopedSpan;
 import brave.Tracing;
 import io.tiledb.java.api.Array;
@@ -46,8 +48,8 @@ import io.tiledb.java.api.VFS;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
+import ome.model.stats.StatsInfo;
 import ome.util.PixelData;
-import omero.model.StatsInfo;
 
 public class TiledbUtils {
 
@@ -131,71 +133,72 @@ public class TiledbUtils {
      * @param type The Zarr DataType of the data in the ByteBuffer
      * @return long array [min, max]
      */
-    public static long[] getMinMax(ByteBuffer buf, Datatype type) {
+    public static StatsInfo getMinMax(ByteBuffer buf, Datatype type) {
+        StatsInfo info = new StatsInfo();
         if (!buf.hasRemaining()) {
             throw new IllegalArgumentException(
                     "Cannot get max of empty buffer");
         }
         switch(type) {
             case TILEDB_UINT8: {
-                long max = Byte.toUnsignedLong(buf.get());
-                long min = max;
-                while(buf.hasRemaining()) {
-                    long val = Byte.toUnsignedLong(buf.get());
-                    min = Math.min(min, val);
-                    max = Math.max(max, val);
+                info.setGlobalMax((double) Byte.toUnsignedInt(buf.get()));
+                info.setGlobalMin(info.getGlobalMax());
+                while (buf.hasRemaining()) {
+                    double val = Byte.toUnsignedInt(buf.get());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case TILEDB_INT8: {
-                long max = buf.get();
-                long min = max;
+                info.setGlobalMax((double) buf.get());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    byte next = buf.get();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    byte val = buf.get();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             case TILEDB_UINT16: {
-                long max = buf.getShort() & 0xffff;
-                long min = max;
-                while(buf.hasRemaining()) {
-                    long val = Short.toUnsignedLong(buf.getShort());
-                    min = Math.min(min, val);
-                    max = Math.max(max, val);
+                info.setGlobalMax((double) Short.toUnsignedInt(buf.getShort()));
+                info.setGlobalMin(info.getGlobalMax());
+                while (buf.hasRemaining()) {
+                    double val = Short.toUnsignedInt(buf.getShort());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case TILEDB_INT16: {
-                long max = buf.getShort();
-                long min = max;
+                info.setGlobalMax((double) buf.getShort());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    short next = buf.getShort();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    double val = buf.getShort();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             case TILEDB_UINT32:{
-                long max = buf.getInt() & 0xffffffffl;
-                long min = max;
-                while(buf.hasRemaining()) {
-                    long val = Integer.toUnsignedLong(buf.getInt());
-                    min = Math.min(min, val);
-                    max = Math.max(max, val);
+                info.setGlobalMax((double) Integer.toUnsignedLong(buf.getInt()));
+                info.setGlobalMin(info.getGlobalMax());
+                while (buf.hasRemaining()) {
+                    double val = Integer.toUnsignedLong(buf.getInt());
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {min, max};
+                return info;
             }
             case TILEDB_INT32: {
-                long max = buf.getInt();
-                long min = max;
+                info.setGlobalMax((double) buf.getInt());
+                info.setGlobalMin(info.getGlobalMax());
                 while (buf.hasRemaining()) {
-                    int next = buf.getInt();
-                    min = next < min ? next : min;
-                    max = next > max ? next : max;
+                    double val = buf.getInt();
+                    info.setGlobalMin(Math.min(info.getGlobalMin(), val));
+                    info.setGlobalMax(Math.max(info.getGlobalMax(), val));
                 }
-                return new long[] {(long) min, (long) max};
+                return info;
             }
             default:
                 throw new IllegalArgumentException("Type: " + type.toString() + " not supported");
