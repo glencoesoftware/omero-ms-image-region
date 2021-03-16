@@ -111,6 +111,12 @@ public class ThumbnailsRequestHandler {
     private Renderer renderer;
 
     /**
+     * {@link RenderingDef} identifier of the rendering settings to use when
+     * requesting the thumbnail.
+     */
+    protected Optional<Long> renderingDefId;
+
+    /**
      * Default constructor
      * @param thumbnailCtx ThumbnailCtx object
      * @param renderingUtils Configured RenderingUtils
@@ -123,6 +129,7 @@ public class ThumbnailsRequestHandler {
      * @param ngffDir Location (local or cloud) of NGFF files
      * @param longestSide Longest side of the final thumbnail
      * @param imageIds imageIds {@link Image} identifiers to get thumbnails for
+     * @param renderingDefId optional specific rendering definition id
      */
     public ThumbnailsRequestHandler(
             ThumbnailCtx thumbnailCtx,
@@ -135,7 +142,8 @@ public class ThumbnailsRequestHandler {
             NgffUtils ngffUtils,
             String ngffDir,
             int longestSide,
-            List<Long> imageIds) {
+            List<Long> imageIds,
+            Optional<Long> renderingDefId) {
         this.thumbnailCtx = thumbnailCtx;
         this.renderingUtils = renderingUtils;
         this.compressionSrv = compressionSrv;
@@ -147,6 +155,7 @@ public class ThumbnailsRequestHandler {
         this.ngffDir = ngffDir;
         this.longestSide = longestSide;
         this.imageIds = imageIds;
+        this.renderingDefId = renderingDefId;
     }
 
     /**
@@ -486,6 +495,36 @@ public class ThumbnailsRequestHandler {
                     "longestSide exceeds image size");
         }
         return resolutionLevel;
+    }
+
+    /**
+     * Retrieves a JPEG thumbnail from the server.
+     * @return JPEG thumbnail byte array.
+     */
+    public byte[] renderThumbnail(omero.client client) {
+        log.info("renderThumbnail");
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("render_image_region");
+        try {
+            ServiceFactoryPrx sf = client.getSession();
+            long userId = sf.getAdminService().getEventContext().userId;
+            IQueryPrx iQuery = sf.getQueryService();
+            IPixelsPrx iPixels = sf.getPixelsService();
+            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
+                    iQuery, thumbnailCtx.imageId);
+            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
+                return getRegion(
+                    iQuery, iPixels, pixelsIdAndSeries, userId,
+                    this.renderingDefId);
+            }
+            log.debug("Cannot find Image:{}", thumbnailCtx.imageId);
+        } catch (Exception e) {
+            span.error(e);
+            log.error("Exception while retrieving image region", e);
+        } finally {
+            span.finish();
+        }
+        return null;
     }
 
 }

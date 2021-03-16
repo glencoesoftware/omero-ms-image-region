@@ -185,8 +185,10 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
+            List<Long> idList = new ArrayList<Long>();
+            idList.add(imageId);
             byte[] thumbnail = request.execute(
-                new ThumbnailRequestHandler(
+                new ThumbnailsRequestHandler(
                     thumbnailCtx,
                     renderingUtils,
                     compressionService,
@@ -197,7 +199,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                     ngffUtils,
                     ngffDir,
                     longestSide,
-                    imageId,
+                    idList,
                     renderingDefId)::renderThumbnail);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:" + imageId);
@@ -272,7 +274,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                             ngffUtils,
                             ngffDir,
                             longestSide,
-                            imageIds)::renderThumbnails);
+                            imageIds,
+                            Optional.empty())::renderThumbnails);
 
             if (thumbnails == null) {
                 message.fail(404, "Cannot find one or more Images");
