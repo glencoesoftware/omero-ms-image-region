@@ -70,11 +70,11 @@ public class ShapeMaskRequestHandler {
      */
     public ShapeMaskRequestHandler(
             ShapeMaskCtx shapeMaskCtx, String ngffDir,
-            TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
+            OmeroZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.ngffDir = ngffDir;
-        this.ngffUtils = new NgffUtils(tiledbUtils, zarrUtils);
+        this.ngffUtils = new NgffUtils(zarrUtils);
     }
 
     /**

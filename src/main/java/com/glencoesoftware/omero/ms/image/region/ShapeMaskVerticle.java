@@ -58,17 +58,13 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     private String ngffDir;
 
     /** Configured TiledbUtils */
-    TiledbUtils tiledbUtils;
-
-    /** Configured TiledbUtils */
     OmeroZarrUtils zarrUtils;
 
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle(TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils)
+    public ShapeMaskVerticle(OmeroZarrUtils zarrUtils)
     {
-        this.tiledbUtils = tiledbUtils;
         this.zarrUtils = zarrUtils;
     }
 
@@ -140,7 +136,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
                         new ShapeMaskRequestHandler(
-                                shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
+                                shapeMaskCtx, ngffDir, zarrUtils);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -224,7 +220,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
         {
             ShapeMaskRequestHandler requestHandler =
                 new ShapeMaskRequestHandler(
-                    shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
+                    shapeMaskCtx, ngffDir, zarrUtils);
 
             // The PNG is not in the cache we have to create it
             byte[] shapeMask = request.execute(
@@ -291,7 +287,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             JsonObject metadata = null;
             ShapeMaskRequestHandler requestHandler =
                     new ShapeMaskRequestHandler(
-                            shapeMaskCtx, ngffDir, tiledbUtils, zarrUtils);
+                            shapeMaskCtx, ngffDir, zarrUtils);
             metadata = request.execute(
                     requestHandler::getLabelImageMetadata);
             if (metadata == null) {

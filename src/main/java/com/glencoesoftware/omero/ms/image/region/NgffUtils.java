@@ -33,10 +33,6 @@ public class NgffUtils {
             LoggerFactory.getLogger(NgffUtils.class);
 
     private static final String ZARR_EXTN = OmeroZarrUtils.ZARR_EXTN;
-    private static final String TILEDB_EXTN = TiledbUtils.TILEDB_EXTN;
-
-    /** TiledbUtils */
-    private final TiledbUtils tiledbUtils;
 
     /** ZarrUtils */
     private final OmeroZarrUtils zarrUtils;
@@ -46,8 +42,7 @@ public class NgffUtils {
      * @param tiledbUtils Configured TiledbUtils
      * @param zarrUtils Configured ZarrUtils
      */
-    public NgffUtils(TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
-        this.tiledbUtils = tiledbUtils;
+    public NgffUtils(OmeroZarrUtils zarrUtils) {
         this.zarrUtils = zarrUtils;
     }
 
@@ -80,11 +75,6 @@ public class NgffUtils {
             return zarrUtils.getLabelImageBytes(
                     ngffDir, filesetId, series, uuid, resolution, domainStr);
         }
-        ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if (Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageBytes(
-                    ngffDir, filesetId, series, uuid, resolution, domainStr);
-        }
         log.error(
             "Ngff file missing or unsupported type: {} {}", ngffDir, filesetId);
         return null;
@@ -114,11 +104,6 @@ public class NgffUtils {
             return zarrUtils.getLabelImageMetadata(
                     ngffDir, filesetId, series, uuid, resolution);
         }
-        ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if (Files.exists(ngffRoot)) {
-            return tiledbUtils.getLabelImageMetadata(
-                    ngffDir, filesetId, series, uuid, resolution);
-        }
         log.error(
             "Ngff file missing or unsupported type: {} {}",
             ngffDir, filesetId);
@@ -145,11 +130,6 @@ public class NgffUtils {
         if (Files.exists(ngffRoot) ) {
             return zarrUtils.getOmeroMetadata(ngffDir, filesetId, series);
         }
-        ngffRoot = basePath.resolve(Long.toString(filesetId) + TILEDB_EXTN);
-        if (Files.exists(ngffRoot)) {
-            return tiledbUtils.getOmeroMetadata(ngffDir, filesetId, series);
-        }
-
         log.error(
             "Ngff file missing or unsupported type: {} {}",
             ngffDir, filesetId);

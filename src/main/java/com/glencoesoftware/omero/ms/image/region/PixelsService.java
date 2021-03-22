@@ -72,22 +72,6 @@ public class PixelsService extends ome.io.nio.PixelsService {
     }
 
     /**
-     * Returns a TiledbPixelBuffer for a given set of pixels.
-     * @param pixels Pixels set to retrieve a pixel buffer for.
-     * @param write Whether or not to open the pixel buffer as read-write.
-     * <code>true</code> opens as read-write, <code>false</code> opens as
-     * read-only.
-     * @return A pixel buffer instance.
-     */
-    public PixelBuffer getTiledbPixelBuffer(
-            Pixels pixels, String ngffDir, TiledbUtils tiledbUtils) {
-        log.info("Creating TiledbPixelBuffer");
-        return new TiledbPixelBuffer(
-            pixels, ngffDir, pixels.getImage().getFileset().getId(),
-            tiledbUtils);
-    }
-
-    /**
      * Returns a ZarrPixelBuffer for a given set of pixels.
      * @param pixels Pixels set to retrieve a pixel buffer for.
      * @param write Whether or not to open the pixel buffer as read-write.
@@ -111,17 +95,11 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return ZarrPixelBuffer or TiledbPixelBuffer
      */
     public PixelBuffer getNgffPixelBuffer(
-            Pixels pixels, String ngffDir, TiledbUtils tiledbUtils,
+            Pixels pixels, String ngffDir,
             OmeroZarrUtils zarrUtils) {
-        try {
             return new ZarrPixelBuffer(
                 pixels, ngffDir, pixels.getImage().getFileset().getId(),
                 zarrUtils);
-        } catch (Exception e) {
-            return new TiledbPixelBuffer(
-                pixels, ngffDir, pixels.getImage().getFileset().getId(),
-                tiledbUtils);
-        }
     }
 }
 

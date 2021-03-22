@@ -54,9 +54,6 @@ public class RenderingUtils {
     private final String ngffDir;
 
     /** Configured TiledbUtils */
-    private final TiledbUtils tiledbUtils;
-
-    /** Configured TiledbUtils */
     private final OmeroZarrUtils zarrUtils;
 
     private static final org.slf4j.Logger log =
@@ -71,11 +68,9 @@ public class RenderingUtils {
      */
     public RenderingUtils(PixelsService pixelsService,
             String ngffDir,
-            TiledbUtils tiledbUtils,
             OmeroZarrUtils zarrUtils) {
         this.pixelsService = pixelsService;
         this.ngffDir = ngffDir;
-        this.tiledbUtils = tiledbUtils;
         this.zarrUtils = zarrUtils;
     }
 
@@ -90,7 +85,7 @@ public class RenderingUtils {
      */
     public static PixelBuffer getPixelBuffer(
             PixelsService pixelsService, Pixels pixels,
-            String ngffDir, TiledbUtils tiledbUtils, OmeroZarrUtils zarrUtils) {
+            String ngffDir, OmeroZarrUtils zarrUtils) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
@@ -98,7 +93,7 @@ public class RenderingUtils {
         try {
             try {
                 pb = pixelsService.getNgffPixelBuffer(
-                        pixels, ngffDir, tiledbUtils, zarrUtils);
+                        pixels, ngffDir, zarrUtils);
             } catch (Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
                 log.info(
@@ -218,7 +213,7 @@ public class RenderingUtils {
         try {
             try {
                 pb = pixelsService.getNgffPixelBuffer(
-                        pixels, ngffDir, tiledbUtils, zarrUtils);
+                        pixels, ngffDir, zarrUtils);
             } catch(Exception e) {
                 log.error("Error when getting TieldbPixelBuffer", e);
                 log.info(
