@@ -31,6 +31,7 @@ import ome.io.nio.PixelBuffer;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.RenderingDef;
+import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.model.fs.Fileset;
 import omeis.providers.re.Renderer;
@@ -397,7 +398,8 @@ public class RenderingUtils {
             List<String> colors,
             List<Map<String, Map<String, Object>>> maps,
             List<RenderingModel> renderingModels,
-            String colorMode) {
+            String colorMode,
+            List<Family> families) {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
@@ -430,6 +432,20 @@ public class RenderingUtils {
                         Map<String, Map<String, Object>> map =
                                 maps.get(c);
                         if (map != null) {
+                            if (map.containsKey("inverted") && map.get("inverted").toString().equals("enabled")) {
+                                log.info("inverted enabled");
+                            }
+                            if (map.containsKey("quantization")) {
+                                log.info("Quantization enabled");
+                                Map<String, Object> quantization = map.get("quantization");
+                                String family = quantization.get("family").toString();
+                                double coefficient = (Double) quantization.get("coefficient");
+                                for (Family f : families) {
+                                    if (f.getValue().equals(family)) {
+                                        renderer.setQuantizationMap(c, f, coefficient, false);
+                                    }
+                                }
+                            }
                             Map<String, Object> reverse = map.get("reverse");
                             if (reverse != null
                                 && Boolean.TRUE.equals(reverse.get("enabled"))) {

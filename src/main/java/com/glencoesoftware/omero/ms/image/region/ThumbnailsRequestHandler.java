@@ -428,7 +428,7 @@ public class ThumbnailsRequestHandler {
         log.info("Updating rendering settings from NGFF metadata");
         RenderingUtils.updateSettings(
                 renderer, channels, windows, colors, null,
-                renderingModels, "rgb");
+                renderingModels, "rgb", families);
     }
 
     /**

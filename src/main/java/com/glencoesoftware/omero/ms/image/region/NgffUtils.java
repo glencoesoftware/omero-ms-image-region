@@ -24,7 +24,6 @@ import java.nio.file.Path;
 
 import org.slf4j.LoggerFactory;
 
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 
 public class NgffUtils {
@@ -61,8 +60,7 @@ public class NgffUtils {
      */
     public byte[] getLabelImageBytes(
         String ngffDir, long filesetId, int series, String uuid,
-        Integer resolution, String domainStr)
-                throws TileDBError {
+        Integer resolution, String domainStr) {
         Path basePath;
         try {
             basePath = zarrUtils.getLocalOrS3Path(ngffDir);

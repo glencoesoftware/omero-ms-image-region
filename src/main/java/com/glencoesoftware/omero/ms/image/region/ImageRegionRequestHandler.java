@@ -202,7 +202,8 @@ public class ImageRegionRequestHandler {
                     imageRegionCtx.colors,
                     imageRegionCtx.maps,
                     renderingModels,
-                    imageRegionCtx.m);
+                    imageRegionCtx.m,
+                    families);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
