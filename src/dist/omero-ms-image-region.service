@@ -5,12 +5,14 @@ After=network.service
 
 [Service]
 Type=simple
-#Environment="JAVA_OPTS=-Dlogback.configurationFile=/path/to/omero-ms-image-region/logback.xml"
-WorkingDirectory=/path/to/omero-ms-image-region
-ExecStart=/path/to/omero-ms-image-region/bin/omero-ms-image-region -cluster
+Environment="JAVA_OPTS=-Dlogback.configurationFile=/opt/omero/OMERO.ms/omero-ms-image-region/logback.xml"
+WorkingDirectory=/opt/omero/OMERO.ms/omero-ms-image-region
+ExecStart=/opt/omero/OMERO.ms/omero-ms-image-region/bin/omero-ms-image-region -cluster
 User=omero
 Group=omero
 Restart=no
+LimitNPROC=16384
+LimitNOFILE=16384
 
 [Install]
 WantedBy=multi-user.target
