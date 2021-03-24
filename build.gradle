@@ -25,6 +25,9 @@ repositories {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
+        url 'https://repo.glencoesoftware.com/repository/jzarr-snapshots'
+    }
+    maven {
         url 'https://maven.scijava.org/content/groups/public'
     }
     maven {
@@ -78,7 +81,7 @@ dependencies {
     implementation 'com.zeroc:icegrid:3.6.4'
     implementation 'io.tiledb:tiledb-java:0.3.3-SNAPSHOT'
     implementation 'com.google.code.gson:gson:2.8.6'
-    implementation 'com.bc.zarr:jzarr:0.3.2'
+    implementation 'com.bc.zarr:jzarr:0.3.3-gs-SNAPSHOT'
     implementation 'org.lasersonlab:s3fs:2.2.3'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.+'
