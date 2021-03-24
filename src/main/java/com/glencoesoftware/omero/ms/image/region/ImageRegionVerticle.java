@@ -40,10 +40,10 @@ import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.local.LocalCompress;
-import ome.io.nio.PixelsService;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
+import omero.model.Image;
 import omero.util.IceMapper;
 
 public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
@@ -53,9 +53,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
-
-    public static final String RENDER_IMAGE_REGION_PNG_EVENT =
-            "omero.render_image_region_png";
 
     /** OMERO server host */
     private String host;
@@ -78,28 +75,27 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
-    /** OMERO server pixels service */
-    private final PixelsService pixelsService;
-
     /** Reference to the compression service */
     private final LocalCompress compressionService;
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    private final RenderingUtils renderingUtils;
+
     /**
      * Default constructor.
      */
     public ImageRegionVerticle(
-            PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            int maxTileLength)
+            int maxTileLength,
+            RenderingUtils renderingUtils)
     {
-        this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        this.renderingUtils = renderingUtils;
     }
 
     /* (non-Javadoc)
@@ -162,15 +158,16 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            byte[] imageRegion = request.execute(
-                    new ImageRegionRequestHandler(
-                            imageRegionCtx,
+            String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
+            byte[] imageRegion = null;
+            imageRegion = request.execute(
+                    new ImageRegionRequestHandler(imageRegionCtx,
                             families,
                             renderingModels,
                             lutProvider,
-                            pixelsService,
                             compressionService,
-                            maxTileLength)::renderImageRegion);
+                            maxTileLength,
+                            renderingUtils)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(

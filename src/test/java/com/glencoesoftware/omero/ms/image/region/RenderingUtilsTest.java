@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Glencoe Software, Inc. All rights reserved.
+ * Copyright (C) 2021 Glencoe Software, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,74 +18,33 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-
-import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
-
-import javax.imageio.ImageIO;
-
-import org.testng.annotations.Test;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-import ome.xml.model.primitives.Color;
+public class RenderingUtilsTest {
 
-public class ShapeMaskRequestHandlerTest {
-
-    private ShapeMaskRequestHandler handler = null;
-
-    private void assertImage(BufferedImage image, int width, int height) {
-        Assert.assertNotNull(image);
-        Assert.assertEquals(image.getWidth(), width);
-        Assert.assertEquals(image.getHeight(), height);
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testFlipNullImage() {
+        int[] nullArray = null;
+        RenderingUtils.flip(nullArray, 4, 4, true, true);
     }
 
-    @BeforeMethod
-    public void setUp() {
-        MultiMap params = new CaseInsensitiveHeaders();
-
-        params.add("shapeId", "1");
-        params.add("color", "0");
-        params.add("flip", "");
-
-        handler = new ShapeMaskRequestHandler(
-                new ShapeMaskCtx(params, ""), "", null);
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testFlipZeroXImage() {
+        int[] src = {1};
+        RenderingUtils.flip(src, 0, 4, true, true);
     }
 
-    @Test
-    public void testRenderShapeMaskByteAligned() throws IOException {
-        Color fillColor = new Color(255, 0, 0, 255);
-        // 8 by 2 grid alternating bits
-        byte[] bytes = new byte[] { 0x55, 0x55 };
-        int width = 8;
-        int height = 2;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
-        Assert.assertNotNull(png);
-        BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
-        assertImage(image, width, height);
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testFlipZeroYImage() {
+        int[] src = {1};
+        RenderingUtils.flip(src, 4, 0, true, true);
     }
-
-    @Test
-    public void testRenderShapeMaskNotByteAligned() throws IOException {
-        Color fillColor = new Color(255, 0, 0, 255);
-        // 4 by 4 grid alternating bits
-        byte[] bytes = new byte[] { 0x55, 0x55 };
-        int width = 4;
-        int height = 4;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
-        Assert.assertNotNull(png);
-        BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
-        assertImage(image, width, height);
-    }
-
 
     private void testFlip(
-            byte[] src, int sizeX, int sizeY,
+            int[] src, int sizeX, int sizeY,
             boolean flipHorizontal, boolean flipVertical) {
-        byte[] flipped = ShapeMaskRequestHandler.flip(
+        int[] flipped = RenderingUtils.flip(
                 src, sizeX, sizeY, flipHorizontal, flipVertical);
         for (int n = 0; n < sizeX * sizeY; n++){
             int new_col;
@@ -106,7 +65,7 @@ public class ShapeMaskRequestHandlerTest {
         }
     }
 
-    private void testAllFlips(byte[] src, int sizeX, int sizeY) {
+    private void testAllFlips(int[] src, int sizeX, int sizeY) {
         boolean flipHorizontal = false;
         boolean flipVertical = true;
         testFlip(src, sizeX, sizeY, flipHorizontal, flipVertical);
@@ -124,9 +83,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipEvenSquare2() {
         int sizeX = 4;
         int sizeY = 4;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -135,9 +94,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipOddSquare(){
         int sizeX = 5;
         int sizeY = 5;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -146,9 +105,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipWideRectangle() {
         int sizeX = 7;
         int sizeY = 4;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -157,9 +116,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipTallRectangle() {
         int sizeX = 4;
         int sizeY = 7;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -168,9 +127,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipSingleWidthRectangle() {
         int sizeX = 7;
         int sizeY = 1;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -179,9 +138,9 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipSingleHeightRectangle() {
         int sizeX = 1;
         int sizeY = 7;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
@@ -190,29 +149,10 @@ public class ShapeMaskRequestHandlerTest {
     public void testFlipSingleEntry() {
         int sizeX = 1;
         int sizeY = 1;
-        byte[] src = new byte[sizeX * sizeY];
+        int[] src = new int[sizeX * sizeY];
         for (int n = 0; n < sizeX * sizeY; n++){
-            src[n] = (byte) n;
+            src[n] = n;
         }
         testAllFlips(src, sizeX, sizeY);
     }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testFlipNullImage() {
-        byte[] nullArray = null;
-        ShapeMaskRequestHandler.flip(nullArray, 4, 4, true, true);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testFlipZeroXImage() {
-        byte[] src = {1};
-        ShapeMaskRequestHandler.flip(src, 0, 4, true, true);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testFlipZeroYImage() {
-        byte[] src = {1};
-        ShapeMaskRequestHandler.flip(src, 4, 0, true, true);
-    }
-
 }

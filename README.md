@@ -155,6 +155,10 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
+    location /omero_ms_image_region/ {
+        proxy_pass http://image_region_backend;
+    }
+
 Development Installation
 ========================
 

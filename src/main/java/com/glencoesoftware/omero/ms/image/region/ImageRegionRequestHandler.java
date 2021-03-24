@@ -22,11 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
@@ -49,16 +45,12 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
-import ome.io.nio.PixelsService;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
-import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -69,16 +61,12 @@ import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
-
-    /** OMERO server pixels service. */
-    private final PixelsService pixelsService;
 
     /** Reference to the compression service. */
     private final LocalCompress compressionSrv;
@@ -110,25 +98,29 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
+    /** Configured RenderingUtils */
+    private final RenderingUtils renderingUtils;
+
     /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
     public ImageRegionRequestHandler(
             ImageRegionCtx imageRegionCtx,
-            List<Family> families, List<RenderingModel> renderingModels,
+            List<Family> families,
+            List<RenderingModel> renderingModels,
             LutProvider lutProvider,
-            PixelsService pixService,
             LocalCompress compSrv,
-            int maxTileLength) {
+            int maxTileLength,
+            RenderingUtils renderingUtils) {
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
+        this.renderingUtils = renderingUtils;
 
-        pixelsService = pixService;
         projectionService = new ProjectionService();
         compressionSrv = compSrv;
     }
@@ -146,7 +138,7 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
@@ -159,66 +151,6 @@ public class ImageRegionRequestHandler {
             span.finish();
         }
         return null;
-    }
-
-    /**
-     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
-     * the server for a given {@link Image} or <code>null</code> if no such
-     * identifier exists or the user does not have permissions to access it.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param imageId {@link Image} identifier to query for.
-     * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
-     */
-    private List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixels_id_and_series");
-        span.tag("omero.image_id", imageId.toString());
-        try {
-            List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels as p " +
-                    "WHERE p.image.id = :id",
-                    params, ctx
-                );
-            if (data.size() < 1) {
-                return null;
-            }
-            return data.get(0);  // The first row
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsId The identifier of the pixels.
-     * @return See above.
-     */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId) throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
-    }
-
-    private PixelBuffer getPixelBuffer(Pixels pixels) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_buffer");
-        span.tag("omero.pixels_id", pixels.getId().toString());
-        try {
-            return pixelsService.getPixelBuffer(pixels, false);
-        } finally {
-            span.finish();
-        }
     }
 
     /**
@@ -236,31 +168,17 @@ public class ImageRegionRequestHandler {
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         log.debug("Getting image region");
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels;
-        try {
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            span.tag("omero.pixels_id", Long.toString(pixelsId));
-            pixels = (Pixels) mapper.reverse(
-                    iPixels.retrievePixDescription(pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
-            pixels.setImage(image);
-        } finally {
-            span.finish();
-        }
+        Pixels pixels = RenderingUtils.retrievePixDescription(
+                pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+        try (PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels)) {
+            log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, getRenderingDef(iPixels, pixels.getId()),
+                pixels, RenderingUtils.getRenderingDef(
+                        iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -269,21 +187,22 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            List<List<Integer>> resolutionLevels;
-            if (countResolutionLevels > 1) {
-                resolutionLevels = pixelBuffer.getResolutionDescriptions();
-            } else {
-                resolutionLevels = new ArrayList<List<Integer>>();
-                resolutionLevels.add(
-                        Arrays.asList(pixels.getSizeX(), pixels.getSizeY()));
-            }
-            planeDef.setRegion(getRegionDef(resolutionLevels, pixelBuffer));
-            setResolutionLevel(renderer, resolutionLevels);
+            RenderingUtils.setResolutionLevel(
+                    renderer, countResolutionLevels, imageRegionCtx.resolution);
+            Integer sizeX = pixels.getSizeX();
+            Integer sizeY = pixels.getSizeY();
+            planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));
             if (imageRegionCtx.compressionQuality != null) {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            updateSettings(renderer);
+            RenderingUtils.updateSettings(renderer,
+                    imageRegionCtx.channels,
+                    imageRegionCtx.windows,
+                    imageRegionCtx.colors,
+                    imageRegionCtx.maps,
+                    renderingModels,
+                    imageRegionCtx.m);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -291,7 +210,7 @@ public class ImageRegionRequestHandler {
                 // buffer.  However, just in case an exception is thrown before
                 // reaching this point a double close may occur due to the
                 // surrounding try-with-resources block.
-                return render(renderer, resolutionLevels, pixels, planeDef);
+                return render(renderer, sizeX, sizeY, pixels, planeDef);
             } finally {
                 span.finish();
             }
@@ -312,10 +231,10 @@ public class ImageRegionRequestHandler {
      * @throws QuantizationException
      */
     private byte[] render(
-            Renderer renderer, List<List<Integer>> resolutionLevels,
+            Renderer renderer, Integer sizeX, Integer sizeY,
             Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
-        checkPlaneDef(resolutionLevels, planeDef);
+        RenderingUtils.checkPlaneDef(sizeX, sizeY, planeDef);
 
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
@@ -328,7 +247,7 @@ public class ImageRegionRequestHandler {
                 int projectedSizeC = 0;
                 ChannelBinding[] channelBindings =
                         renderer.getChannelBindings();
-                PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+                PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels);
                 int start = Optional
                         .ofNullable(imageRegionCtx.projectionStart)
                         .orElse(0);
@@ -386,9 +305,9 @@ public class ImageRegionRequestHandler {
 
         String format = imageRegionCtx.format;
         RegionDef region = planeDef.getRegion();
-        int sizeX = region != null? region.getWidth() : pixels.getSizeX();
-        int sizeY = region != null? region.getHeight() : pixels.getSizeY();
-        buf = flip(buf, sizeX, sizeY,
+        sizeX = region != null? region.getWidth() : pixels.getSizeX();
+        sizeY = region != null? region.getHeight() : pixels.getSizeY();
+        buf = RenderingUtils.flip(buf, sizeX, sizeY,
                 imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
         BufferedImage image = ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
@@ -420,145 +339,7 @@ public class ImageRegionRequestHandler {
         return null;
     }
 
-    /**
-     * Flip an image horizontally, vertically, or both.
-     * @param src source image buffer
-     * @param sizeX size of <code>src</code> in X (number of columns)
-     * @param sizeY size of <code>src</code> in Y (number of rows)
-     * @param flipHorizontal whether or not to flip the image horizontally
-     * @param flipVertical whether or not to flip the image vertically
-     * @return Newly allocated buffer with flipping applied or <code>src</code>
-     * if no flipping has been requested.
-     */
-    public static int[] flip(
-            int[] src, int sizeX, int sizeY,
-            boolean flipHorizontal, boolean flipVertical) {
-        if (!flipHorizontal && !flipVertical) {
-            return src;
-        }
 
-        if (src == null) {
-            throw new IllegalArgumentException("Attempted to flip null image");
-        } else if (sizeX == 0 || sizeY == 0) {
-            throw new IllegalArgumentException("Attempted to flip image with 0 size");
-        }
-
-        int[] dest = new int[src.length];
-        int srcIndex, destIndex;
-        int xOffset = flipHorizontal? sizeX : 1;
-        int yOffset = flipVertical? sizeY : 1;
-        for (int x = 0; x < sizeX; x++) {
-            for (int y = 0; y < sizeY; y++) {
-                srcIndex = (y * sizeX) + x;
-                destIndex = Math.abs(((yOffset - y - 1) * sizeX))
-                        + Math.abs((xOffset - x - 1));
-                dest[destIndex] = src[srcIndex];
-            }
-        }
-        return dest;
-    }
-
-    /**
-     * Copied from {@link RenderingBean#checkPlaneDef}. A client side version
-     * of this is required when we are rendering uncompressed.
-     * @param resolutionLevels complete definition of all resolution levels
-     * for the image.
-     * @param planeDef plane definition to validate
-     * @throws ServerError
-     */
-    private void checkPlaneDef(
-            List<List<Integer>> resolutionLevels, PlaneDef planeDef)
-                    throws ServerError{
-        RegionDef rd = planeDef.getRegion();
-        if (rd == null) {
-            return;
-        }
-        int resolution =
-                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
-        int sizeX = resolutionLevels.get(resolution).get(0);
-        int sizeY = resolutionLevels.get(resolution).get(1);
-        if (rd.getWidth() + rd.getX() > sizeX) {
-            int newWidth = sizeX - rd.getX();
-            log.debug("Resetting out of bounds region XOffset {} width {}" +
-                    " vs. sizeX {} to {}",
-                    rd.getX(), rd.getWidth(), sizeX, newWidth);
-            rd.setWidth(newWidth);
-        } else {
-            log.debug("Leaving region xOffset {} width {} alone vs. sizeX {}",
-                    rd.getX(), rd.getWidth(), sizeX);
-        }
-        if (rd.getHeight() + rd.getY() > sizeY) {
-            int newHeight = sizeY - rd.getY();
-            log.debug("Resetting out of bounds region yOffset {} height {}" +
-                    " vs. sizeY {} to {}",
-                    rd.getY(), rd.getHeight(), sizeY, newHeight);
-            rd.setHeight(newHeight);
-        } else {
-            log.debug("Leaving region yOffset {} height {} alone vs. " +
-                    "sizeY {}", rd.getY(), rd.getHeight(), sizeY);
-        }
-    }
-
-    /**
-     * Update settings on the rendering engine based on the current context.
-     * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
-     * @throws ServerError
-     */
-    private void updateSettings(Renderer renderer) throws ServerError {
-        log.debug("Setting active channels");
-        int idx = 0; // index of windows/colors args
-        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
-            log.debug("Setting for channel {}", c);
-            boolean isActive = imageRegionCtx.channels.contains(c + 1);
-            log.debug("\tChannel active {}", isActive);
-            renderer.setActive(c, isActive);
-
-            if (isActive) {
-                if (imageRegionCtx.windows != null) {
-                    double min = (double) imageRegionCtx.windows.get(idx)[0];
-                    double max = (double) imageRegionCtx.windows.get(idx)[1];
-                    log.debug("\tMin-Max: [{}, {}]", min, max);
-                    renderer.setChannelWindow(c, min, max);
-                }
-                if (imageRegionCtx.colors != null) {
-                    String color = imageRegionCtx.colors.get(idx);
-                    if (color.endsWith(".lut")) {
-                        renderer.setChannelLookupTable(c, color);
-                        log.debug("\tLUT: {}", color);
-                    } else {
-                        int[] rgba = splitHTMLColor(color);
-                        renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
-                        log.debug("\tColor: [{}, {}, {}, {}]",
-                                  rgba[0], rgba[1], rgba[2], rgba[3]);
-                    }
-                }
-                if (imageRegionCtx.maps != null) {
-                    if (c < imageRegionCtx.maps.size()) {
-                        Map<String, Map<String, Object>> map =
-                                imageRegionCtx.maps.get(c);
-                        if (map != null) {
-                            Map<String, Object> reverse = map.get("reverse");
-                            if (reverse != null
-                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
-                                renderer.getCodomainChain(c).add(
-                                        new ReverseIntensityContext());
-                            }
-                        }
-                    }
-                }
-            }
-
-            idx += 1;
-        }
-        for (RenderingModel renderingModel : renderingModels) {
-            if (imageRegionCtx.m.equals(renderingModel.getValue())) {
-                renderer.setModel(renderingModel);
-                break;
-            }
-        }
-    }
 
     /**
      * Update RegionDef to fit within the image boundaries.
@@ -571,6 +352,12 @@ public class ImageRegionRequestHandler {
     protected void truncateRegionDef(
             int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
+        if (regionDef.getX() > sizeX ||
+                regionDef.getY() > sizeY) {
+            throw new IllegalArgumentException(
+                    String.format("Start position (%d,%d) exceeds image size (%d, %d)",regionDef.getX(),
+                            regionDef.getY(), sizeX, sizeY));
+        }
         regionDef.setWidth(Math.min(
                 regionDef.getWidth(), sizeX - regionDef.getX()));
         regionDef.setHeight(Math.min(
@@ -609,13 +396,9 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      */
     protected RegionDef getRegionDef(
-            List<List<Integer>> resolutionLevels, PixelBuffer pixelBuffer)
+            Integer sizeX, Integer sizeY, PixelBuffer pixelBuffer)
                     throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
-        int resolution =
-                Optional.ofNullable(imageRegionCtx.resolution).orElse(0);
-        int sizeX = resolutionLevels.get(resolution).get(0);
-        int sizeY = resolutionLevels.get(resolution).get(1);
         RegionDef regionDef = new RegionDef();
         Dimension imageTileSize = pixelBuffer.getTileSize();
         if (imageRegionCtx.tile != null) {
@@ -654,64 +437,5 @@ public class ImageRegionRequestHandler {
         return regionDef;
     }
 
-    /**
-     * Sets the pyramid resolution level on the <code>renderingEngine</code>
-     * @param renderer fully initialized renderer
-     * @param resolutionLevels complete definition of all resolution levels for
-     * the image.
-     * @throws ServerError
-     */
-    private void setResolutionLevel(
-            Renderer renderer,
-            List<List<Integer>> resolutionLevels)
-                    throws ServerError {
-        log.debug("Number of available resolution levels: {}",
-                resolutionLevels.size());
 
-        if (imageRegionCtx.resolution != null) {
-            log.debug("Setting resolution level: {}",
-                    imageRegionCtx.resolution);
-            Integer level =
-                    resolutionLevels.size() - imageRegionCtx.resolution - 1;
-            log.debug("Setting resolution level to: {}", level);
-            renderer.setResolutionLevel(level);
-        }
-    }
-
-    /**
-     *  Splits an hex stream of characters into an array of bytes
-     *  in format (R,G,B,A).
-     *  - abc      -> (0xAA, 0xBB, 0xCC, 0xFF)
-     *  - abcd     -> (0xAA, 0xBB, 0xCC, 0xDD)
-     *  - abbccd   -> (0xAB, 0xBC, 0xCD, 0xFF)
-     *  - abbccdde -> (0xAB, 0xBC, 0xCD, 0xDE)
-     *  @param color: Characters to split.
-     *  @return rgba - list of Ints
-     */
-    public static int[] splitHTMLColor(String color) {
-        List<Integer> level1 = Arrays.asList(3, 4);
-        int[] out = new int[4];
-        try {
-            if (level1.contains(color.length())) {
-                String c = color;
-                color = "";
-                for (char ch : c.toCharArray()) {
-                    color += ch + ch;
-                }
-            }
-            if (color.length() == 6) {
-                color += "FF";
-            }
-            if (color.length() == 8) {
-                out[0] = Integer.parseInt(color.substring(0, 2), 16);
-                out[1] = Integer.parseInt(color.substring(2, 4), 16);
-                out[2] = Integer.parseInt(color.substring(4, 6), 16);
-                out[3] = Integer.parseInt(color.substring(6, 8), 16);
-                return out;
-            }
-        } catch (Exception e) {
-            log.error("Error while parsing color: {}", color, e);
-        }
-        return null;
-    }
 }

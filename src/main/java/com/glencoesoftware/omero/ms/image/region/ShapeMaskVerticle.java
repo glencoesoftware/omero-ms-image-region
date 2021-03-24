@@ -29,6 +29,7 @@ import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
 import brave.ScopedSpan;
 import brave.Tracing;
+import brave.propagation.TraceContext;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
@@ -41,17 +42,30 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     public static final String RENDER_SHAPE_MASK_EVENT =
             "omero.render_shape_mask";
 
+    public static final String GET_SHAPE_MASK_BYTES_EVENT =
+            "omero.get_shape_mask_bytes";
+
+    public static final String GET_LABEL_IMAGE_METADATA_EVENT =
+            "omero.get_label_image_metadata";
+
     /** OMERO server host */
     private String host;
 
     /** OMERO server port */
     private int port;
 
+    /** Label Image Location */
+    private String ngffDir;
+
+    /** Configured TiledbUtils */
+    OmeroZarrUtils zarrUtils;
+
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle()
+    public ShapeMaskVerticle(OmeroZarrUtils zarrUtils)
     {
+        this.zarrUtils = zarrUtils;
     }
 
     /* (non-Javadoc)
@@ -67,9 +81,19 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
             }
             host = omero.getString("host");
             port = omero.getInteger("port");
+            ngffDir = config().getJsonObject("omero.server")
+                    .getString("omero.ngff.dir");
             vertx.eventBus().<String>consumer(
                     RENDER_SHAPE_MASK_EVENT, event -> {
                         renderShapeMask(event);
+                    });
+            vertx.eventBus().<String>consumer(
+                    GET_SHAPE_MASK_BYTES_EVENT, event -> {
+                        getShapeMaskBytes(event);
+                    });
+            vertx.eventBus().<String>consumer(
+                    GET_LABEL_IMAGE_METADATA_EVENT, event -> {
+                        getLabelImageMetadata(event);
                     });
         } catch (Exception e) {
             startPromise.fail(e);
@@ -111,7 +135,8 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                     byte[] shapeMask =
                             result.succeeded()? result.result().body() : null;
                     ShapeMaskRequestHandler requestHandler =
-                            new ShapeMaskRequestHandler(shapeMaskCtx);
+                        new ShapeMaskRequestHandler(
+                                shapeMaskCtx, ngffDir, zarrUtils);
 
                     // If the PNG is in the cache, check we have permissions
                     // to access it and assign and return
@@ -162,5 +187,133 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 }
             }
         );
+    }
+
+    /**
+     * Get shape mask bytes event handler. Responds with a
+     * <code>image/png</code> body on success based on the
+     * <code>shapeId</code> encoded in the URL or HTTP 404 if the {@link Shape}
+     * does not exist or the user does not have permissions to access it.
+     * @param message JSON encoded {@link ShapeMaskCtx} object.
+     */
+    private void getShapeMaskBytes(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
+        try {
+            String body = message.body();
+            shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "handle_get_shape_mask_bytes",
+                    extractor().extract(shapeMaskCtx.traceContext).context());
+            span.tag("ctx", body);
+        } catch (Exception e) {
+            String v = "Illegal shape mask context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+
+        String key = shapeMaskCtx.cacheKey();
+        try (OmeroRequest request = new OmeroRequest(
+                 host, port, shapeMaskCtx.omeroSessionKey))
+        {
+            ShapeMaskRequestHandler requestHandler =
+                new ShapeMaskRequestHandler(
+                    shapeMaskCtx, ngffDir, zarrUtils);
+
+            // The PNG is not in the cache we have to create it
+            byte[] shapeMask = request.execute(
+                    requestHandler::getShapeMaskBytes);
+            if (shapeMask == null) {
+                span.finish();
+                message.fail(404, "Cannot render Mask:" +
+                        shapeMaskCtx.shapeId);
+                return;
+            }
+            span.finish();
+            message.reply(shapeMask);
+
+            // Cache the PNG if the color was explicitly set
+           if (shapeMaskCtx.color != null) {
+                JsonObject setMessage = new JsonObject();
+                setMessage.put("key", key);
+                setMessage.put("value", shapeMask);
+                vertx.eventBus().send(
+                        RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                        setMessage);
+            }
+        } catch (PermissionDeniedException
+                | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            span.error(e);
+            message.fail(403, v);
+        } catch (IllegalArgumentException e) {
+            log.debug(
+                "Illegal argument received while retrieving shape mask", e);
+            span.error(e);
+            message.fail(400, e.getMessage());
+        } catch (Exception e) {
+            String v = "Exception while retrieving shape mask";
+            log.error(v, e);
+            span.error(e);
+            message.fail(500, v);
+        }
+    }
+
+    private void getLabelImageMetadata(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        ShapeMaskCtx shapeMaskCtx;
+        ScopedSpan span;
+        try {
+            String body = message.body();
+            shapeMaskCtx = mapper.readValue(body, ShapeMaskCtx.class);
+            TraceContext traceCtx = extractor().extract(
+                    shapeMaskCtx.traceContext).context();
+            span = Tracing.currentTracer().startScopedSpanWithParent(
+                    "get_label_image_metadata_verticle",
+                    traceCtx);
+            span.tag("ctx", body);
+        } catch (Exception e) {
+            String v = "Illegal shape mask context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, shapeMaskCtx.omeroSessionKey))
+        {
+            JsonObject metadata = null;
+            ShapeMaskRequestHandler requestHandler =
+                    new ShapeMaskRequestHandler(
+                            shapeMaskCtx, ngffDir, zarrUtils);
+            metadata = request.execute(
+                    requestHandler::getLabelImageMetadata);
+            if (metadata == null) {
+                span.finish();
+                message.fail(404, "Cannot get Label Image Metadata:" +
+                       shapeMaskCtx.shapeId);
+                return;
+            }
+            span.finish();
+            message.reply(metadata);
+       } catch (PermissionDeniedException
+               | CannotCreateSessionException e) {
+           String v = "Permission denied";
+           log.debug(v);
+           span.error(e);
+           message.fail(403, v);
+       } catch (IllegalArgumentException e) {
+           log.debug(
+               "Illegal argument received while retrieving shape mask", e);
+           span.error(e);
+           message.fail(400, e.getMessage());
+       } catch (Exception e) {
+           String v = "Exception while retrieving shape mask";
+           log.error(v, e);
+           span.error(e);
+           message.fail(500, v);
+       }
     }
 }

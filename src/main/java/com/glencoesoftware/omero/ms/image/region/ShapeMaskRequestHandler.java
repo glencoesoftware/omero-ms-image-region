@@ -40,11 +40,13 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.vertx.core.json.JsonObject;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
+import omero.model.Image;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 
@@ -56,13 +58,23 @@ public class ShapeMaskRequestHandler {
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
 
+    /** Location of ngff files */
+    private final String ngffDir;
+
+    /** NgffUtils */
+    private final NgffUtils ngffUtils;
+
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
-    public ShapeMaskRequestHandler(ShapeMaskCtx shapeMaskCtx) {
+    public ShapeMaskRequestHandler(
+            ShapeMaskCtx shapeMaskCtx, String ngffDir,
+            OmeroZarrUtils zarrUtils) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
+        this.ngffDir = ngffDir;
+        this.ngffUtils = new NgffUtils(zarrUtils);
     }
 
     /**
@@ -97,7 +109,7 @@ public class ShapeMaskRequestHandler {
             if (shapeMaskCtx.color != null) {
                 // Color came from the request so we override the default
                 // color the mask was assigned.
-                int[] rgba = ImageRegionRequestHandler
+                int[] rgba = RenderingUtils
                         .splitHTMLColor(shapeMaskCtx.color);
                 fillColor = new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
             }
@@ -281,17 +293,140 @@ public class ShapeMaskRequestHandler {
      */
     protected MaskI getMask(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(shapeId);
-        ScopedSpan span =
-                Tracing.currentTracer().startScopedSpan("get_mask");
+        ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_mask");
         try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            ParametersI params = new ParametersI();
+            params.addId(shapeId);
+            log.info("Getting mask for shape id {}", Long.toString(shapeId));
             return (MaskI) iQuery.findByQuery(
-                "SELECT s FROM Shape as s " +
+                "SELECT s from Shape s left outer join fetch s.details.externalInfo " +
                 "WHERE s.id = :id", params, ctx
             );
+        } finally {
+            span.finish();
+        }
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public byte[] getShapeMaskBytes(omero.client client) {
+        try {
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                if (ngffDir == null) {
+                    return mask.getBytes();
+                }
+                Image image = getImageFromShapeId(
+                        client.getSession().getQueryService(),
+                        shapeMaskCtx.shapeId);
+                if (mask.getDetails().getExternalInfo() == null) {
+                    log.error("No UUID associated with shape {}", shapeMaskCtx.shapeId);
+                    return mask.getBytes();
+                }
+                String uuid = mask.getDetails()
+                        .getExternalInfo().getUuid().getValue();
+                long filesetId = image.getFileset().getId().getValue();
+                int series = image.getSeries().getValue();
+                Integer resolution =
+                        shapeMaskCtx.resolution == null ? 0
+                                : shapeMaskCtx.resolution;
+                if (shapeMaskCtx.subarrayDomainStr == null) {
+                    throw new IllegalArgumentException(
+                        "Failed to supply domain parameter to " +
+                        "getShapeMaskBytes");
+                }
+                try {
+                    return ngffUtils.getLabelImageBytes(
+                        ngffDir, filesetId, series, uuid, resolution,
+                        shapeMaskCtx.subarrayDomainStr);
+                } catch (Exception e) {
+                    log.error("Error getting label image bytes from NGFF", e);
+                    return mask.getBytes();
+                }
+            }
+            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
+        } catch (IllegalArgumentException e) {
+            log.error("Missing domain parameter - rethrowing");
+            throw e;
+        } catch (Exception e) {
+            log.error("Exception while retrieving shape mask", e);
+        }
+        return null;
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     */
+    public JsonObject getLabelImageMetadata(omero.client client) {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_label_image_metadata_handler");
+        try {
+            if (ngffDir == null) {
+                throw new IllegalArgumentException(
+                        "Label image configs not properly set");
+            }
+            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            if (mask != null) {
+                Image image = getImageFromShapeId(
+                        client.getSession().getQueryService(),
+                        shapeMaskCtx.shapeId);
+                if (mask.getDetails().getExternalInfo() == null) {
+                    throw new IllegalArgumentException(
+                            "No UUID for shape " + shapeMaskCtx.shapeId);
+                }
+                String uuid = mask.getDetails()
+                        .getExternalInfo().getUuid().getValue();
+                long filesetId = image.getFileset().getId().getValue();
+                int series = image.getSeries().getValue();
+                int resolution = 0;
+                if(shapeMaskCtx.resolution != null) {
+                    resolution = shapeMaskCtx.resolution;
+                }
+                return ngffUtils.getLabelImageMetadata(
+                        ngffDir, filesetId, series, uuid, resolution);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Exception while retrieving label image metadata", e);
+        } finally {
+                span.finish();
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves a image id from the server.
+     * @param iQuery OMERO query service to use for metadata access.
+     * @param shapeId {@link MaskI} identifier to query for.
+     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
+     * exist or the user does not have permissions to access it.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    protected Image getImageFromShapeId(IQueryPrx iQuery, Long shapeId)
+            throws ServerError {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_image_from_shape_id");
+        try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            ParametersI params = new ParametersI();
+            params.addId(shapeId);
+            MaskI shape = (MaskI) iQuery.findByQuery(
+                "SELECT s from Shape s join fetch s.roi roi " +
+                "join fetch roi.image " +
+                "WHERE s.id = :id", params, ctx
+            );
+            return shape.getRoi().getImage();
         } finally {
             span.finish();
         }

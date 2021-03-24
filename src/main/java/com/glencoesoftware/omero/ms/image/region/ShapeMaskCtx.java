@@ -18,18 +18,15 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
-import brave.Tracing;
-import brave.propagation.TraceContext.Injector;
 import io.vertx.core.MultiMap;
 import ome.model.roi.Mask;
+import omeis.providers.re.data.RegionDef;
 
 public class ShapeMaskCtx extends OmeroRequestCtx {
 
@@ -51,8 +48,15 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
     /** Whether or not to flip vertically */
     public boolean flipVertical;
 
-    /** Current trace context to be propagated */
-    public Map<String, String> traceContext = new HashMap<String, String>();
+    public RegionDef region;
+
+    public RegionDef tile;
+
+    /** Resolution to read */
+    public Integer resolution;
+
+    /** Subarray Domain String for Label Images */
+    public String subarrayDomainStr;
 
     /**
      * Constructor for jackson to decode the object from string
@@ -66,25 +70,43 @@ public class ShapeMaskCtx extends OmeroRequestCtx {
      * @param omeroSessionKey OMERO session key.
      */
     ShapeMaskCtx(MultiMap params, String omeroSessionKey) {
-        Tracing tracing = Tracing.current();
-        if (tracing == null) {
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            shapeId = Long.parseLong(params.get("shapeId"));
+            color = params.get("color");
+            String flip = Optional.ofNullable(params.get("flip"))
+                    .orElse("").toLowerCase();
+            flipHorizontal = flip.contains("h");
+            flipVertical = flip.contains("v");
+            if(params.get("resolution") != null) {
+                resolution = Integer.valueOf(params.get("resolution"));
+            }
+            getTileFromString(params.get("tile"));
+            subarrayDomainStr = params.get("domain");
+        } catch (Exception e) {
+            log.error("Error creating ShapeMaskCtx", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Parse a string to RegionDef and Int describing tile and resolution.
+     * @param tileString string describing the tile to render:
+     * "1,1,0,1024,1024"
+     */
+    private void getTileFromString(String tileString) {
+        if (tileString == null) {
             return;
         }
-        Injector<Map<String, String>> injector =
-            tracing.propagation().injector((carrier, key, value) -> {
-                    carrier.put(key, value);
-                }
-            );
-        injector.inject(
-                Tracing.currentTracer().currentSpan().context(), traceContext);
-
-        this.omeroSessionKey = omeroSessionKey;
-        shapeId = Long.parseLong(params.get("shapeId"));
-        color = params.get("color");
-        String flip = Optional.ofNullable(params.get("flip"))
-                .orElse("").toLowerCase();
-        flipHorizontal = flip.contains("h");
-        flipVertical = flip.contains("v");
+        String[] tileArray = tileString.split(",", -1);
+        tile = new RegionDef();
+        tile.setX(Integer.parseInt(tileArray[1]));
+        tile.setY(Integer.parseInt(tileArray[2]));
+        if (tileArray.length == 5) {
+            tile.setWidth(Integer.parseInt(tileArray[3]));
+            tile.setHeight(Integer.parseInt(tileArray[4]));
+        }
+        resolution = Integer.parseInt(tileArray[0]);
     }
 
     /**
