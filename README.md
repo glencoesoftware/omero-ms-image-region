@@ -155,7 +155,10 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
-    location /omero_ms_image_region/ {
+    location /omero_ms_image_region/ {gzip on;
+        gzip_min_length 0;
+        gzip_proxied any;
+        gzip_types application/octet-stream text/html;
         proxy_pass http://image_region_backend;
     }
 
