@@ -432,9 +432,6 @@ public class RenderingUtils {
                         Map<String, Map<String, Object>> map =
                                 maps.get(c);
                         if (map != null) {
-                            if (map.containsKey("inverted") && map.get("inverted").toString().equals("enabled")) {
-                                log.info("inverted enabled");
-                            }
                             if (map.containsKey("quantization")) {
                                 log.info("Quantization enabled");
                                 Map<String, Object> quantization = map.get("quantization");
@@ -447,6 +444,9 @@ public class RenderingUtils {
                                 }
                             }
                             Map<String, Object> reverse = map.get("reverse");
+                            if (reverse == null) {
+                                reverse = map.get("inverted");
+                            }
                             if (reverse != null
                                 && Boolean.TRUE.equals(reverse.get("enabled"))) {
                                 renderer.getCodomainChain(c).add(
