@@ -283,7 +283,7 @@ public class ImageRegionRequestHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            updateSettings(renderer);
+            updateSettings(renderer, families);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -506,7 +506,8 @@ public class ImageRegionRequestHandler {
      * @param ctx OMERO context (group)
      * @throws ServerError
      */
-    private void updateSettings(Renderer renderer) throws ServerError {
+    private void updateSettings(Renderer renderer,
+            List<Family> families) throws ServerError {
         log.debug("Setting active channels");
         int idx = 0; // index of windows/colors args
         for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
@@ -539,7 +540,21 @@ public class ImageRegionRequestHandler {
                         Map<String, Map<String, Object>> map =
                                 imageRegionCtx.maps.get(c);
                         if (map != null) {
+                            if (map.containsKey("quantization")) {
+                                log.info("Quantization enabled");
+                                Map<String, Object> quantization = map.get("quantization");
+                                String family = quantization.get("family").toString();
+                                double coefficient = (Double) quantization.get("coefficient");
+                                for (Family f : families) {
+                                    if (f.getValue().equals(family)) {
+                                        renderer.setQuantizationMap(c, f, coefficient, false);
+                                    }
+                                }
+                            }
                             Map<String, Object> reverse = map.get("reverse");
+                            if (reverse == null) {
+                                reverse = map.get("inverted");
+                            }
                             if (reverse != null
                                 && Boolean.TRUE.equals(reverse.get("enabled"))) {
                                 renderer.getCodomainChain(c).add(
