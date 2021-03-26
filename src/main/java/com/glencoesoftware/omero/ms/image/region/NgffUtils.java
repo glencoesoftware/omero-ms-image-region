@@ -38,7 +38,6 @@ public class NgffUtils {
 
     /**
      * Default Constructor
-     * @param tiledbUtils Configured TiledbUtils
      * @param zarrUtils Configured ZarrUtils
      */
     public NgffUtils(OmeroZarrUtils zarrUtils) {
@@ -56,7 +55,6 @@ public class NgffUtils {
      * region to retrieve
      * @return A byte array containing the label image data for the requested
      * region
-     * @throws TileDBError
      */
     public byte[] getLabelImageBytes(
         String ngffDir, long filesetId, int series, String uuid,
