@@ -94,7 +94,7 @@
         class="com.glencoesoftware.omero.ms.image.region.RenderingUtils"
         scope="prototype">
     <constructor-arg ref="imageRegionPixelsService" />
-    <constructor-arg value="${omero.ngff.dir}" />
+    <constructor-arg value="${omero.ngff.dir:}" />
     <constructor-arg ref="zarr-utils" />
   </bean>
   

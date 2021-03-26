@@ -96,6 +96,10 @@ public class PixelsService extends ome.io.nio.PixelsService {
     public PixelBuffer getNgffPixelBuffer(
             Pixels pixels, String ngffDir,
             OmeroZarrUtils zarrUtils) {
+        if (ngffDir != null && ngffDir.equals("")) {
+            log.info("Missing ngff dir config");
+            return null;
+        }
             return new ZarrPixelBuffer(
                 pixels, ngffDir, pixels.getImage().getFileset().getId(),
                 zarrUtils);
