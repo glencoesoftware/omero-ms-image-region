@@ -87,16 +87,19 @@ public class PixelsService extends ome.io.nio.PixelsService {
     }
 
     /**
-     * Get a ZarrPixelBuffer if possible, otherwise try to get a TiledbPixelBuffer
+     * Get a ZarrPixelBuffer if possible
      * @param pixels Pixels set to retrieve a pixel buffer for.
      * @param ngffDir Top-level directory containing NGFF files
-     * @param tiledbUtils Configured TiledbUtils
      * @param zarrUtils Configured OmeroZarrUtils
-     * @return ZarrPixelBuffer or TiledbPixelBuffer
+     * @return ZarrPixelBuffer
      */
     public PixelBuffer getNgffPixelBuffer(
             Pixels pixels, String ngffDir,
             OmeroZarrUtils zarrUtils) {
+        if (ngffDir != null && ngffDir.equals("")) {
+            log.info("Missing ngff dir config");
+            return null;
+        }
             return new ZarrPixelBuffer(
                 pixels, ngffDir, pixels.getImage().getFileset().getId(),
                 zarrUtils);

@@ -57,7 +57,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     /** Label Image Location */
     private String ngffDir;
 
-    /** Configured TiledbUtils */
+    /** Configured OmeroZarrUtils */
     OmeroZarrUtils zarrUtils;
 
     /**

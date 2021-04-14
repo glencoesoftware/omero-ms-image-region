@@ -511,7 +511,7 @@ public class OmeroZarrUtils {
                 return 0;
             }
             Path zarrSeriesPath = basePath
-                    .resolve(Long.toString(filesetId) + ".zarr")
+                    .resolve(Long.toString(filesetId) + ZARR_EXTN)
                     .resolve(Integer.toString(series));
             int count = 0;
             try {

@@ -53,7 +53,7 @@ public class RenderingUtils {
     /** Top-level directory containing NGFF files */
     private final String ngffDir;
 
-    /** Configured TiledbUtils */
+    /** Configured OmeroZarrUtils */
     private final OmeroZarrUtils zarrUtils;
 
     private static final org.slf4j.Logger log =
@@ -63,7 +63,6 @@ public class RenderingUtils {
      * Default constructor
      * @param pixelsService Configured PixelsService
      * @param ngffDir Top-level directory containing NGFF files
-     * @param tiledbUtils Configured TiledbUtils
      * @param zarrUtils Configured OmeroZarrUtils
      */
     public RenderingUtils(PixelsService pixelsService,
@@ -75,17 +74,14 @@ public class RenderingUtils {
     }
 
     /**
-     *
-     * @param pixelsService Configured PixelsService
-     * @param pixels Pixels set to retrieve a pixel buffer for.
-     * @param ngffDir Top-level directory containing NGFF files
-     * @param tiledbUtils Configured TiledbUtils
-     * @param zarrUtils Configured OmeroZarrUtils
-     * @return NGFF or standard PixelBuffer
-     */
-    public static PixelBuffer getPixelBuffer(
-            PixelsService pixelsService, Pixels pixels,
-            String ngffDir, OmeroZarrUtils zarrUtils) {
+    *
+    * @param pixelsService Configured PixelsService
+    * @param pixels Pixels set to retrieve a pixel buffer for.
+    * @param ngffDir Top-level directory containing NGFF files
+    * @param zarrUtils Configured OmeroZarrUtils
+    * @return NGFF or standard PixelBuffer
+    */
+    public PixelBuffer getPixelBuffer(Pixels pixels) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_buffer");
         span.tag("omero.pixels_id", pixels.getId().toString());
@@ -94,13 +90,12 @@ public class RenderingUtils {
             try {
                 pb = pixelsService.getNgffPixelBuffer(
                         pixels, ngffDir, zarrUtils);
-            } catch (Exception e) {
-                log.error("Error when getting TieldbPixelBuffer", e);
+            } catch(Exception e) {
                 log.info(
-                    "Getting TiledbPixelBuffer failed - " +
+                    "Getting NGFF Pixel Buffer failed - " +
                     "attempting to get local data");
             }
-            if(pb == null) {
+            if (pb == null) {
                 pb = pixelsService.getPixelBuffer(pixels, false);
             }
             return pb;
@@ -200,30 +195,6 @@ public class RenderingUtils {
                     params, ctx
                 );
             return image.getFileset().getId().getValue();
-        } finally {
-            span.finish();
-        }
-    }
-
-    public PixelBuffer getPixelBuffer(Pixels pixels) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_buffer");
-        span.tag("omero.pixels_id", pixels.getId().toString());
-        PixelBuffer pb = null;
-        try {
-            try {
-                pb = pixelsService.getNgffPixelBuffer(
-                        pixels, ngffDir, zarrUtils);
-            } catch(Exception e) {
-                log.error("Error when getting TieldbPixelBuffer", e);
-                log.info(
-                    "Getting TiledbPixelBuffer failed - " +
-                    "attempting to get local data");
-            }
-            if (pb == null) {
-                pb = pixelsService.getPixelBuffer(pixels, false);
-            }
-            return pb;
         } finally {
             span.finish();
         }

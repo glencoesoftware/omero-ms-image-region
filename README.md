@@ -156,6 +156,26 @@ image region microservice server endpoint::
     }
 
     location /omero_ms_image_region/ {
+        gzip on;
+        gzip_min_length 0;
+        gzip_proxied any;
+        gzip_types application/octet-stream text/html;
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webgateway/render_thumbnail_ngff/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webclient/render_thumbnail_ngff/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webgateway/get_thumbnails_ngff/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webclient/get_thumbnails_ngff/ {
         proxy_pass http://image_region_backend;
     }
 

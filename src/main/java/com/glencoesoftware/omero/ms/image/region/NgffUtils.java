@@ -24,7 +24,6 @@ import java.nio.file.Path;
 
 import org.slf4j.LoggerFactory;
 
-import io.tiledb.java.api.TileDBError;
 import io.vertx.core.json.JsonObject;
 
 public class NgffUtils {
@@ -39,7 +38,6 @@ public class NgffUtils {
 
     /**
      * Default Constructor
-     * @param tiledbUtils Configured TiledbUtils
      * @param zarrUtils Configured ZarrUtils
      */
     public NgffUtils(OmeroZarrUtils zarrUtils) {
@@ -57,12 +55,10 @@ public class NgffUtils {
      * region to retrieve
      * @return A byte array containing the label image data for the requested
      * region
-     * @throws TileDBError
      */
     public byte[] getLabelImageBytes(
         String ngffDir, long filesetId, int series, String uuid,
-        Integer resolution, String domainStr)
-                throws TileDBError {
+        Integer resolution, String domainStr) {
         Path basePath;
         try {
             basePath = zarrUtils.getLocalOrS3Path(ngffDir);
