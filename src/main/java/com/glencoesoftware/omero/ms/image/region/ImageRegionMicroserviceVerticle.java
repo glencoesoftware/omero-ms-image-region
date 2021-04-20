@@ -104,7 +104,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private int DEFAULT_WORKER_POOL_SIZE;
 
     /** Default max number of channels to allow per request */
-    private int MAX_ACTIVE_CHANNELS = 6;
+    private int MAX_ACTIVE_CHANNELS = 10;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
