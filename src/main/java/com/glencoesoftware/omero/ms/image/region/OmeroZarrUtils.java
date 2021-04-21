@@ -409,7 +409,6 @@ public class OmeroZarrUtils {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_bytes_zarr");
         try {
-            ByteOrder byteOrder = zarray.getByteOrder();
             DataType type = zarray.getDataType();
             switch (type) {
                 case u1:
@@ -424,13 +423,7 @@ public class OmeroZarrUtils {
                         short[] data = (short[]) zarray.read(shape, offset);
                         ByteBuffer bbuf = ByteBuffer.allocate(data.length * 2);
                         ShortBuffer sbuf = bbuf.asShortBuffer();
-                        if (byteOrder.equals(ByteOrder.LITTLE_ENDIAN)) {
-                            for (int i = 0; i < data.length; i++) {
-                                sbuf.put(i, DataTools.swap(data[i]));
-                            }
-                        } else {
-                            sbuf.put(data);
-                        }
+                        sbuf.put(data);
                         return bbuf.array();
                     } finally {
                         readSpan.finish();
@@ -445,13 +438,7 @@ public class OmeroZarrUtils {
                         int[] data = (int[]) zarray.read(shape, offset);
                         ByteBuffer bbuf = ByteBuffer.allocate(data.length * 4);
                         IntBuffer ibuf = bbuf.asIntBuffer();
-                        if (byteOrder.equals(ByteOrder.LITTLE_ENDIAN)) {
-                            for (int i = 0; i < data.length; i++) {
-                                ibuf.put(i, DataTools.swap(data[i]));
-                            }
-                        } else {
-                            ibuf.put(data);
-                        }
+                        ibuf.put(data);
                         return bbuf.array();
                     } finally {
                         readSpan.finish();
@@ -465,13 +452,7 @@ public class OmeroZarrUtils {
                         long[] data = (long[]) zarray.read(shape, offset);
                         ByteBuffer bbuf = ByteBuffer.allocate(data.length * 8);
                         LongBuffer lbuf = bbuf.asLongBuffer();
-                        if (byteOrder.equals(ByteOrder.LITTLE_ENDIAN)) {
-                            for (int i = 0; i < data.length; i++) {
-                                lbuf.put(i, DataTools.swap(data[i]));
-                            }
-                        } else {
-                            lbuf.put(data);
-                        }
+                        lbuf.put(data);
                         return bbuf.array();
                     } finally {
                         readSpan.finish();
