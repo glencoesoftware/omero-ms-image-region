@@ -50,11 +50,13 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.micrometer.PrometheusScrapingHandler;
 import ome.system.PreferenceContext;
 import omero.model.Image;
@@ -277,7 +279,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 vertxMetricsConfig.getBoolean("enabled", false);
         if (vertxMetricsEnabled) {
             router.route("/vertxmetrics")
-                .order(-3)
+                .order(-4)
                 .handler(PrometheusScrapingHandler.create());
             log.info("Vertx Metrics Enabled");
         } else {
@@ -285,11 +287,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
 
         router.get("/metrics")
-            .order(-2)
+            .order(-3)
             .handler(new MetricsHandler());
 
         List<String> tags = new ArrayList<String>();
         tags.add("omero.session_key");
+
+        router.route("/webclient*").order(-2).handler(BodyHandler.create());
+        router.route("/webgateway*").order(-2).handler(BodyHandler.create());
+        router.route("/omero_ms_image_region*").order(-2).handler(BodyHandler.create());
 
         Handler<RoutingContext> routingContextHandler =
                 new OmeroHttpTracingHandler(httpTracing, tags);
@@ -478,6 +484,29 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .end(resData.encodePrettily());
     }
 
+    private ImageRegionCtx getCtxFromEvent(RoutingContext event) {
+        JsonObject body = null;
+        try {
+            body = event.getBodyAsJson();
+        } catch (DecodeException e) {
+            log.debug("No body to parse");
+        }
+        if (body != null) {
+            log.info(body.toString());
+        } else {
+            log.info("Body was null");
+        }
+        if (body != null) {
+            body.put("imageId", event.request().getParam("imageId"));
+            body.put("theZ", event.request().getParam("theZ"));
+            body.put("theT", event.request().getParam("theT"));
+            return new ImageRegionCtx(body,
+                    event.get("omero.session_key"));
+        }
+        return new ImageRegionCtx(
+                event.request().params(), event.get("omero.session_key"));
+    }
+
     /**
      * Render image region event handler.
      * Responds with an image body on success based on the <code>imageId</code>,
@@ -488,12 +517,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
      */
     private void renderImageRegion(RoutingContext event) {
         log.info("Rendering image region");
-        HttpServerRequest request = event.request();
         final ImageRegionCtx imageRegionCtx;
         try {
-            imageRegionCtx = new ImageRegionCtx(
-                    request.params(), event.get("omero.session_key"));
+            imageRegionCtx = getCtxFromEvent(event);
         } catch (IllegalArgumentException e) {
+            HttpServerResponse response = event.response();
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        } catch (Exception e) {
+            log.error("Error creating ImageRegionCtx", e);
             HttpServerResponse response = event.response();
             if (!response.closed()) {
                 response.setStatusCode(400).end(e.getMessage());

@@ -29,6 +29,7 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import omeis.providers.re.data.RegionDef;
 import omero.constants.projection.ProjectionType;
 
@@ -122,6 +123,43 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
     }
 
+    ImageRegionCtx(JsonObject params, String omeroSessionKey) {
+        try {
+            this.omeroSessionKey = omeroSessionKey;
+            assignParams(params);
+        } catch (Exception e) {
+            log.error("Error creating ImageRegionCtx", e);
+            throw e;
+        }
+    }
+
+    public void assignParams(JsonObject params) throws IllegalArgumentException {
+        getImageIdFromString(getCheckedJsonParam(params, "imageId"));
+        z = getIntegerFromString(getCheckedJsonParam(params, "theZ"));
+        t = getIntegerFromString(getCheckedJsonParam(params, "theT"));
+        getTileFromString(params.getString("tile"));
+        getRegionFromString(params.getString("region"));
+        getChannelInfoFromString(params.getString("c"));
+        getColorModelFromString(params.getString("m"));
+        getCompressionQualityFromString(params.getString("q"));
+        getInvertedAxisFromString(params.getString("ia"));
+        getProjectionFromString(params.getString("p"));
+        String maps = params.getString("maps");
+        String flip = Optional.ofNullable(params.getString("flip"))
+                .orElse("").toLowerCase();
+        flipHorizontal = flip.contains("h");
+        flipVertical = flip.contains("v");
+        if (maps != null) {
+            this.maps = Json.decodeValue(maps, List.class);
+        }
+        format = Optional.ofNullable(params.getString("format")).orElse("jpeg");
+
+        log.debug(
+                "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
+                "format: {}", imageId, z, t, tile, channels, windows, colors,
+                m, format);
+    }
+
     public void assignParams(MultiMap params) throws IllegalArgumentException {
         getImageIdFromString(getCheckedParam(params, "imageId"));
         z = getIntegerFromString(getCheckedParam(params, "theZ"));
@@ -148,6 +186,16 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 "format: {}", imageId, z, t, tile, channels, windows, colors,
                 m, format);
     }
+
+    private String getCheckedJsonParam(JsonObject params, String key)
+            throws IllegalArgumentException {
+            String value = params.getString(key);
+            if (null == value) {
+                throw new IllegalArgumentException("Missing parameter '"
+                    + key + "'");
+            }
+            return value;
+        }
 
     private String getCheckedParam(MultiMap params, String key)
         throws IllegalArgumentException {
