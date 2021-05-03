@@ -62,7 +62,7 @@ public class ImageRegionRequestHandlerTest {
                 1024, //maxTileLength,
                 null, //PixelsService
                 null, //ngffDir
-                null); //arrUtils
+                null); //ZarrUtils
     }
 
 

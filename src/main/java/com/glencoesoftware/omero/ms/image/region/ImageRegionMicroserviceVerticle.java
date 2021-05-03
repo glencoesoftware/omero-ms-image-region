@@ -61,7 +61,6 @@ import omero.model.Image;
 import zipkin2.Span;
 import zipkin2.reporter.AsyncReporter;
 import zipkin2.reporter.okhttp3.OkHttpSender;
-import brave.ScopedSpan;
 import brave.Tracing;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;

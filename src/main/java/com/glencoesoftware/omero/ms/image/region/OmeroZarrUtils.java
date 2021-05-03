@@ -43,9 +43,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import loci.common.DataTools;
 import loci.formats.FormatTools;
-import ome.model.stats.StatsInfo;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 

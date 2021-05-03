@@ -360,7 +360,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
         return Paths.get(ngffDir)
             .resolve(
                 Long.toString(
-                    pixels.getImage().getFileset().getId()) + zarrUtils.ZARR_EXTN)
+                    pixels.getImage().getFileset().getId()) + OmeroZarrUtils.ZARR_EXTN)
             .resolve(Integer.toString(pixels.getImage().getSeries()))
             .resolve(Integer.toString(resolutionLevel)).toString();
     }

@@ -196,7 +196,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                         pixelsService,
                         iScale,
                         zarrUtils,
-                        omeroSessionKey,
+                        ngffDir,
                         longestSide,
                         imageIds,
                         renderingDefId)::renderThumbnail);

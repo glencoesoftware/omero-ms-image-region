@@ -23,7 +23,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
@@ -51,9 +50,7 @@ import ome.model.display.ChannelBinding;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
-import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
