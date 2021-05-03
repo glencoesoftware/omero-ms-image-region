@@ -23,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import java.lang.IllegalArgumentException;
@@ -50,7 +51,9 @@ import ome.model.display.ChannelBinding;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
+import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -63,19 +66,13 @@ import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.util.IceMapper;
 
-public class ImageRegionRequestHandler {
+public class ImageRegionRequestHandler extends OmeroRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
-    /** Reference to the compression service. */
-    private final LocalCompress compressionSrv;
-
     /** Reference to the projection service. */
     private final ProjectionService projectionService;
-
-    /** Lookup table provider. */
-    private final LutProvider lutProvider;
 
     /**
      * Mapper between <code>omero.model</code> client side Ice backed objects
@@ -89,17 +86,8 @@ public class ImageRegionRequestHandler {
     /** Renderer */
     private Renderer renderer;
 
-    /** Available families */
-    private final List<Family> families;
-
-    /** Available rendering models */
-    private final List<RenderingModel> renderingModels;
-
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
-
-    /** Configured RenderingUtils */
-    private final RenderingUtils renderingUtils;
 
     /**
      * Default constructor.
@@ -112,17 +100,20 @@ public class ImageRegionRequestHandler {
             LutProvider lutProvider,
             LocalCompress compSrv,
             int maxTileLength,
-            RenderingUtils renderingUtils) {
+            PixelsService pixelsService,
+            String ngffDir,
+            OmeroZarrUtils zarrUtils) {
+        super(compSrv,
+            lutProvider,
+            families,
+            renderingModels,
+            pixelsService,
+            ngffDir,
+            zarrUtils);
         log.info("Setting up handler");
         this.imageRegionCtx = imageRegionCtx;
-        this.families = families;
-        this.renderingModels = renderingModels;
-        this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
-        this.renderingUtils = renderingUtils;
-
         projectionService = new ProjectionService();
-        compressionSrv = compSrv;
     }
 
     /**
@@ -138,7 +129,7 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, imageRegionCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
@@ -170,14 +161,14 @@ public class ImageRegionRequestHandler {
         log.debug("Getting image region");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels = RenderingUtils.retrievePixDescription(
+        Pixels pixels = retrievePixDescription(
                 pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels)) {
+        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, RenderingUtils.getRenderingDef(
+                pixels, getRenderingDef(
                         iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
@@ -187,7 +178,7 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            RenderingUtils.setResolutionLevel(
+            setResolutionLevel(
                     renderer, countResolutionLevels, imageRegionCtx.resolution);
             Integer sizeX = pixels.getSizeX();
             Integer sizeY = pixels.getSizeY();
@@ -196,10 +187,10 @@ public class ImageRegionRequestHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            RenderingUtils.updateSettings(renderer,
+            updateSettings(renderer,
                     imageRegionCtx.channels,
                     imageRegionCtx.windows,
-                    imageRegionCtx.colors,
+                    imageRegionCtx.getColors(),
                     imageRegionCtx.maps,
                     renderingModels,
                     imageRegionCtx.m);
@@ -234,7 +225,7 @@ public class ImageRegionRequestHandler {
             Renderer renderer, Integer sizeX, Integer sizeY,
             Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
-        RenderingUtils.checkPlaneDef(sizeX, sizeY, planeDef);
+        checkPlaneDef(sizeX, sizeY, planeDef);
 
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
@@ -247,7 +238,7 @@ public class ImageRegionRequestHandler {
                 int projectedSizeC = 0;
                 ChannelBinding[] channelBindings =
                         renderer.getChannelBindings();
-                PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels);
+                PixelBuffer pixelBuffer = getPixelBuffer(pixels);
                 int start = Optional
                         .ofNullable(imageRegionCtx.projectionStart)
                         .orElse(0);
@@ -307,7 +298,7 @@ public class ImageRegionRequestHandler {
         RegionDef region = planeDef.getRegion();
         sizeX = region != null? region.getWidth() : pixels.getSizeX();
         sizeY = region != null? region.getHeight() : pixels.getSizeY();
-        buf = RenderingUtils.flip(buf, sizeX, sizeY,
+        buf = flip(buf, sizeX, sizeY,
                 imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
         BufferedImage image = ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
@@ -338,8 +329,6 @@ public class ImageRegionRequestHandler {
         log.error("Unknown format {}", imageRegionCtx.format);
         return null;
     }
-
-
 
     /**
      * Update RegionDef to fit within the image boundaries.
@@ -438,4 +427,43 @@ public class ImageRegionRequestHandler {
     }
 
 
+
+    /**
+     * Flip an image horizontally, vertically, or both.
+     * @param src source image buffer
+     * @param sizeX size of <code>src</code> in X (number of columns)
+     * @param sizeY size of <code>src</code> in Y (number of rows)
+     * @param flipHorizontal whether or not to flip the image horizontally
+     * @param flipVertical whether or not to flip the image vertically
+     * @return Newly allocated buffer with flipping applied or <code>src</code>
+     * if no flipping has been requested.
+     */
+    public static int[] flip(
+            int[] src, int sizeX, int sizeY,
+            boolean flipHorizontal, boolean flipVertical) {
+        if (!flipHorizontal && !flipVertical) {
+            return src;
+        }
+
+        if (src == null) {
+            throw new IllegalArgumentException("Attempted to flip null image");
+        } else if (sizeX == 0 || sizeY == 0) {
+            throw new IllegalArgumentException(
+                    "Attempted to flip image with 0 size");
+        }
+
+        int[] dest = new int[src.length];
+        int srcIndex, destIndex;
+        int xOffset = flipHorizontal? sizeX : 1;
+        int yOffset = flipVertical? sizeY : 1;
+        for (int x = 0; x < sizeX; x++) {
+            for (int y = 0; y < sizeY; y++) {
+                srcIndex = (y * sizeX) + x;
+                destIndex = Math.abs(((yOffset - y - 1) * sizeX))
+                        + Math.abs((xOffset - x - 1));
+                dest[destIndex] = src[srcIndex];
+            }
+        }
+        return dest;
+    }
 }

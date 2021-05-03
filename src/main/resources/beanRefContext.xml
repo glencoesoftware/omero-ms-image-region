@@ -71,7 +71,8 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-    <constructor-arg ref="rendering-utils"/>
+    <constructor-arg ref="imageRegionPixelsService"/>
+    <constructor-arg ref="zarr-utils"/>
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
@@ -84,10 +85,10 @@
         class="com.glencoesoftware.omero.ms.image.region.ThumbnailVerticle"
         scope="prototype">
     <constructor-arg ref="iscale" />
-    <constructor-arg ref="rendering-utils"/>
+    <constructor-arg ref="imageRegionPixelsService" />
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
-    <constructor-arg ref="ngff-utils" />
+    <constructor-arg ref="zarr-utils" />
   </bean>
   
   <bean id="rendering-utils"

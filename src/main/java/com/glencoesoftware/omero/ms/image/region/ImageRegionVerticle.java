@@ -81,7 +81,10 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
-    private final RenderingUtils renderingUtils;
+    private final PixelsService pixelsService;
+
+    /** Configured OmeroZarrUtils */
+    private final OmeroZarrUtils zarrUtils;
 
     /**
      * Default constructor.
@@ -90,12 +93,14 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength,
-            RenderingUtils renderingUtils)
+            PixelsService pixelsService,
+            OmeroZarrUtils zarrUtils)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
-        this.renderingUtils = renderingUtils;
+        this.pixelsService = pixelsService;
+        this.zarrUtils = zarrUtils;
     }
 
     /* (non-Javadoc)
@@ -167,7 +172,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             lutProvider,
                             compressionService,
                             maxTileLength,
-                            renderingUtils)::renderImageRegion);
+                            pixelsService,
+                            ngffDir,
+                            zarrUtils)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(

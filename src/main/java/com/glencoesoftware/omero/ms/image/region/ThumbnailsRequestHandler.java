@@ -22,6 +22,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +47,7 @@ import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
+import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
@@ -63,37 +65,20 @@ import omero.model.RenderingDef;
 import omero.model.ChannelBinding;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
+import omeis.providers.re.codomain.ReverseIntensityContext;
 
-public class ThumbnailsRequestHandler {
+public class ThumbnailsRequestHandler extends OmeroRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailsRequestHandler.class);
 
     ThumbnailCtx thumbnailCtx;
 
-    /** Rendering helper class */
-    protected final RenderingUtils renderingUtils;
-
-    /** Reference to the compression service. */
-    private final LocalCompress compressionSrv;
-
-    /** Lookup table provider. */
-    private final LutProvider lutProvider;
-
-    /** Available families */
-    private final List<Family> families;
-
-    /** Available rendering models */
-    private final List<RenderingModel> renderingModels;
-
     /** Scaling service */
     private final IScale iScale;
 
     /** Interface for NGFF operations */
     private final NgffUtils ngffUtils;
-
-    /** On-Disk or cloud location for NGFF files */
-    private final String ngffDir;
 
     /** Longest side of the thumbnail. */
     protected final int longestSide;
@@ -133,26 +118,27 @@ public class ThumbnailsRequestHandler {
      */
     public ThumbnailsRequestHandler(
             ThumbnailCtx thumbnailCtx,
-            RenderingUtils renderingUtils,
             LocalCompress compressionSrv,
             List<Family> families,
             List<RenderingModel> renderingModels,
             LutProvider lutProvider,
+            PixelsService pixelsService,
             IScale iScale,
-            NgffUtils ngffUtils,
+            OmeroZarrUtils zarrUtils,
             String ngffDir,
             int longestSide,
             List<Long> imageIds,
             Optional<Long> renderingDefId) {
+        super(compressionSrv,
+                lutProvider,
+                families,
+                renderingModels,
+                pixelsService,
+                ngffDir,
+                zarrUtils);
         this.thumbnailCtx = thumbnailCtx;
-        this.renderingUtils = renderingUtils;
-        this.compressionSrv = compressionSrv;
-        this.lutProvider = lutProvider;
-        this.families = families;
-        this.renderingModels = renderingModels;
         this.iScale = iScale;
-        this.ngffUtils = ngffUtils;
-        this.ngffDir = ngffDir;
+        this.ngffUtils = new NgffUtils(zarrUtils);
         this.longestSide = longestSide;
         this.imageIds = imageIds;
         this.renderingDefId = renderingDefId;
@@ -222,7 +208,7 @@ public class ThumbnailsRequestHandler {
         Image image, int longestSide)
             throws IOException {
         try {
-            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
             return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
         } catch (Exception e) {
@@ -274,14 +260,14 @@ public class ThumbnailsRequestHandler {
         log.debug("Getting image region");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels = RenderingUtils.retrievePixDescription(
+        Pixels pixels = retrievePixDescription(
                 pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = renderingUtils.getPixelBuffer(pixels)) {
+        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             log.info(pixelBuffer.toString());
             renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, RenderingUtils.getRenderingDef(
+                pixels, getRenderingDef(
                         iPixels, pixels.getId(), mapper),
                 pixelBuffer, lutProvider
             );
@@ -291,7 +277,7 @@ public class ThumbnailsRequestHandler {
             List<List<Integer>> resDescriptions =
                     pixelBuffer.getResolutionDescriptions();
             int resolutionLevel = getResolutionForThumbnail(resDescriptions);
-            RenderingUtils.setResolutionLevel(
+            setResolutionLevel(
                     renderer, resDescriptions.size(), resolutionLevel);
             Integer sizeX = resDescriptions.get(resolutionLevel).get(0);
             Integer sizeY = resDescriptions.get(resolutionLevel).get(1);
@@ -388,7 +374,7 @@ public class ThumbnailsRequestHandler {
             }
             if (channels.size() > 0) {
                 log.info("Updating rendering settings from user settings");
-                RenderingUtils.updateSettingsIntColors(
+                updateSettingsIntColors(
                         renderer, channels, windows, colors, null,
                         renderingModels, "rgb");
                 return;
@@ -400,7 +386,7 @@ public class ThumbnailsRequestHandler {
         //If not, load rendering settings from NGFF Metadata
         List<Integer> channels = new ArrayList<Integer>();
         List<Double[]> windows = new ArrayList<Double[]>();
-        List<String> colors = new ArrayList<String>();
+        List<Color> colors = new ArrayList<Color>();
         JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(
                 ngffDir, pixels.getImage().getFileset().getId(),
                 pixels.getImage().getSeries());
@@ -417,7 +403,7 @@ public class ThumbnailsRequestHandler {
                     windows.add(new Double[] {
                             Double.valueOf(window.getFloat("start")),
                             Double.valueOf(window.getFloat("end"))});
-                    colors.add(channelInfo.getString("color"));
+                    colors.add(splitHTMLColor(channelInfo.getString("color")));
                 }
             }
         } else {
@@ -426,7 +412,7 @@ public class ThumbnailsRequestHandler {
                     pixels.getImage().getFileset().getId()));
         }
         log.info("Updating rendering settings from NGFF metadata");
-        RenderingUtils.updateSettings(
+        updateSettings(
                 renderer, channels, windows, colors, null,
                 renderingModels, "rgb");
     }
@@ -447,7 +433,7 @@ public class ThumbnailsRequestHandler {
             Renderer renderer, Integer sizeX, Integer sizeY,
             Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
-        RenderingUtils.checkPlaneDef(sizeX, sizeY, planeDef);
+        checkPlaneDef(sizeX, sizeY, planeDef);
 
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
@@ -510,7 +496,7 @@ public class ThumbnailsRequestHandler {
             long userId = sf.getAdminService().getEventContext().userId;
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = renderingUtils.getPixelsIdAndSeries(
+            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, thumbnailCtx.imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(
@@ -527,4 +513,105 @@ public class ThumbnailsRequestHandler {
         return null;
     }
 
+    /**
+     * Update settings on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @param sizeC number of channels
+     * @param ctx OMERO context (group)
+     * @throws ServerError
+     */
+    public static void updateSettingsIntColors(Renderer renderer,
+            List<Integer> channels,
+            List<Double[]> windows,
+            List<Integer[]> colors,
+            List<Map<String, Map<String, Object>>> maps,
+            List<RenderingModel> renderingModels,
+            String colorMode) {
+        log.debug("Setting active channels");
+        int idx = 0; // index of windows/colors args
+        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
+            log.debug("Setting for channel {}", c);
+            boolean isActive = channels.contains(c + 1);
+            log.debug("\tChannel active {}", isActive);
+            renderer.setActive(c, isActive);
+
+            if (isActive) {
+                if (windows != null) {
+                    double min = windows.get(idx)[0];
+                    double max = windows.get(idx)[1];
+                    log.debug("\tMin-Max: [{}, {}]", min, max);
+                    renderer.setChannelWindow(c, min, max);
+                }
+                Integer[] rgba = colors.get(idx);
+                if (rgba.length < 4) {
+                    renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], 255);
+                    log.debug("\tColor: [{}, {}, {}, {}]",
+                            rgba[0], rgba[1], rgba[2], 255);
+                } else {
+                    renderer.setRGBA(c, rgba[0], rgba[1],rgba[2], rgba[3]);
+                    log.debug("\tColor: [{}, {}, {}, {}]",
+                            rgba[0], rgba[1], rgba[2], rgba[3]);
+                }
+                if (maps != null) {
+                    if (c < maps.size()) {
+                        Map<String, Map<String, Object>> map =
+                                maps.get(c);
+                        if (map != null) {
+                            Map<String, Object> reverse = map.get("reverse");
+                            if (reverse != null
+                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
+                                renderer.getCodomainChain(c).add(
+                                        new ReverseIntensityContext());
+                            }
+                        }
+                    }
+                }
+
+                idx += 1;
+            }
+        }
+        for (RenderingModel renderingModel : renderingModels) {
+            if (colorMode.equals(renderingModel.getValue())) {
+                renderer.setModel(renderingModel);
+                break;
+            }
+        }
+    }
+
+    /**
+     *  Splits an hex stream of characters into an array of bytes
+     *  in format (R,G,B,A) and converts to a
+     *  {@link ome.xml.model.primitives.Color}.
+     *  - abc      -> (0xAA, 0xBB, 0xCC, 0xFF)
+     *  - abcd     -> (0xAA, 0xBB, 0xCC, 0xDD)
+     *  - abbccd   -> (0xAB, 0xBC, 0xCD, 0xFF)
+     *  - abbccdde -> (0xAB, 0xBC, 0xCD, 0xDE)
+     *  @param color Characters to split.
+     *  @return corresponding {@link ome.xml.model.primitives.Color}
+     */
+    public static Color splitHTMLColor(String color) {
+        List<Integer> level1 = Arrays.asList(3, 4);
+        try {
+            if (level1.contains(color.length())) {
+                String c = color;
+                color = "";
+                for (char ch : c.toCharArray()) {
+                    color += ch + ch;
+                }
+            }
+            if (color.length() == 6) {
+                color += "FF";
+            }
+            if (color.length() == 8) {
+                int r = Integer.parseInt(color.substring(0, 2), 16);
+                int g = Integer.parseInt(color.substring(2, 4), 16);
+                int b = Integer.parseInt(color.substring(4, 6), 16);
+                int a = Integer.parseInt(color.substring(6, 8), 16);
+                return new Color(r, g, b, a);
+            }
+        } catch (Exception e) {
+            log.error("Error while parsing color: {}", color, e);
+        }
+        return null;
+    }
 }

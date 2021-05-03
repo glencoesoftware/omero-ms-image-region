@@ -79,7 +79,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
 
     private final IScale iScale;
 
-    private final RenderingUtils renderingUtils;
+    private final PixelsService pixelsService;
 
     /** Reference to the compression service */
     private final LocalCompress compressionService;
@@ -93,7 +93,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
     /** Available rendering models */
     private List<RenderingModel> renderingModels;
 
-    private final NgffUtils ngffUtils;
+    private final OmeroZarrUtils zarrUtils;
 
     private String ngffDir;
 
@@ -111,15 +111,15 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
      * @param ngffUtils Configured NgffUtils instance
      */
     public ThumbnailVerticle(IScale iScale,
-            RenderingUtils renderingUtils,
+            PixelsService pixelsService,
             LocalCompress compressionService,
             LutProvider lutProvider,
-            NgffUtils ngffUtils) {
+            OmeroZarrUtils zarrUtils) {
         this.iScale = iScale;
-        this.renderingUtils = renderingUtils;
+        this.pixelsService = pixelsService;
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
-        this.ngffUtils = ngffUtils;
+        this.zarrUtils = zarrUtils;
     }
 
     /* (non-Javadoc)
@@ -185,22 +185,21 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            List<Long> idList = new ArrayList<Long>();
-            idList.add(imageId);
+            List<Long> imageIds = new ArrayList<Long>();
+            imageIds.add(imageId);
             byte[] thumbnail = request.execute(
-                new ThumbnailsRequestHandler(
-                    thumbnailCtx,
-                    renderingUtils,
-                    compressionService,
-                    families,
-                    renderingModels,
-                    lutProvider,
-                    iScale,
-                    ngffUtils,
-                    ngffDir,
-                    longestSide,
-                    idList,
-                    renderingDefId)::renderThumbnail);
+                new ThumbnailsRequestHandler(thumbnailCtx,
+                        compressionService,
+                        families,
+                        renderingModels,
+                        lutProvider,
+                        pixelsService,
+                        iScale,
+                        zarrUtils,
+                        omeroSessionKey,
+                        longestSide,
+                        imageIds,
+                        renderingDefId)::renderThumbnail);
             if (thumbnail == null) {
                 message.fail(404, "Cannot find Image:" + imageId);
             } else {
@@ -265,14 +264,14 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             }
             Map<Long, byte[]> thumbnails = request.execute(
                     new ThumbnailsRequestHandler(thumbnailCtx,
-                            renderingUtils,
                             compressionService,
                             families,
                             renderingModels,
                             lutProvider,
+                            pixelsService,
                             iScale,
-                            ngffUtils,
-                            ngffDir,
+                            zarrUtils,
+                            omeroSessionKey,
                             longestSide,
                             imageIds,
                             Optional.empty())::renderThumbnails);

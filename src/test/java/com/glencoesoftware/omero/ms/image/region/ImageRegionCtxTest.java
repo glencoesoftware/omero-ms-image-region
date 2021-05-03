@@ -32,6 +32,7 @@ import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.xml.model.primitives.Color;
 import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtxTest {
@@ -359,5 +360,45 @@ public class ImageRegionCtxTest {
                 imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testRedOpaque() {
+        Integer rgba = ImageRegionCtx.splitHTMLColor("FF0000FF");
+        Color c = new Color(rgba);
+        Assert.assertEquals(255, c.getRed());
+        Assert.assertEquals(0, c.getGreen());
+        Assert.assertEquals(0, c.getBlue());
+        Assert.assertEquals(255, c.getAlpha());
+    }
+
+    @Test
+    public void testRedTransparent() {
+        Integer rgba = ImageRegionCtx.splitHTMLColor("FF000000");
+        Color c = new Color(rgba);
+        Assert.assertEquals(255, c.getRed());
+        Assert.assertEquals(0, c.getGreen());
+        Assert.assertEquals(0, c.getBlue());
+        Assert.assertEquals(0, c.getAlpha());
+    }
+
+    @Test
+    public void testGreenOpaque() {
+        Integer rgba = ImageRegionCtx.splitHTMLColor("00FF00FF");
+        Color c = new Color(rgba);
+        Assert.assertEquals(0, c.getRed());
+        Assert.assertEquals(255, c.getGreen());
+        Assert.assertEquals(0, c.getBlue());
+        Assert.assertEquals(255, c.getAlpha());
+    }
+
+    @Test
+    public void testBlueOpaque() {
+        Integer rgba = ImageRegionCtx.splitHTMLColor("0000FFFF");
+        Color c = new Color(rgba);
+        Assert.assertEquals(0, c.getRed());
+        Assert.assertEquals(255, c.getGreen());
+        Assert.assertEquals(255, c.getBlue());
+        Assert.assertEquals(255, c.getAlpha());
     }
 }
