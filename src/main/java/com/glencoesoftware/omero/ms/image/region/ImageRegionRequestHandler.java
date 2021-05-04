@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +51,7 @@ import ome.model.display.ChannelBinding;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
+import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
@@ -63,7 +65,7 @@ import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.util.IceMapper;
 
-public class ImageRegionRequestHandler extends OmeroRequestHandler {
+public class ImageRegionRequestHandler extends OmeroRenderingHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
@@ -184,10 +186,11 @@ public class ImageRegionRequestHandler extends OmeroRequestHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
+            List<Color> colors = omeColors(imageRegionCtx.colors);
             updateSettings(renderer,
                     imageRegionCtx.channels,
                     imageRegionCtx.windows,
-                    imageRegionCtx.omeColors(),
+                    colors,
                     imageRegionCtx.maps,
                     renderingModels,
                     imageRegionCtx.m);
@@ -203,6 +206,14 @@ public class ImageRegionRequestHandler extends OmeroRequestHandler {
                 span.finish();
             }
         }
+    }
+
+    private List<Color> omeColors(List<String> colors) {
+        List<Color> clrs = new ArrayList<Color>();
+        for(String c : colors) {
+            clrs.add(splitHTMLColor(c));
+        }
+        return clrs;
     }
 
     /**
