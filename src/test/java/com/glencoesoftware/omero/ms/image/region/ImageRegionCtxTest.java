@@ -397,7 +397,7 @@ public class ImageRegionCtxTest {
         Integer rgba = ImageRegionCtx.splitHTMLColor("0000FFFF");
         Color c = new Color(rgba);
         Assert.assertEquals(0, c.getRed());
-        Assert.assertEquals(255, c.getGreen());
+        Assert.assertEquals(0, c.getGreen());
         Assert.assertEquals(255, c.getBlue());
         Assert.assertEquals(255, c.getAlpha());
     }

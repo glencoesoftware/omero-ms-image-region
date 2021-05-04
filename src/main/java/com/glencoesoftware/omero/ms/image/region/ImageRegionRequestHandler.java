@@ -187,7 +187,7 @@ public class ImageRegionRequestHandler extends OmeroRequestHandler {
             updateSettings(renderer,
                     imageRegionCtx.channels,
                     imageRegionCtx.windows,
-                    imageRegionCtx.getColors(),
+                    imageRegionCtx.omeColors(),
                     imageRegionCtx.maps,
                     renderingModels,
                     imageRegionCtx.m);

@@ -406,7 +406,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         return null;
     }
 
-    public List<Color> getColors() {
+    public List<Color> omeColors() {
         List<Color> clrs = new ArrayList<Color>();
         for(String c : colors) {
             clrs.add(new Color(splitHTMLColor(c)));
