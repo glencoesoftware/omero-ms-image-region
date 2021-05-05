@@ -30,9 +30,9 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.xml.model.primitives.Color;
 import omeis.providers.re.data.RegionDef;
 import omero.constants.projection.ProjectionType;
-import ome.xml.model.primitives.Color;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
 
@@ -366,5 +366,42 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         } catch (NumberFormatException e) {
             // Ignore
         }
+    }
+
+    /**
+     *  Splits an hex stream of characters into an array of bytes
+     *  in format (R,G,B,A) and converts to a
+     *  {@link ome.xml.model.primitives.Color}.
+     *  - abc      -> (0xAA, 0xBB, 0xCC, 0xFF)
+     *  - abcd     -> (0xAA, 0xBB, 0xCC, 0xDD)
+     *  - abbccd   -> (0xAB, 0xBC, 0xCD, 0xFF)
+     *  - abbccdde -> (0xAB, 0xBC, 0xCD, 0xDE)
+     *  @param color Characters to split.
+     *  @return corresponding {@link ome.xml.model.primitives.Color}
+     */
+    public static Color splitHTMLColor(String color) {
+        List<Integer> level1 = Arrays.asList(3, 4);
+        try {
+            if (level1.contains(color.length())) {
+                String c = color;
+                color = "";
+                for (char ch : c.toCharArray()) {
+                    color += ch + ch;
+                }
+            }
+            if (color.length() == 6) {
+                color += "FF";
+            }
+            if (color.length() == 8) {
+                int r = Integer.parseInt(color.substring(0, 2), 16);
+                int g = Integer.parseInt(color.substring(2, 4), 16);
+                int b = Integer.parseInt(color.substring(4, 6), 16);
+                int a = Integer.parseInt(color.substring(6, 8), 16);
+                return new Color(r, g, b, a);
+            }
+        } catch (Exception e) {
+            log.error("Error while parsing color: {}", color, e);
+        }
+        return null;
     }
 }
