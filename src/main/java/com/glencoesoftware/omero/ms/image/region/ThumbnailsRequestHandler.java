@@ -577,4 +577,95 @@ public class ThumbnailsRequestHandler extends OmeroRenderingHandler {
             }
         }
     }
+
+
+
+    /**
+     * Update settings on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @param sizeC number of channels
+     * @param ctx OMERO context (group)
+     * @throws ServerError
+     */
+    public void updateSettings(Renderer renderer,
+            List<Integer> channels,
+            List<Double[]> windows,
+            List<Color> colors,
+            List<Map<String, Map<String, Object>>> maps,
+            List<RenderingModel> renderingModels,
+            String colorMode) {
+        log.debug("Setting active channels");
+        int idx = 0; // index of windows/colors args
+        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
+            log.debug("Setting for channel {}", c);
+            boolean isActive = channels.contains(c + 1);
+            log.debug("\tChannel active {}", isActive);
+            renderer.setActive(c, isActive);
+
+            if (isActive) {
+                if (windows != null) {
+                    double min = windows.get(idx)[0];
+                    double max = windows.get(idx)[1];
+                    log.debug("\tMin-Max: [{}, {}]", min, max);
+                    renderer.setChannelWindow(c, min, max);
+                }
+                if (colors != null) {
+                    Color color = colors.get(idx);
+                    renderer.setRGBA(c, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+                    log.debug("\tColor: [{}, {}, {}, {}]",
+                            color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+                }
+                if (maps != null) {
+                    if (c < maps.size()) {
+                        Map<String, Map<String, Object>> map =
+                                maps.get(c);
+                        if (map != null) {
+                            if (map.containsKey("quantization")) {
+                                updateQuantization(renderer, families, c, map);
+                            }
+                            Map<String, Object> reverse = map.get("reverse");
+                            if (reverse == null) {
+                                reverse = map.get("inverted");
+                            }
+                            if (reverse != null
+                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
+                                renderer.getCodomainChain(c).add(
+                                        new ReverseIntensityContext());
+                            }
+                        }
+                    }
+                }
+            }
+
+            idx += 1;
+        }
+        for (RenderingModel renderingModel : renderingModels) {
+            if (colorMode.equals(renderingModel.getValue())) {
+                renderer.setModel(renderingModel);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Update quantization settings on the rendering engine based on the
+     * current context.
+     * @param renderer fully initialized renderer
+     * @param families list of possible mapping families
+     * @param c channel to update
+     * @param map source settings to apply to the <code>renderer</code>
+     */
+    protected void updateQuantization(
+            Renderer renderer, List<Family> families, int c,
+            Map<String, Map<String, Object>> map) {
+        log.debug("Quantization enabled");
+        Map<String, Object> quantization = map.get("quantization");
+        String family = quantization.get("family").toString();
+        double coefficient = (Double) quantization.get("coefficient");
+        for (Family f : families) {
+            if (f.getValue().equals(family)) {
+                renderer.setQuantizationMap(c, f, coefficient, false);
+            }
+        }
+    }
 }

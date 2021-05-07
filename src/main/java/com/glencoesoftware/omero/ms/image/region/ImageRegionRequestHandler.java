@@ -177,8 +177,8 @@ public class ImageRegionRequestHandler extends OmeroRenderingHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            setResolutionLevel(
-                    renderer, countResolutionLevels, imageRegionCtx.resolution);
+            imageRegionCtx.setResolutionLevel(
+                    renderer, countResolutionLevels);
             Integer sizeX = pixels.getSizeX();
             Integer sizeY = pixels.getSizeY();
             planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));
@@ -186,14 +186,7 @@ public class ImageRegionRequestHandler extends OmeroRenderingHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            List<Color> colors = omeColors(imageRegionCtx.colors);
-            updateSettings(renderer,
-                    imageRegionCtx.channels,
-                    imageRegionCtx.windows,
-                    colors,
-                    imageRegionCtx.maps,
-                    renderingModels,
-                    imageRegionCtx.m);
+            imageRegionCtx.updateSettings(renderer, families, renderingModels);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {

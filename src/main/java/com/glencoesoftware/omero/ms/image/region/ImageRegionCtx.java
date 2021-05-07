@@ -30,8 +30,13 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.model.enums.Family;
+import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
+import omeis.providers.re.Renderer;
+import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.RegionDef;
+import omero.ServerError;
 import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtx extends OmeroRequestCtx {
@@ -403,5 +408,125 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             log.error("Error while parsing color: {}", color, e);
         }
         return null;
+    }
+
+    /**
+     * Update quantization settings on the rendering engine based on the
+     * current context.
+     * @param renderer fully initialized renderer
+     * @param families list of possible mapping families
+     * @param c channel to update
+     * @param map source settings to apply to the <code>renderer</code>
+     */
+    public void updateQuantization(
+            Renderer renderer, List<Family> families, int c,
+            Map<String, Map<String, Object>> map) {
+        log.debug("Quantization enabled");
+        Map<String, Object> quantization = map.get("quantization");
+        String family = quantization.get("family").toString();
+        double coefficient = (Double) quantization.get("coefficient");
+        for (Family f : families) {
+            if (f.getValue().equals(family)) {
+                renderer.setQuantizationMap(c, f, coefficient, false);
+            }
+        }
+    }
+
+    public void setMapProperties(Renderer renderer, List<Family> families, int channel) {
+        if (maps != null) {
+            if (channel < maps.size()) {
+                Map<String, Map<String, Object>> map =
+                        maps.get(channel);
+                if (map != null) {
+                    if (map.containsKey("quantization")) {
+                        updateQuantization(renderer, families, channel, map);
+                    }
+                    Map<String, Object> reverse = map.get("reverse");
+                    if (reverse == null) {
+                        reverse = map.get("inverted");
+                    }
+                    if (reverse != null
+                        && Boolean.TRUE.equals(reverse.get("enabled"))) {
+                        renderer.getCodomainChain(channel).add(
+                                new ReverseIntensityContext());
+                    }
+                }
+            }
+        }
+    }
+
+    public void setWindow(Renderer renderer, int idx, int c) {
+        double min = windows.get(idx)[0];
+        double max = windows.get(idx)[1];
+        log.debug("\tMin-Max: [{}, {}]", min, max);
+        renderer.setChannelWindow(c, min, max);
+    }
+
+    public void setColor(Renderer renderer, int idx, int c) {
+        Color color = splitHTMLColor(colors.get(idx));
+        renderer.setRGBA(c, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+        log.debug("\tColor: [{}, {}, {}, {}]",
+                color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+    }
+
+    /**
+     * Update settings on the rendering engine based on the current context.
+     * @param renderer fully initialized renderer
+     * @param sizeC number of channels
+     * @param ctx OMERO context (group)
+     * @throws ServerError
+     */
+    public void updateSettings(Renderer renderer,
+            List<Family> families,
+            List<RenderingModel> renderingModels) {
+        log.debug("Setting active channels");
+        int idx = 0; // index of windows/colors args
+        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
+            log.debug("Setting for channel {}", c);
+            boolean isActive = channels.contains(c + 1);
+            log.debug("\tChannel active {}", isActive);
+            renderer.setActive(c, isActive);
+
+            if (isActive) {
+                if (windows != null) {
+                    setWindow(renderer, idx, c);
+                }
+                if (colors != null) {
+                    setColor(renderer, idx, c);
+                }
+                setMapProperties(renderer, families, c);
+            }
+
+            idx += 1;
+        }
+        for (RenderingModel renderingModel : renderingModels) {
+            if (m.equals(renderingModel.getValue())) {
+                renderer.setModel(renderingModel);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Sets the pyramid resolution level on the <code>renderingEngine</code>
+     * @param renderer fully initialized renderer
+     * @param resolutionLevels complete definition of all resolution levels for
+     * the image.
+     * @throws ServerError
+     */
+    public void setResolutionLevel(
+            Renderer renderer,
+            Integer resolutionLevelCount) {
+        log.debug("Number of available resolution levels: {}",
+                resolutionLevelCount);
+
+        if (resolution != null) {
+            log.debug("Setting resolution level: {}",
+                    resolution);
+            Integer level =
+                    resolutionLevelCount - resolution - 1;
+            log.debug("Setting resolution level to: {}", level);
+            renderer.setResolutionLevel(level);
+        }
     }
 }
