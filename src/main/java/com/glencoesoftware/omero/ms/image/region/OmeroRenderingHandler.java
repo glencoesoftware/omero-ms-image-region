@@ -250,8 +250,7 @@ public class OmeroRenderingHandler extends OmeroVertxRequestHandler{
      * @throws ServerError
      */
     public static void checkPlaneDef(
-            Integer sizeX, Integer sizeY, PlaneDef planeDef)
-                    throws ServerError{
+            Integer sizeX, Integer sizeY, PlaneDef planeDef){
         RegionDef rd = planeDef.getRegion();
         if (rd == null) {
             return;
