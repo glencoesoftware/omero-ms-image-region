@@ -65,7 +65,7 @@ import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.util.IceMapper;
 
-public class ImageRegionRequestHandler extends OmeroRenderingHandler {
+public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
@@ -204,7 +204,7 @@ public class ImageRegionRequestHandler extends OmeroRenderingHandler {
     private List<Color> omeColors(List<String> colors) {
         List<Color> clrs = new ArrayList<Color>();
         for(String c : colors) {
-            clrs.add(splitHTMLColor(c));
+            clrs.add(ImageRegionCtx.splitHTMLColor(c));
         }
         return clrs;
     }

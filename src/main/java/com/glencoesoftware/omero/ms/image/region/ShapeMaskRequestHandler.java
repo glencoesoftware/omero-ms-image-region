@@ -50,7 +50,7 @@ import omero.model.Image;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 
-public class ShapeMaskRequestHandler extends OmeroVertxRequestHandler {
+public class ShapeMaskRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ShapeMaskRequestHandler.class);
@@ -109,7 +109,7 @@ public class ShapeMaskRequestHandler extends OmeroVertxRequestHandler {
             if (shapeMaskCtx.color != null) {
                 // Color came from the request so we override the default
                 // color the mask was assigned.
-                fillColor = splitHTMLColor(shapeMaskCtx.color);
+                fillColor = ImageRegionCtx.splitHTMLColor(shapeMaskCtx.color);
             }
             log.debug(
                 "Fill color Red:{} Green:{} Blue:{} Alpha:{}",

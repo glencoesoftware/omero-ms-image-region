@@ -30,10 +30,10 @@ import omero.api.IQueryPrx;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
-public class OmeroRenderingHandler extends OmeroVertxRequestHandler{
+public class OmeroRenderingRequestHandler {
 
     private static final org.slf4j.Logger log =
-            LoggerFactory.getLogger(OmeroRenderingHandler.class);
+            LoggerFactory.getLogger(OmeroRenderingRequestHandler.class);
 
     /** Reference to the compression service. */
     protected final LocalCompress compressionSrv;
@@ -56,7 +56,7 @@ public class OmeroRenderingHandler extends OmeroVertxRequestHandler{
     /** Configured OmeroZarrUtils */
     protected final OmeroZarrUtils zarrUtils;
 
-    public OmeroRenderingHandler(
+    public OmeroRenderingRequestHandler(
             LocalCompress compressionSrv,
             LutProvider lutProvider,
             List<Family> families,

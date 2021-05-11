@@ -67,7 +67,7 @@ import omero.sys.ParametersI;
 import omero.util.IceMapper;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 
-public class ThumbnailsRequestHandler extends OmeroRenderingHandler {
+public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailsRequestHandler.class);
@@ -403,7 +403,8 @@ public class ThumbnailsRequestHandler extends OmeroRenderingHandler {
                     windows.add(new Double[] {
                             Double.valueOf(window.getFloat("start")),
                             Double.valueOf(window.getFloat("end"))});
-                    colors.add(splitHTMLColor(channelInfo.getString("color")));
+                    colors.add(ImageRegionCtx.splitHTMLColor(
+                            channelInfo.getString("color")));
                 }
             }
         } else {

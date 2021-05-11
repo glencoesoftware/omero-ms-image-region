@@ -432,7 +432,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
     }
 
-    public void setMapProperties(Renderer renderer, List<Family> families, int channel) {
+    public void setMapProperties(
+            Renderer renderer, List<Family> families, int channel) {
         if (maps != null) {
             if (channel < maps.size()) {
                 Map<String, Map<String, Object>> map =
@@ -464,9 +465,13 @@ public class ImageRegionCtx extends OmeroRequestCtx {
 
     public void setColor(Renderer renderer, int idx, int c) {
         Color color = splitHTMLColor(colors.get(idx));
-        renderer.setRGBA(c, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
-        log.debug("\tColor: [{}, {}, {}, {}]",
-                color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+        log.debug(
+                "\tColor: [{}, {}, {}, {}]",
+                color.getRed(), color.getGreen(), color.getBlue(),
+                color.getAlpha());
+        renderer.setRGBA(
+                c, color.getRed(), color.getGreen(), color.getBlue(),
+                color.getAlpha());
     }
 
     /**

@@ -23,7 +23,7 @@ public class OmeroRenderingHandlerTest {
         planeDef.setZ(z);
         RegionDef region = new RegionDef(x, y, w, h);
         planeDef.setRegion(region);
-        OmeroRenderingHandler.checkPlaneDef(
+        OmeroRenderingRequestHandler.checkPlaneDef(
                 sizeX, sizeY, planeDef);
 
         Assert.assertEquals(planeDef.getRegion().getWidth(), 256);
@@ -44,7 +44,7 @@ public class OmeroRenderingHandlerTest {
         planeDef.setZ(z);
         RegionDef region = new RegionDef(x, y, w, h);
         planeDef.setRegion(region);
-        OmeroRenderingHandler.checkPlaneDef(
+        OmeroRenderingRequestHandler.checkPlaneDef(
                 sizeX, sizeY, planeDef);
 
         Assert.assertEquals(planeDef.getRegion().getWidth(), 100);
