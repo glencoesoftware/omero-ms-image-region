@@ -56,6 +56,12 @@ public class OmeroRenderingRequestHandler {
     /** Configured OmeroZarrUtils */
     protected final OmeroZarrUtils zarrUtils;
 
+    /**
+     * Mapper between <code>omero.model</code> client side Ice backed objects
+     * and <code>ome.model</code> server side Hibernate backed objects.
+     */
+    protected final IceMapper mapper = new IceMapper();
+
     public OmeroRenderingRequestHandler(
             LocalCompress compressionSrv,
             LutProvider lutProvider,
@@ -150,7 +156,7 @@ public class OmeroRenderingRequestHandler {
      * @throws ApiUsageException
      * @throws ServerError
      */
-    public static Pixels retrievePixDescription(
+    public Pixels retrievePixDescription(
         List<RType> pixelsIdAndSeries,
         IceMapper mapper, IPixelsPrx iPixels, IQueryPrx iQuery)
                 throws ApiUsageException, ServerError {
@@ -179,7 +185,7 @@ public class OmeroRenderingRequestHandler {
         }
     }
 
-    public static long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
+    public long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -207,38 +213,12 @@ public class OmeroRenderingRequestHandler {
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    public static RenderingDef getRenderingDef(
-        IPixelsPrx iPixels, final long pixelsId, IceMapper mapper)
+    public RenderingDef getRenderingDef(IPixelsPrx iPixels, final long pixelsId)
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         return (RenderingDef) mapper.reverse(
                 iPixels.retrieveRndSettings(pixelsId, ctx));
-    }
-
-    /**
-     * Sets the pyramid resolution level on the <code>renderingEngine</code>
-     * @param renderer fully initialized renderer
-     * @param resolutionLevels complete definition of all resolution levels for
-     * the image.
-     * @throws ServerError
-     */
-    public static void setResolutionLevel(
-            Renderer renderer,
-            Integer resolutionLevelCount,
-            Integer resolution)
-                    throws ServerError {
-        log.debug("Number of available resolution levels: {}",
-                resolutionLevelCount);
-
-        if (resolution != null) {
-            log.debug("Setting resolution level: {}",
-                    resolution);
-            Integer level =
-                    resolutionLevelCount - resolution - 1;
-            log.debug("Setting resolution level to: {}", level);
-            renderer.setResolutionLevel(level);
-        }
     }
 
     /**
@@ -249,7 +229,7 @@ public class OmeroRenderingRequestHandler {
      * @param planeDef plane definition to validate
      * @throws ServerError
      */
-    public static void checkPlaneDef(
+    public void checkPlaneDef(
             Integer sizeX, Integer sizeY, PlaneDef planeDef){
         RegionDef rd = planeDef.getRegion();
         if (rd == null) {

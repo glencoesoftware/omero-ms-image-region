@@ -63,7 +63,6 @@ import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.util.IceMapper;
 
 public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
 
@@ -73,17 +72,8 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
     /** Reference to the projection service. */
     private final ProjectionService projectionService;
 
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
-
-    /** Renderer */
-    private Renderer renderer;
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
@@ -143,6 +133,17 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
         return null;
     }
 
+    protected void updateSettings(Renderer renderer) {
+        imageRegionCtx.updateSettings(renderer, families, renderingModels);
+    }
+
+    protected void setResolutionLevel(
+            Renderer renderer, PixelBuffer pixelBuffer) {
+        int countResolutionLevels = pixelBuffer.getResolutionLevels();
+        imageRegionCtx.setResolutionLevel(
+                renderer, countResolutionLevels);
+    }
+
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
@@ -153,7 +154,7 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(
+    protected byte[] getRegion(
             IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
@@ -164,11 +165,9 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
                 pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-            log.info(pixelBuffer.toString());
-            renderer = new Renderer(
+            Renderer renderer = new Renderer(
                 quantumFactory, renderingModels,
-                pixels, getRenderingDef(
-                        iPixels, pixels.getId(), mapper),
+                pixels, getRenderingDef(iPixels, pixels.getId()),
                 pixelBuffer, lutProvider
             );
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
@@ -176,9 +175,7 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
 
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
-            int countResolutionLevels = pixelBuffer.getResolutionLevels();
-            imageRegionCtx.setResolutionLevel(
-                    renderer, countResolutionLevels);
+            setResolutionLevel(renderer, pixelBuffer);
             Integer sizeX = pixels.getSizeX();
             Integer sizeY = pixels.getSizeY();
             planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));
@@ -186,7 +183,7 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            imageRegionCtx.updateSettings(renderer, families, renderingModels);
+            updateSettings(renderer);
             span = Tracing.currentTracer().startScopedSpan("render");
             span.tag("omero.pixels_id", pixels.getId().toString());
             try {
@@ -194,35 +191,69 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
                 // buffer.  However, just in case an exception is thrown before
                 // reaching this point a double close may occur due to the
                 // surrounding try-with-resources block.
-                return render(renderer, sizeX, sizeY, pixels, planeDef);
+                return compress(
+                        pixels, planeDef, sizeX, sizeY,
+                        render(renderer, sizeX, sizeY, pixels, planeDef));
             } finally {
                 span.finish();
             }
         }
     }
 
-    private List<Color> omeColors(List<String> colors) {
-        List<Color> clrs = new ArrayList<Color>();
-        for(String c : colors) {
-            clrs.add(ImageRegionCtx.splitHTMLColor(c));
+    private byte[] compress(
+            Pixels pixels, PlaneDef planeDef,
+            Integer sizeX, Integer sizeY, int[] buf) throws IOException {
+        String format = imageRegionCtx.format;
+        RegionDef region = planeDef.getRegion();
+        sizeX = region != null? region.getWidth() : pixels.getSizeX();
+        sizeY = region != null? region.getHeight() : pixels.getSizeY();
+        buf = flip(buf, sizeX, sizeY,
+                imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
+        BufferedImage image = ImageUtil.createBufferedImage(
+            buf, sizeX, sizeY
+        );
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] toReturn = null;
+        if (format.equals("jpeg")) {
+            compressionSrv.compressToStream(image, output);
+            toReturn = output.toByteArray();
+        } else if (format.equals("png") || format.equals("tif")) {
+            if (format.equals("tif")) {
+                try (ImageOutputStream ios =
+                        ImageIO.createImageOutputStream(output)) {
+                    IIORegistry registry = IIORegistry.getDefaultInstance();
+                    registry.registerServiceProviders(
+                            ServiceRegistry.lookupProviders(
+                                    TIFFImageWriterSpi.class));
+                    TIFFImageWriterSpi spi = registry.getServiceProviderByClass(
+                            TIFFImageWriterSpi.class);
+                    TIFFImageWriter writer = new TIFFImageWriter(spi);
+                    writer.setOutput(ios);
+                    writer.write(null, new IIOImage(image, null, null), null);
+                }
+            } else {
+                ImageIO.write(image, "png", output);
+            }
+            toReturn = output.toByteArray();
+        } else {
+            log.error("Unknown format {}", imageRegionCtx.format);
         }
-        return clrs;
+        return toReturn;
     }
 
     /**
-     * Performs conditional rendering in the requested format as defined by
-     * <code>imageRegionCtx.format</code>.
+     * Performs conditional rendering.
      * @param renderer fully initialized renderer
      * @param resolutionLevels complete definition of all resolution levels
      * for the image.
      * @param pixels pixels metadata
      * @param planeDef plane definition to use for rendering
-     * @return Image region as a byte array.
+     * @return Image region as packed integer ready for compression.
      * @throws ServerError
      * @throws IOException
      * @throws QuantizationException
      */
-    private byte[] render(
+    private int[] render(
             Renderer renderer, Integer sizeX, Integer sizeY,
             Pixels pixels, PlaneDef planeDef)
                     throws ServerError, IOException, QuantizationException {
@@ -231,7 +262,6 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
         span1.tag("omero.pixels_id", pixels.getId().toString());
-        int[] buf;
         try {
             PixelBuffer newBuffer = null;
             if (imageRegionCtx.projection != null) {
@@ -289,46 +319,11 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
                 planeDef = new PlaneDef(PlaneDef.XY, 0);
                 planeDef.setZ(0);
             }
-            buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
+            return renderer.renderAsPackedInt(planeDef, newBuffer);
         } finally {
             span1.tag("omero.rendering_stats", renderer.getStats().getStats());
             span1.finish();
         }
-
-        String format = imageRegionCtx.format;
-        RegionDef region = planeDef.getRegion();
-        sizeX = region != null? region.getWidth() : pixels.getSizeX();
-        sizeY = region != null? region.getHeight() : pixels.getSizeY();
-        buf = flip(buf, sizeX, sizeY,
-                imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
-        BufferedImage image = ImageUtil.createBufferedImage(
-            buf, sizeX, sizeY
-        );
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        if (format.equals("jpeg")) {
-            compressionSrv.compressToStream(image, output);
-            return output.toByteArray();
-        } else if (format.equals("png") || format.equals("tif")) {
-            if (format.equals("tif")) {
-                try (ImageOutputStream ios =
-                        ImageIO.createImageOutputStream(output)) {
-                    IIORegistry registry = IIORegistry.getDefaultInstance();
-                    registry.registerServiceProviders(
-                            ServiceRegistry.lookupProviders(
-                                    TIFFImageWriterSpi.class));
-                    TIFFImageWriterSpi spi = registry.getServiceProviderByClass(
-                            TIFFImageWriterSpi.class);
-                    TIFFImageWriter writer = new TIFFImageWriter(spi);
-                    writer.setOutput(ios);
-                    writer.write(null, new IIOImage(image, null, null), null);
-                }
-            } else {
-                ImageIO.write(image, "png", output);
-            }
-            return output.toByteArray();
-        }
-        log.error("Unknown format {}", imageRegionCtx.format);
-        return null;
     }
 
     /**

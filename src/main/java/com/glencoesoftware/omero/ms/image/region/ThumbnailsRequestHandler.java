@@ -18,88 +18,40 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 
 import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
-import brave.Tracer;
 import brave.Tracing;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import ome.io.nio.PixelBuffer;
-import ome.logic.PixelsImpl;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.util.ImageUtil;
-import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.data.PlaneDef;
-import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
-import omeis.providers.re.quantum.QuantizationException;
-import omeis.providers.re.quantum.QuantumFactory;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.model.IObject;
 import omero.model.Image;
-import omero.model.RenderingDef;
-import omero.model.ChannelBinding;
 import omero.sys.ParametersI;
-import omero.util.IceMapper;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 
-public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
+public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailsRequestHandler.class);
 
     ThumbnailCtx thumbnailCtx;
-
-    /** Scaling service */
-    private final IScale iScale;
-
-    /** Interface for NGFF operations */
-    private final NgffUtils ngffUtils;
-
-    /** Longest side of the thumbnail. */
-    protected final int longestSide;
-
-    /** Image identifiers to request thumbnails for. */
-    protected final List<Long> imageIds;
-
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
-    /** Renderer */
-    private Renderer renderer;
-
-    /**
-     * {@link RenderingDef} identifier of the rendering settings to use when
-     * requesting the thumbnail.
-     */
-    protected Optional<Long> renderingDefId;
 
     /**
      * Default constructor
@@ -118,30 +70,25 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
      */
     public ThumbnailsRequestHandler(
             ThumbnailCtx thumbnailCtx,
-            LocalCompress compressionSrv,
             List<Family> families,
             List<RenderingModel> renderingModels,
             LutProvider lutProvider,
+            LocalCompress compressionSrv,
+            int maxTileLength,
             PixelsService pixelsService,
-            IScale iScale,
-            OmeroZarrUtils zarrUtils,
             String ngffDir,
-            int longestSide,
-            List<Long> imageIds,
-            Optional<Long> renderingDefId) {
-        super(compressionSrv,
-                lutProvider,
+            OmeroZarrUtils zarrUtils,
+            IScale iScale) {
+        super(thumbnailCtx,
                 families,
                 renderingModels,
+                lutProvider,
+                compressionSrv,
+                maxTileLength,
                 pixelsService,
                 ngffDir,
                 zarrUtils);
         this.thumbnailCtx = thumbnailCtx;
-        this.iScale = iScale;
-        this.ngffUtils = new NgffUtils(zarrUtils);
-        this.longestSide = longestSide;
-        this.imageIds = imageIds;
-        this.renderingDefId = renderingDefId;
     }
 
     /**
@@ -151,15 +98,14 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
         try {
             ServiceFactoryPrx sf = client.getSession();
-            long userId = sf.getAdminService().getEventContext().userId;
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<Image> images = getImages(client, imageIds);
+            List<Image> images = getImages(client, thumbnailCtx.imageIds);
             if (images.size() != 0) {
-                return getThumbnails(
-                        iQuery, iPixels, userId, images, longestSide);
+                return getThumbnails(iQuery, iPixels, images);
             } else {
-                log.debug("Cannot find any Images with Ids {}", imageIds);
+                log.debug("Cannot find any Images with Ids {}",
+                        thumbnailCtx.imageIds);
             }
         } catch (Exception e) {
             log.error("Exception while retrieving thumbnails", e);
@@ -197,20 +143,18 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
      * Retrieves a byte array of rendered pixel data for the thumbnail
      * @param iQuery The query service proxy
      * @param iPixels The pixels service proxy
-     * @param userId The Omero user ID
      * @param image The Image the use wants a thumbnail of
      * @param longestSide The longest side length of the final thumbnail
      * @return Byte array of jpeg thumbnail data
      * @throws IOException
      */
     protected byte[] getThumbnail(
-        IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
-        Image image, int longestSide)
+        IQueryPrx iQuery, IPixelsPrx iPixels, Image image)
             throws IOException {
         try {
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
-            return getRegion(iQuery, iPixels, pixelsIdAndSeries, userId, null);
+            return getRegion(iQuery, iPixels, pixelsIdAndSeries);
         } catch (Exception e) {
             log.error("Error getting thumbnail {}", Long.toString(image.getId().getValue()), e);
             return new byte[0];
@@ -227,252 +171,31 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
      * @throws IOException
      */
     protected Map<Long, byte[]> getThumbnails(
-        IQueryPrx iQuery, IPixelsPrx iPixels, Long userId,
-        List<Image> images, int longestSide)
+        IQueryPrx iQuery, IPixelsPrx iPixels, List<Image> images)
             throws IOException {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         for (Image image : images) {
             thumbnails.put(
                     image.getId().getValue(),
-                    getThumbnail(iQuery, iPixels, userId, image, longestSide));
+                    getThumbnail(iQuery, iPixels, image));
         }
         return thumbnails;
     }
 
     /**
-     *
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsIdAndSeries {@link Pixels} identifier and Bio-Formats series
-     * @param userId ID of user making the request
-     * @param renderingDefId Specific Rendering Def ID to use for this thumbnail
-     * @return Thumbnail region as a byte array
-     * @throws IllegalArgumentException
-     * @throws ServerError
-     * @throws IOException
-     * @throws QuantizationException
-     */
-    protected byte[] getRegion(
-        IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries,
-        long userId, Optional<Long> renderingDefId)
-            throws IllegalArgumentException, ServerError, IOException,
-                QuantizationException {
-        log.debug("Getting image region");
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("retrieve_pix_description");
-        Pixels pixels = retrievePixDescription(
-                pixelsIdAndSeries, mapper, iPixels, iQuery);
-        QuantumFactory quantumFactory = new QuantumFactory(families);
-        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-            log.info(pixelBuffer.toString());
-            renderer = new Renderer(
-                quantumFactory, renderingModels,
-                pixels, getRenderingDef(
-                        iPixels, pixels.getId(), mapper),
-                pixelBuffer, lutProvider
-            );
-            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, 0);
-            planeDef.setZ(0);
-
-            List<List<Integer>> resDescriptions =
-                    pixelBuffer.getResolutionDescriptions();
-            int resolutionLevel = getResolutionForThumbnail(resDescriptions);
-            setResolutionLevel(
-                    renderer, resDescriptions.size(), resolutionLevel);
-            Integer sizeX = resDescriptions.get(resolutionLevel).get(0);
-            Integer sizeY = resDescriptions.get(resolutionLevel).get(1);
-            RegionDef regionDef = new RegionDef();
-            regionDef.setX(0);
-            regionDef.setY(0);
-            regionDef.setWidth(sizeX);
-            regionDef.setHeight(sizeY);
-            planeDef.setRegion(regionDef);
-            updateRenderingSettings(iQuery, pixels, userId, renderingDefId);
-            span = Tracing.currentTracer().startScopedSpan("render");
-            span.tag("omero.pixels_id", pixels.getId().toString());
-            try {
-                // The actual act of rendering will close the provided pixel
-                // buffer.  However, just in case an exception is thrown before
-                // reaching this point a double close may occur due to the
-                // surrounding try-with-resources block.
-                return render(renderer, sizeX, sizeY, pixels, planeDef);
-            } finally {
-                span.finish();
-            }
-        }
-    }
-
-    /**
-     * Updates the settings in the rendering engine based on the user's
-     * settings if they exist and the NGFF settings otherwise
-     * @param iQuery The Query Service proxy for finding user's rendering def
-     * @param pixels The pixels object of the image
-     * @param userId The user requesting the thumbnail
-     * @param renderingDefId Optional specific rendering def ID to use with this
-     * thumbnail
-     */
-    private void updateRenderingSettings(
-            IQueryPrx iQuery, Pixels pixels, long userId,
-            Optional<Long> renderingDefId) {
-        //Check for client-provided rendering def, then user def,
-        //then pixels owner def, then NGFF def
-        Set<Long> pixelsIds = new HashSet<Long>();
-        pixelsIds.add(pixels.getId());
-        ParametersI p;
-        String sql;
-        if (renderingDefId.isPresent()) {
-            log.info("Using rendering def " + Long.toString(renderingDefId.get()));
-            p = new ParametersI();
-            List<Long> idList = new ArrayList<Long>();
-            idList.add(renderingDefId.get());
-            p.addIds(idList);
-            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
-                    + "rdef.id in (:ids)";
-        } else if (userId >= 0) {
-            // Load the rendering settings of the specified owner
-            p = new ParametersI();
-            p.addIds(pixelsIds);
-            p.addId(userId);
-            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
-                    + "rdef.pixels.id in (:ids) and "
-                    + "rdef.details.owner.id = :id";
-        } else {
-            // Load the rendering settings of the pixels owner
-            p = new ParametersI();
-            p.addIds(pixelsIds);
-
-            sql = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
-                    + "rdef.pixels.id in (:ids) and "
-                    + "rdef.details.owner.id = rdef.pixels.details.owner.id";
-        }
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        try {
-            List<IObject> settingsList = iQuery.findAllByQuery(sql, p, ctx);
-            List<Integer> channels = new ArrayList<Integer>();
-            List<Double[]> windows = new ArrayList<Double[]>();
-            List<Integer[]> colors = new ArrayList<Integer[]>();
-            if (settingsList.size() > 0) {
-                RenderingDef rdef = (RenderingDef) settingsList.get(0);
-                int numCbs = rdef.sizeOfWaveRendering();
-                for (int i = 0; i < numCbs; i++) {
-                    ChannelBinding cb = rdef.getChannelBinding(i);
-                    if (cb.getActive().getValue()) {
-                        channels.add(i+1);
-                        Double[] window = new Double[] {
-                                cb.getInputStart().getValue(),
-                                cb.getInputEnd().getValue()};
-                        windows.add(window);
-                        Integer[] rgba = new Integer[] {
-                                cb.getRed().getValue(),
-                                cb.getGreen().getValue(),
-                                cb.getBlue().getValue(),
-                                cb.getAlpha().getValue()};
-                        colors.add(rgba);
-                    }
-                }
-            }
-            if (channels.size() > 0) {
-                log.info("Updating rendering settings from user settings");
-                updateSettingsIntColors(
-                        renderer, channels, windows, colors, null,
-                        renderingModels, "rgb");
-                return;
-            }
-        } catch (ServerError e) {
-            log.error("Error getting rendering setttings from server", e);
-        }
-
-        //If not, load rendering settings from NGFF Metadata
-        List<Integer> channels = new ArrayList<Integer>();
-        List<Double[]> windows = new ArrayList<Double[]>();
-        List<Color> colors = new ArrayList<Color>();
-        JsonObject omeroMetadata = ngffUtils.getOmeroMetadata(
-                ngffDir, pixels.getImage().getFileset().getId(),
-                pixels.getImage().getSeries());
-        if (omeroMetadata != null) {
-            channels.clear();
-            windows.clear();
-            colors.clear();
-            JsonArray ngffChannels = omeroMetadata.getJsonArray("channels");
-            for (int i = 0; i < ngffChannels.size(); i++) {
-                JsonObject channelInfo = ngffChannels.getJsonObject(i);
-                if (channelInfo.getBoolean("active")) {
-                    channels.add(i+1);
-                    JsonObject window = channelInfo.getJsonObject("window");
-                    windows.add(new Double[] {
-                            Double.valueOf(window.getFloat("start")),
-                            Double.valueOf(window.getFloat("end"))});
-                    colors.add(ImageRegionCtx.splitHTMLColor(
-                            channelInfo.getString("color")));
-                }
-            }
-        } else {
-            throw new IllegalArgumentException(String.format(
-                    "NGFF Fileset %d missing omero metadata",
-                    pixels.getImage().getFileset().getId()));
-        }
-        log.info("Updating rendering settings from NGFF metadata");
-        updateSettings(
-                renderer, channels, windows, colors, null,
-                renderingModels, "rgb");
-    }
-
-    /**
-     * Renders the thumbail as a jpeg
-     * @param renderer fully initialized renderer
-     * @param sizeX X size of the image (not final thumbnail)
-     * @param sizeY Y size of the image (not final thumbnail)
-     * @param pixels pixels metadata
-     * @param planeDef plane definition to use for rendering
-     * @return
-     * @throws ServerError
-     * @throws IOException
-     * @throws QuantizationException
-     */
-    private byte[] render(
-            Renderer renderer, Integer sizeX, Integer sizeY,
-            Pixels pixels, PlaneDef planeDef)
-                    throws ServerError, IOException, QuantizationException {
-        checkPlaneDef(sizeX, sizeY, planeDef);
-
-        Tracer tracer = Tracing.currentTracer();
-        ScopedSpan span1 = tracer.startScopedSpan("render_as_packed_int");
-        span1.tag("omero.pixels_id", pixels.getId().toString());
-        int[] buf;
-        try {
-            PixelBuffer newBuffer = null;
-            buf =  renderer.renderAsPackedInt(planeDef, newBuffer);
-        } finally {
-            span1.tag("omero.rendering_stats", renderer.getStats().getStats());
-            span1.finish();
-        }
-
-        RegionDef region = planeDef.getRegion();
-        sizeX = region != null? region.getWidth() : pixels.getSizeX();
-        sizeY = region != null? region.getHeight() : pixels.getSizeY();
-        BufferedImage image = ImageUtil.createBufferedImage(
-            buf, sizeX, sizeY
-        );
-        Integer sizeToScale = sizeX > sizeY ? sizeX : sizeY;
-        float scale = ((float) longestSide) / ((float) sizeToScale);
-        image = iScale.scaleBufferedImage(image, scale, scale);
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        compressionSrv.compressToStream(image, output);
-        return output.toByteArray();
-    }
-
-    /**
-     * Calculate the first resolution level larger than the thumbnail
+     * Apply the first resolution level larger than the thumbnail
      * @param resolutionDescriptions
      * @return
      */
-    private int getResolutionForThumbnail(
-            List<List<Integer>> rds) {
+    @Override
+    protected void setResolutionLevel(
+            Renderer renderer, PixelBuffer pixelBuffer) {
+        List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
+       
         int resolutionLevel = 0;
         for (; resolutionLevel < rds.size(); resolutionLevel++) {
-            if (rds.get(resolutionLevel).get(0) < longestSide
-                && rds.get(resolutionLevel).get(1) < longestSide) {
+            if (rds.get(resolutionLevel).get(0) < thumbnailCtx.longestSide
+                && rds.get(resolutionLevel).get(1) < thumbnailCtx.longestSide) {
                 break;
             }
         }
@@ -481,7 +204,7 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
             throw new IllegalArgumentException(
                     "longestSide exceeds image size");
         }
-        return resolutionLevel;
+        renderer.setResolutionLevel(resolutionLevel);
     }
 
     /**
@@ -489,22 +212,19 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
      * @return JPEG thumbnail byte array.
      */
     public byte[] renderThumbnail(omero.client client) {
-        log.info("renderThumbnail");
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
-            long userId = sf.getAdminService().getEventContext().userId;
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, thumbnailCtx.imageId);
+                    iQuery, thumbnailCtx.imageIds.get(0));
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(
-                    iQuery, iPixels, pixelsIdAndSeries, userId,
-                    this.renderingDefId);
+                    iQuery, iPixels, pixelsIdAndSeries);
             }
-            log.debug("Cannot find Image:{}", thumbnailCtx.imageId);
+            log.debug("Cannot find Image:{}", thumbnailCtx.imageIds.get(0));
         } catch (Exception e) {
             span.error(e);
             log.error("Exception while retrieving image region", e);
@@ -570,75 +290,6 @@ public class ThumbnailsRequestHandler extends OmeroRenderingRequestHandler {
 
                 idx += 1;
             }
-        }
-        for (RenderingModel renderingModel : renderingModels) {
-            if (colorMode.equals(renderingModel.getValue())) {
-                renderer.setModel(renderingModel);
-                break;
-            }
-        }
-    }
-
-
-
-    /**
-     * Update settings on the rendering engine based on the current context.
-     * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
-     * @throws ServerError
-     */
-    public void updateSettings(Renderer renderer,
-            List<Integer> channels,
-            List<Double[]> windows,
-            List<Color> colors,
-            List<Map<String, Map<String, Object>>> maps,
-            List<RenderingModel> renderingModels,
-            String colorMode) {
-        log.debug("Setting active channels");
-        int idx = 0; // index of windows/colors args
-        for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
-            log.debug("Setting for channel {}", c);
-            boolean isActive = channels.contains(c + 1);
-            log.debug("\tChannel active {}", isActive);
-            renderer.setActive(c, isActive);
-
-            if (isActive) {
-                if (windows != null) {
-                    double min = windows.get(idx)[0];
-                    double max = windows.get(idx)[1];
-                    log.debug("\tMin-Max: [{}, {}]", min, max);
-                    renderer.setChannelWindow(c, min, max);
-                }
-                if (colors != null) {
-                    Color color = colors.get(idx);
-                    renderer.setRGBA(c, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
-                    log.debug("\tColor: [{}, {}, {}, {}]",
-                            color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
-                }
-                if (maps != null) {
-                    if (c < maps.size()) {
-                        Map<String, Map<String, Object>> map =
-                                maps.get(c);
-                        if (map != null) {
-                            if (map.containsKey("quantization")) {
-                                updateQuantization(renderer, families, c, map);
-                            }
-                            Map<String, Object> reverse = map.get("reverse");
-                            if (reverse == null) {
-                                reverse = map.get("inverted");
-                            }
-                            if (reverse != null
-                                && Boolean.TRUE.equals(reverse.get("enabled"))) {
-                                renderer.getCodomainChain(c).add(
-                                        new ReverseIntensityContext());
-                            }
-                        }
-                    }
-                }
-            }
-
-            idx += 1;
         }
         for (RenderingModel renderingModel : renderingModels) {
             if (colorMode.equals(renderingModel.getValue())) {

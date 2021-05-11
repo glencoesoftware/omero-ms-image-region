@@ -18,12 +18,10 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.ArrayList;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
@@ -40,7 +38,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
@@ -84,6 +81,9 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
     /** Reference to the compression service */
     private final LocalCompress compressionService;
 
+    /** Configured maximum size size in either dimension */
+    private final int maxTileLength;
+
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
@@ -110,16 +110,19 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
      * @param lutProvider Lookup table provider
      * @param ngffUtils Configured NgffUtils instance
      */
-    public ThumbnailVerticle(IScale iScale,
-            PixelsService pixelsService,
+    public ThumbnailVerticle(
             LocalCompress compressionService,
             LutProvider lutProvider,
-            OmeroZarrUtils zarrUtils) {
-        this.iScale = iScale;
-        this.pixelsService = pixelsService;
+            int maxTileLength,
+            PixelsService pixelsService,
+            OmeroZarrUtils zarrUtils,
+            IScale iScale) {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
+        this.maxTileLength = maxTileLength;
+        this.pixelsService = pixelsService;
         this.zarrUtils = zarrUtils;
+        this.iScale = iScale;
     }
 
     /* (non-Javadoc)
@@ -169,13 +172,8 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                 "render_thumbnail",
                 extractor().extract(thumbnailCtx.traceContext).context());
         String omeroSessionKey = thumbnailCtx.omeroSessionKey;
-        int longestSide = thumbnailCtx.longestSide;
-        long imageId = thumbnailCtx.imageId;
-        Optional<Long> renderingDefId =
-                Optional.ofNullable(thumbnailCtx.renderingDefId);
         log.debug(
-            "Render thumbnail request Image:{} longest side {} RenderingDef:{}",
-            imageId, longestSide, renderingDefId.orElse(null));
+            "Render thumbnail request: {}", thumbnailCtx.toString());
 
         try (OmeroRequest request = new OmeroRequest(
                  host, port, omeroSessionKey)) {
@@ -185,23 +183,21 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            List<Long> imageIds = new ArrayList<Long>();
-            imageIds.add(imageId);
             byte[] thumbnail = request.execute(
-                new ThumbnailsRequestHandler(thumbnailCtx,
-                        compressionService,
+                new ThumbnailsRequestHandler(
+                        thumbnailCtx,
                         families,
                         renderingModels,
                         lutProvider,
+                        compressionService,
+                        maxTileLength,
                         pixelsService,
-                        iScale,
-                        zarrUtils,
                         ngffDir,
-                        longestSide,
-                        imageIds,
-                        renderingDefId)::renderThumbnail);
+                        zarrUtils,
+                        iScale)::renderThumbnail);
             if (thumbnail == null) {
-                message.fail(404, "Cannot find Image:" + imageId);
+                message.fail(
+                        404, "Cannot find Images:" + thumbnailCtx.imageIds);
             } else {
                 message.reply(thumbnail);
             }
@@ -244,15 +240,7 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                 "get_thumbnails",
                 extractor().extract(thumbnailCtx.traceContext).context());
         String omeroSessionKey = thumbnailCtx.omeroSessionKey;
-        int longestSide = thumbnailCtx.longestSide;
-        JsonArray imageIdsJson = new JsonArray(thumbnailCtx.imageIds);
-        List<Long> imageIds = new ArrayList<Long>();
-        for (int i = 0; i < imageIdsJson.size(); i++) {
-            imageIds.add(imageIdsJson.getLong(i));
-        }
-        log.debug(
-            "Render thumbnail request ImageIds:{} longest side {}",
-            imageIds, longestSide);
+        log.debug("Render thumbnail request: {}", thumbnailCtx.toString());
 
         try (OmeroRequest request = new OmeroRequest(
                 host, port, omeroSessionKey)) {
@@ -263,18 +251,17 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
                 request.execute(this::updateRenderingModels);
             }
             Map<Long, byte[]> thumbnails = request.execute(
-                    new ThumbnailsRequestHandler(thumbnailCtx,
-                            compressionService,
+                    new ThumbnailsRequestHandler(
+                            thumbnailCtx,
                             families,
                             renderingModels,
                             lutProvider,
+                            compressionService,
+                            maxTileLength,
                             pixelsService,
-                            iScale,
+                            ngffDir,
                             zarrUtils,
-                            omeroSessionKey,
-                            longestSide,
-                            imageIds,
-                            Optional.empty())::renderThumbnails);
+                            iScale)::renderThumbnails);
 
             if (thumbnails == null) {
                 message.fail(404, "Cannot find one or more Images");
