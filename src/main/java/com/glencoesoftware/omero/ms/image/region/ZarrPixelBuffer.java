@@ -438,7 +438,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
         List<List<Integer>> resolutionDescriptions =
                 new ArrayList<List<Integer>>();
         int originalResolution = resolutionLevel;
-        for (int i = 0; i < resolutionLevels; i++) {
+        for (int i = resolutionLevels - 1; i >= 0; i--) {
             this.resolutionLevel = i;
             List<Integer> description = new ArrayList<Integer>();
             Integer[] xy = zarrUtils.getSizeXandY(
