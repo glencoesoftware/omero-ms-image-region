@@ -130,8 +130,6 @@ public class ThumbnailVerticle extends OmeroMsAbstractVerticle {
      */
     @Override
     public void start() {
-        log.info("Starting verticle");
-
         JsonObject omero = config().getJsonObject("omero");
         if (omero == null) {
             throw new IllegalArgumentException(
