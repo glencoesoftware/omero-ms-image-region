@@ -31,7 +31,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
-import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
