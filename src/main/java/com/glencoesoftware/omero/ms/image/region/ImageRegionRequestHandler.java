@@ -48,6 +48,7 @@ import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
+import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
@@ -137,13 +138,6 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
         imageRegionCtx.updateSettings(renderer, families, renderingModels);
     }
 
-    protected void setResolutionLevel(
-            Renderer renderer, PixelBuffer pixelBuffer) {
-        int countResolutionLevels = pixelBuffer.getResolutionLevels();
-        imageRegionCtx.setResolutionLevel(
-                renderer, countResolutionLevels);
-    }
-
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
@@ -165,17 +159,21 @@ public class ImageRegionRequestHandler extends OmeroRenderingRequestHandler {
                 pixelsIdAndSeries, mapper, iPixels, iQuery);
         QuantumFactory quantumFactory = new QuantumFactory(families);
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+            RenderingDef rDef = getRenderingDef(iPixels, pixels.getId());
             Renderer renderer = new Renderer(
-                quantumFactory, renderingModels,
-                pixels, getRenderingDef(iPixels, pixels.getId()),
+                quantumFactory, renderingModels, pixels, rDef,
                 pixelBuffer, lutProvider
             );
-            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, imageRegionCtx.t);
-            planeDef.setZ(imageRegionCtx.z);
+            int t = Optional.ofNullable(imageRegionCtx.t)
+                    .orElse(rDef.getDefaultT());
+            int z = Optional.ofNullable(imageRegionCtx.z)
+                    .orElse(rDef.getDefaultZ());
+            PlaneDef planeDef = new PlaneDef(PlaneDef.XY, t);
+            planeDef.setZ(z);
 
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
-            setResolutionLevel(renderer, pixelBuffer);
+            imageRegionCtx.setResolutionLevel(renderer, pixelBuffer);
             Integer sizeX = pixels.getSizeX();
             Integer sizeY = pixels.getSizeY();
             planeDef.setRegion(getRegionDef(sizeX, sizeY, pixelBuffer));

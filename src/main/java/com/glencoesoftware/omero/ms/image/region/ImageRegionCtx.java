@@ -30,6 +30,7 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
@@ -515,13 +516,10 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /**
      * Sets the pyramid resolution level on the <code>renderingEngine</code>
      * @param renderer fully initialized renderer
-     * @param resolutionLevels complete definition of all resolution levels for
-     * the image.
-     * @throws ServerError
+     * @param pixelBuffer pixel buffer providing data for the image
      */
-    public void setResolutionLevel(
-            Renderer renderer,
-            Integer resolutionLevelCount) {
+    public void setResolutionLevel(Renderer renderer, PixelBuffer pixelBuffer) {
+        int resolutionLevelCount = pixelBuffer.getResolutionLevels();
         log.debug("Number of available resolution levels: {}",
                 resolutionLevelCount);
 

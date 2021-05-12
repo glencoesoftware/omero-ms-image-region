@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.slf4j.LoggerFactory;
 
 import io.vertx.core.MultiMap;
+import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.Renderer;
@@ -74,6 +75,34 @@ public class ThumbnailCtx extends ImageRegionCtx {
 
         this.renderingDefId = Optional.ofNullable(params.get("rdefId"))
                 .map(Long::parseLong).orElse(null);
+    }
+
+    /**
+     * Apply the first resolution level larger than the thumbnail
+     * @param resolutionDescriptions
+     * @return
+     */
+    @Override
+    public void setResolutionLevel(
+            Renderer renderer, PixelBuffer pixelBuffer) {
+        List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
+        int resolutionLevelCount = rds.size();
+
+        int resolutionLevel = 0;
+        for (; resolutionLevel < rds.size(); resolutionLevel++) {
+            if (rds.get(resolutionLevel).get(0) < longestSide
+                && rds.get(resolutionLevel).get(1) < longestSide) {
+                break;
+            }
+        }
+        resolutionLevel -= 1;
+        if (resolutionLevel < 0) {
+            throw new IllegalArgumentException(
+                    "longestSide exceeds image size");
+        }
+        resolutionLevel = resolutionLevelCount - resolutionLevel - 1;
+        log.debug("Selected resolution level: {}", resolutionLevel);
+        renderer.setResolutionLevel(resolutionLevel);
     }
 
     @Override
