@@ -34,7 +34,6 @@ import io.vertx.core.http.CaseInsensitiveHeaders;
 import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 
 import omero.ServerError;
