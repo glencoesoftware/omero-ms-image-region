@@ -183,31 +183,6 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     }
 
     /**
-     * Apply the first resolution level larger than the thumbnail
-     * @param resolutionDescriptions
-     * @return
-     */
-    @Override
-    protected void setResolutionLevel(
-            Renderer renderer, PixelBuffer pixelBuffer) {
-        List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
-       
-        int resolutionLevel = 0;
-        for (; resolutionLevel < rds.size(); resolutionLevel++) {
-            if (rds.get(resolutionLevel).get(0) < thumbnailCtx.longestSide
-                && rds.get(resolutionLevel).get(1) < thumbnailCtx.longestSide) {
-                break;
-            }
-        }
-        resolutionLevel -= 1;
-        if (resolutionLevel < 0) {
-            throw new IllegalArgumentException(
-                    "longestSide exceeds image size");
-        }
-        renderer.setResolutionLevel(resolutionLevel);
-    }
-
-    /**
      * Retrieves a JPEG thumbnail from the server.
      * @return JPEG thumbnail byte array.
      */
@@ -220,6 +195,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                     iQuery, thumbnailCtx.imageIds.get(0));
+            thumbnailCtx.format = "jpeg";
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(
                     iQuery, iPixels, pixelsIdAndSeries);
