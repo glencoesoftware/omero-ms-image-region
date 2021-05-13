@@ -18,7 +18,9 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import ome.api.local.LocalCompress;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.util.ImageUtil;
 import omeis.providers.re.lut.LutProvider;
 import omero.RType;
 import omero.ServerError;
@@ -42,6 +45,7 @@ import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
 import omero.sys.ParametersI;
+import ucar.ma2.Array;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 
 public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
@@ -49,7 +53,11 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailsRequestHandler.class);
 
-    ThumbnailCtx thumbnailCtx;
+    /** Current thumbanil rendering context */
+    private final ThumbnailCtx thumbnailCtx;
+
+    /** Image scaling service */
+    private final IScale iScale;
 
     /**
      * Default constructor
@@ -87,6 +95,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 ngffDir,
                 zarrUtils);
         this.thumbnailCtx = thumbnailCtx;
+        this.iScale = iScale;
     }
 
     /**
@@ -195,8 +204,15 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                     iQuery, thumbnailCtx.imageIds.get(0));
             thumbnailCtx.format = "jpeg";
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(
-                    iQuery, iPixels, pixelsIdAndSeries);
+                Pixels pixels = retrievePixDescription(
+                        pixelsIdAndSeries, mapper, iPixels, iQuery);
+                Array array = render(pixels, iPixels);
+                int[] shape = array.getShape();
+                BufferedImage image = ImageUtil.createBufferedImage(
+                        (int[]) array.getStorage(), shape[1], shape[0]);
+                int longestSide = Arrays.stream(shape).max().getAsInt();
+                float scale = (float) thumbnailCtx.longestSide / longestSide;
+                return compress(iScale.scaleBufferedImage(image, scale, scale));
             }
             log.debug("Cannot find Image:{}", thumbnailCtx.imageIds.get(0));
         } catch (Exception e) {
