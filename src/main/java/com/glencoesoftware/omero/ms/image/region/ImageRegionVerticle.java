@@ -21,6 +21,7 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
@@ -31,14 +32,17 @@ import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
+import IceUtilInternal.Base64;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
@@ -53,6 +57,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     public static final String RENDER_IMAGE_REGION_EVENT =
             "omero.render_image_region";
+
+    public static final String RENDER_THUMBNAIL_EVENT =
+            "omero.render_thumbnail";
+
+    public static final String GET_THUMBNAILS_EVENT =
+            "omero.get_thumbnails";
 
     /** OMERO server host */
     private String host;
@@ -86,6 +96,11 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Configured OmeroZarrUtils */
     private final OmeroZarrUtils zarrUtils;
 
+    /** Scaling service for thumbnails */
+    private final IScale iScale;
+
+    private String ngffDir;
+
     /**
      * Default constructor.
      */
@@ -94,13 +109,15 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LutProvider lutProvider,
             int maxTileLength,
             PixelsService pixelsService,
-            OmeroZarrUtils zarrUtils)
+            OmeroZarrUtils zarrUtils,
+            IScale iScale)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.pixelsService = pixelsService;
         this.zarrUtils = zarrUtils;
+        this.iScale = iScale;
     }
 
     /* (non-Javadoc)
@@ -116,10 +133,16 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             }
             host = omero.getString("host");
             port = omero.getInteger("port");
+            ngffDir = config().getJsonObject("omero.server")
+                    .getString("omero.ngff.dir");
             vertx.eventBus().<String>consumer(
                     RENDER_IMAGE_REGION_EVENT, event -> {
                         renderImageRegion(event);
                     });
+            vertx.eventBus().<String>consumer(
+                    RENDER_THUMBNAIL_EVENT, this::renderThumbnail);
+            vertx.eventBus().<String>consumer(
+                    GET_THUMBNAILS_EVENT, this::getThumbnails);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -198,6 +221,147 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             log.error(v, e);
             span.error(e);
             message.fail(500, v);
+        }
+    }
+
+    /**
+     * Render thumbnail event handler. Responds with a <code>image/jpeg</code>
+     * body on success or a failure.
+     * @param message JSON encoded event data. Required keys are
+     * <code>omeroSessionKey</code> (String), <code>longestSide</code>
+     * (Integer), and <code>imageId</code> (Long).
+     */
+    private void renderThumbnail(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        ThumbnailCtx thumbnailCtx;
+        log.info(message.body());
+        try {
+            thumbnailCtx = mapper.readValue(message.body(), ThumbnailCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal tile context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "render_thumbnail",
+                extractor().extract(thumbnailCtx.traceContext).context());
+        String omeroSessionKey = thumbnailCtx.omeroSessionKey;
+        log.debug(
+            "Render thumbnail request: {}", thumbnailCtx.toString());
+
+        try (OmeroRequest request = new OmeroRequest(
+                 host, port, omeroSessionKey)) {
+            if (families == null) {
+                request.execute(this::updateFamilies);
+            }
+            if (renderingModels == null) {
+                request.execute(this::updateRenderingModels);
+            }
+            byte[] thumbnail = request.execute(
+                new ThumbnailsRequestHandler(
+                        thumbnailCtx,
+                        families,
+                        renderingModels,
+                        lutProvider,
+                        compressionService,
+                        maxTileLength,
+                        pixelsService,
+                        ngffDir,
+                        zarrUtils,
+                        iScale)::renderThumbnail);
+            if (thumbnail == null) {
+                message.fail(
+                        404, "Cannot find Images:" + thumbnailCtx.imageIds);
+            } else {
+                message.reply(thumbnail);
+            }
+        } catch (PermissionDeniedException
+                 | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while retrieving thumbnail";
+            log.error(v, e);
+            message.fail(500, v);
+        } finally {
+            span.finish();
+        }
+    }
+
+    /**
+     * Get thumbnails event handler. Responds with a JSON dictionary of Base64
+     * encoded <code>image/jpeg</code> thumbnails keyed by {@link Image}
+     * identifier. Each dictionary value is prefixed with
+     * <code>data:image/jpeg;base64,</code> so that it can be used with
+     * <a href="http://caniuse.com/#feat=datauri">data URIs</a>.
+     * @param message JSON encoded event data. Required keys are
+     * <code>omeroSessionKey</code> (String), <code>longestSide</code>
+     * (Integer), and <code>imageIds</code> (List<Long>).
+     */
+    private void getThumbnails(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        ThumbnailCtx thumbnailCtx;
+        try {
+            thumbnailCtx = mapper.readValue(message.body(), ThumbnailCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal tile context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_thumbnails",
+                extractor().extract(thumbnailCtx.traceContext).context());
+        String omeroSessionKey = thumbnailCtx.omeroSessionKey;
+        log.debug("Render thumbnail request: {}", thumbnailCtx.toString());
+
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, omeroSessionKey)) {
+            if (families == null) {
+                request.execute(this::updateFamilies);
+            }
+            if (renderingModels == null) {
+                request.execute(this::updateRenderingModels);
+            }
+            Map<Long, byte[]> thumbnails = request.execute(
+                    new ThumbnailsRequestHandler(
+                            thumbnailCtx,
+                            families,
+                            renderingModels,
+                            lutProvider,
+                            compressionService,
+                            maxTileLength,
+                            pixelsService,
+                            ngffDir,
+                            zarrUtils,
+                            iScale)::renderThumbnails);
+
+            if (thumbnails == null) {
+                message.fail(404, "Cannot find one or more Images");
+            } else {
+                Map<Long, String> thumbnailsJson = new HashMap<Long, String>();
+                for (Entry<Long, byte[]> v : thumbnails.entrySet()) {
+                    thumbnailsJson.put(
+                        v.getKey(),
+                        "data:image/jpeg;base64," + Base64.encode(v.getValue())
+                    );
+                }
+                message.reply(Json.encode(thumbnailsJson));
+            }
+        } catch (PermissionDeniedException
+                 | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while retrieving thumbnail";
+            log.error(v, e);
+            message.fail(500, v);
+        } finally {
+            span.finish();
         }
     }
 

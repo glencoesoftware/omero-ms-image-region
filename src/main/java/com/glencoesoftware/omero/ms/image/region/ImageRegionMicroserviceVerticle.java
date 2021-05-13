@@ -244,13 +244,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setWorkerPoolName("render-shape-mask-pool")
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
-        vertx.deployVerticle("omero:omero-ms-thumbnail-verticle",
-                new DeploymentOptions()
-                        .setWorker(true)
-                        .setInstances(workerPoolSize)
-                        .setWorkerPoolName("thumbnail-pool")
-                        .setWorkerPoolSize(workerPoolSize)
-                        .setConfig(config));
 
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxInitialLineLength(config.getInteger(
@@ -690,7 +683,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         thumbnailCtx.injectCurrentTraceContext();
         vertx.eventBus().<byte[]>request(
-                ThumbnailVerticle.RENDER_THUMBNAIL_EVENT,
+                ImageRegionVerticle.RENDER_THUMBNAIL_EVENT,
                 Json.encode(thumbnailCtx), result -> {
             try {
                 if (handleResultFailed(result, response)) {
@@ -736,7 +729,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         thumbnailCtx.injectCurrentTraceContext();
 
         vertx.eventBus().<String>request(
-                ThumbnailVerticle.GET_THUMBNAILS_EVENT,
+                ImageRegionVerticle.GET_THUMBNAILS_EVENT,
                 Json.encode(thumbnailCtx), result -> {
             try {
                 if (handleResultFailed(result, response)) {
