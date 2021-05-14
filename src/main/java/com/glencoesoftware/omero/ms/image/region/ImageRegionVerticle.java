@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,6 @@ import com.glencoesoftware.omero.ms.core.OmeroRequest;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
-import IceUtilInternal.Base64;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
@@ -344,9 +344,10 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             } else {
                 Map<Long, String> thumbnailsJson = new HashMap<Long, String>();
                 for (Entry<Long, byte[]> v : thumbnails.entrySet()) {
+                    String asBase64 =
+                            Base64.getEncoder().encodeToString(v.getValue());
                     thumbnailsJson.put(
-                        v.getKey(),
-                        "data:image/jpeg;base64," + Base64.encode(v.getValue())
+                        v.getKey(), "data:image/jpeg;base64," + asBase64
                     );
                 }
                 message.reply(Json.encode(thumbnailsJson));
