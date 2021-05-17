@@ -72,21 +72,6 @@ public class PixelsService extends ome.io.nio.PixelsService {
     }
 
     /**
-     * Returns a ZarrPixelBuffer for a given set of pixels.
-     * @param pixels Pixels set to retrieve a pixel buffer for.
-     * @param write Whether or not to open the pixel buffer as read-write.
-     * <code>true</code> opens as read-write, <code>false</code> opens as
-     * read-only.
-     * @return A pixel buffer instance.
-     */
-    public PixelBuffer getZarrPixelBuffer(
-            Pixels pixels, String ngffDir, OmeroZarrUtils zarrUtils) {
-        log.info("Creating ZarrPixelBuffer");
-        return new ZarrPixelBuffer(
-            pixels, ngffDir, pixels.getImage().getFileset().getId(), zarrUtils);
-    }
-
-    /**
      * Get a ZarrPixelBuffer if possible
      * @param pixels Pixels set to retrieve a pixel buffer for.
      * @param ngffDir Top-level directory containing NGFF files
