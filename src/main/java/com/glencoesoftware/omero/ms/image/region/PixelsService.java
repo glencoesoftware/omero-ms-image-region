@@ -22,6 +22,8 @@ import java.io.File;
 
 import org.slf4j.LoggerFactory;
 
+import com.google.api.client.util.Strings;
+
 import ome.api.IQuery;
 import ome.io.nio.BackOff;
 import ome.io.nio.FilePathResolver;
@@ -39,12 +41,21 @@ public class PixelsService extends ome.io.nio.PixelsService {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
+    /** NGFF directory root */
+    private final String ngffDir;
+
+    /** Zarr utility infrastructure */
+    private final OmeroZarrUtils zarrUtils;
+
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
-            BackOff backOff, TileSizes sizes, IQuery iQuery) {
+            BackOff backOff, TileSizes sizes, IQuery iQuery, String ngffDir,
+            OmeroZarrUtils zarrUtils) {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
+        this.ngffDir = ngffDir;
+        this.zarrUtils = zarrUtils;
         log.info("Using image region PixelsService");
     }
 
@@ -54,8 +65,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
     }
 
     /**
-     * Returns a pixel buffer for a given set of pixels. Either a proprietary
-     * ROMIO pixel buffer or a specific pixel buffer implementation.
+     * Returns a pixel buffer for a given set of pixels. Either n NGFF pixel
+     * buffer, a proprietary ROMIO pixel buffer or a specific pixel buffer
+     * implementation.
      * @param pixels Pixels set to retrieve a pixel buffer for.
      * @param write Whether or not to open the pixel buffer as read-write.
      * <code>true</code> opens as read-write, <code>false</code> opens as
@@ -64,30 +76,19 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write)
     {
-        PixelBuffer pb = _getPixelBuffer(pixels, write);
-        if (log.isDebugEnabled()) {
-            log.debug(pb +" for " + pixels);
+        if (!Strings.isNullOrEmpty(ngffDir)) {
+            try {
+                return new ZarrPixelBuffer(
+                        pixels, ngffDir, pixels.getImage().getFileset().getId(),
+                        zarrUtils);
+            } catch(Exception e) {
+                log.info(
+                    "Getting NGFF Pixel Buffer failed - " +
+                    "attempting to get local data");
+            }
         }
-        return pb;
+        return _getPixelBuffer(pixels, write);
     }
 
-    /**
-     * Get a ZarrPixelBuffer if possible
-     * @param pixels Pixels set to retrieve a pixel buffer for.
-     * @param ngffDir Top-level directory containing NGFF files
-     * @param zarrUtils Configured OmeroZarrUtils
-     * @return ZarrPixelBuffer
-     */
-    public PixelBuffer getNgffPixelBuffer(
-            Pixels pixels, String ngffDir,
-            OmeroZarrUtils zarrUtils) {
-        if (ngffDir != null && ngffDir.equals("")) {
-            log.info("Missing ngff dir config");
-            return null;
-        }
-            return new ZarrPixelBuffer(
-                pixels, ngffDir, pixels.getImage().getFileset().getId(),
-                zarrUtils);
-    }
 }
 

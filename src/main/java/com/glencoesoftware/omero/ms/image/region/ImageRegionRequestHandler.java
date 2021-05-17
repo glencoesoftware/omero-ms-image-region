@@ -175,37 +175,6 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-    *
-    * @param pixelsService Configured PixelsService
-    * @param pixels Pixels set to retrieve a pixel buffer for.
-    * @param ngffDir Top-level directory containing NGFF files
-    * @param zarrUtils Configured OmeroZarrUtils
-    * @return NGFF or standard PixelBuffer
-    */
-    public PixelBuffer getPixelBuffer(Pixels pixels) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_buffer");
-        span.tag("omero.pixels_id", pixels.getId().toString());
-        PixelBuffer pb = null;
-        try {
-            try {
-                pb = pixelsService.getNgffPixelBuffer(
-                        pixels, ngffDir, zarrUtils);
-            } catch(Exception e) {
-                log.info(
-                    "Getting NGFF Pixel Buffer failed - " +
-                    "attempting to get local data");
-            }
-            if (pb == null) {
-                pb = pixelsService.getPixelBuffer(pixels, false);
-            }
-            return pb;
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
      * Get Pixels information from ID
      * @param pixelsIdAndSeries ID and Series for this Pixels object
      * @param mapper IceMapper
@@ -425,7 +394,7 @@ public class ImageRegionRequestHandler {
         int projectedSizeC = 0;
         ChannelBinding[] channelBindings =
                 renderer.getChannelBindings();
-        PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+        PixelBuffer pixelBuffer = pixelsService.getPixelBuffer(pixels, false);
         int start = Optional
                 .ofNullable(imageRegionCtx.projectionStart)
                 .orElse(0);
@@ -498,7 +467,8 @@ public class ImageRegionRequestHandler {
         ScopedSpan span = tracer.startScopedSpan("render_as_packed_int");
         span.tag("omero.pixels_id", pixels.getId().toString());
         Renderer renderer = null;
-        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
+        try (PixelBuffer pixelBuffer =
+                pixelsService.getPixelBuffer(pixels, false)) {
             RenderingDef rDef = getRenderingDef(iPixels, pixels.getId());
             renderer = new Renderer(
                 quantumFactory, renderingModels, pixels, rDef,
