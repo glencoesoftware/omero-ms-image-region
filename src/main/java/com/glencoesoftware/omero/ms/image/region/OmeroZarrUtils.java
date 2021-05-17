@@ -495,9 +495,8 @@ public class OmeroZarrUtils {
                     .resolve(Long.toString(filesetId) + ZARR_EXTN)
                     .resolve(Integer.toString(series));
             int count = 0;
-            try {
-                DirectoryStream<Path> stream =
-                        Files.newDirectoryStream(zarrSeriesPath);
+            try (DirectoryStream<Path> stream =
+                        Files.newDirectoryStream(zarrSeriesPath)) {
                 for (Path entry : stream) {
                     try {
                         Integer.parseInt(entry.getFileName().toString());
