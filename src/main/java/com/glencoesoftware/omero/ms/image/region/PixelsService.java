@@ -19,10 +19,10 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
+import java.net.URI;
+import java.nio.file.Paths;
 
 import org.slf4j.LoggerFactory;
-
-import com.google.api.client.util.Strings;
 
 import ome.api.IQuery;
 import ome.io.nio.BackOff;
@@ -42,21 +42,33 @@ public class PixelsService extends ome.io.nio.PixelsService {
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
     /** NGFF directory root */
-    private final String ngffDir;
+    private final URI ngffDir;
 
-    /** Zarr utility infrastructure */
-    private final OmeroZarrUtils zarrUtils;
+    /** Max Tile Length */
+    private final Integer maxTileLength;
 
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
             BackOff backOff, TileSizes sizes, IQuery iQuery, String ngffDir,
-            OmeroZarrUtils zarrUtils) {
+            Integer maxTileLength) {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
-        this.ngffDir = ngffDir;
-        this.zarrUtils = zarrUtils;
+        this.ngffDir = asUri(ngffDir);
+        this.maxTileLength = maxTileLength;
         log.info("Using image region PixelsService");
+    }
+
+    private URI asUri(String ngffDir) {
+        try {
+            URI asUri = new URI(ngffDir);
+            if ("s3".equals(this.ngffDir.getScheme())) {
+                return asUri;
+            }
+        } catch (Exception e) {
+            // Fall through
+        }
+        return Paths.get(ngffDir).toUri();
     }
 
     @Override
@@ -74,17 +86,20 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * read-only.
      * @return A pixel buffer instance.
      */
-    public PixelBuffer getPixelBuffer(Pixels pixels, boolean write)
-    {
-        if (!Strings.isNullOrEmpty(ngffDir)) {
+    public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
+        if (!ngffDir.getPath().isEmpty()) {
             try {
+                String subPath = String.format(
+                        "/%d.zarr/%d",
+                        pixels.getImage().getFileset().getId(),
+                        pixels.getImage().getSeries());
                 return new ZarrPixelBuffer(
-                        pixels, ngffDir, pixels.getImage().getFileset().getId(),
-                        zarrUtils);
-            } catch(Exception e) {
+                        pixels, ngffDir.resolve(ngffDir.getPath() + subPath),
+                        maxTileLength);
+            } catch (Exception e) {
                 log.info(
                     "Getting NGFF Pixel Buffer failed - " +
-                    "attempting to get local data");
+                    "attempting to get local data", e);
             }
         }
         return _getPixelBuffer(pixels, write);

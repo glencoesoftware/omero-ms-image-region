@@ -2,56 +2,160 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
+import org.slf4j.LoggerFactory;
+
+import com.bc.zarr.DataType;
+import com.bc.zarr.ZarrArray;
+import com.bc.zarr.ZarrGroup;
+
+import brave.ScopedSpan;
+import brave.Tracing;
+import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Pixels;
 import ome.util.PixelData;
+import ucar.ma2.InvalidRangeException;
 
 public class ZarrPixelBuffer implements PixelBuffer {
 
+    private static final org.slf4j.Logger log =
+            LoggerFactory.getLogger(PixelBuffer.class);
+
     /** The Pixels object represented by this PixelBuffer */
-    Pixels pixels;
+    private final Pixels pixels;
 
-    /** Top-level directory for NGFF files */
-    String ngffDir;
-
-    /** Fileset ID */
-    Long filesetId;
+    /** Root of the OME-NGFF multiscale we are operating on */
+    private final URI root;
 
     /** Requested resolution level */
-    int resolutionLevel;
+    private int resolutionLevel;
 
     /** Total number of resolution levels */
-    int resolutionLevels = -1;
+    private final int resolutionLevels;
 
-    /** For performing zarr operations */
-    OmeroZarrUtils zarrUtils;
+    /** Max tile length */
+    private final Integer maxTileLength;
+
+    /** Root group of the OME-NGFF multiscale we are operating on */
+    private final ZarrGroup rootGroup;
+
+    /** Zarr attributes present on the root group */
+    private final Map<String, Object> rootGroupAttributes;
+
+    /** Zarr array corresponding to the current resolution level */
+    private ZarrArray array;
 
     /**
      * Default constructor
      * @param pixels The Pixels object represented by this PixelBuffer
-     * @param ngffDir Top-level directory for NGFF files
+     * @param ngffDir Top-level location for NGFF files
      * @param filesetId Fileset ID
      * @param zarrUtils For performing zarr operations
+     * @throws IOException 
      */
-    public ZarrPixelBuffer(
-            Pixels pixels, String ngffDir, Long filesetId,
-            OmeroZarrUtils zarrUtils) {
+    public ZarrPixelBuffer(Pixels pixels, URI root, Integer maxTileLength)
+            throws IOException {
         this.pixels = pixels;
-        this.ngffDir = ngffDir;
-        this.filesetId = filesetId;
-        this.zarrUtils = zarrUtils;
+        this.root = root;
+        if ("s3".equals(root.getScheme())) {
+            // FIXME: Do something special?
+        }
+        rootGroup = ZarrGroup.open(Paths.get(root));
+        rootGroupAttributes = rootGroup.getAttributes();
+        if (!rootGroupAttributes.containsKey("multiscales")) {
+            throw new IllegalArgumentException("Missing multiscales metadata!");
+        }
         this.resolutionLevels = this.getResolutionLevels();
-        this.resolutionLevel = this.resolutionLevels - 1;
+        setResolutionLevel(this.resolutionLevels - 1);
         if (this.resolutionLevel < 0) {
             throw new IllegalArgumentException(
                     "This Zarr file has no pixel data");
+        }
+        this.maxTileLength = maxTileLength;
+    }
+
+    /**
+     * Get byte array from ZarrArray
+     * @param zarray The ZarrArray to get data from
+     * @param shape The shape of the region to retrieve
+     * @param offset The offset of the region
+     * @return byte array of data from the ZarrArray
+     */
+    private byte[] getBytes(int[] shape, int[] offset) {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_bytes_zarr");
+        if (shape[4] > maxTileLength) {
+            throw new IllegalArgumentException(String.format(
+                    "sizeX %d > maxTileLength %d", shape[4], maxTileLength));
+        }
+        if (shape[3] > maxTileLength) {
+            throw new IllegalArgumentException(String.format(
+                    "sizeX %d > maxTileLength %d", shape[3], maxTileLength));
+        }
+        try {
+            DataType type = array.getDataType();
+            int length = IntStream.of(shape).sum();
+            int bytesPerPixel = FormatTools.getBytesPerPixel(
+                    pixels.getPixelsType().getValue());
+            ByteBuffer asByteBuffer = ByteBuffer.allocate(
+                    length * bytesPerPixel);
+            switch (type) {
+                case u1:
+                case i1:
+                    return (byte[]) array.read(shape, offset);
+                case u2:
+                case i2:
+                {
+                    short[] data = (short[]) array.read(shape, offset);
+                    asByteBuffer.asShortBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case u4:
+                case i4:
+                {
+                    int[] data = (int[]) array.read(shape, offset);
+                    asByteBuffer.asIntBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case i8:
+                {
+                    long[] data = (long[]) array.read(shape, offset);
+                    asByteBuffer.asLongBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case f4:
+                {
+                    float[] data = (float[]) array.read(shape, offset);
+                    asByteBuffer.asFloatBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case f8:
+                {
+                    double[] data = (double[]) array.read(shape, offset);
+                    asByteBuffer.asDoubleBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                default:
+                    log.error("Unsupported data type" + type.toString());
+                    return null;
+            }
+        } catch (InvalidRangeException|IOException e) {
+            log.error("Error getting zarr PixelData", e);
+            return null;
+        } finally {
+            span.finish();
         }
     }
 
@@ -159,16 +263,23 @@ public class ZarrPixelBuffer implements PixelBuffer {
     @Override
     public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
             throws IOException {
-        StringBuffer domStrBuf = new StringBuffer();
-        domStrBuf.append("[")
-            .append(t).append(",")
-            .append(c).append(",")
-            .append(z).append(",")
-            .append(y).append(":").append(y + h).append(",")
-            .append(x).append(":").append(x + w).append("]");
-        return zarrUtils.getPixelData(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, domStrBuf.toString());
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_pixel_data_from_zarr");
+        try {
+            int[] shape = new int[] { 1, 1, 1, h, w };
+            int[] offsets = new int[] { t, c, z, y, x };
+            byte[] asArray = getBytes(shape, offsets);
+            PixelData d = new PixelData(
+                    pixels.getPixelsType().getValue(), ByteBuffer.wrap(asArray));
+            d.setOrder(ByteOrder.nativeOrder());
+            return d;
+        } catch (Exception e) {
+            log.error("Error while retrieving pixel data", e);
+            span.error(e);
+            return null;
+        } finally {
+            span.finish();
+        }
     }
 
     @Override
@@ -357,12 +468,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public String getPath() {
-        return Paths.get(ngffDir)
-            .resolve(
-                Long.toString(
-                    pixels.getImage().getFileset().getId()) + OmeroZarrUtils.ZARR_EXTN)
-            .resolve(Integer.toString(pixels.getImage().getSeries()))
-            .resolve(Integer.toString(resolutionLevel)).toString();
+        return root.toString();
     }
 
     @Override
@@ -373,47 +479,36 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getSizeX() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 4);
+        return array.getShape()[4];
     }
 
     @Override
     public int getSizeY() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 3);
+        return array.getShape()[3];
     }
 
     @Override
     public int getSizeZ() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 2);
+        return array.getShape()[2];
     }
 
     @Override
     public int getSizeC() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 1);
+        return array.getShape()[1];
     }
 
     @Override
     public int getSizeT() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 0);
+        return array.getShape()[0];
     }
 
     @Override
     public int getResolutionLevels() {
-        if (resolutionLevels < 0) {
-            return zarrUtils.getResolutionLevels(
-                    ngffDir, filesetId, pixels.getImage().getSeries());
-        } else {
-            return resolutionLevels;
-        }
+            List<Map<String, Object>> multiscales =
+                    (List<Map<String, Object>>)
+                            rootGroupAttributes.get("multiscales");
+            return ((List<Map<String, String>>)
+                            multiscales.get(0).get("datasets")).size();
     }
 
     @Override
@@ -426,6 +521,21 @@ public class ZarrPixelBuffer implements PixelBuffer {
     public void setResolutionLevel(int resolutionLevel) {
         this.resolutionLevel = Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
+        if (this.resolutionLevel < 0) {
+            throw new IllegalArgumentException(
+                    "This Zarr file has no pixel data");
+        }
+        String subPath = String.format("/%d", this.resolutionLevel);
+        URI path = root.resolve(root.getPath() + subPath);
+        if ("s3".equals(root.getScheme())) {
+            // FIXME: Do something special?
+        }
+        try {
+            array = ZarrArray.open(Paths.get(path));
+        } catch (Exception e) {
+            // FIXME: Throw the right exception
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -435,20 +545,30 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
+        List<Map<String, Object>> multiscales =
+                (List<Map<String, Object>>)
+                        rootGroupAttributes.get("multiscales");
+        List<Map<String, String>> datasets =
+                (List<Map<String, String>>)
+                        multiscales.get(0).get("datasets");
         List<List<Integer>> resolutionDescriptions =
                 new ArrayList<List<Integer>>();
-        int originalResolution = resolutionLevel;
-        for (int i = resolutionLevels - 1; i >= 0; i--) {
-            this.resolutionLevel = i;
-            List<Integer> description = new ArrayList<Integer>();
-            Integer[] xy = zarrUtils.getSizeXandY(
-                    ngffDir, filesetId, pixels.getImage().getSeries(),
-                    resolutionLevel);
-            description.add(xy[0]);
-            description.add(xy[1]);
-            resolutionDescriptions.add(description);
+        for (Map<String, String> dataset : datasets) {
+            if ("s3".equals(root.getScheme())) {
+                // FIXME: Do something special?
+            }
+            String subPath = String.format("/%s", dataset.get("path"));
+            URI path = root.resolve(root.getPath() + subPath);
+            try {
+                ZarrArray resolutionArray = ZarrArray.open(Paths.get(path));
+                int[] shape = resolutionArray.getShape();
+                resolutionDescriptions.add(
+                        0, Arrays.asList(shape[4], shape[3]));
+            } catch (Exception e) {
+                // FIXME: Throw the right exception
+                throw new RuntimeException(e);
+            }
         }
-        setResolutionLevel(originalResolution);
         return resolutionDescriptions;
     }
 
