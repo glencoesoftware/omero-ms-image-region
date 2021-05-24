@@ -52,7 +52,7 @@ public class ShapeMaskRequestHandlerTest {
         params.add("flip", "");
 
         handler = new ShapeMaskRequestHandler(
-                new ShapeMaskCtx(params, ""), "", null);
+                new ShapeMaskCtx(params, ""), null);
     }
 
     @Test

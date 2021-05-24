@@ -93,13 +93,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     private final PixelsService pixelsService;
 
-    /** Configured OmeroZarrUtils */
-    private final OmeroZarrUtils zarrUtils;
-
     /** Scaling service for thumbnails */
     private final IScale iScale;
-
-    private String ngffDir;
 
     /**
      * Default constructor.
@@ -109,14 +104,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LutProvider lutProvider,
             int maxTileLength,
             PixelsService pixelsService,
-            OmeroZarrUtils zarrUtils,
             IScale iScale)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.pixelsService = pixelsService;
-        this.zarrUtils = zarrUtils;
         this.iScale = iScale;
     }
 
@@ -133,8 +126,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             }
             host = omero.getString("host");
             port = omero.getInteger("port");
-            ngffDir = config().getJsonObject("omero.server")
-                    .getString("omero.ngff.dir");
             vertx.eventBus().<String>consumer(
                     RENDER_IMAGE_REGION_EVENT, event -> {
                         renderImageRegion(event);
@@ -186,7 +177,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             if (renderingModels == null) {
                 request.execute(this::updateRenderingModels);
             }
-            String ngffDir = config().getJsonObject("omero.server").getString("omero.ngff.dir");
             byte[] imageRegion = null;
             imageRegion = request.execute(
                     new ImageRegionRequestHandler(imageRegionCtx,
@@ -195,9 +185,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             lutProvider,
                             compressionService,
                             maxTileLength,
-                            pixelsService,
-                            ngffDir,
-                            zarrUtils)::renderImageRegion);
+                            pixelsService)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(
@@ -268,8 +256,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         compressionService,
                         maxTileLength,
                         pixelsService,
-                        ngffDir,
-                        zarrUtils,
                         iScale)::renderThumbnail);
             if (thumbnail == null) {
                 message.fail(
@@ -335,8 +321,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             compressionService,
                             maxTileLength,
                             pixelsService,
-                            ngffDir,
-                            zarrUtils,
                             iScale)::renderThumbnails);
 
             if (thumbnails == null) {

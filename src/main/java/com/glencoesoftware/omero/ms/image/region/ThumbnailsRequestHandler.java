@@ -82,8 +82,6 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             LocalCompress compressionSrv,
             int maxTileLength,
             PixelsService pixelsService,
-            String ngffDir,
-            OmeroZarrUtils zarrUtils,
             IScale iScale) {
         super(thumbnailCtx,
                 families,
@@ -91,9 +89,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 lutProvider,
                 compressionSrv,
                 maxTileLength,
-                pixelsService,
-                ngffDir,
-                zarrUtils);
+                pixelsService);
         this.thumbnailCtx = thumbnailCtx;
         this.iScale = iScale;
     }

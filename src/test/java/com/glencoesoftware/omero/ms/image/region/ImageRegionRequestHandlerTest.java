@@ -60,9 +60,8 @@ public class ImageRegionRequestHandlerTest {
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
                 1024, //maxTileLength,
-                null, //PixelsService
-                null, //ngffDir
-                null); //ZarrUtils
+                null  //PixelsService
+        );
     }
 
 

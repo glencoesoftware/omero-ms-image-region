@@ -20,7 +20,6 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
@@ -42,7 +41,6 @@ import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import loci.formats.FormatTools;
-import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 
 public class OmeroZarrUtils {
@@ -123,30 +121,6 @@ public class OmeroZarrUtils {
                 return FormatTools.getPixelTypeString(FormatTools.FLOAT);
             case f8:
                 return FormatTools.getPixelTypeString(FormatTools.DOUBLE);
-            default:
-                throw new IllegalArgumentException(
-                        "Attribute type " + type.toString() + " not supported");
-        }
-    }
-
-    /**
-     * Get bytes per pixel for a given DataType
-     * @param type Zarr DataType
-     * @return Number of bytes per pixel for the given DataType
-     */
-    public static int getBytesPerPixel(DataType type) {
-        switch (type) {
-            case u1:
-            case i1:
-                return 1;
-            case u2:
-            case i2:
-                return 2;
-            case u4:
-            case i4:
-                return 4;
-            case i8:
-                return 8;
             default:
                 throw new IllegalArgumentException(
                         "Attribute type " + type.toString() + " not supported");
@@ -259,72 +233,6 @@ public class OmeroZarrUtils {
             return OmeroZarrUtils.getData(zarray, domainStr, maxTileLength);
         } catch (IOException | InvalidRangeException e) {
             log.error("Failed to get label image bytes", e);
-            return null;
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Get the NGFF image pixel data
-     * @param ngffDir Top-level directory containing NGFF files
-     * @param filesetId Fileset ID
-     * @param series Series
-     * @param resolutionLevel Requested resolution level
-     * @param domainStr String like [0,1,0,100:150,200:250] denoting the region
-     * to return
-     * @return
-     * @throws IOException
-     */
-    public PixelData getPixelData(
-        String ngffDir, Long filesetId, Integer series,
-        Integer resolutionLevel, String domainStr)
-            throws IOException {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_data_from_zarr");
-        try {
-            Path ngffPath = getImageDataPath(
-                ngffDir, filesetId, series, resolutionLevel);
-            ZarrArray array = ZarrArray.open(ngffPath);
-            byte[] buffer = OmeroZarrUtils.getData(
-                    array, domainStr, maxTileLength);
-            PixelData d = new PixelData(
-                getPixelsType(array.getDataType()), ByteBuffer.wrap(buffer));
-            d.setOrder(ByteOrder.nativeOrder());
-            return d;
-        } catch (IOException | InvalidRangeException e) {
-            log.error("Error getting Zarr pixel data",e);
-            return null;
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Get image pixel data for entire image
-     * @param ngffDir Top-level directory containing NGFF files
-     * @param filesetId Fileset ID
-     * @param series Series
-     * @param resolutionLevel Requested resolution level
-     * @return The pixel data for the image
-     * @throws IOException
-     */
-    public PixelData getPixelData(
-        String ngffDir, Long filesetId, Integer series, Integer resolutionLevel)
-            throws IOException {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_data_from_zarr");
-        try {
-            Path ngffPath = getImageDataPath(
-                ngffDir, filesetId, series, resolutionLevel);
-            ZarrArray array = ZarrArray.open(ngffPath);
-            byte[] buffer = OmeroZarrUtils.getData(array);
-            PixelData d = new PixelData(
-                getPixelsType(array.getDataType()), ByteBuffer.wrap(buffer));
-            d.setOrder(ByteOrder.nativeOrder());
-            return d;
-        } catch (IOException | InvalidRangeException e) {
-            log.error("Error getting Zarr pixel data",e);
             return null;
         } finally {
             span.finish();

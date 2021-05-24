@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Paths;
 
@@ -30,6 +31,7 @@ import ome.io.nio.FilePathResolver;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.TileSizes;
 import ome.model.core.Pixels;
+
 /**
  * Subclass which overrides series retrieval to avoid the need for
  * an injected {@link IQuery}.
@@ -77,7 +79,70 @@ public class PixelsService extends ome.io.nio.PixelsService {
     }
 
     /**
-     * Returns a pixel buffer for a given set of pixels. Either n NGFF pixel
+     * Get the region shape and the start (offset) from the string
+     * @param domainStr The string which describes the domain
+     * @return 2D int array [[shape_dim1,...],[start_dim1,...]]
+     */
+    public int[][] getShapeAndStartFromString(String domainStr) {
+        //String like [0,1,0,100:150,200:250]
+        if (domainStr.length() == 0) {
+            return null;
+        }
+        if (domainStr.startsWith("[")) {
+            domainStr = domainStr.substring(1);
+        }
+        if (domainStr.endsWith("]")) {
+            domainStr = domainStr.substring(0, domainStr.length() - 1);
+        }
+        String[] dimStrs = domainStr.split(",");
+        if (dimStrs.length != 5) {
+            throw new IllegalArgumentException(
+                    "Invalid number of dimensions in domain string");
+        }
+        int[][] shapeAndStart = new int[][] {new int[5], new int[5]};
+        for (int i = 0; i < 5; i++) {
+            String s = dimStrs[i];
+            if(s.contains(":")) {
+                String[] startEnd = s.split(":");
+                shapeAndStart[0][i] =
+                        Integer.valueOf(startEnd[1]) -
+                        Integer.valueOf(startEnd[0]); //shape
+                shapeAndStart[1][i] = Integer.valueOf(startEnd[0]); //start
+            } else {
+                shapeAndStart[0][i] = 1; //shape - size 1 in this dim
+                shapeAndStart[1][i] = Integer.valueOf(s); //start
+            }
+        }
+        return shapeAndStart;
+    }
+
+    private String getLabelImageSubPath(Pixels pixels, String uuid) {
+        return String.format(
+                "/%d.zarr/%d/labels/%s",
+                pixels.getImage().getFileset().getId(),
+                pixels.getImage().getSeries(),
+                uuid);
+    }
+
+    /**
+     * Returns a label image NGFF pixel buffer if it exists.
+     * @param pixels Pixels set to retrieve a pixel buffer for.
+     * @param write Whether or not to open the pixel buffer as read-write.
+     * <code>true</code> opens as read-write, <code>false</code> opens as
+     * read-only.
+     * @return A pixel buffer instance.
+     * @throws IOException
+     */
+    public PixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
+            throws IOException {
+        return new ZarrPixelBuffer(
+                ngffDir.resolve(
+                        ngffDir.getPath() + getLabelImageSubPath(pixels, uuid)),
+                maxTileLength);
+    }
+
+    /**
+     * Returns a pixel buffer for a given set of pixels. Either an NGFF pixel
      * buffer, a proprietary ROMIO pixel buffer or a specific pixel buffer
      * implementation.
      * @param pixels Pixels set to retrieve a pixel buffer for.
@@ -86,6 +151,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * read-only.
      * @return A pixel buffer instance.
      */
+    @Override
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
         if (!ngffDir.getPath().isEmpty()) {
             try {
@@ -94,7 +160,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
                         pixels.getImage().getFileset().getId(),
                         pixels.getImage().getSeries());
                 return new ZarrPixelBuffer(
-                        pixels, ngffDir.resolve(ngffDir.getPath() + subPath),
+                        ngffDir.resolve(ngffDir.getPath() + subPath),
                         maxTileLength);
             } catch (Exception e) {
                 log.info(

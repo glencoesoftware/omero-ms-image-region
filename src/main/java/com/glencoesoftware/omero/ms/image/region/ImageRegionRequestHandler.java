@@ -92,12 +92,6 @@ public class ImageRegionRequestHandler {
     /** OMERO server pixels service. */
     protected final PixelsService pixelsService;
 
-    /** Top-level directory containing NGFF files */
-    protected final String ngffDir;
-
-    /** Configured OmeroZarrUtils */
-    protected final OmeroZarrUtils zarrUtils;
-
     /** Reference to the projection service. */
     private final ProjectionService projectionService;
 
@@ -124,16 +118,12 @@ public class ImageRegionRequestHandler {
             LutProvider lutProvider,
             LocalCompress compressionSrv,
             int maxTileLength,
-            PixelsService pixelsService,
-            String ngffDir,
-            OmeroZarrUtils zarrUtils) {
+            PixelsService pixelsService) {
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
         this.families = families;
         this.renderingModels = renderingModels;
         this.pixelsService = pixelsService;
-        this.ngffDir = ngffDir;
-        this.zarrUtils = zarrUtils;
         this.imageRegionCtx = imageRegionCtx;
         this.maxTileLength = maxTileLength;
         projectionService = new ProjectionService();

@@ -40,15 +40,21 @@ import org.slf4j.LoggerFactory;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import ome.io.nio.PixelBuffer;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
+import omero.ApiUsageException;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
-import omero.model.Image;
+import omero.model.ExternalInfo;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
+import omero.util.IceMapper;
+
+import static omero.rtypes.unwrap;
 
 public class ShapeMaskRequestHandler {
 
@@ -58,23 +64,24 @@ public class ShapeMaskRequestHandler {
     /** Shape mask context */
     private final ShapeMaskCtx shapeMaskCtx;
 
-    /** Location of ngff files */
-    private final String ngffDir;
+    /** Configured Pixels service */
+    private final PixelsService pixelsService;
 
-    /** NgffUtils */
-    private final NgffUtils ngffUtils;
+    /**
+     * Mapper between <code>omero.model</code> client side Ice backed objects
+     * and <code>ome.model</code> server side Hibernate backed objects.
+     */
+    protected final IceMapper mapper = new IceMapper();
 
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      */
     public ShapeMaskRequestHandler(
-            ShapeMaskCtx shapeMaskCtx, String ngffDir,
-            OmeroZarrUtils zarrUtils) {
+            ShapeMaskCtx shapeMaskCtx, PixelsService pixelsService) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
-        this.ngffDir = ngffDir;
-        this.ngffUtils = new NgffUtils(zarrUtils);
+        this.pixelsService = pixelsService;
     }
 
     /**
@@ -116,11 +123,11 @@ public class ShapeMaskRequestHandler {
                 fillColor.getRed(), fillColor.getGreen(),
                 fillColor.getBlue(), fillColor.getAlpha()
             );
-            byte[] bytes = mask.getBytes();
+            byte[] bytes = getShapeMaskBytes(mask);
             int width = (int) mask.getWidth().getValue();
             int height = (int) mask.getHeight().getValue();
             return renderShapeMask(fillColor, bytes, width, height);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Exception while rendering shape mask", e);
         }
         return null;
@@ -299,12 +306,93 @@ public class ShapeMaskRequestHandler {
             params.addId(shapeId);
             log.info("Getting mask for shape id {}", Long.toString(shapeId));
             return (MaskI) iQuery.findByQuery(
-                "SELECT s from Shape s left outer join fetch s.details.externalInfo " +
+                "SELECT s FROM Shape s " +
+                "JOIN FETCH s.roi AS roi " +
+                "JOIN FETCH roi.image AS image " +
+                "JOIN FETCH image.pixels AS pixels " +
+                "LEFT OUTER JOIN FETCH s.details.externalInfo " +
                 "WHERE s.id = :id", params, ctx
             );
         } finally {
             span.finish();
         }
+    }
+
+    private String getUuid(MaskI mask) {
+        ExternalInfo externalInfo = mask.getDetails().getExternalInfo();
+        if (externalInfo == null) {
+            log.debug("Shape:{} missing ExternalInfo", unwrap(mask.getId()));
+            return null;
+        }
+        String uuid = (String) unwrap(externalInfo.getUuid());
+        if (uuid == null) {
+            log.debug("Shape:{} missing UUID", unwrap(mask.getId()));
+            return null;
+        }
+        return uuid;
+    }
+
+    /**
+     * Get shape mask bytes request handler.
+     * @param client OMERO client to use for querying.
+     * @return A response body in accordance with the initial settings
+     * provided by <code>shapeMaskCtx</code>.
+     * @throws IOException
+     * @throws ApiUsageException
+     */
+    private byte[] getShapeMaskBytes(MaskI mask)
+            throws ApiUsageException, IOException {
+        String uuid = getUuid(mask);
+        if (uuid == null) {
+            return mask.getBytes();
+        }
+        PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
+                (ome.model.core.Pixels) mapper.reverse(
+                        mask.getRoi().getImage().getPrimaryPixels()),
+                uuid);
+        int resolutionLevel =
+                shapeMaskCtx.resolution == null ? 0
+                        : shapeMaskCtx.resolution;
+        resolutionLevel = Math.abs(
+                resolutionLevel - (pixelBuffer.getResolutionLevels() - 1));
+        pixelBuffer.setResolutionLevel(resolutionLevel);
+        if (shapeMaskCtx.subarrayDomainStr == null) {
+            throw new IllegalArgumentException(
+                "Failed to supply domain parameter to " +
+                "getShapeMaskBytes");
+        }
+        int[][] shapesAndOffsets =
+                pixelsService.getShapeAndStartFromString(
+                        shapeMaskCtx.subarrayDomainStr);
+        int sizeT = shapesAndOffsets[0][0];
+        int sizeC = shapesAndOffsets[0][1];
+        int sizeZ = shapesAndOffsets[0][2];
+        int sizeY = shapesAndOffsets[0][3];
+        int sizeX = shapesAndOffsets[0][4];
+        if (sizeT > 1) {
+            throw new IllegalArgumentException(
+                    "SizeT " + sizeT + " > 1 shape mask bytes retrieval " +
+                    "is not supported");
+        }
+        if (sizeC > 1) {
+            throw new IllegalArgumentException(
+                    "SizeC " + sizeC + " > 1 shape mask bytes retrieval " +
+                    "is not supported");
+        }
+        if (sizeZ > 1) {
+            throw new IllegalArgumentException(
+                    "SizeZ " + sizeZ + " > 1 shape mask bytes retrieval " +
+                    "is not supported");
+        }
+        int t = shapesAndOffsets[1][0];
+        int c = shapesAndOffsets[1][1];
+        int z = shapesAndOffsets[1][2];
+        int y = shapesAndOffsets[1][3];
+        int x = shapesAndOffsets[1][4];
+        return pixelBuffer
+                .getTile(z, c, t, x, y, sizeX, sizeY)
+                .getData()
+                .array();
     }
 
     /**
@@ -317,43 +405,10 @@ public class ShapeMaskRequestHandler {
         try {
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
-                if (ngffDir == null) {
-                    return mask.getBytes();
-                }
-                Image image = getImageFromShapeId(
-                        client.getSession().getQueryService(),
-                        shapeMaskCtx.shapeId);
-                if (mask.getDetails().getExternalInfo() == null) {
-                    log.error("No UUID associated with shape {}", shapeMaskCtx.shapeId);
-                    return mask.getBytes();
-                }
-                String uuid = mask.getDetails()
-                        .getExternalInfo().getUuid().getValue();
-                long filesetId = image.getFileset().getId().getValue();
-                int series = image.getSeries().getValue();
-                Integer resolution =
-                        shapeMaskCtx.resolution == null ? 0
-                                : shapeMaskCtx.resolution;
-                if (shapeMaskCtx.subarrayDomainStr == null) {
-                    throw new IllegalArgumentException(
-                        "Failed to supply domain parameter to " +
-                        "getShapeMaskBytes");
-                }
-                try {
-                    return ngffUtils.getLabelImageBytes(
-                        ngffDir, filesetId, series, uuid, resolution,
-                        shapeMaskCtx.subarrayDomainStr);
-                } catch (Exception e) {
-                    log.error("Error getting label image bytes from NGFF", e);
-                    return mask.getBytes();
-                }
+                return getShapeMaskBytes(mask);
             }
-            log.debug("Cannot find Shape:{}", shapeMaskCtx.shapeId);
-        } catch (IllegalArgumentException e) {
-            log.error("Missing domain parameter - rethrowing");
-            throw e;
         } catch (Exception e) {
-            log.error("Exception while retrieving shape mask", e);
+            log.error("Exception while retrieving shape mask bytes", e);
         }
         return null;
     }
@@ -368,65 +423,67 @@ public class ShapeMaskRequestHandler {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
-            if (ngffDir == null) {
-                throw new IllegalArgumentException(
-                        "Label image configs not properly set");
-            }
             MaskI mask = getMask(client, shapeMaskCtx.shapeId);
-            if (mask != null) {
-                Image image = getImageFromShapeId(
-                        client.getSession().getQueryService(),
-                        shapeMaskCtx.shapeId);
-                if (mask.getDetails().getExternalInfo() == null) {
-                    throw new IllegalArgumentException(
-                            "No UUID for shape " + shapeMaskCtx.shapeId);
+            String uuid = getUuid(mask);
+            if (uuid == null) {
+                throw new IllegalArgumentException(
+                        "No UUID for shape " + shapeMaskCtx.shapeId);
+            };
+            ZarrPixelBuffer pixelBuffer = (ZarrPixelBuffer)
+                    pixelsService.getLabelImagePixelBuffer(
+                            (ome.model.core.Pixels) mapper.reverse(
+                                    mask.getRoi().getImage().getPrimaryPixels()),
+                            uuid);
+
+            JsonObject metadata = new JsonObject();
+            JsonObject multiscalesAsJson = new JsonObject();
+            JsonArray datasetsAsJson = new JsonArray();
+            metadata.put("multiscales", multiscalesAsJson);
+
+            Map<String, Object> rootGroupAttributes =
+                    pixelBuffer.getRootGroupAttributes();
+            List<Map<String, String>> datasets = pixelBuffer.getDatasets();
+            int[][] chunks = pixelBuffer.getChunks();
+            int resolutionLevel = chunks.length - 1;
+            for (Map<String, String> dataset : datasets) {
+                JsonObject datasetAsJson = new JsonObject();
+                datasetAsJson.put("path", dataset.get("path"));
+                JsonArray chunksize = new JsonArray();
+                for (int chunk : chunks[resolutionLevel]) {
+                    chunksize.add(chunk);
                 }
-                String uuid = mask.getDetails()
-                        .getExternalInfo().getUuid().getValue();
-                long filesetId = image.getFileset().getId().getValue();
-                int series = image.getSeries().getValue();
-                int resolution = 0;
-                if(shapeMaskCtx.resolution != null) {
-                    resolution = shapeMaskCtx.resolution;
-                }
-                return ngffUtils.getLabelImageMetadata(
-                        ngffDir, filesetId, series, uuid, resolution);
-            } else {
-                return null;
+                datasetAsJson.put("chunksize", chunksize);
+                datasetsAsJson.add(datasetAsJson);
+                resolutionLevel--;
             }
+            multiscalesAsJson.put("datasets", datasetsAsJson);
+
+            if (rootGroupAttributes.containsKey("minmax")) {
+                List<Integer> minMax =
+                        (List<Integer>) rootGroupAttributes.get("minmax");
+                metadata.put("min", minMax.get(0));
+                metadata.put("max", minMax.get(1));
+            }
+
+            JsonObject size = new JsonObject();
+            size.put("t", pixelBuffer.getSizeT());
+            size.put("c", pixelBuffer.getSizeC());
+            size.put("z", pixelBuffer.getSizeZ());
+            size.put("height", pixelBuffer.getSizeY());
+            size.put("width", pixelBuffer.getSizeX());
+            metadata.put("size", size);
+
+            metadata.put("uuid", uuid);
+
+            metadata.put("type", pixelBuffer.getPixelsType());
+
+            return metadata;
         } catch (Exception e) {
             log.error("Exception while retrieving label image metadata", e);
         } finally {
-                span.finish();
+            span.finish();
         }
         return null;
     }
 
-    /**
-     * Retrieves a image id from the server.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param shapeId {@link MaskI} identifier to query for.
-     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
-     * exist or the user does not have permissions to access it.
-     * @throws ServerError If there was any sort of error retrieving the image.
-     */
-    protected Image getImageFromShapeId(IQueryPrx iQuery, Long shapeId)
-            throws ServerError {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_image_from_shape_id");
-        try {
-            Map<String, String> ctx = new HashMap<String, String>();
-            ctx.put("omero.group", "-1");
-            ParametersI params = new ParametersI();
-            params.addId(shapeId);
-            MaskI shape = (MaskI) iQuery.findByQuery(
-                "SELECT s from Shape s join fetch s.roi roi " +
-                "join fetch roi.image " +
-                "WHERE s.id = :id", params, ctx
-            );
-            return shape.getRoi().getImage();
-        } finally {
-            span.finish();
-        }
-    }
 }
