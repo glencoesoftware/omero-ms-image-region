@@ -425,25 +425,25 @@ public class ImageRegionRequestHandlerTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipNullImage() {
         int[] nullArray = null;
-        ImageRegionRequestHandler.flip(nullArray, 4, 4, true, true);
+        reqHandler.flip(nullArray, 4, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipZeroXImage() {
         int[] src = {1};
-        ImageRegionRequestHandler.flip(src, 0, 4, true, true);
+        reqHandler.flip(src, 0, 4, true, true);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFlipZeroYImage() {
         int[] src = {1};
-        ImageRegionRequestHandler.flip(src, 4, 0, true, true);
+        reqHandler.flip(src, 4, 0, true, true);
     }
 
     private void testFlip(
             int[] src, int sizeX, int sizeY,
             boolean flipHorizontal, boolean flipVertical) {
-        int[] flipped = ImageRegionRequestHandler.flip(
+        int[] flipped = reqHandler.flip(
                 src, sizeX, sizeY, flipHorizontal, flipVertical);
         for (int n = 0; n < sizeX * sizeY; n++){
             int new_col;

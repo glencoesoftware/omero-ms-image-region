@@ -123,7 +123,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * @return List of loaded {@link Image} and primary {@link Pixels}.
      * @throws ServerError If there was any sort of error retrieving the images.
      */
-    protected List<Image> getImages(omero.client client, List<Long> imageIds)
+    private List<Image> getImages(omero.client client, List<Long> imageIds)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -151,7 +151,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * @return Byte array of jpeg thumbnail data
      * @throws IOException
      */
-    protected byte[] getThumbnail(
+    private byte[] getThumbnail(
         IQueryPrx iQuery, IPixelsPrx iPixels, Image image)
             throws IOException {
         try {
@@ -159,7 +159,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 iQuery, image.getId().getValue());
             return getRegion(iQuery, iPixels, pixelsIdAndSeries);
         } catch (Exception e) {
-            log.error("Error getting thumbnail {}", Long.toString(image.getId().getValue()), e);
+            log.error("Error getting thumbnail {}", image.getId().getValue(), e);
             return new byte[0];
         }
     }
@@ -173,7 +173,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * @return Map of {@link Image} identifier to JPEG thumbnail byte array.
      * @throws IOException
      */
-    protected Map<Long, byte[]> getThumbnails(
+    private Map<Long, byte[]> getThumbnails(
         IQueryPrx iQuery, IPixelsPrx iPixels, List<Image> images)
             throws IOException {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
@@ -186,7 +186,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a JPEG thumbnail from the server.
+     * Renders a JPEG thumbnail.
      * @return JPEG thumbnail byte array.
      */
     public byte[] renderThumbnail(omero.client client) {
@@ -201,7 +201,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             thumbnailCtx.format = "jpeg";
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 Pixels pixels = retrievePixDescription(
-                        pixelsIdAndSeries, mapper, iPixels, iQuery);
+                        pixelsIdAndSeries, iPixels, iQuery);
                 Array array = render(pixels, iPixels);
                 int[] shape = array.getShape();
                 BufferedImage image = ImageUtil.createBufferedImage(

@@ -139,7 +139,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    public List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
+    protected List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -166,14 +166,13 @@ public class ImageRegionRequestHandler {
     /**
      * Get Pixels information from ID
      * @param pixelsIdAndSeries ID and Series for this Pixels object
-     * @param mapper IceMapper
      * @param iPixels Pixels proxy service
      * @param iQuery Query proxy service
      * @return Populated Pixels object
      * @throws ApiUsageException
      * @throws ServerError
      */
-    public Pixels retrievePixDescription(
+    protected Pixels retrievePixDescription(
         List<RType> pixelsIdAndSeries, IPixelsPrx iPixels, IQueryPrx iQuery)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
@@ -201,7 +200,7 @@ public class ImageRegionRequestHandler {
         }
     }
 
-    public long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
+    private long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -229,7 +228,8 @@ public class ImageRegionRequestHandler {
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    public RenderingDef getRenderingDef(IPixelsPrx iPixels, final long pixelsId)
+    private RenderingDef getRenderingDef(
+            IPixelsPrx iPixels, final long pixelsId)
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -245,7 +245,7 @@ public class ImageRegionRequestHandler {
      * @param planeDef plane definition to validate
      * @throws ServerError
      */
-    public void checkPlaneDef(
+    private void checkPlaneDef(
             Integer sizeX, Integer sizeY, PlaneDef planeDef){
         RegionDef rd = planeDef.getRegion();
         if (rd == null) {
@@ -301,10 +301,6 @@ public class ImageRegionRequestHandler {
         return null;
     }
 
-    protected void updateSettings(Renderer renderer) {
-        imageRegionCtx.updateSettings(renderer, families, renderingModels);
-    }
-
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
@@ -332,7 +328,7 @@ public class ImageRegionRequestHandler {
      * @return Compressed pixel data ready to return to the client.
      * @throws IOException
      */
-    protected byte[] compress(Array array) throws IOException {
+    private byte[] compress(Array array) throws IOException {
         Integer sizeY = array.getShape()[0];
         Integer sizeX = array.getShape()[1];
         int[] buf = (int[]) array.getStorage();
@@ -497,7 +493,7 @@ public class ImageRegionRequestHandler {
                 compressionSrv.setCompressionLevel(
                         imageRegionCtx.compressionQuality);
             }
-            updateSettings(renderer);
+            imageRegionCtx.updateSettings(renderer, families, renderingModels);
             PixelBuffer newBuffer = null;
             if (imageRegionCtx.projection != null) {
                 newBuffer = prepareProjectedPixelBuffer(pixels, renderer);
@@ -533,14 +529,14 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void truncateRegionDef(
+    private void truncateRegionDef(
             int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
         if (regionDef.getX() > sizeX ||
                 regionDef.getY() > sizeY) {
-            throw new IllegalArgumentException(
-                    String.format("Start position (%d,%d) exceeds image size (%d, %d)",regionDef.getX(),
-                            regionDef.getY(), sizeX, sizeY));
+            throw new IllegalArgumentException(String.format(
+                    "Start position (%d,%d) exceeds image size (%d, %d)",
+                    regionDef.getX(), regionDef.getY(), sizeX, sizeY));
         }
         regionDef.setWidth(Math.min(
                 regionDef.getWidth(), sizeX - regionDef.getX()));
@@ -558,7 +554,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
      */
-    protected void flipRegionDef(int sizeX, int sizeY, RegionDef regionDef) {
+    private void flipRegionDef(int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Flipping tile RegionDef if required");
         if (imageRegionCtx.flipHorizontal) {
             regionDef.setX(
@@ -631,7 +627,7 @@ public class ImageRegionRequestHandler {
      * @return Newly allocated buffer with flipping applied or <code>src</code>
      * if no flipping has been requested.
      */
-    public static int[] flip(
+    protected int[] flip(
             int[] src, int sizeX, int sizeY,
             boolean flipHorizontal, boolean flipVertical) {
         if (!flipHorizontal && !flipVertical) {
