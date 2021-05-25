@@ -139,8 +139,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the pixels
      * id.
      */
-    public List<RType> getPixelsIdAndSeries(
-        IQueryPrx iQuery, Long imageId)
+    public List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
             throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -175,8 +174,7 @@ public class ImageRegionRequestHandler {
      * @throws ServerError
      */
     public Pixels retrievePixDescription(
-        List<RType> pixelsIdAndSeries,
-        IceMapper mapper, IPixelsPrx iPixels, IQueryPrx iQuery)
+        List<RType> pixelsIdAndSeries, IPixelsPrx iPixels, IQueryPrx iQuery)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
@@ -322,10 +320,18 @@ public class ImageRegionRequestHandler {
                     throws IllegalArgumentException, ServerError, IOException,
                     QuantizationException {
         Pixels pixels = retrievePixDescription(
-                pixelsIdAndSeries, mapper, iPixels, iQuery);
+                pixelsIdAndSeries, iPixels, iQuery);
         return compress(render(pixels, iPixels));
     }
 
+    /**
+     * Compress rendered pixel data in accordance with the current
+     * <code>imageRegionCtx</code>.
+     * @param array wrapped pixel data with contextual dimensional extents and
+     * pixel type encoded
+     * @return Compressed pixel data ready to return to the client.
+     * @throws IOException
+     */
     protected byte[] compress(Array array) throws IOException {
         Integer sizeY = array.getShape()[0];
         Integer sizeX = array.getShape()[1];
@@ -338,6 +344,13 @@ public class ImageRegionRequestHandler {
         return compress(image);
     }
 
+    /**
+     * Compress rendered pixel data in accordance with the current
+     * <code>imageRegionCtx</code>.
+     * @param image buffered image of the correct dimensions to compress
+     * @return Compressed pixel data ready to return to the client.
+     * @throws IOException
+     */
     protected byte[] compress(BufferedImage image) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] toReturn = null;
@@ -607,8 +620,6 @@ public class ImageRegionRequestHandler {
         flipRegionDef(sizeX, sizeY, regionDef);
         return regionDef;
     }
-
-
 
     /**
      * Flip an image horizontally, vertically, or both.
