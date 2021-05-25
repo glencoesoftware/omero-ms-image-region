@@ -52,6 +52,7 @@ import omero.api.IQueryPrx;
 import omero.model.ExternalInfo;
 import omero.model.Mask;
 import omero.model.MaskI;
+import omero.model.Pixels;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
@@ -77,6 +78,7 @@ public class ShapeMaskRequestHandler {
     /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
+     * @param pixelsService configured pixels service
      */
     public ShapeMaskRequestHandler(
             ShapeMaskCtx shapeMaskCtx, PixelsService pixelsService) {
@@ -232,7 +234,7 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Wrap bytes as pixel data for generic retrieval by byte width
+     * Wrap bytes as pixel data for generic retrieval by byte width.
      * @param source source bytes to wrap
      * @param size number of pixels <code>source</code> corresponds to
      * @return See above.
@@ -254,7 +256,7 @@ public class ShapeMaskRequestHandler {
 
     /**
      * Converts data to a <code>[0, 1]</code> byte mask.
-     * @param bits the data to convert
+     * @param source the data to convert
      * @param size number of elements to convert
      */
     private byte[] convertToBytes(byte[] source, int size) {
@@ -269,7 +271,7 @@ public class ShapeMaskRequestHandler {
     /**
      * Whether or not a single {@link MaskI} can be read from the server.
      * @param client OMERO client to use for querying.
-     * @return <code>true</code> if the {@link MaskI} can be loaded or
+     * @return <code>true</code> if the {@link Mask} can be loaded or
      * <code>false</code> otherwise.
      * @throws ServerError If there was any sort of error retrieving the image.
      */
@@ -283,7 +285,7 @@ public class ShapeMaskRequestHandler {
         try {
             List<List<RType>> rows = client.getSession()
                     .getQueryService().projection(
-                            "SELECT s.id FROM Shape as s " +
+                            "SELECT s.id FROM Shape AS s " +
                             "WHERE s.id = :id", params, ctx);
             if (rows.size() > 0) {
                 return true;
@@ -298,12 +300,12 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Retrieves a single {@link MaskI} from the server.
+     * Retrieves a single {@link Mask} from the server.
      * @param client OMERO client to use for querying.
-     * @param shapeId {@link MaskI} identifier to query for.
-     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
+     * @param shapeId {@link Mask} identifier to query for.
+     * @return Loaded {@link Mask} or <code>null</code> if the shape does not
      * exist or the user does not have permissions to access it.
-     * @throws ServerError If there was any sort of error retrieving the image.
+     * @throws ServerError If there was any sort of error retrieving the mask.
      */
     protected Mask getMask(omero.client client, Long shapeId)
             throws ServerError {
@@ -316,7 +318,7 @@ public class ShapeMaskRequestHandler {
      * @param shapeId {@link Mask} identifier to query for.
      * @return Loaded {@link Mask} or <code>null</code> if the shape does not
      * exist or the user does not have permissions to access it.
-     * @throws ServerError If there was any sort of error retrieving the image.
+     * @throws ServerError If there was any sort of error retrieving the mask.
      */
     protected Mask getMask(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
@@ -340,6 +342,12 @@ public class ShapeMaskRequestHandler {
         }
     }
 
+    /**
+     * Retrieve {@link Mask} UUID.
+     * @param mask loaded {@link Mask} to check for a UUID
+     * @return UUID or <code>null</code> if the mask does not contain a UUID
+     * in its {@link ExternalInfo}.
+     */
     private String getUuid(Mask mask) {
         ExternalInfo externalInfo = mask.getDetails().getExternalInfo();
         if (externalInfo == null) {
@@ -356,9 +364,8 @@ public class ShapeMaskRequestHandler {
 
     /**
      * Get shape mask bytes request handler.
-     * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
+     * @param mask loaded {@link Mask} to retrieve the mask bytes for.
+     * @return Mask bytes either from the database or NGFF.
      * @throws IOException
      * @throws ApiUsageException
      */
@@ -430,8 +437,7 @@ public class ShapeMaskRequestHandler {
     /**
      * Get shape mask bytes request handler.
      * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
+     * @return Mask bytes either from the database or NGFF.
      */
     public byte[] getShapeMaskBytes(omero.client client) {
         try {
@@ -446,10 +452,10 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Get shape mask bytes request handler.
+     * Get label image (NGFF extension to the base {@link Mask}) metadata.
      * @param client OMERO client to use for querying.
-     * @return A response body in accordance with the initial settings
-     * provided by <code>shapeMaskCtx</code>.
+     * @return Label image metadata JSON encoded described by the current
+     * <code>shapeMaskCtx</code>.
      */
     public JsonObject getLabelImageMetadata(omero.client client) {
         ScopedSpan span = Tracing.currentTracer()
@@ -460,11 +466,11 @@ public class ShapeMaskRequestHandler {
             if (uuid == null) {
                 throw new IllegalArgumentException(
                         "No UUID for shape " + shapeMaskCtx.shapeId);
-            };
+            }
+            Pixels pixels = mask.getRoi().getImage().getPrimaryPixels();
             ZarrPixelBuffer pixelBuffer = (ZarrPixelBuffer)
                     pixelsService.getLabelImagePixelBuffer(
-                            (ome.model.core.Pixels) mapper.reverse(
-                                    mask.getRoi().getImage().getPrimaryPixels()),
+                            (ome.model.core.Pixels) mapper.reverse(pixels),
                             uuid);
 
             JsonObject metadata = new JsonObject();
