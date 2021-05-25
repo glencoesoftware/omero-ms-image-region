@@ -50,6 +50,7 @@ import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.model.ExternalInfo;
+import omero.model.Mask;
 import omero.model.MaskI;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
@@ -124,9 +125,7 @@ public class ShapeMaskRequestHandler {
                 fillColor.getBlue(), fillColor.getAlpha()
             );
             byte[] bytes = getShapeMaskBytes(mask);
-            int width = (int) mask.getWidth().getValue();
-            int height = (int) mask.getHeight().getValue();
-            return renderShapeMask(fillColor, bytes, width, height);
+            return renderShapeMask(mask, fillColor, bytes);
         } catch (Exception e) {
             log.error("Exception while rendering shape mask", e);
         }
@@ -174,29 +173,31 @@ public class ShapeMaskRequestHandler {
 
     /**
      * Render shape mask.
+     * @param mask mask to render
      * @param fillColor fill color to use for the mask
      * @param bytes mask bytes to render
-     * @param width width of the mask
-     * @param height height of the mask
      * @return <code>image/png</code> encoded mask
      * @see {@link #renderShapeMaskNotByteAligned(Color, byte[], int, int)}
      */
-    protected byte[] renderShapeMask(
-            Color fillColor, byte[] bytes, int width, int height)
-                    throws IOException {
+    protected byte[] renderShapeMask(Mask mask, Color fillColor, byte[] bytes)
+            throws IOException {
         ScopedSpan span = null;
-        if(Tracing.currentTracer() != null) {
+        if (Tracing.currentTracer() != null) {
             span =
                 Tracing.currentTracer().startScopedSpan("render_shape_mask");
         }
         try {
             // The underlying raster will used a MultiPixelPackedSampleModel
             // which expects the row stride to be evenly divisible by the byte
-            // width of the data type.  If it is not so aligned we will need
+            // width of the data type.  If it is not so aligned or is coming
+            // from an NGFF source and will not be packed bits we will need
             // to convert it to a byte mask for rendering.
+            String uuid = getUuid(mask);
             int bitsPerPixel = 1;
-            if (width % 8 != 0) {
-                bytes = convertBitsToBytes(bytes, width * height);
+            int width = (int) mask.getWidth().getValue();
+            int height = (int) mask.getHeight().getValue();
+            if (width % 8 != 0 || uuid != null) {
+                bytes = convertToBytes(bytes, width * height);
                 bitsPerPixel = 8;
             }
             bytes = flip(bytes, width, height,
@@ -231,17 +232,38 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Converts a bit mask to a <code>[0, 1]</code> byte mask.
-     * @param bits the bits to convert
-     * @param size number of bits to convert
+     * Wrap bytes as pixel data for generic retrieval by byte width
+     * @param source source bytes to wrap
+     * @param size number of pixels <code>source</code> corresponds to
+     * @return See above.
      */
-    private byte[] convertBitsToBytes(byte[] bits, int size) {
-        PixelData bitData = new PixelData("bit", ByteBuffer.wrap(bits));
-        byte[] bytes = new byte[size];
-        for (int i = 0; i < size; i++) {
-            bytes[i] = (byte) bitData.getPixelValue(i);
+    private PixelData asPixelData(byte[] source, int size) {
+        int bytesPerPixel = source.length / size;
+        ByteBuffer asByteBuffer = ByteBuffer.wrap(source);
+        switch (bytesPerPixel) {
+            case 1:
+                return new PixelData("uint8", asByteBuffer);
+            case 2:
+                return new PixelData("uint16", asByteBuffer);
+            case 4:
+                return new PixelData("uint32", asByteBuffer);
+            default:
+                return new PixelData("bit", asByteBuffer);
         }
-        return bytes;
+    }
+
+    /**
+     * Converts data to a <code>[0, 1]</code> byte mask.
+     * @param bits the data to convert
+     * @param size number of elements to convert
+     */
+    private byte[] convertToBytes(byte[] source, int size) {
+        PixelData v = asPixelData(source, size);
+        byte[] destination = new byte[size];
+        for (int i = 0; i < size; i++) {
+            destination[i] = (byte) (v.getPixelValue(i) == 0? 0 : 1);
+        }
+        return destination;
     }
 
     /**
@@ -318,7 +340,7 @@ public class ShapeMaskRequestHandler {
         }
     }
 
-    private String getUuid(MaskI mask) {
+    private String getUuid(Mask mask) {
         ExternalInfo externalInfo = mask.getDetails().getExternalInfo();
         if (externalInfo == null) {
             log.debug("Shape:{} missing ExternalInfo", unwrap(mask.getId()));
@@ -356,14 +378,24 @@ public class ShapeMaskRequestHandler {
         resolutionLevel = Math.abs(
                 resolutionLevel - (pixelBuffer.getResolutionLevels() - 1));
         pixelBuffer.setResolutionLevel(resolutionLevel);
-        if (shapeMaskCtx.subarrayDomainStr == null) {
-            throw new IllegalArgumentException(
-                "Failed to supply domain parameter to " +
-                "getShapeMaskBytes");
+        String domain = shapeMaskCtx.subarrayDomainStr;
+        if (domain == null) {
+            int t = Optional.ofNullable(
+                    (Integer) unwrap(mask.getTheT())).orElse(0);
+            int c = Optional.ofNullable(
+                    (Integer) unwrap(mask.getTheC())).orElse(0);
+            int z = Optional.ofNullable(
+                    (Integer) unwrap(mask.getTheZ())).orElse(0);
+            Integer y0 = ((Double) unwrap(mask.getY())).intValue();
+            Integer y1 = ((Double) unwrap(mask.getHeight())).intValue();
+            Integer x0 = ((Double) unwrap(mask.getX())).intValue();
+            Integer x1 = ((Double) unwrap(mask.getWidth())).intValue();
+            domain = String.format(
+                    "[%d:%d,%d:%d,%d:%d,%d:%d,%d:%d]",
+                    t, t, c, c, z, z, y0, y1, x0, x1);
         }
         int[][] shapesAndOffsets =
-                pixelsService.getShapeAndStartFromString(
-                        shapeMaskCtx.subarrayDomainStr);
+                pixelsService.getShapeAndStartFromString(domain);
         int sizeT = shapesAndOffsets[0][0];
         int sizeC = shapesAndOffsets[0][1];
         int sizeZ = shapesAndOffsets[0][2];
