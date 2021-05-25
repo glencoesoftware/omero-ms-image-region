@@ -93,7 +93,7 @@ public class ShapeMaskRequestHandler {
      */
     public byte[] renderShapeMask(omero.client client) {
         try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            Mask mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
                 return renderShapeMask(mask);
             }
@@ -109,7 +109,7 @@ public class ShapeMaskRequestHandler {
      * @param mask mask to render
      * @return <code>image/png</code> encoded mask
      */
-    protected byte[] renderShapeMask(MaskI mask) {
+    protected byte[] renderShapeMask(Mask mask) {
         try {
             Color fillColor = Optional.ofNullable(mask.getFillColor())
                 .map(x -> new Color(x.getValue()))
@@ -305,20 +305,20 @@ public class ShapeMaskRequestHandler {
      * exist or the user does not have permissions to access it.
      * @throws ServerError If there was any sort of error retrieving the image.
      */
-    protected MaskI getMask(omero.client client, Long shapeId)
+    protected Mask getMask(omero.client client, Long shapeId)
             throws ServerError {
         return getMask(client.getSession().getQueryService(), shapeId);
     }
 
     /**
-     * Retrieves a single {@link MaskI} from the server.
+     * Retrieves a single {@link Mask} from the server.
      * @param iQuery OMERO query service to use for metadata access.
-     * @param shapeId {@link MaskI} identifier to query for.
-     * @return Loaded {@link MaskI} or <code>null</code> if the shape does not
+     * @param shapeId {@link Mask} identifier to query for.
+     * @return Loaded {@link Mask} or <code>null</code> if the shape does not
      * exist or the user does not have permissions to access it.
      * @throws ServerError If there was any sort of error retrieving the image.
      */
-    protected MaskI getMask(IQueryPrx iQuery, Long shapeId)
+    protected Mask getMask(IQueryPrx iQuery, Long shapeId)
             throws ServerError {
         ScopedSpan span = Tracing.currentTracer().startScopedSpan("get_mask");
         try {
@@ -327,7 +327,7 @@ public class ShapeMaskRequestHandler {
             ParametersI params = new ParametersI();
             params.addId(shapeId);
             log.info("Getting mask for shape id {}", Long.toString(shapeId));
-            return (MaskI) iQuery.findByQuery(
+            return (Mask) iQuery.findByQuery(
                 "SELECT s FROM Shape s " +
                 "JOIN FETCH s.roi AS roi " +
                 "JOIN FETCH roi.image AS image " +
@@ -362,7 +362,7 @@ public class ShapeMaskRequestHandler {
      * @throws IOException
      * @throws ApiUsageException
      */
-    private byte[] getShapeMaskBytes(MaskI mask)
+    private byte[] getShapeMaskBytes(Mask mask)
             throws ApiUsageException, IOException {
         String uuid = getUuid(mask);
         if (uuid == null) {
@@ -435,7 +435,7 @@ public class ShapeMaskRequestHandler {
      */
     public byte[] getShapeMaskBytes(omero.client client) {
         try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            Mask mask = getMask(client, shapeMaskCtx.shapeId);
             if (mask != null) {
                 return getShapeMaskBytes(mask);
             }
@@ -455,7 +455,7 @@ public class ShapeMaskRequestHandler {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
-            MaskI mask = getMask(client, shapeMaskCtx.shapeId);
+            Mask mask = getMask(client, shapeMaskCtx.shapeId);
             String uuid = getUuid(mask);
             if (uuid == null) {
                 throw new IllegalArgumentException(
