@@ -133,8 +133,8 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 Tracing.currentTracer().startScopedSpan("get_images");
         try {
             return client.getSession().getQueryService().findAllByQuery(
-                "SELECT i FROM Image as i " +
-                "JOIN FETCH i.pixels as p WHERE i.id IN (:ids)",
+                "SELECT i FROM Image AS i " +
+                "JOIN FETCH i.pixels AS p WHERE i.id IN (:ids)",
                 params, ctx
             ).stream().map(x -> (Image) x).collect(Collectors.toList());
         } finally {

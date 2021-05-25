@@ -151,7 +151,7 @@ public class ImageRegionRequestHandler {
         span.tag("omero.image_id", imageId.toString());
         try {
             List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels as p " +
+                    "SELECT p.id, p.image.series FROM Pixels AS p " +
                     "WHERE p.image.id = :id",
                     params, ctx
                 );
@@ -214,7 +214,7 @@ public class ImageRegionRequestHandler {
         span.tag("omero.image_id", imageId.toString());
         try {
             omero.model.Image image = (omero.model.Image) iQuery.findByQuery(
-                    "SELECT i from Image i " +
+                    "SELECT i FROM Image i " +
                     "WHERE i.id = :id",
                     params, ctx
                 );
