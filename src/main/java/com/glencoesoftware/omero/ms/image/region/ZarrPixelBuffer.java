@@ -24,6 +24,9 @@ import java.net.URI;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,7 +54,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             LoggerFactory.getLogger(PixelBuffer.class);
 
     /** Root of the OME-NGFF multiscale we are operating on */
-    private final URI root;
+    private final Path root;
 
     /** Requested resolution level */
     private int resolutionLevel;
@@ -80,9 +83,11 @@ public class ZarrPixelBuffer implements PixelBuffer {
      */
     public ZarrPixelBuffer(URI root, Integer maxTileLength)
             throws IOException {
-        this.root = root;
         if ("s3".equals(root.getScheme())) {
-            // FIXME: Do something special?
+            FileSystem fs = FileSystems.newFileSystem(root, null);
+            this.root = fs.getPath("");
+        } else {
+            this.root = Paths.get(root);
         }
         rootGroup = ZarrGroup.open(Paths.get(root));
         rootGroupAttributes = rootGroup.getAttributes();
@@ -235,12 +240,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
         List<Map<String, String>> datasets = getDatasets();
         List<int[]> shapes = new ArrayList<int[]>();
         for (Map<String, String> dataset : datasets) {
-            if ("s3".equals(root.getScheme())) {
-                // FIXME: Do something special?
-            }
-            String subPath = String.format("/%s", dataset.get("path"));
-            URI path = root.resolve(root.getPath() + subPath);
-            ZarrArray resolutionArray = ZarrArray.open(Paths.get(path));
+            ZarrArray resolutionArray =
+                    ZarrArray.open(root.resolve(dataset.get("path")));
             int[] shape = resolutionArray.getShape();
             shapes.add(0, shape);
         }
@@ -257,12 +258,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
         List<Map<String, String>> datasets = getDatasets();
         List<int[]> chunks = new ArrayList<int[]>();
         for (Map<String, String> dataset : datasets) {
-            if ("s3".equals(root.getScheme())) {
-                // FIXME: Do something special?
-            }
-            String subPath = String.format("/%s", dataset.get("path"));
-            URI path = root.resolve(root.getPath() + subPath);
-            ZarrArray resolutionArray = ZarrArray.open(Paths.get(path));
+            ZarrArray resolutionArray = ZarrArray.open(
+                    root.resolve(dataset.get("path")));
             int[] shape = resolutionArray.getChunks();
             chunks.add(0, shape);
         }
@@ -664,13 +661,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(
                     "This Zarr file has no pixel data");
         }
-        String subPath = String.format("/%d", this.resolutionLevel);
-        URI path = root.resolve(root.getPath() + subPath);
-        if ("s3".equals(root.getScheme())) {
-            // FIXME: Do something special?
-        }
         try {
-            array = ZarrArray.open(Paths.get(path));
+            array = ZarrArray.open(
+                    root.resolve(Integer.toString(this.resolutionLevel)));
         } catch (Exception e) {
             // FIXME: Throw the right exception
             throw new RuntimeException(e);
