@@ -21,6 +21,9 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.slf4j.LoggerFactory;
@@ -44,7 +47,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
     /** NGFF directory root */
-    private final URI ngffDir;
+    private final Path ngffDir;
 
     /** Max Tile Length */
     private final Integer maxTileLength;
@@ -56,21 +59,43 @@ public class PixelsService extends ome.io.nio.PixelsService {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
-        this.ngffDir = asUri(ngffDir);
+        this.ngffDir = asPath(ngffDir);
         this.maxTileLength = maxTileLength;
-        log.info("Using image region PixelsService");
     }
 
-    private URI asUri(String ngffDir) {
+    /**
+     * Converts an NGFF root string to a path, initializing a {@link FileSystem}
+     * if required
+     * @param ngffDir NGFF directory root
+     * @return Fully initialized path or <code>null</code> if the NGFF root
+     * directory has not been specified in configuration.
+     */
+    private Path asPath(String ngffDir) {
+        if (ngffDir.isEmpty()) {
+            return null;
+        }
+
         try {
-            URI asUri = new URI(ngffDir);
-            if ("s3".equals(this.ngffDir.getScheme())) {
-                return asUri;
+            URI uri = new URI(ngffDir);
+            if ("s3".equals(uri.getScheme())) {
+                URI endpoint = new URI(
+                        uri.getScheme(), uri.getUserInfo(), uri.getHost(),
+                        uri.getPort(), "", "", "");
+                // drop initial "/"
+                String uriPath = uri.getRawPath().substring(1);
+                int first = uriPath.indexOf("/");
+                String bucket = "/" + uriPath.substring(0, first);
+                String rest = uriPath.substring(first + 1);
+                // FIXME: We might want to support additional S3FS settings in
+                // the future.  See:
+                //   * https://github.com/lasersonlab/Amazon-S3-FileSystem-NIO
+                FileSystem fs = FileSystems.newFileSystem(endpoint, null);
+                return fs.getPath(bucket, rest);
             }
         } catch (Exception e) {
             // Fall through
         }
-        return Paths.get(ngffDir).toUri();
+        return Paths.get(ngffDir);
     }
 
     @Override
@@ -118,7 +143,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
 
     private String getLabelImageSubPath(Pixels pixels, String uuid) {
         return String.format(
-                "/%d.zarr/%d/labels/%s",
+                "%d.zarr/%d/labels/%s",
                 pixels.getImage().getFileset().getId(),
                 pixels.getImage().getSeries(),
                 uuid);
@@ -135,10 +160,11 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     public PixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
             throws IOException {
-        return new ZarrPixelBuffer(
-                ngffDir.resolve(
-                        ngffDir.getPath() + getLabelImageSubPath(pixels, uuid)),
-                maxTileLength);
+        if (ngffDir == null) {
+            throw new IllegalArgumentException("NGFF dir not configured");
+        }
+        Path root = ngffDir.resolve(getLabelImageSubPath(pixels, uuid));
+        return new ZarrPixelBuffer(root, maxTileLength);
     }
 
     /**
@@ -153,15 +179,13 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     @Override
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
-        if (!ngffDir.getPath().isEmpty()) {
+        if (ngffDir != null) {
             try {
-                String subPath = String.format(
-                        "/%d.zarr/%d",
+                Path root = ngffDir.resolve(String.format(
+                        "%d.zarr/%d",
                         pixels.getImage().getFileset().getId(),
-                        pixels.getImage().getSeries());
-                return new ZarrPixelBuffer(
-                        ngffDir.resolve(ngffDir.getPath() + subPath),
-                        maxTileLength);
+                        pixels.getImage().getSeries()));
+                return new ZarrPixelBuffer(root,  maxTileLength);
             } catch (Exception e) {
                 log.info(
                     "Getting NGFF Pixel Buffer failed - " +

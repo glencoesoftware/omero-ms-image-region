@@ -20,14 +20,10 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -81,15 +77,10 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * read operations
      * @throws IOException 
      */
-    public ZarrPixelBuffer(URI root, Integer maxTileLength)
+    public ZarrPixelBuffer(Path root, Integer maxTileLength)
             throws IOException {
-        if ("s3".equals(root.getScheme())) {
-            FileSystem fs = FileSystems.newFileSystem(root, null);
-            this.root = fs.getPath("");
-        } else {
-            this.root = Paths.get(root);
-        }
-        rootGroup = ZarrGroup.open(Paths.get(root));
+        this.root = root;
+        rootGroup = ZarrGroup.open(this.root);
         rootGroupAttributes = rootGroup.getAttributes();
         if (!rootGroupAttributes.containsKey("multiscales")) {
             throw new IllegalArgumentException("Missing multiscales metadata!");
