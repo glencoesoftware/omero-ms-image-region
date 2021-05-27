@@ -61,7 +61,6 @@ import omero.model.Image;
 import zipkin2.Span;
 import zipkin2.reporter.AsyncReporter;
 import zipkin2.reporter.okhttp3.OkHttpSender;
-import brave.ScopedSpan;
 import brave.Tracing;
 import brave.http.HttpTracing;
 import brave.sampler.Sampler;
@@ -243,13 +242,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .setWorker(true)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-shape-mask-pool")
-                        .setWorkerPoolSize(workerPoolSize)
-                        .setConfig(config));
-        vertx.deployVerticle("omero:omero-ms-thumbnail-verticle",
-                new DeploymentOptions()
-                        .setWorker(true)
-                        .setInstances(workerPoolSize)
-                        .setWorkerPoolName("thumbnail-pool")
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
 
@@ -691,7 +683,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         thumbnailCtx.injectCurrentTraceContext();
         vertx.eventBus().<byte[]>request(
-                ThumbnailVerticle.RENDER_THUMBNAIL_EVENT,
+                ImageRegionVerticle.RENDER_THUMBNAIL_EVENT,
                 Json.encode(thumbnailCtx), result -> {
             try {
                 if (handleResultFailed(result, response)) {
@@ -737,7 +729,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         thumbnailCtx.injectCurrentTraceContext();
 
         vertx.eventBus().<String>request(
-                ThumbnailVerticle.GET_THUMBNAILS_EVENT,
+                ImageRegionVerticle.GET_THUMBNAILS_EVENT,
                 Json.encode(thumbnailCtx), result -> {
             try {
                 if (handleResultFailed(result, response)) {

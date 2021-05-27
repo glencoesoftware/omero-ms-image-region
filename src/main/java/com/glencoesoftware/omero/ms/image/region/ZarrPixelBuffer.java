@@ -1,58 +1,293 @@
+/*
+ * Copyright (C) 2021 Glencoe Software, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.Dimension;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
-import java.nio.file.Paths;
+import java.nio.ByteOrder;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
+import org.slf4j.LoggerFactory;
+
+import com.bc.zarr.DataType;
+import com.bc.zarr.ZarrArray;
+import com.bc.zarr.ZarrGroup;
+
+import brave.ScopedSpan;
+import brave.Tracing;
+import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
-import ome.model.core.Pixels;
 import ome.util.PixelData;
+import ucar.ma2.InvalidRangeException;
 
 public class ZarrPixelBuffer implements PixelBuffer {
 
-    /** The Pixels object represented by this PixelBuffer */
-    Pixels pixels;
+    private static final org.slf4j.Logger log =
+            LoggerFactory.getLogger(PixelBuffer.class);
 
-    /** Top-level directory for NGFF files */
-    String ngffDir;
-
-    /** Fileset ID */
-    Long filesetId;
+    /** Root of the OME-NGFF multiscale we are operating on */
+    private final Path root;
 
     /** Requested resolution level */
-    int resolutionLevel;
+    private int resolutionLevel;
 
     /** Total number of resolution levels */
-    int resolutionLevels = -1;
+    private final int resolutionLevels;
 
-    /** For performing zarr operations */
-    OmeroZarrUtils zarrUtils;
+    /** Max tile length */
+    private final Integer maxTileLength;
+
+    /** Root group of the OME-NGFF multiscale we are operating on */
+    private final ZarrGroup rootGroup;
+
+    /** Zarr attributes present on the root group */
+    private final Map<String, Object> rootGroupAttributes;
+
+    /** Zarr array corresponding to the current resolution level */
+    private ZarrArray array;
 
     /**
      * Default constructor
-     * @param pixels The Pixels object represented by this PixelBuffer
-     * @param ngffDir Top-level directory for NGFF files
-     * @param filesetId Fileset ID
-     * @param zarrUtils For performing zarr operations
+     * @param root The root of this buffer
+     * @param maxTileLength Maximum tile length that can be used during
+     * read operations
+     * @throws IOException
      */
-    public ZarrPixelBuffer(
-            Pixels pixels, String ngffDir, Long filesetId,
-            OmeroZarrUtils zarrUtils) {
-        this.pixels = pixels;
-        this.ngffDir = ngffDir;
-        this.filesetId = filesetId;
-        this.zarrUtils = zarrUtils;
+    public ZarrPixelBuffer(Path root, Integer maxTileLength)
+            throws IOException {
+        this.root = root;
+        rootGroup = ZarrGroup.open(this.root);
+        rootGroupAttributes = rootGroup.getAttributes();
+        if (!rootGroupAttributes.containsKey("multiscales")) {
+            throw new IllegalArgumentException("Missing multiscales metadata!");
+        }
         this.resolutionLevels = this.getResolutionLevels();
-        this.resolutionLevel = this.resolutionLevels - 1;
+        setResolutionLevel(this.resolutionLevels - 1);
         if (this.resolutionLevel < 0) {
             throw new IllegalArgumentException(
                     "This Zarr file has no pixel data");
         }
+        this.maxTileLength = maxTileLength;
+    }
+
+    /**
+     * Get Bio-Formats/OMERO pixels type string for buffer.
+     * @return See above.
+     */
+    public String getPixelsType() {
+        DataType dataType = array.getDataType();
+        switch (dataType) {
+            case u1:
+                return FormatTools.getPixelTypeString(FormatTools.UINT8);
+            case i1:
+                return FormatTools.getPixelTypeString(FormatTools.INT8);
+            case u2:
+                return FormatTools.getPixelTypeString(FormatTools.UINT16);
+            case i2:
+                return FormatTools.getPixelTypeString(FormatTools.INT16);
+            case u4:
+                return FormatTools.getPixelTypeString(FormatTools.UINT32);
+            case i4:
+                return FormatTools.getPixelTypeString(FormatTools.INT32);
+            case f4:
+                return FormatTools.getPixelTypeString(FormatTools.FLOAT);
+            case f8:
+                return FormatTools.getPixelTypeString(FormatTools.DOUBLE);
+            default:
+                throw new IllegalArgumentException(
+                        "Data type " + dataType + " not supported");
+        }
+    }
+
+    /**
+     * Get bytes per pixel for the current buffer data type
+     * @return See above.
+     */
+    private int getBytesPerPixel() {
+        DataType dataType = array.getDataType();
+        switch (dataType) {
+            case u1:
+            case i1:
+                return 1;
+            case u2:
+            case i2:
+                return 2;
+            case u4:
+            case i4:
+            case f4:
+                return 4;
+            case i8:
+            case f8:
+                return 8;
+            default:
+                throw new IllegalArgumentException(
+                        "Data type " + dataType + " not supported");
+        }
+    }
+
+    /**
+     * Get byte array from ZarrArray
+     * @param zarray The ZarrArray to get data from
+     * @param shape The shape of the region to retrieve
+     * @param offset The offset of the region
+     * @return byte array of data from the ZarrArray
+     */
+    private byte[] getBytes(int[] shape, int[] offset) {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_bytes_zarr");
+        if (shape[4] > maxTileLength) {
+            throw new IllegalArgumentException(String.format(
+                    "sizeX %d > maxTileLength %d", shape[4], maxTileLength));
+        }
+        if (shape[3] > maxTileLength) {
+            throw new IllegalArgumentException(String.format(
+                    "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
+        }
+        try {
+            int length = IntStream.of(shape).reduce(1, Math::multiplyExact);
+            int bytesPerPixel = getBytesPerPixel();
+            ByteBuffer asByteBuffer = ByteBuffer.allocate(
+                    length * bytesPerPixel);
+            DataType dataType = array.getDataType();
+            switch (dataType) {
+                case u1:
+                case i1:
+                    return (byte[]) array.read(shape, offset);
+                case u2:
+                case i2:
+                {
+                    short[] data = (short[]) array.read(shape, offset);
+                    asByteBuffer.asShortBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case u4:
+                case i4:
+                {
+                    int[] data = (int[]) array.read(shape, offset);
+                    asByteBuffer.asIntBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case i8:
+                {
+                    long[] data = (long[]) array.read(shape, offset);
+                    asByteBuffer.asLongBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case f4:
+                {
+                    float[] data = (float[]) array.read(shape, offset);
+                    asByteBuffer.asFloatBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                case f8:
+                {
+                    double[] data = (double[]) array.read(shape, offset);
+                    asByteBuffer.asDoubleBuffer().put(data);
+                    return asByteBuffer.array();
+                }
+                default:
+                    log.error("Unsupported data type" + dataType);
+                    return null;
+            }
+        } catch (InvalidRangeException|IOException e) {
+            log.error("Error getting zarr PixelData", e);
+            return null;
+        } finally {
+            span.finish();
+        }
+    }
+
+    /**
+     * Retrieves the array shapes of all subresolutions of this multiscale
+     * buffer.
+     * @return See above.
+     * @throws IOException
+     */
+    public int[][] getShapes() throws IOException {
+        List<Map<String, String>> datasets = getDatasets();
+        List<int[]> shapes = new ArrayList<int[]>();
+        for (Map<String, String> dataset : datasets) {
+            ZarrArray resolutionArray =
+                    ZarrArray.open(root.resolve(dataset.get("path")));
+            int[] shape = resolutionArray.getShape();
+            shapes.add(0, shape);
+        }
+        return shapes.toArray(new int[shapes.size()][]);
+    }
+
+    /**
+     * Retrieves the array chunk sizes of all subresolutions of this multiscale
+     * buffer.
+     * @return See above.
+     * @throws IOException
+     */
+    public int[][] getChunks() throws IOException {
+        List<Map<String, String>> datasets = getDatasets();
+        List<int[]> chunks = new ArrayList<int[]>();
+        for (Map<String, String> dataset : datasets) {
+            ZarrArray resolutionArray = ZarrArray.open(
+                    root.resolve(dataset.get("path")));
+            int[] shape = resolutionArray.getChunks();
+            chunks.add(0, shape);
+        }
+        return chunks.toArray(new int[chunks.size()][]);
+    }
+
+    /**
+     * Retrieves the datasets metadat of the first multiscale from the root
+     * group attributes.
+     * @return See above.
+     * @see #getRootGroupAttributes()
+     * @see #getMultiscalesMetadata()
+     */
+    public List<Map<String, String>> getDatasets() {
+        return (List<Map<String, String>>)
+                getMultiscalesMetadata().get(0).get("datasets");
+    }
+
+    /**
+     * Retrieves the multiscales metadata from the root group attributes.
+     * @return See above.
+     * @see #getRootGroupAttributes()
+     * @see #getDatasets()
+     */
+    public List<Map<String, Object>> getMultiscalesMetadata() {
+        return (List<Map<String, Object>>)
+                rootGroupAttributes.get("multiscales");
+    }
+
+    /**
+     * Returns the current Zarr root group attributes for this buffer.
+     * @return See above.
+     * @see #getMultiscalesMetadata()
+     * @see #getDatasets()
+     */
+    public Map<String, Object> getRootGroupAttributes() {
+        return rootGroupAttributes;
     }
 
     @Override
@@ -159,16 +394,23 @@ public class ZarrPixelBuffer implements PixelBuffer {
     @Override
     public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
             throws IOException {
-        StringBuffer domStrBuf = new StringBuffer();
-        domStrBuf.append("[")
-            .append(t).append(",")
-            .append(c).append(",")
-            .append(z).append(",")
-            .append(y).append(":").append(y + h).append(",")
-            .append(x).append(":").append(x + w).append("]");
-        return zarrUtils.getPixelData(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, domStrBuf.toString());
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_pixel_data_from_zarr");
+        try {
+            int[] shape = new int[] { 1, 1, 1, h, w };
+            int[] offsets = new int[] { t, c, z, y, x };
+            byte[] asArray = getBytes(shape, offsets);
+            PixelData d = new PixelData(
+                    getPixelsType(), ByteBuffer.wrap(asArray));
+            d.setOrder(ByteOrder.nativeOrder());
+            return d;
+        } catch (Exception e) {
+            log.error("Error while retrieving pixel data", e);
+            span.error(e);
+            return null;
+        } finally {
+            span.finish();
+        }
     }
 
     @Override
@@ -357,12 +599,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public String getPath() {
-        return Paths.get(ngffDir)
-            .resolve(
-                Long.toString(
-                    pixels.getImage().getFileset().getId()) + zarrUtils.ZARR_EXTN)
-            .resolve(Integer.toString(pixels.getImage().getSeries()))
-            .resolve(Integer.toString(resolutionLevel)).toString();
+        return root.toString();
     }
 
     @Override
@@ -373,47 +610,32 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getSizeX() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 4);
+        return array.getShape()[4];
     }
 
     @Override
     public int getSizeY() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 3);
+        return array.getShape()[3];
     }
 
     @Override
     public int getSizeZ() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 2);
+        return array.getShape()[2];
     }
 
     @Override
     public int getSizeC() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 1);
+        return array.getShape()[1];
     }
 
     @Override
     public int getSizeT() {
-        return zarrUtils.getDimSize(
-                ngffDir, filesetId, pixels.getImage().getSeries(),
-                resolutionLevel, 0);
+        return array.getShape()[0];
     }
 
     @Override
     public int getResolutionLevels() {
-        if (resolutionLevels < 0) {
-            return zarrUtils.getResolutionLevels(
-                    ngffDir, filesetId, pixels.getImage().getSeries());
-        } else {
-            return resolutionLevels;
-        }
+        return getDatasets().size();
     }
 
     @Override
@@ -426,6 +648,17 @@ public class ZarrPixelBuffer implements PixelBuffer {
     public void setResolutionLevel(int resolutionLevel) {
         this.resolutionLevel = Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
+        if (this.resolutionLevel < 0) {
+            throw new IllegalArgumentException(
+                    "This Zarr file has no pixel data");
+        }
+        try {
+            array = ZarrArray.open(
+                    root.resolve(Integer.toString(this.resolutionLevel)));
+        } catch (Exception e) {
+            // FIXME: Throw the right exception
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -435,21 +668,18 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
-        List<List<Integer>> resolutionDescriptions =
-                new ArrayList<List<Integer>>();
-        int originalResolution = resolutionLevel;
-        for (int i = 0; i < resolutionLevels; i++) {
-            this.resolutionLevel = i;
-            List<Integer> description = new ArrayList<Integer>();
-            Integer[] xy = zarrUtils.getSizeXandY(
-                    ngffDir, filesetId, pixels.getImage().getSeries(),
-                    resolutionLevel);
-            description.add(xy[0]);
-            description.add(xy[1]);
-            resolutionDescriptions.add(description);
+        try {
+            int[][] shapes = getShapes();
+            List<List<Integer>> resolutionDescriptions =
+                    new ArrayList<List<Integer>>();
+            for (int[] shape : shapes) {
+                resolutionDescriptions.add(Arrays.asList(shape[4], shape[3]));
+            }
+            return resolutionDescriptions;
+        } catch (Exception e) {
+            // FIXME: Throw the right exception
+            throw new RuntimeException(e);
         }
-        setResolutionLevel(originalResolution);
-        return resolutionDescriptions;
     }
 
 }

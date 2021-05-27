@@ -18,7 +18,12 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.testng.annotations.Test;
@@ -32,6 +37,19 @@ import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import ome.io.nio.PixelBuffer;
+import ome.model.core.Channel;
+import ome.model.core.Pixels;
+import ome.model.display.ChannelBinding;
+import ome.model.display.QuantumDef;
+import ome.model.display.RenderingDef;
+import ome.model.enums.Family;
+import ome.model.enums.PixelsType;
+import ome.model.enums.RenderingModel;
+import ome.xml.model.primitives.Color;
+import omeis.providers.re.Renderer;
+import omeis.providers.re.codomain.ReverseIntensityContext;
+import omeis.providers.re.quantum.QuantumFactory;
 import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtxTest {
@@ -359,5 +377,244 @@ public class ImageRegionCtxTest {
                 imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
         Assert.assertNull(imageCtxDecoded.projectionStart);
         Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    public Renderer getRenderer() {
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        //families.add(new Family(Family.VALUE_POLYNOMIAL));
+        QuantumFactory quantumFactory = new QuantumFactory(families);
+        List<RenderingModel> renderingModels = new ArrayList<RenderingModel>();
+        renderingModels.add(new RenderingModel(RenderingModel.VALUE_RGB));
+        Pixels pixels = new Pixels();
+        Channel c1 = new Channel();
+        c1.setRed(0);
+        c1.setGreen(0);
+        c1.setBlue(0);
+        c1.setAlpha(0);
+        Channel c2 = new Channel();
+        c2.setRed(0);
+        c2.setGreen(0);
+        c2.setBlue(0);
+        c2.setAlpha(0);
+        Channel c3 = new Channel();
+        c3.setRed(0);
+        c3.setGreen(0);
+        c3.setBlue(0);
+        c3.setAlpha(0);
+        pixels.addChannel(c1);
+        pixels.addChannel(c2);
+        pixels.addChannel(c3);
+        pixels.setSizeC(3);
+        PixelsType type = new PixelsType(PixelsType.VALUE_INT32);
+        type.setBitSize(8);
+        pixels.setPixelsType(type);
+        pixels.setSignificantBits(8);
+        RenderingDef rdef = new RenderingDef();
+        QuantumDef qdef = new QuantumDef();
+        qdef.setBitResolution(QuantumFactory.DEPTH_8BIT);
+        qdef.setCdStart(0);
+        qdef.setCdEnd(1);
+        rdef.setQuantization(qdef);
+        rdef.setModel(new RenderingModel(RenderingModel.VALUE_RGB));
+        ChannelBinding cb1 = new ChannelBinding();
+        cb1.setFamily(new Family(Family.VALUE_LINEAR));
+        cb1.setCoefficient(1.0);
+        cb1.setNoiseReduction(false);
+        cb1.setInputStart(0.0);
+        cb1.setInputEnd(1.0);
+        cb1.setActive(true);
+        cb1.setRed(0);
+        cb1.setGreen(0);
+        cb1.setBlue(0);
+        cb1.setAlpha(0);
+        ChannelBinding cb2 = new ChannelBinding();
+        cb2.setFamily(new Family(Family.VALUE_LINEAR));
+        cb2.setCoefficient(1.0);
+        cb2.setNoiseReduction(false);
+        cb2.setInputStart(0.0);
+        cb2.setInputEnd(1.0);
+        cb2.setActive(true);
+        cb2.setRed(0);
+        cb2.setGreen(0);
+        cb2.setBlue(0);
+        cb2.setAlpha(0);
+        ChannelBinding cb3 = new ChannelBinding();
+        cb3.setFamily(new Family(Family.VALUE_LINEAR));
+        cb3.setCoefficient(1.0);
+        cb3.setNoiseReduction(false);
+        cb3.setInputStart(0.0);
+        cb3.setInputEnd(1.0);
+        cb3.setRed(0);
+        cb3.setGreen(0);
+        cb3.setBlue(0);
+        cb3.setAlpha(0);
+        rdef.addChannelBinding(cb1);
+        rdef.addChannelBinding(cb2);
+        rdef.addChannelBinding(cb3);
+        cb3.setActive(true);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getResolutionLevel()).thenReturn(3);
+        Renderer renderer = new Renderer(quantumFactory, renderingModels, pixels, rdef, pixelBuffer, null);
+        return renderer;
+    }
+
+    @Test
+    public void testRendering() {
+        Renderer renderer = getRenderer();
+        Color c1 = ImageRegionCtx.splitHTMLColor("FF0000FF");
+        renderer.setRGBA(0, c1.getRed(), c1.getGreen(), c1.getBlue(), c1.getAlpha());
+        Color c2 = ImageRegionCtx.splitHTMLColor("00FF00FF");
+        renderer.setRGBA(1, c2.getRed(), c2.getGreen(), c2.getBlue(), c2.getAlpha());
+        Color c3 = ImageRegionCtx.splitHTMLColor("0000FFFF");
+        renderer.setRGBA(2, c3.getRed(), c3.getGreen(), c3.getBlue(), c3.getAlpha());
+
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getRed(), new Integer(255));
+        Assert.assertEquals(cb.getGreen(), new Integer(0));
+        Assert.assertEquals(cb.getBlue(), new Integer(0));
+        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+
+        cb = renderer.getChannelBindings()[1];
+        Assert.assertEquals(cb.getRed(), new Integer(0));
+        Assert.assertEquals(cb.getGreen(), new Integer(255));
+        Assert.assertEquals(cb.getBlue(), new Integer(0));
+        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+
+        cb = renderer.getChannelBindings()[2];
+        Assert.assertEquals(cb.getRed(), new Integer(0));
+        Assert.assertEquals(cb.getGreen(), new Integer(0));
+        Assert.assertEquals(cb.getBlue(), new Integer(255));
+        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+
+    }
+
+    @Test
+    public void testWindow() {
+        Renderer renderer = getRenderer();
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        for(int i = 0; i < ctx.windows.size(); i++) {
+            ctx.setWindow(renderer, i, i);
+        }
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getInputStart(), window0[0]);
+        Assert.assertEquals(cb.getInputEnd(), window0[1]);
+
+        cb = renderer.getChannelBindings()[1];
+        Assert.assertEquals(cb.getInputStart(), window1[0]);
+        Assert.assertEquals(cb.getInputEnd(), window1[1]);
+
+        cb = renderer.getChannelBindings()[2];
+        Assert.assertEquals(cb.getInputStart(), window2[0]);
+        Assert.assertEquals(cb.getInputEnd(), window2[1]);
+    }
+
+    @Test
+    public void testMapsLinear() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"linear\",\"coefficient\":1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "linear");
+        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testMapsPolynomial() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testMapsLogarithmic() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
+        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMapsLogarithmicNegativeCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":-1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+    }
+
+    @Test
+    public void testMapsExponential() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "exponential");
+        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testMapsMissingFamily() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "linear");
+        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 }
