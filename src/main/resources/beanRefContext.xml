@@ -3,7 +3,7 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
   <description>
-        Defines the beans for the pixel data microservice.
+        Defines the beans for the image region microservice.
   </description>
 
   <bean name="filesystem"  abstract="true">
@@ -60,6 +60,8 @@
     <constructor-arg ref="backOff"/>
     <constructor-arg ref="tileSizes"/>
     <constructor-arg><null /></constructor-arg>
+    <constructor-arg value="${omero.ngff.dir:}" />
+    <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
     <property name="metrics" ref="metrics"/>
   </bean>
 
@@ -71,55 +73,14 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-    <constructor-arg ref="rendering-utils"/>
+    <constructor-arg ref="imageRegionPixelsService"/>
+    <constructor-arg ref="iscale" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
-    <constructor-arg ref="zarr-utils" />
-  </bean>
-  
-  <bean id="omero-ms-thumbnail-verticle"
-        class="com.glencoesoftware.omero.ms.image.region.ThumbnailVerticle"
-        scope="prototype">
-    <constructor-arg ref="iscale" />
-    <constructor-arg ref="rendering-utils"/>
-    <constructor-arg ref="internal-ome.api.ICompress" />
-    <constructor-arg ref="lutProvider" />
-    <constructor-arg ref="ngff-utils" />
-  </bean>
-  
-  <bean id="rendering-utils"
-        class="com.glencoesoftware.omero.ms.image.region.RenderingUtils"
-        scope="prototype">
     <constructor-arg ref="imageRegionPixelsService" />
-    <constructor-arg value="${omero.ngff.dir:}" />
-    <constructor-arg ref="zarr-utils" />
   </bean>
-  
-  <bean id="zarr-utils"
-        class="com.glencoesoftware.omero.ms.image.region.OmeroZarrUtils"
-        scope="prototype">
-        <constructor-arg value="${aws.access-key:}" />
-        <constructor-arg value="${aws.secret-key:}" />
-        <constructor-arg value="${aws.region:}" />
-        <constructor-arg value="${aws.ngff-s3-endpoint:}" />
-        <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-        <constructor-arg ref="s3fs"/>
-  </bean>
-  
-  <bean id="ngff-utils"
-        class="com.glencoesoftware.omero.ms.image.region.NgffUtils"
-        scope="prototype">
-        <constructor-arg ref="zarr-utils" />
-  </bean>
-  
-  <bean id="s3fs"
-        class="com.glencoesoftware.omero.ms.image.region.S3FilesystemWrapper"
-        scope="singleton">
-        <constructor-arg value="${aws.access-key:''}" />
-        <constructor-arg value="${aws.secret-key:''}" />
-        <constructor-arg value="${aws.ngff-s3-endpoint:s3.amazonaws.com}" />
-  </bean>
+
 </beans>

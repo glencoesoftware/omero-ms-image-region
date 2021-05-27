@@ -32,6 +32,10 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 
 import ome.xml.model.primitives.Color;
+import omero.model.Mask;
+import omero.model.MaskI;
+
+import static omero.rtypes.rdouble;
 
 public class ShapeMaskRequestHandlerTest {
 
@@ -52,7 +56,7 @@ public class ShapeMaskRequestHandlerTest {
         params.add("flip", "");
 
         handler = new ShapeMaskRequestHandler(
-                new ShapeMaskCtx(params, ""), "", null);
+                new ShapeMaskCtx(params, ""), null);
     }
 
     @Test
@@ -62,7 +66,10 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 8;
         int height = 2;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
+        Mask mask = new MaskI();
+        mask.setWidth(rdouble(width));
+        mask.setHeight(rdouble(height));
+        byte[] png = handler.renderShapeMask(mask, fillColor, bytes);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);
@@ -75,7 +82,10 @@ public class ShapeMaskRequestHandlerTest {
         byte[] bytes = new byte[] { 0x55, 0x55 };
         int width = 4;
         int height = 4;
-        byte[] png = handler.renderShapeMask(fillColor, bytes, width, height);
+        Mask mask = new MaskI();
+        mask.setWidth(rdouble(width));
+        mask.setHeight(rdouble(height));
+        byte[] png = handler.renderShapeMask(mask, fillColor, bytes);
         Assert.assertNotNull(png);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
         assertImage(image, width, height);

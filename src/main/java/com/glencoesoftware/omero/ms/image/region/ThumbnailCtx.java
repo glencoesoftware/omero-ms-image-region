@@ -18,17 +18,20 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 
-import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
-
 import io.vertx.core.MultiMap;
+import ome.io.nio.PixelBuffer;
+import ome.model.enums.Family;
+import ome.model.enums.RenderingModel;
+import omeis.providers.re.Renderer;
 
-public class ThumbnailCtx extends OmeroRequestCtx {
+public class ThumbnailCtx extends ImageRegionCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailCtx.class);
@@ -36,10 +39,7 @@ public class ThumbnailCtx extends OmeroRequestCtx {
     /** The size of the longest side of the thumbnail */
     public Integer longestSide;
 
-    /** Image ID */
-    public Long imageId;
-
-    /** Image IDs */
+    /** Image IDs to get a thumbnail for */
     public List<Long> imageIds;
 
     /** Rendering Definition ID */
@@ -63,16 +63,52 @@ public class ThumbnailCtx extends OmeroRequestCtx {
                 .map(Integer::parseInt)
                 .orElse(96);
 
-        this.imageIds = params.getAll("id").stream()
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
-
-        this.imageId = Optional.ofNullable(params.get("imageId"))
-                .map(Long::parseLong)
-                .orElse(null);
+        imageIds = new ArrayList<Long>();
+        imageIds.addAll(
+                params.getAll("imageId").stream()
+                        .map(Long::parseLong)
+                        .collect(Collectors.toList()));
+        imageIds.addAll(
+                params.getAll("id").stream()
+                        .map(Long::parseLong)
+                        .collect(Collectors.toList()));
 
         this.renderingDefId = Optional.ofNullable(params.get("rdefId"))
                 .map(Long::parseLong).orElse(null);
+    }
 
+    /**
+     * Apply the first resolution level larger than the thumbnail
+     * @param resolutionDescriptions
+     * @return
+     */
+    @Override
+    public void setResolutionLevel(
+            Renderer renderer, PixelBuffer pixelBuffer) {
+        List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
+        int resolutionLevelCount = rds.size();
+
+        int resolutionLevel = 0;
+        for (; resolutionLevel < rds.size(); resolutionLevel++) {
+            if (rds.get(resolutionLevel).get(0) < longestSide
+                && rds.get(resolutionLevel).get(1) < longestSide) {
+                break;
+            }
+        }
+        resolutionLevel -= 1;
+        if (resolutionLevel < 0) {
+            throw new IllegalArgumentException(
+                    "longestSide exceeds image size");
+        }
+        resolutionLevel = resolutionLevelCount - resolutionLevel - 1;
+        log.debug("Selected resolution level: {}", resolutionLevel);
+        renderer.setResolutionLevel(resolutionLevel);
+    }
+
+    @Override
+    public void updateSettings(Renderer renderer, List<Family> families,
+            List<RenderingModel> renderingModels) {
+        // No-op for thumbnails as we are always taking our settings from
+        // the current RenderingDef
     }
 }
