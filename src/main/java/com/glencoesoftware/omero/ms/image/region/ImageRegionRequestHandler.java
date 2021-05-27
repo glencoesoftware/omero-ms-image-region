@@ -317,27 +317,25 @@ public class ImageRegionRequestHandler {
                     QuantizationException {
         Pixels pixels = retrievePixDescription(
                 pixelsIdAndSeries, iPixels, iQuery);
-        return compress(render(pixels, iPixels));
+        return compress(getBufferedImage(render(pixels, iPixels)));
     }
 
     /**
-     * Compress rendered pixel data in accordance with the current
-     * <code>imageRegionCtx</code>.
+     * Get a {@link BufferedImage} of the data in the given array
      * @param array wrapped pixel data with contextual dimensional extents and
      * pixel type encoded
-     * @return Compressed pixel data ready to return to the client.
+     * @return BufferedImage of the data
      * @throws IOException
      */
-    private byte[] compress(Array array) throws IOException {
+    private BufferedImage getBufferedImage(Array array) throws IOException {
         Integer sizeY = array.getShape()[0];
         Integer sizeX = array.getShape()[1];
         int[] buf = (int[]) array.getStorage();
         buf = flip(buf, sizeX, sizeY,
                 imageRegionCtx.flipHorizontal, imageRegionCtx.flipVertical);
-        BufferedImage image = ImageUtil.createBufferedImage(
+        return ImageUtil.createBufferedImage(
             buf, sizeX, sizeY
         );
-        return compress(image);
     }
 
     /**

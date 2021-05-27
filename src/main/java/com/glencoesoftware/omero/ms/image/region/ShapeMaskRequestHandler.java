@@ -468,8 +468,7 @@ public class ShapeMaskRequestHandler {
                         "No UUID for shape " + shapeMaskCtx.shapeId);
             }
             Pixels pixels = mask.getRoi().getImage().getPrimaryPixels();
-            ZarrPixelBuffer pixelBuffer = (ZarrPixelBuffer)
-                    pixelsService.getLabelImagePixelBuffer(
+            ZarrPixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
                             (ome.model.core.Pixels) mapper.reverse(pixels),
                             uuid);
 

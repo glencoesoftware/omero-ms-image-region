@@ -75,7 +75,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * @param root The root of this buffer
      * @param maxTileLength Maximum tile length that can be used during
      * read operations
-     * @throws IOException 
+     * @throws IOException
      */
     public ZarrPixelBuffer(Path root, Integer maxTileLength)
             throws IOException {
@@ -165,7 +165,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
         }
         if (shape[3] > maxTileLength) {
             throw new IllegalArgumentException(String.format(
-                    "sizeX %d > maxTileLength %d", shape[3], maxTileLength));
+                    "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
         }
         try {
             int length = IntStream.of(shape).reduce(1, Math::multiplyExact);

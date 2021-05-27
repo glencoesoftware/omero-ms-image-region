@@ -158,7 +158,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return A pixel buffer instance.
      * @throws IOException
      */
-    public PixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
+    public ZarrPixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
             throws IOException {
         if (ngffDir == null) {
             throw new IllegalArgumentException("NGFF dir not configured");

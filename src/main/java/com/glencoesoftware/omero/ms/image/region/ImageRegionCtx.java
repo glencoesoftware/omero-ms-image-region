@@ -408,7 +408,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         } catch (Exception e) {
             log.error("Error while parsing color: {}", color, e);
         }
-        return null;
+        throw new IllegalArgumentException("Invalid color " + color);
     }
 
     /**
