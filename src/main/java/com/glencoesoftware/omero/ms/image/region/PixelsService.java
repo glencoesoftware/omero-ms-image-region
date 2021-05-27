@@ -21,6 +21,7 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -55,7 +56,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
             BackOff backOff, TileSizes sizes, IQuery iQuery, String ngffDir,
-            Integer maxTileLength) {
+            Integer maxTileLength) throws IOException {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
@@ -69,8 +70,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @param ngffDir NGFF directory root
      * @return Fully initialized path or <code>null</code> if the NGFF root
      * directory has not been specified in configuration.
+     * @throws IOException
      */
-    private Path asPath(String ngffDir) {
+    private Path asPath(String ngffDir) throws IOException {
         if (ngffDir.isEmpty()) {
             return null;
         }
@@ -92,7 +94,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 FileSystem fs = FileSystems.newFileSystem(endpoint, null);
                 return fs.getPath(bucket, rest);
             }
-        } catch (Exception e) {
+        } catch (URISyntaxException e) {
             // Fall through
         }
         return Paths.get(ngffDir);
