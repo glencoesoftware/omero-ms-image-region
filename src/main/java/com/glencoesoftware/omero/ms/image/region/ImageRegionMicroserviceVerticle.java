@@ -526,12 +526,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
             return;
         }
+        final HttpServerResponse response = event.response();
         int activeChannelCount = 0;
         for (Integer channel : imageRegionCtx.channels) {
             if (channel > 0) activeChannelCount++;
         }
         if (activeChannelCount > MAX_ACTIVE_CHANNELS) {
-            HttpServerResponse response = event.response();
             if (!response.closed()) {
                 response.setStatusCode(400).end(String.format(
                     "Too many active channels. Cannot process more than " +
@@ -539,9 +539,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
             return;
         }
-        imageRegionCtx.injectCurrentTraceContext();
+        try {
+            imageRegionCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
 
-        final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
                 Json.encode(imageRegionCtx), result -> {
@@ -590,9 +597,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
-        shapeMaskCtx.injectCurrentTraceContext();
-
         final HttpServerResponse response = event.response();
+        try {
+            shapeMaskCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
+
         vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
@@ -628,9 +643,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
-        shapeMaskCtx.injectCurrentTraceContext();
-
         final HttpServerResponse response = event.response();
+        try {
+            shapeMaskCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
         vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.GET_SHAPE_MASK_BYTES_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
@@ -667,9 +689,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         HttpServerRequest request = event.request();
         ShapeMaskCtx shapeMaskCtx = new ShapeMaskCtx(
                 request.params(), event.get("omero.session_key"));
-        shapeMaskCtx.injectCurrentTraceContext();
-
         final HttpServerResponse response = event.response();
+        try {
+            shapeMaskCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
         vertx.eventBus().<JsonObject>request(
                 ShapeMaskVerticle.GET_LABEL_IMAGE_METADATA_EVENT,
                 Json.encode(shapeMaskCtx), result -> {
@@ -715,7 +744,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             return;
         }
 
-        thumbnailCtx.injectCurrentTraceContext();
+        try {
+            thumbnailCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
         vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_THUMBNAIL_EVENT,
                 Json.encode(thumbnailCtx), result -> {
@@ -760,7 +797,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             }
             return;
         }
-        thumbnailCtx.injectCurrentTraceContext();
+        try {
+            thumbnailCtx.injectCurrentTraceContext();
+        } catch (Exception e) {
+            log.error("Error injecting trace context", e);
+            if (!response.closed()) {
+                response.setStatusCode(500).end();
+            }
+            return;
+        }
 
         vertx.eventBus().<String>request(
                 ImageRegionVerticle.GET_THUMBNAILS_EVENT,
