@@ -25,6 +25,9 @@ repositories {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
+        url 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
+    }
+    maven {
         url 'https://repo.glencoesoftware.com/repository/jzarr-snapshots'
     }
     maven {
@@ -81,6 +84,7 @@ dependencies {
     implementation 'org.lasersonlab:s3fs:2.2.3'
     testImplementation 'org.testng:testng:6.10'
     testImplementation 'org.mockito:mockito-core:2.28.2'
+    testImplementation 'com.glencoesoftware:bioformats2raw:0.3.0-SNAPSHOT'
 }
 
 jar {
