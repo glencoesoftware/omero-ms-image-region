@@ -484,9 +484,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             log.debug("No body to parse");
         }
         if (body != null) {
-            log.info(body.toString());
+            log.debug(body.toString());
         } else {
-            log.info("Body was null");
+            log.debug("Body was null");
         }
         if (body != null) {
             body.put("imageId", event.request().getParam("imageId"));
