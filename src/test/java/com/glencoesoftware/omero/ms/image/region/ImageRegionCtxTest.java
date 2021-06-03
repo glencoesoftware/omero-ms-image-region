@@ -37,6 +37,7 @@ import org.testng.annotations.BeforeMethod;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Channel;
 import ome.model.core.Pixels;
@@ -90,7 +91,28 @@ public class ImageRegionCtxTest {
             "{\"reverse\": {\"enabled\": false}}, " +
             "{\"reverse\": {\"enabled\": false}}]";
 
+    final String jsonParams = ""
+            + "{"
+            + "\"q\": \"0.8\","
+            + "\"imageId\": \"123\","
+            + "\"theZ\": \"1\","
+            + "\"theT\": \"1\","
+            + "\"m\":\"c\","
+            + "\"format\":\"jpeg\","
+            + "\"z\":1,"
+            + "\"t\":1,"
+            + "\"tile\":\"0,0,1,1024,2048\","
+            + "\"region\": \"" + region + "\","
+            + "\"c\":\"-1|0:65535$0000FF,2|1755:51199$00FF00,-3|3218:26623$FF0000\","
+            + "\"maps\":"
+            + "\"[{\\\"reverse\\\": {\\\"enabled\\\": false}}, "
+            + "{\\\"reverse\\\": {\\\"enabled\\\": false}}, "
+            + "{\\\"reverse\\\": {\\\"enabled\\\": false}}]\""
+            + "}";
+
     private MultiMap params;
+
+    private JsonObject jobj;
 
     @BeforeMethod
     public void setUp() throws IOException {
@@ -104,8 +126,9 @@ public class ImageRegionCtxTest {
         params.add("c", c);
 
         params.add("region", region);
-        params.add("c", c);
         params.add("maps", maps);
+
+        jobj = new JsonObject(jsonParams);
     }
 
     private void assertChannelInfo(ImageRegionCtx imageCtx) {
@@ -130,6 +153,7 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1]);
     }
 
+    //****** Multimap Constructor ********//
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMissingImageId()
             throws JsonParseException, JsonMappingException, IOException {
@@ -379,6 +403,263 @@ public class ImageRegionCtxTest {
         Assert.assertNull(imageCtxDecoded.projectionEnd);
     }
 
+    //******* JSON Constructor tests *******//
+    @Test
+    public void testJsonParsing() {
+        JsonObject jobj = new JsonObject(jsonParams);
+        ImageRegionCtx ctx = new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMissingImageIdJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("imageId");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testImageIdFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("imageId", "abc");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMissingTheZJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("theZ");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTheZFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("theZ", "abc");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMissingTheTJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("theT");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTheTFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("theT", "abc");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testRegionFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("region", "1,2,3,abc");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormatActiveJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testChannelFormatRangeJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("c", "-1|0:65535$0000FF,1|abc:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testQualityFormatJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("q", "abc");
+        new ImageRegionCtx(jobj, "");
+    }
+
+    @Test
+    public void testTileShortParametersJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("region");
+        jobj.put("tile", String.format("%d,%d,%d", resolution, tileX, tileY));
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+
+        Assert.assertNull(imageCtxDecoded.region);
+        Assert.assertNotNull(imageCtxDecoded.tile);
+        Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
+        Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
+        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 0);
+        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 0);
+        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
+        assertChannelInfo(imageCtxDecoded);
+    }
+
+    @Test
+    public void testTileParametersJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("region");
+        jobj.put("m", "c");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+
+        Assert.assertEquals(imageCtxDecoded.m, "rgb");
+        Assert.assertNotNull(imageCtxDecoded.tile);
+        Assert.assertEquals(imageCtxDecoded.tile.getX(), tileX);
+        Assert.assertEquals(imageCtxDecoded.tile.getY(), tileY);
+        Assert.assertEquals(imageCtxDecoded.tile.getWidth(), 1024);
+        Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 2048);
+        Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
+        assertChannelInfo(imageCtxDecoded);
+    }
+
+    @Test
+    public void testRegionParametersJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.remove("tile");
+        jobj.put("m", "g");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNull(imageCtxDecoded.tile);
+        Assert.assertNull(imageCtxDecoded.resolution);
+        Assert.assertEquals(imageCtxDecoded.m, "greyscale");
+        Assert.assertNotNull(imageCtxDecoded.region);
+        Assert.assertEquals(imageCtxDecoded.region.getX(), regionX);
+        Assert.assertEquals(imageCtxDecoded.region.getY(), regionY);
+        Assert.assertEquals(imageCtxDecoded.region.getWidth(), regionWidth);
+        Assert.assertEquals(imageCtxDecoded.region.getHeight(), regionHeight);
+        assertChannelInfo(imageCtxDecoded);
+    }
+
+    @Test
+    public void testCodomainMapsJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNotNull(imageCtxDecoded.maps);
+        Assert.assertEquals(3, imageCtxDecoded.maps.size());
+        for (Map<String, Map<String, Object>> map : imageCtxDecoded.maps) {
+            Map<String, Object> reverse = map.get("reverse");
+            Boolean enabled = (Boolean) reverse.get("enabled");
+            Assert.assertFalse(enabled);
+        }
+    }
+
+    @Test
+    public void testProjectionIntMaxJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "intmax");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntMeanJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "intmean");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MEANINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntSumJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "intsum");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.SUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionNormalJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "normal");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertNull(imageCtxDecoded.projection);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    @Test
+    public void testProjectionIntMeanStartEndJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "intmax|0:1");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertEquals(imageCtxDecoded.projectionStart, new Integer(0));
+        Assert.assertEquals(imageCtxDecoded.projectionEnd, new Integer(1));
+    }
+
+    @Test
+    public void testProjectionIntMeanStartEndInvalidJson()
+            throws JsonParseException, JsonMappingException, IOException {
+        jobj.put("p", "intmax|a:b");
+        ImageRegionCtx imageCtx = new ImageRegionCtx(jobj, "");
+        String data = Json.encode(imageCtx);
+        ObjectMapper mapper = new ObjectMapper();
+        ImageRegionCtx imageCtxDecoded = mapper.readValue(
+                data, ImageRegionCtx.class);
+        Assert.assertEquals(
+                imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
+        Assert.assertNull(imageCtxDecoded.projectionStart);
+        Assert.assertNull(imageCtxDecoded.projectionEnd);
+    }
+
+    //********* Other tests *********//
     public Renderer getRenderer() {
         List<Family> families = new ArrayList<Family>();
         families.add(new Family(Family.VALUE_LINEAR));
