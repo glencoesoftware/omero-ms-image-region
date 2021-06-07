@@ -4,14 +4,13 @@ build_script:
   - gradlew build
 
 test_script:
-  - gradlew test
+  - gradlew test -i
 
 after_test:
   - gradlew distZip
 
 artifacts:
   - path: build\distributions\*
-  - path: build\reports\tests
 
 cache:
   - '%HOME%\.gradle -> build.gradle'
