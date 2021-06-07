@@ -56,6 +56,7 @@ import ome.model.enums.RenderingModel;
 import ome.model.fs.Fileset;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.RenderingStats;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -497,9 +498,10 @@ public class ImageRegionRequestHandler {
         } finally {
             try {
                 if (renderer != null) {
-                    span.tag(
-                            "omero.rendering_stats",
-                            renderer.getStats().getStats());
+                    RenderingStats stats = renderer.getStats();
+                    if (stats != null) {
+                        span.tag("omero.rendering_stats", stats.getStats());
+                    }
                 }
             } finally {
                 span.finish();
