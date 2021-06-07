@@ -26,6 +26,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +35,10 @@ import ome.io.nio.BackOff;
 import ome.io.nio.FilePathResolver;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.TileSizes;
+import ome.model.core.Image;
 import ome.model.core.Pixels;
+import ome.model.screen.Well;
+import ome.model.screen.WellSample;
 
 /**
  * Subclass which overrides series retrieval to avoid the need for
@@ -143,10 +147,39 @@ public class PixelsService extends ome.io.nio.PixelsService {
         return shapeAndStart;
     }
 
+    private String getImageSubPath(Pixels pixels) {
+        Image image = pixels.getImage();
+        Long filesetId = image.getFileset().getId();
+        int wellSampleCount = image.sizeOfWellSamples();
+        if (wellSampleCount > 0) {
+            if (wellSampleCount != 1) {
+                throw new IllegalArgumentException(
+                        "Cannot resolve Image <--> Well mapping with "
+                        + "WellSample count = " + wellSampleCount);
+            }
+            WellSample ws = image.iterateWellSamples().next();
+            Well well = ws.getWell();
+            Iterator<WellSample> i = well.iterateWellSamples();
+            int field = 0;
+            while (i.hasNext()) {
+                WellSample v = i.next();
+                if (v.getId() == ws.getId()) {
+                    break;
+                }
+                field++;
+            }
+            return String.format(
+                    "%d.zarr/%d/%d/%d",
+                    filesetId, well.getRow(), well.getColumn(), field);
+        }
+        return String.format(
+                "%d.zarr/%d/labels/%s", filesetId, image.getSeries());
+    }
+
     private String getLabelImageSubPath(Pixels pixels, String uuid) {
         return String.format(
-                "%d.zarr/%d/labels/%s",
-                pixels.getImage().getFileset().getId(),
+                "%s/labels/%s",
+                getImageSubPath(pixels),
                 pixels.getImage().getSeries(),
                 uuid);
     }
@@ -183,10 +216,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
         if (ngffDir != null) {
             try {
-                Path root = ngffDir.resolve(String.format(
-                        "%d.zarr/%d",
-                        pixels.getImage().getFileset().getId(),
-                        pixels.getImage().getSeries()));
+                Path root = ngffDir.resolve(getImageSubPath(pixels));
                 return new ZarrPixelBuffer(root,  maxTileLength);
             } catch (Exception e) {
                 log.info(

@@ -53,7 +53,6 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.model.fs.Fileset;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.RenderingStats;
@@ -186,7 +185,9 @@ public class ImageRegionRequestHandler {
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
             span.tag("omero.pixels_id", Long.toString(pixelsId));
             // Query pulled from ome.logic.PixelsImpl and expanded to include
-            // our required Image / Plate metadata
+            // our required Image / Plate metadata; loading both sides of the
+            // Image <--> WellSample <--> Well collection so that we can
+            // resolve our field index.
             ParametersI params = new ParametersI();
             params.addId(pixelsId);
             pixels = (Pixels) mapper.reverse(
@@ -194,7 +195,8 @@ public class ImageRegionRequestHandler {
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
                         + "left outer join fetch i.wellSamples as ws "
-                        + "left outer join fetch ws.well "
+                        + "left outer join fetch ws.well as w "
+                        + "left outer join fetch w.wellSamples "
                         + "join fetch p.pixelsType "
                         + "join fetch p.channels as c "
                         + "join fetch c.logicalChannel as lc "
