@@ -11,6 +11,7 @@ after_test:
 
 artifacts:
   - path: build\distributions\*
+  - path: build\reports\tests
 
 cache:
   - '%HOME%\.gradle -> build.gradle'
