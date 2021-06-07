@@ -19,7 +19,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +34,6 @@ import ome.api.local.LocalCompress;
 import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.util.ImageUtil;
 import omeis.providers.re.lut.LutProvider;
 import omero.RType;
 import omero.api.IPixelsPrx;
@@ -99,7 +97,11 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         try {
             for (Long imageId  : thumbnailCtx.imageIds) {
-                thumbnails.put(imageId, getThumbnail(client, imageId));
+                byte[] thumbnail = renderThumbnail(client, imageId);
+                if (thumbnail == null) {
+                    thumbnail = new byte[0];
+                }
+                thumbnails.put(imageId, thumbnail);
             }
         } catch (Exception e) {
             log.error("Exception while retrieving thumbnails", e);
@@ -108,52 +110,36 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a byte array of rendered pixel data for the thumbnail
+     * Renders a JPEG thumbnail.
      * @param client OMERO client to use for querying.
-     * @param imageId The Image ID the user wants a thumbnail of
-     * @param longestSide The longest side length of the final thumbnail
-     * @return Byte array of jpeg thumbnail data
-     * @throws IOException
+     * @return JPEG thumbnail byte array.
      */
-    private byte[] getThumbnail(omero.client client, long imageId)
-            throws IOException {
-        try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries =
-                    getPixelsIdAndSeries(iQuery, imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
-            }
-            log.debug("Cannot find Image:{}", imageId);
-        } catch (Exception e) {
-            log.error("Error getting thumbnail {}", imageId, e);
-        }
-        return new byte[0];
+    public byte[] renderThumbnail(omero.client client) {
+        return renderThumbnail(client, thumbnailCtx.imageIds.get(0));
     }
 
     /**
      * Renders a JPEG thumbnail.
+     * @param client OMERO client to use for querying.
+     * @param imageId The Image ID the user wants a thumbnail of
      * @return JPEG thumbnail byte array.
      */
-    public byte[] renderThumbnail(omero.client client) {
+    private byte[] renderThumbnail(omero.client client, long imageId) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("render_image_region");
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, thumbnailCtx.imageIds.get(0));
+            List<RType> pixelsIdAndSeries =
+                    getPixelsIdAndSeries(iQuery, imageId);
             thumbnailCtx.format = "jpeg";
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 Pixels pixels = retrievePixDescription(
                         pixelsIdAndSeries, iPixels, iQuery);
                 Array array = render(pixels, iPixels);
                 int[] shape = array.getShape();
-                BufferedImage image = ImageUtil.createBufferedImage(
-                        (int[]) array.getStorage(), shape[1], shape[0]);
+                BufferedImage image = getBufferedImage(array);
                 int longestSide = Arrays.stream(shape).max().getAsInt();
                 float scale = (float) thumbnailCtx.longestSide / longestSide;
                 return compress(iScale.scaleBufferedImage(image, scale, scale));

@@ -327,7 +327,7 @@ public class ImageRegionRequestHandler {
      * @return BufferedImage of the data
      * @throws IOException
      */
-    private BufferedImage getBufferedImage(Array array) throws IOException {
+    protected BufferedImage getBufferedImage(Array array) throws IOException {
         Integer sizeY = array.getShape()[0];
         Integer sizeX = array.getShape()[1];
         int[] buf = (int[]) array.getStorage();
