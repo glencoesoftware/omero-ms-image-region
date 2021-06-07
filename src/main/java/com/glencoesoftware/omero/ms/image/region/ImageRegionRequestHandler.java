@@ -53,9 +53,9 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.model.fs.Fileset;
 import ome.util.ImageUtil;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.RenderingStats;
 import omeis.providers.re.data.PlaneDef;
 import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.lut.LutProvider;
@@ -184,38 +184,29 @@ public class ImageRegionRequestHandler {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
             span.tag("omero.pixels_id", Long.toString(pixelsId));
+            // Query pulled from ome.logic.PixelsImpl and expanded to include
+            // our required Image / Plate metadata; loading both sides of the
+            // Image <--> WellSample <--> Well collection so that we can
+            // resolve our field index.
+            ParametersI params = new ParametersI();
+            params.addId(pixelsId);
             pixels = (Pixels) mapper.reverse(
-                    iPixels.retrievePixDescription(pixelsId, ctx));
-            // The series will be used by our version of PixelsService which
-            // avoids attempting to retrieve the series from the database
-            // via IQuery later.
-            Image image = new Image(pixels.getImage().getId(), true);
-            image.setFileset(new Fileset(getFilesetIdFromImageId(
-                    iQuery, pixels.getImage().getId()), true));
-            image.setSeries(((omero.RInt) pixelsIdAndSeries.get(1)).getValue());
-            pixels.setImage(image);
+                    iQuery.findByQuery(
+                        "select p from Pixels as p "
+                        + "join fetch p.image as i "
+                        + "left outer join fetch i.wellSamples as ws "
+                        + "left outer join fetch ws.well as w "
+                        + "left outer join fetch w.wellSamples "
+                        + "join fetch p.pixelsType "
+                        + "join fetch p.channels as c "
+                        + "join fetch c.logicalChannel as lc "
+                        + "left outer join fetch c.statsInfo "
+                        + "left outer join fetch lc.photometricInterpretation "
+                        + "left outer join fetch lc.illumination "
+                        + "left outer join fetch lc.mode "
+                        + "left outer join fetch lc.contrastMethod "
+                        + "where p.id = :id", params, ctx));
             return pixels;
-        } finally {
-            span.finish();
-        }
-    }
-
-    private long getFilesetIdFromImageId(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_fileset_id_from_image_id");
-        span.tag("omero.image_id", imageId.toString());
-        try {
-            omero.model.Image image = (omero.model.Image) iQuery.findByQuery(
-                    "SELECT i FROM Image i " +
-                    "WHERE i.id = :id",
-                    params, ctx
-                );
-            return image.getFileset().getId().getValue();
         } finally {
             span.finish();
         }
@@ -327,7 +318,7 @@ public class ImageRegionRequestHandler {
      * @return BufferedImage of the data
      * @throws IOException
      */
-    private BufferedImage getBufferedImage(Array array) throws IOException {
+    protected BufferedImage getBufferedImage(Array array) throws IOException {
         Integer sizeY = array.getShape()[0];
         Integer sizeX = array.getShape()[1];
         int[] buf = (int[]) array.getStorage();
@@ -509,9 +500,10 @@ public class ImageRegionRequestHandler {
         } finally {
             try {
                 if (renderer != null) {
-                    span.tag(
-                            "omero.rendering_stats",
-                            renderer.getStats().getStats());
+                    RenderingStats stats = renderer.getStats();
+                    if (stats != null) {
+                        span.tag("omero.rendering_stats", stats.getStats());
+                    }
                 }
             } finally {
                 span.finish();
