@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 import org.slf4j.LoggerFactory;
@@ -39,15 +38,11 @@ import ome.model.enums.RenderingModel;
 import ome.util.ImageUtil;
 import omeis.providers.re.lut.LutProvider;
 import omero.RType;
-import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
-import omero.sys.ParametersI;
 import ucar.ma2.Array;
-
-import static omero.rtypes.unwrap;
 
 public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
 
@@ -101,92 +96,41 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * @return Map of {@link Image} identifier to JPEG thumbnail byte array.
      */
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
+        Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         try {
-            List<Image> images = getImages(client, thumbnailCtx.imageIds);
-            if (images.size() != 0) {
-                return getThumbnails(client, images);
-            } else {
-                log.debug("Cannot find any Images with Ids {}",
-                        thumbnailCtx.imageIds);
+            for (Long imageId  : thumbnailCtx.imageIds) {
+                thumbnails.put(imageId, getThumbnail(client, imageId));
             }
         } catch (Exception e) {
             log.error("Exception while retrieving thumbnails", e);
         }
-        return null;
-    }
-
-    /**
-     * Retrieves a list of loaded {@link Image}s from the server.
-     * @param client OMERO client to use for querying.
-     * @param imageIds {@link Image} identifiers to query for.
-     * @return List of loaded {@link Image} and primary {@link Pixels}.
-     * @throws ServerError If there was any sort of error retrieving the images.
-     */
-    private List<Image> getImages(omero.client client, List<Long> imageIds)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addIds(imageIds);
-        ScopedSpan span =
-                Tracing.currentTracer().startScopedSpan("get_images");
-        try {
-            return client.getSession().getQueryService().findAllByQuery(
-                "SELECT i FROM Image AS i " +
-                "JOIN FETCH i.pixels AS p WHERE i.id IN (:ids)",
-                params, ctx
-            ).stream().map(x -> (Image) x).collect(Collectors.toList());
-        } finally {
-            span.finish();
-        }
+        return thumbnails;
     }
 
     /**
      * Retrieves a byte array of rendered pixel data for the thumbnail
      * @param client OMERO client to use for querying.
-     * @param image The Image the use wants a thumbnail of
+     * @param imageId The Image ID the user wants a thumbnail of
      * @param longestSide The longest side length of the final thumbnail
      * @return Byte array of jpeg thumbnail data
      * @throws IOException
      */
-    private byte[] getThumbnail(omero.client client, Image image)
+    private byte[] getThumbnail(omero.client client, long imageId)
             throws IOException {
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                iQuery, image.getId().getValue());
+            List<RType> pixelsIdAndSeries =
+                    getPixelsIdAndSeries(iQuery, imageId);
             if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
                 return getRegion(iQuery, iPixels, pixelsIdAndSeries);
             }
-            log.debug("Cannot find Image:{}", unwrap(image.getId()));
+            log.debug("Cannot find Image:{}", imageId);
         } catch (Exception e) {
-            log.error("Error getting thumbnail {}", image.getId().getValue(), e);
+            log.error("Error getting thumbnail {}", imageId, e);
         }
         return new byte[0];
-    }
-
-    /**
-     * Retrieves a map of JPEG thumbnails from ngffDir.
-     * @param client OMERO client to use for querying.
-     * @param images {@link Image} list to retrieve thumbnails for.
-     * @param longestSide Size to confine or upscale the longest side of each
-     * thumbnail to. The other side will then proportionately, based on aspect
-     * ratio, be scaled accordingly.
-     * @return Map of {@link Image} identifier to JPEG thumbnail byte array.
-     * @throws IOException
-     * @throws ServerError
-     */
-    private Map<Long, byte[]> getThumbnails(
-            omero.client client, List<Image> images)
-                    throws IOException, ServerError {
-        Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
-        for (Image image : images) {
-            thumbnails.put(
-                    image.getId().getValue(), getThumbnail(client, image));
-        }
-        return thumbnails;
     }
 
     /**
