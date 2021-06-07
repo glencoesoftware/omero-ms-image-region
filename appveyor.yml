@@ -1,7 +1,7 @@
 build: off
 
 build_script:
-  - gradlew build
+  - gradlew build -i
 
 test_script:
   - gradlew test -i
