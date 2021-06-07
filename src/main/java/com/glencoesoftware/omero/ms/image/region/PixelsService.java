@@ -173,15 +173,12 @@ public class PixelsService extends ome.io.nio.PixelsService {
                     filesetId, well.getRow(), well.getColumn(), field);
         }
         return String.format(
-                "%d.zarr/%d/labels/%s", filesetId, image.getSeries());
+                "%d.zarr/%d", filesetId, image.getSeries());
     }
 
     private String getLabelImageSubPath(Pixels pixels, String uuid) {
         return String.format(
-                "%s/labels/%s",
-                getImageSubPath(pixels),
-                pixels.getImage().getSeries(),
-                uuid);
+                "%s/labels/%s", getImageSubPath(pixels), uuid);
     }
 
     /**
