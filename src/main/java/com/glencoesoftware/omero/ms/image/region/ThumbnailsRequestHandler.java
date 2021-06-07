@@ -47,6 +47,8 @@ import omero.model.Image;
 import omero.sys.ParametersI;
 import ucar.ma2.Array;
 
+import static omero.rtypes.unwrap;
+
 public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
@@ -155,11 +157,14 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             IPixelsPrx iPixels = sf.getPixelsService();
             List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
                 iQuery, image.getId().getValue());
-            return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
+                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+            }
+            log.debug("Cannot find Image:{}", unwrap(image.getId()));
         } catch (Exception e) {
             log.error("Error getting thumbnail {}", image.getId().getValue(), e);
-            return new byte[0];
         }
+        return new byte[0];
     }
 
     /**
