@@ -41,7 +41,8 @@ public class ZarrPixelBufferTest {
      * @param additionalArgs CLI arguments as needed beyond "input output"
      */
     void assertBioFormats2Raw(Path input, Path output, String...additionalArgs) throws IOException {
-      List<String> args = new ArrayList<String>();
+      List<String> args = new ArrayList<String>(
+              Arrays.asList(new String[] { "--compression", "null" }));
       for (String arg : additionalArgs) {
         args.add(arg);
       }
