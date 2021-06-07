@@ -548,6 +548,25 @@ public class ImageRegionCtxTest {
     }
 
     @Test
+    public void testMapsPolynomialIntegerCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
     public void testMapsLogarithmic() {
         String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":1.8}}]";
         params.remove("maps");
@@ -562,13 +581,13 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
-        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getCoefficient(), 1.0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMapsLogarithmicNegativeCoefficient() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":-1.8}}]";
+    @Test
+    public void testMapsLogarithmicNoCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\"}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -579,6 +598,10 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
         ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
+        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
     @Test
