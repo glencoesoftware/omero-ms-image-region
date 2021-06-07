@@ -46,7 +46,6 @@ import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
 import omero.sys.ParametersI;
 import ucar.ma2.Array;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 
 public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
 
