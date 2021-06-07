@@ -95,7 +95,7 @@ public class ThumbnailCtx extends ImageRegionCtx {
             }
         }
         resolutionLevel += 1;
-        if (resolutionLevel < 0) {
+        if (resolutionLevel == rds.size()) {
             throw new IllegalArgumentException(
                     "longestSide exceeds image size");
         }
