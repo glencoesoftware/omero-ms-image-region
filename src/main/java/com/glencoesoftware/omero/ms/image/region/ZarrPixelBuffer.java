@@ -402,7 +402,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             byte[] asArray = getBytes(shape, offsets);
             PixelData d = new PixelData(
                     getPixelsType(), ByteBuffer.wrap(asArray));
-            d.setOrder(ByteOrder.nativeOrder());
+            d.setOrder(array.getByteOrder());
             return d;
         } catch (Exception e) {
             log.error("Error while retrieving pixel data", e);
