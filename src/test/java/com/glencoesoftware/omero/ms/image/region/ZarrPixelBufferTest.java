@@ -33,7 +33,7 @@ import zipkin2.reporter.Reporter;
 public class ZarrPixelBufferTest {
 
     @Rule
-    public TemporaryFolder tmpDir = new TemporaryFolder();
+    public TemporaryFolder tmpDir = new TemporaryFolder(new File("/tmp"));
 
     /**
      * Run the bioformats2raw main method and check for success or failure.
