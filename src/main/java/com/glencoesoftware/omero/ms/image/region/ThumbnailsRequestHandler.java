@@ -52,7 +52,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ThumbnailsRequestHandler.class);
 
-    /** Current thumbanil rendering context */
+    /** Current thumbnail rendering context */
     private final ThumbnailCtx thumbnailCtx;
 
     /** Image scaling service */
