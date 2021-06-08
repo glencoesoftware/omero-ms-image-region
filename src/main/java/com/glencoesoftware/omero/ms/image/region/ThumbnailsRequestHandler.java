@@ -154,12 +154,12 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IPixelsPrx iPixels = sf.getPixelsService();
             thumbnailCtx.format = "jpeg";
-                Array array = render(pixels, iPixels);
-                int[] shape = array.getShape();
-                BufferedImage image = getBufferedImage(array);
-                int longestSide = Arrays.stream(shape).max().getAsInt();
-                float scale = (float) thumbnailCtx.longestSide / longestSide;
-                return compress(iScale.scaleBufferedImage(image, scale, scale));
+            Array array = render(pixels, iPixels);
+            int[] shape = array.getShape();
+            BufferedImage image = getBufferedImage(array);
+            int longestSide = Arrays.stream(shape).max().getAsInt();
+            float scale = (float) thumbnailCtx.longestSide / longestSide;
+            return compress(iScale.scaleBufferedImage(image, scale, scale));
         } catch (Exception e) {
             span.error(e);
             log.error("Exception while rendering thumbnail", e);
