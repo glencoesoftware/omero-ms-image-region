@@ -48,6 +48,7 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
+import ome.logic.PixelsImpl;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
@@ -190,11 +191,34 @@ public class ImageRegionRequestHandler {
         ctx.put("omero.group", "-1");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_rendering_def");
+        // Ask for rendering settings for the current user or the image owner
+        String q = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
+                + "rdef.pixels.id = :id "
+                + "and ("
+                + "  rdef.details.owner.id = rdef.pixels.details.owner.id"
+                + "    or rdef.details.owner.id = :userId"
+                + ")";
         try {
-            return (RenderingDef) mapper.reverse(
-                    client.getSession()
-                        .getPixelsService()
-                        .retrieveRndSettings(pixelsId, ctx));
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            long userId = sf.getAdminService().getEventContext().userId;
+            ParametersI params = new ParametersI();
+            params.addId(pixelsId);
+            params.add("userId", omero.rtypes.rlong(userId));
+            List<RenderingDef> renderingDefs =
+                    (List<RenderingDef>) mapper.reverse(
+                            iQuery.findAllByQuery(q, params, ctx));
+            if (renderingDefs.size() == 0) {
+                return null;
+            }
+            for (RenderingDef renderingDef : renderingDefs) {
+                // If we have user rendering settings prefer those
+                if (renderingDef.getDetails().getOwner().getId() == userId) {
+                    return renderingDef;
+                }
+            }
+            // Otherwise pick the first
+            return renderingDefs.get(0);
         } catch (Exception e) {
             span.error(e);
             return null;
