@@ -41,6 +41,7 @@ import brave.Tracing;
 import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
+import ome.model.core.Pixels;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 
@@ -48,6 +49,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(PixelBuffer.class);
+
+    /** Reference to the pixels. */
+    private final Pixels pixels;
 
     /** Root of the OME-NGFF multiscale we are operating on */
     private final Path root;
@@ -77,8 +81,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * read operations
      * @throws IOException
      */
-    public ZarrPixelBuffer(Path root, Integer maxTileLength)
+    public ZarrPixelBuffer(Pixels pixels, Path root, Integer maxTileLength)
             throws IOException {
+        this.pixels = pixels;
         this.root = root;
         rootGroup = ZarrGroup.open(this.root);
         rootGroupAttributes = rootGroup.getAttributes();
@@ -219,24 +224,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
         } finally {
             span.finish();
         }
-    }
-
-    /**
-     * Retrieves the array shapes of all subresolutions of this multiscale
-     * buffer.
-     * @return See above.
-     * @throws IOException
-     */
-    public int[][] getShapes() throws IOException {
-        List<Map<String, String>> datasets = getDatasets();
-        List<int[]> shapes = new ArrayList<int[]>();
-        for (Map<String, String> dataset : datasets) {
-            ZarrArray resolutionArray =
-                    ZarrArray.open(root.resolve(dataset.get("path")));
-            int[] shape = resolutionArray.getShape();
-            shapes.add(0, shape);
-        }
-        return shapes.toArray(new int[shapes.size()][]);
     }
 
     /**
@@ -669,11 +656,16 @@ public class ZarrPixelBuffer implements PixelBuffer {
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
         try {
-            int[][] shapes = getShapes();
+            int resolutionLevels = getResolutionLevels();
             List<List<Integer>> resolutionDescriptions =
                     new ArrayList<List<Integer>>();
-            for (int[] shape : shapes) {
-                resolutionDescriptions.add(Arrays.asList(shape[4], shape[3]));
+            int sizeX = pixels.getSizeX();
+            int sizeY = pixels.getSizeY();
+            for (int i = 0; i < resolutionLevels; i++) {
+                double scale = Math.pow(2, i);
+                resolutionDescriptions.add(
+                        0, Arrays.asList(
+                                (int) (sizeX / scale), (int) (sizeY / scale)));
             }
             return resolutionDescriptions;
         } catch (Exception e) {
