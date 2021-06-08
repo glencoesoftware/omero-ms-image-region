@@ -177,10 +177,38 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves the correct rendering settings either from the user
+     * Selects the correct rendering settings either from the user
      * (preferred) or image owner corresponding to the specified
      * pixels set.
-     * @param iPixels OMERO pixels service to use for metadata access.
+     * @param renderingDefs A list of rendering settings to select from.
+     * @param pixelsId The identifier of the pixels.
+     * @return See above.
+     */
+    protected RenderingDef selectRenderingDef(
+            List<RenderingDef> renderingDefs, final long userId,
+            final long pixelsId)
+                throws ServerError {
+        RenderingDef userRenderingDef = renderingDefs
+            .stream()
+            .filter(v -> v.getPixels().getId() == pixelsId)
+            .filter(v -> v.getDetails().getOwner().getId() == userId)
+            .findFirst()
+            .orElse(null);
+        if (userRenderingDef != null) {
+            return userRenderingDef;
+        }
+        // Otherwise pick the first (from the owner) if available
+        return renderingDefs
+                .stream()
+                .filter(v -> v.getPixels().getId() == pixelsId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Gets the correct rendering settings either from the user (preferred) or
+     * image owner corresponding to the specified pixels set.
+     * @param client OMERO client to use for querying.
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
@@ -194,25 +222,7 @@ public class ImageRegionRequestHandler {
             long userId = sf.getAdminService().getEventContext().userId;
             List<RenderingDef> renderingDefs = retrieveRenderingDefs(
                     client, userId, Arrays.asList(pixelsId));
-            if (renderingDefs.size() == 0) {
-                return null;
-            }
-            // If we have user rendering settings prefer those
-            RenderingDef userRenderingDef = renderingDefs
-                .stream()
-                .filter(v -> v.getPixels().getId() == pixelsId)
-                .filter(v -> v.getDetails().getOwner().getId() == userId)
-                .findFirst()
-                .orElse(null);
-            if (userRenderingDef != null) {
-                return userRenderingDef;
-            }
-            // Otherwise pick the first (from the owner) if available
-            return renderingDefs
-                    .stream()
-                    .filter(v -> v.getPixels().getId() == pixelsId)
-                    .findFirst()
-                    .orElse(null);
+            return selectRenderingDef(renderingDefs, userId, pixelsId);
         } catch (Exception e) {
             span.error(e);
         } finally {

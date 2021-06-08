@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +37,7 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.lut.LutProvider;
 import omero.api.IQueryPrx;
+import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
 import ucar.ma2.Array;
 
@@ -94,14 +95,25 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         try {
-            IQueryPrx iQuery = client.getSession().getQueryService();
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            long userId = sf.getAdminService().getEventContext().userId;
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, thumbnailCtx.imageIds);
+            List<Long> pixelsIds = imagePixels
+                    .values()
+                    .stream()
+                    .map(v -> v.getId())
+                    .collect(Collectors.toList());
+            List<RenderingDef> renderingDefs = retrieveRenderingDefs(
+                    client, userId, pixelsIds);
             for (Long imageId  : thumbnailCtx.imageIds) {
                 Pixels pixels = imagePixels.get(imageId);
                 byte[] thumbnail = new byte[0];
                 if (pixels != null) {
-                    thumbnail = renderThumbnail(client, pixels);
+                    RenderingDef renderingDef = selectRenderingDef(
+                            renderingDefs, userId, pixels.getId());
+                    thumbnail = renderThumbnail(client, pixels, renderingDef);
                     if (thumbnail == null) {
                         thumbnail = new byte[0];
                     }
@@ -129,7 +141,9 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                     iQuery, thumbnailCtx.imageIds);
             Pixels pixels = imagePixels.get(imageId);
             if (pixels != null) {
-                return renderThumbnail(client, pixels);
+                RenderingDef renderingDef =
+                        getRenderingDef(client, pixels.getId());
+                return renderThumbnail(client, pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageId);
         } catch (Exception e) {
@@ -142,16 +156,17 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * Renders a JPEG thumbnail.
      * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
+     * @param renderingDef rendering settings to use for rendering
      * @return JPEG thumbnail byte array.
      */
-    private byte[] renderThumbnail(omero.client client, Pixels pixels) {
+    private byte[] renderThumbnail(
+            omero.client client, Pixels pixels, RenderingDef renderingDef) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("render_thumbnail");
         try {
             span.tag("omero.image_id", pixels.getImage().getId().toString());
             span.tag("omero.pixels_id", pixels.getId().toString());
             thumbnailCtx.format = "jpeg";
-            RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
             Array array = render(client, pixels, renderingDef);
             int[] shape = array.getShape();
             BufferedImage image = getBufferedImage(array);
