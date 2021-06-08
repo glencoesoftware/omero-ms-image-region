@@ -161,7 +161,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * @param offset The offset of the region
      * @return byte array of data from the ZarrArray
      */
-    private byte[] getBytes(int[] shape, int[] offset) {
+    private ByteBuffer getBytes(int[] shape, int[] offset) {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_bytes_zarr");
         if (shape[4] > maxTileLength) {
@@ -181,38 +181,38 @@ public class ZarrPixelBuffer implements PixelBuffer {
             switch (dataType) {
                 case u1:
                 case i1:
-                    return (byte[]) array.read(shape, offset);
+                    return ByteBuffer.wrap((byte[]) array.read(shape, offset));
                 case u2:
                 case i2:
                 {
                     short[] data = (short[]) array.read(shape, offset);
                     asByteBuffer.asShortBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case u4:
                 case i4:
                 {
                     int[] data = (int[]) array.read(shape, offset);
                     asByteBuffer.asIntBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case i8:
                 {
                     long[] data = (long[]) array.read(shape, offset);
                     asByteBuffer.asLongBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case f4:
                 {
                     float[] data = (float[]) array.read(shape, offset);
                     asByteBuffer.asFloatBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case f8:
                 {
                     double[] data = (double[]) array.read(shape, offset);
                     asByteBuffer.asDoubleBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 default:
                     log.error("Unsupported data type" + dataType);
@@ -386,9 +386,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
         try {
             int[] shape = new int[] { 1, 1, 1, h, w };
             int[] offsets = new int[] { t, c, z, y, x };
-            byte[] asArray = getBytes(shape, offsets);
             PixelData d = new PixelData(
-                    getPixelsType(), ByteBuffer.wrap(asArray));
+                    getPixelsType(), getBytes(shape, offsets));
             d.setOrder(ByteOrder.BIG_ENDIAN);
             return d;
         } catch (Exception e) {
