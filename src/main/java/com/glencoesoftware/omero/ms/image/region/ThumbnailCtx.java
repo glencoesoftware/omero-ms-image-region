@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 
+import brave.ScopedSpan;
+import brave.Tracer;
+import brave.Tracing;
 import io.vertx.core.MultiMap;
 import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
@@ -78,14 +81,34 @@ public class ThumbnailCtx extends ImageRegionCtx {
     }
 
     /**
+     * Retrieve the resolution descriptions of the pixel buffer
+     * @param pixelBuffer pixel buffer providing data for the image
+     * @return See above.
+     * @see PixelBuffer#getResolutionDescriptions()
+     */
+    private List<List<Integer>> getResolutionDescriptions(
+            PixelBuffer pixelBuffer) {
+        Tracer tracer = Tracing.currentTracer();
+        ScopedSpan span = tracer.startScopedSpan("get_resolution_descriptions");
+        try {
+            return pixelBuffer.getResolutionDescriptions();
+        } catch (Exception e) {
+            span.error(e);
+            throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    /**
      * Apply the first resolution level larger than the thumbnail
-     * @param resolutionDescriptions
-     * @return
+     * @param renderer fully initialized renderer
+     * @param pixelBuffer pixel buffer providing data for the image
      */
     @Override
     public void setResolutionLevel(
             Renderer renderer, PixelBuffer pixelBuffer) {
-        List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
+        List<List<Integer>> rds = getResolutionDescriptions(pixelBuffer);
 
         int resolutionLevel = rds.size() - 1;
         for (; resolutionLevel >= 0; resolutionLevel--) {
