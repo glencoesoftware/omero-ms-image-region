@@ -184,7 +184,7 @@ public class ImageRegionRequestHandler {
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
+    protected RenderingDef getRenderingDef(
             omero.client client, final long pixelsId)
                 throws ServerError {
         ScopedSpan span = Tracing.currentTracer()
@@ -229,7 +229,7 @@ public class ImageRegionRequestHandler {
      * @param pixelsIds The pixels set identifiers.
      * @return See above.
      */
-    private List<RenderingDef> retrieveRenderingDefs(
+    protected List<RenderingDef> retrieveRenderingDefs(
             omero.client client, final long userId, final List<Long> pixelsIds)
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
@@ -331,10 +331,11 @@ public class ImageRegionRequestHandler {
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    protected byte[] getRegion(omero.client client, Pixels pixels)
+    private byte[] getRegion(omero.client client, Pixels pixels)
             throws IllegalArgumentException, ServerError, IOException,
                 QuantizationException {
-        return compress(getBufferedImage(render(client, pixels)));
+        RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
+        return compress(getBufferedImage(render(client, pixels, renderingDef)));
     }
 
     /**
@@ -467,14 +468,16 @@ public class ImageRegionRequestHandler {
      * Performs conditional rendering.
      * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
+     * @param renderingDef rendering settings to use
      * @return Image region as packed integer array of shape [Y, X] ready for
      * compression.
      * @throws ServerError
      * @throws IOException
      * @throws QuantizationException
      */
-    protected Array render(omero.client client, Pixels pixels)
-            throws ServerError, IOException, QuantizationException {
+    protected Array render(
+            omero.client client, Pixels pixels, RenderingDef renderingDef)
+                    throws ServerError, IOException, QuantizationException {
         QuantumFactory quantumFactory = new QuantumFactory(families);
 
         Tracer tracer = Tracing.currentTracer();
@@ -483,15 +486,14 @@ public class ImageRegionRequestHandler {
         Renderer renderer = null;
         try (PixelBuffer pixelBuffer =
                 pixelsService.getPixelBuffer(pixels, false)) {
-            RenderingDef rDef = getRenderingDef(client, pixels.getId());
             renderer = new Renderer(
-                quantumFactory, renderingModels, pixels, rDef,
+                quantumFactory, renderingModels, pixels, renderingDef,
                 pixelBuffer, lutProvider
             );
             int t = Optional.ofNullable(imageRegionCtx.t)
-                    .orElse(rDef.getDefaultT());
+                    .orElse(renderingDef.getDefaultT());
             int z = Optional.ofNullable(imageRegionCtx.z)
-                    .orElse(rDef.getDefaultZ());
+                    .orElse(renderingDef.getDefaultZ());
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, t);
             planeDef.setZ(z);
 

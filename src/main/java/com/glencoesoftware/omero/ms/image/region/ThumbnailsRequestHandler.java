@@ -32,6 +32,7 @@ import brave.Tracing;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import ome.model.core.Pixels;
+import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.lut.LutProvider;
@@ -150,7 +151,8 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             span.tag("omero.image_id", pixels.getImage().getId().toString());
             span.tag("omero.pixels_id", pixels.getId().toString());
             thumbnailCtx.format = "jpeg";
-            Array array = render(client, pixels);
+            RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
+            Array array = render(client, pixels, renderingDef);
             int[] shape = array.getShape();
             BufferedImage image = getBufferedImage(array);
             int longestSide = Arrays.stream(shape).max().getAsInt();
