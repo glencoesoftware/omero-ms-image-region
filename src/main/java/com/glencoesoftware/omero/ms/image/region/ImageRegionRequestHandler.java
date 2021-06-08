@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,30 +129,30 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Get Pixels information from Image ID
-     * @param imageId Image ID to get Pixels information for
+     * Get Pixels information from Image IDs
+     * @param imageIds Image IDs to get Pixels information for
      * @param iQuery Query proxy service
-     * @return Populated Pixels object
+     * @return Map of Image ID vs. Populated Pixels object
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected Pixels retrievePixDescription(IQueryPrx iQuery, long imageId)
+    protected Map<Long, Pixels> retrievePixDescription(
+            IQueryPrx iQuery, List<Long> imageIds)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels;
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
-            span.tag("omero.image_id", Long.toString(imageId));
+            span.tag("omero.image_ids", imageIds.toString());
             // Query pulled from ome.logic.PixelsImpl and expanded to include
             // our required Image / Plate metadata; loading both sides of the
             // Image <--> WellSample <--> Well collection so that we can
             // resolve our field index.
             ParametersI params = new ParametersI();
-            params.addId(imageId);
-            pixels = (Pixels) mapper.reverse(
-                    iQuery.findByQuery(
+            params.addIds(imageIds);
+            List<Pixels> pixelsList = (List<Pixels>) mapper.reverse(
+                    iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
                         + "left outer join fetch i.wellSamples as ws "
@@ -165,8 +166,12 @@ public class ImageRegionRequestHandler {
                         + "left outer join fetch lc.illumination "
                         + "left outer join fetch lc.mode "
                         + "left outer join fetch lc.contrastMethod "
-                        + "where i.id = :id", params, ctx));
-            return pixels;
+                        + "where i.id in (:ids)", params, ctx));
+            Map<Long, Pixels> toReturn = new HashMap<Long, Pixels>();
+            for (Pixels pixels : pixelsList) {
+                toReturn.put(pixels.getImage().getId(), pixels);
+            }
+            return toReturn;
         } finally {
             span.finish();
         }
@@ -184,8 +189,17 @@ public class ImageRegionRequestHandler {
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_rendering_def");
+        try {
+            return (RenderingDef) mapper.reverse(
+                    iPixels.retrieveRndSettings(pixelsId, ctx));
+        } catch (Exception e) {
+            span.error(e);
+            return null;
+        } finally {
+            span.finish();
+        }
     }
 
     /**
@@ -237,8 +251,9 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            Pixels pixels =
-                    retrievePixDescription(iQuery, imageRegionCtx.imageId);
+            Map<Long, Pixels> imagePixels = retrievePixDescription(
+                    iQuery, Arrays.asList(imageRegionCtx.imageId));
+            Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
             if (pixels != null) {
                 return getRegion(iPixels, pixels);
             }
