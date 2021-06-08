@@ -63,7 +63,6 @@ import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
 import omero.ServerError;
-import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.sys.ParametersI;
@@ -185,7 +184,7 @@ public class ImageRegionRequestHandler {
      * @return See above.
      */
     private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId)
+            omero.client client, final long pixelsId)
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -193,7 +192,9 @@ public class ImageRegionRequestHandler {
                 .startScopedSpan("get_rendering_def");
         try {
             return (RenderingDef) mapper.reverse(
-                    iPixels.retrieveRndSettings(pixelsId, ctx));
+                    client.getSession()
+                        .getPixelsService()
+                        .retrieveRndSettings(pixelsId, ctx));
         } catch (Exception e) {
             span.error(e);
             return null;
@@ -250,12 +251,11 @@ public class ImageRegionRequestHandler {
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(imageRegionCtx.imageId));
             Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
             if (pixels != null) {
-                return getRegion(iPixels, pixels);
+                return getRegion(client, pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -270,15 +270,15 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param iPixels OMERO pixels service to use for metadata access.
+     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    protected byte[] getRegion(IPixelsPrx iPixels, Pixels pixels)
+    protected byte[] getRegion(omero.client client, Pixels pixels)
             throws IllegalArgumentException, ServerError, IOException,
                 QuantizationException {
-        return compress(getBufferedImage(render(pixels, iPixels)));
+        return compress(getBufferedImage(render(client, pixels)));
     }
 
     /**
@@ -409,15 +409,15 @@ public class ImageRegionRequestHandler {
 
     /**
      * Performs conditional rendering.
+     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
-     * @param iPixels OMERO pixels service to use for metadata access.
      * @return Image region as packed integer array of shape [Y, X] ready for
      * compression.
      * @throws ServerError
      * @throws IOException
      * @throws QuantizationException
      */
-    protected Array render(Pixels pixels, IPixelsPrx iPixels)
+    protected Array render(omero.client client, Pixels pixels)
             throws ServerError, IOException, QuantizationException {
         QuantumFactory quantumFactory = new QuantumFactory(families);
 
@@ -427,7 +427,7 @@ public class ImageRegionRequestHandler {
         Renderer renderer = null;
         try (PixelBuffer pixelBuffer =
                 pixelsService.getPixelBuffer(pixels, false)) {
-            RenderingDef rDef = getRenderingDef(iPixels, pixels.getId());
+            RenderingDef rDef = getRenderingDef(client, pixels.getId());
             renderer = new Renderer(
                 quantumFactory, renderingModels, pixels, rDef,
                 pixelBuffer, lutProvider

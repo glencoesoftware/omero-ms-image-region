@@ -35,9 +35,7 @@ import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.lut.LutProvider;
-import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
-import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
 import ucar.ma2.Array;
 
@@ -151,10 +149,8 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
         try {
             span.tag("omero.image_id", pixels.getImage().getId().toString());
             span.tag("omero.pixels_id", pixels.getId().toString());
-            ServiceFactoryPrx sf = client.getSession();
-            IPixelsPrx iPixels = sf.getPixelsService();
             thumbnailCtx.format = "jpeg";
-            Array array = render(pixels, iPixels);
+            Array array = render(client, pixels);
             int[] shape = array.getShape();
             BufferedImage image = getBufferedImage(array);
             int longestSide = Arrays.stream(shape).max().getAsInt();
