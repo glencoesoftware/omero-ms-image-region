@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 
@@ -32,11 +32,10 @@ import brave.Tracing;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
 import ome.model.core.Pixels;
+import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.lut.LutProvider;
-import omero.RType;
-import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.Image;
@@ -96,15 +95,35 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
         try {
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            long userId = sf.getAdminService().getEventContext().userId;
+            Map<Long, Pixels> imagePixels = retrievePixDescription(
+                    iQuery, thumbnailCtx.imageIds);
+            List<Long> pixelsIds = imagePixels
+                    .values()
+                    .stream()
+                    .map(v -> v.getId())
+                    .collect(Collectors.toList());
+            List<RenderingDef> renderingDefs = retrieveRenderingDefs(
+                    client, userId, pixelsIds);
             for (Long imageId  : thumbnailCtx.imageIds) {
-                byte[] thumbnail = renderThumbnail(client, imageId);
-                if (thumbnail == null) {
-                    thumbnail = new byte[0];
+                Pixels pixels = imagePixels.get(imageId);
+                byte[] thumbnail = new byte[0];
+                if (pixels != null) {
+                    RenderingDef renderingDef = selectRenderingDef(
+                            renderingDefs, userId, pixels.getId());
+                    thumbnail = renderThumbnail(client, pixels, renderingDef);
+                    if (thumbnail == null) {
+                        thumbnail = new byte[0];
+                    }
+                } else {
+                    log.debug("Cannot find Image:{}", imageId);
                 }
                 thumbnails.put(imageId, thumbnail);
             }
         } catch (Exception e) {
-            log.error("Exception while retrieving thumbnails", e);
+            log.error("Exception while rendering thumbnails", e);
         }
         return thumbnails;
     }
@@ -115,39 +134,48 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      * @return JPEG thumbnail byte array.
      */
     public byte[] renderThumbnail(omero.client client) {
-        return renderThumbnail(client, thumbnailCtx.imageIds.get(0));
+        try {
+            IQueryPrx iQuery = client.getSession().getQueryService();
+            long imageId = thumbnailCtx.imageIds.get(0);
+            Map<Long, Pixels> imagePixels = retrievePixDescription(
+                    iQuery, thumbnailCtx.imageIds);
+            Pixels pixels = imagePixels.get(imageId);
+            if (pixels != null) {
+                RenderingDef renderingDef =
+                        getRenderingDef(client, pixels.getId());
+                return renderThumbnail(client, pixels, renderingDef);
+            }
+            log.debug("Cannot find Image:{}", imageId);
+        } catch (Exception e) {
+            log.error("Exception while rendering thumbnail", e);
+        }
+        return null;
     }
 
     /**
      * Renders a JPEG thumbnail.
      * @param client OMERO client to use for querying.
-     * @param imageId The Image ID the user wants a thumbnail of
+     * @param pixels pixels metadata
+     * @param renderingDef rendering settings to use for rendering
      * @return JPEG thumbnail byte array.
      */
-    private byte[] renderThumbnail(omero.client client, long imageId) {
+    private byte[] renderThumbnail(
+            omero.client client, Pixels pixels, RenderingDef renderingDef) {
         ScopedSpan span =
-                Tracing.currentTracer().startScopedSpan("render_image_region");
+                Tracing.currentTracer().startScopedSpan("render_thumbnail");
         try {
-            ServiceFactoryPrx sf = client.getSession();
-            IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries =
-                    getPixelsIdAndSeries(iQuery, imageId);
+            span.tag("omero.image_id", pixels.getImage().getId().toString());
+            span.tag("omero.pixels_id", pixels.getId().toString());
             thumbnailCtx.format = "jpeg";
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                Pixels pixels = retrievePixDescription(
-                        pixelsIdAndSeries, iPixels, iQuery);
-                Array array = render(pixels, iPixels);
-                int[] shape = array.getShape();
-                BufferedImage image = getBufferedImage(array);
-                int longestSide = Arrays.stream(shape).max().getAsInt();
-                float scale = (float) thumbnailCtx.longestSide / longestSide;
-                return compress(iScale.scaleBufferedImage(image, scale, scale));
-            }
-            log.debug("Cannot find Image:{}", thumbnailCtx.imageIds.get(0));
+            Array array = render(client, pixels, renderingDef);
+            int[] shape = array.getShape();
+            BufferedImage image = getBufferedImage(array);
+            int longestSide = Arrays.stream(shape).max().getAsInt();
+            float scale = (float) thumbnailCtx.longestSide / longestSide;
+            return compress(iScale.scaleBufferedImage(image, scale, scale));
         } catch (Exception e) {
             span.error(e);
-            log.error("Exception while retrieving image region", e);
+            log.error("Exception while rendering thumbnail", e);
         } finally {
             span.finish();
         }

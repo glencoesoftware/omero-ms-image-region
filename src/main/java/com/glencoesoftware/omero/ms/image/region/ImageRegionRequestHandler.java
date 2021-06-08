@@ -22,11 +22,11 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -47,7 +47,7 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
-import ome.model.core.Image;
+import ome.logic.PixelsImpl;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
@@ -62,9 +62,7 @@ import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
-import omero.RType;
 import omero.ServerError;
-import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.sys.ParametersI;
@@ -130,68 +128,30 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
-     * the server for a given {@link Image} or <code>null</code> if no such
-     * identifier exists or the user does not have permissions to access it.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param imageId {@link Image} identifier to query for.
-     * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
-     */
-    protected List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixels_id_and_series");
-        span.tag("omero.image_id", imageId.toString());
-        try {
-            List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels AS p " +
-                    "WHERE p.image.id = :id",
-                    params, ctx
-                );
-            if (data.size() < 1) {
-                return null;
-            }
-            return data.get(0);  // The first row
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Get Pixels information from ID
-     * @param pixelsIdAndSeries ID and Series for this Pixels object
-     * @param iPixels Pixels proxy service
+     * Get Pixels information from Image IDs
+     * @param imageIds Image IDs to get Pixels information for
      * @param iQuery Query proxy service
-     * @return Populated Pixels object
+     * @return Map of Image ID vs. Populated Pixels object
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected Pixels retrievePixDescription(
-        List<RType> pixelsIdAndSeries, IPixelsPrx iPixels, IQueryPrx iQuery)
+    protected Map<Long, Pixels> retrievePixDescription(
+            IQueryPrx iQuery, List<Long> imageIds)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
-        Pixels pixels;
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            span.tag("omero.pixels_id", Long.toString(pixelsId));
+            span.tag("omero.image_ids", imageIds.toString());
             // Query pulled from ome.logic.PixelsImpl and expanded to include
             // our required Image / Plate metadata; loading both sides of the
             // Image <--> WellSample <--> Well collection so that we can
             // resolve our field index.
             ParametersI params = new ParametersI();
-            params.addId(pixelsId);
-            pixels = (Pixels) mapper.reverse(
-                    iQuery.findByQuery(
+            params.addIds(imageIds);
+            List<Pixels> pixelsList = (List<Pixels>) mapper.reverse(
+                    iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
                         + "left outer join fetch i.wellSamples as ws "
@@ -205,27 +165,108 @@ public class ImageRegionRequestHandler {
                         + "left outer join fetch lc.illumination "
                         + "left outer join fetch lc.mode "
                         + "left outer join fetch lc.contrastMethod "
-                        + "where p.id = :id", params, ctx));
-            return pixels;
+                        + "where i.id in (:ids)", params, ctx));
+            Map<Long, Pixels> toReturn = new HashMap<Long, Pixels>();
+            for (Pixels pixels : pixelsList) {
+                toReturn.put(pixels.getImage().getId(), pixels);
+            }
+            return toReturn;
         } finally {
             span.finish();
         }
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
-     * @param iPixels OMERO pixels service to use for metadata access.
+     * Selects the correct rendering settings either from the user
+     * (preferred) or image owner corresponding to the specified
+     * pixels set.
+     * @param renderingDefs A list of rendering settings to select from.
      * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
-    private RenderingDef getRenderingDef(
-            IPixelsPrx iPixels, final long pixelsId)
+    protected RenderingDef selectRenderingDef(
+            List<RenderingDef> renderingDefs, final long userId,
+            final long pixelsId)
+                throws ServerError {
+        RenderingDef userRenderingDef = renderingDefs
+            .stream()
+            .filter(v -> v.getPixels().getId() == pixelsId)
+            .filter(v -> v.getDetails().getOwner().getId() == userId)
+            .findFirst()
+            .orElse(null);
+        if (userRenderingDef != null) {
+            return userRenderingDef;
+        }
+        // Otherwise pick the first (from the owner) if available
+        return renderingDefs
+                .stream()
+                .filter(v -> v.getPixels().getId() == pixelsId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Gets the correct rendering settings either from the user (preferred) or
+     * image owner corresponding to the specified pixels set.
+     * @param client OMERO client to use for querying.
+     * @param pixelsId The identifier of the pixels.
+     * @return See above.
+     */
+    protected RenderingDef getRenderingDef(
+            omero.client client, final long pixelsId)
+                throws ServerError {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_rendering_def");
+        try {
+            ServiceFactoryPrx sf = client.getSession();
+            long userId = sf.getAdminService().getEventContext().userId;
+            List<RenderingDef> renderingDefs = retrieveRenderingDefs(
+                    client, userId, Arrays.asList(pixelsId));
+            return selectRenderingDef(renderingDefs, userId, pixelsId);
+        } catch (Exception e) {
+            span.error(e);
+        } finally {
+            span.finish();
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves rendering settings either from the user or image owner
+     * corresponding to any of the specified pixels sets.
+     * @param client OMERO client to use for querying.
+     * @param userId The current user ID.
+     * @param pixelsIds The pixels set identifiers.
+     * @return See above.
+     */
+    protected List<RenderingDef> retrieveRenderingDefs(
+            omero.client client, final long userId, final List<Long> pixelsIds)
                 throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
-                iPixels.retrieveRndSettings(pixelsId, ctx));
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("retrieve_rendering_defs");
+        // Ask for rendering settings for the current user or the image owner
+        String q = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
+                + "rdef.pixels.id in (:ids) "
+                + "and ("
+                + "  rdef.details.owner.id = rdef.pixels.details.owner.id"
+                + "    or rdef.details.owner.id = :userId"
+                + ")";
+        try {
+            ServiceFactoryPrx sf = client.getSession();
+            IQueryPrx iQuery = sf.getQueryService();
+            ParametersI params = new ParametersI();
+            params.addIds(pixelsIds);
+            params.add("userId", omero.rtypes.rlong(userId));
+            return (List<RenderingDef>) mapper.reverse(
+                            iQuery.findAllByQuery(q, params, ctx));
+        } catch (Exception e) {
+            span.error(e);
+            return null;
+        } finally {
+            span.finish();
+        }
     }
 
     /**
@@ -276,11 +317,11 @@ public class ImageRegionRequestHandler {
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
-            IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+            Map<Long, Pixels> imagePixels = retrievePixDescription(
+                    iQuery, Arrays.asList(imageRegionCtx.imageId));
+            Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
+            if (pixels != null) {
+                return getRegion(client, pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -295,20 +336,16 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
+     * @param client OMERO client to use for querying.
+     * @param pixels pixels metadata
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    protected byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
-        Pixels pixels = retrievePixDescription(
-                pixelsIdAndSeries, iPixels, iQuery);
-        return compress(getBufferedImage(render(pixels, iPixels)));
+    private byte[] getRegion(omero.client client, Pixels pixels)
+            throws IllegalArgumentException, ServerError, IOException,
+                QuantizationException {
+        RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
+        return compress(getBufferedImage(render(client, pixels, renderingDef)));
     }
 
     /**
@@ -439,16 +476,18 @@ public class ImageRegionRequestHandler {
 
     /**
      * Performs conditional rendering.
+     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
-     * @param iPixels OMERO pixels service to use for metadata access.
+     * @param renderingDef rendering settings to use
      * @return Image region as packed integer array of shape [Y, X] ready for
      * compression.
      * @throws ServerError
      * @throws IOException
      * @throws QuantizationException
      */
-    protected Array render(Pixels pixels, IPixelsPrx iPixels)
-            throws ServerError, IOException, QuantizationException {
+    protected Array render(
+            omero.client client, Pixels pixels, RenderingDef renderingDef)
+                    throws ServerError, IOException, QuantizationException {
         QuantumFactory quantumFactory = new QuantumFactory(families);
 
         Tracer tracer = Tracing.currentTracer();
@@ -457,15 +496,14 @@ public class ImageRegionRequestHandler {
         Renderer renderer = null;
         try (PixelBuffer pixelBuffer =
                 pixelsService.getPixelBuffer(pixels, false)) {
-            RenderingDef rDef = getRenderingDef(iPixels, pixels.getId());
             renderer = new Renderer(
-                quantumFactory, renderingModels, pixels, rDef,
+                quantumFactory, renderingModels, pixels, renderingDef,
                 pixelBuffer, lutProvider
             );
             int t = Optional.ofNullable(imageRegionCtx.t)
-                    .orElse(rDef.getDefaultT());
+                    .orElse(renderingDef.getDefaultT());
             int z = Optional.ofNullable(imageRegionCtx.z)
-                    .orElse(rDef.getDefaultZ());
+                    .orElse(renderingDef.getDefaultZ());
             PlaneDef planeDef = new PlaneDef(PlaneDef.XY, t);
             planeDef.setZ(z);
 
