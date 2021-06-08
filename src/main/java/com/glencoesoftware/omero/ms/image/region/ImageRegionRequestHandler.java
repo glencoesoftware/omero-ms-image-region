@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -178,8 +177,9 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves the rendering settings corresponding to the specified pixels
-     * set.
+     * Retrieves the correct rendering settings either from the user
+     * (preferred) or image owner corresponding to the specified
+     * pixels set.
      * @param iPixels OMERO pixels service to use for metadata access.
      * @param pixelsId The identifier of the pixels.
      * @return See above.
@@ -187,13 +187,58 @@ public class ImageRegionRequestHandler {
     private RenderingDef getRenderingDef(
             omero.client client, final long pixelsId)
                 throws ServerError {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_rendering_def");
+        try {
+            ServiceFactoryPrx sf = client.getSession();
+            long userId = sf.getAdminService().getEventContext().userId;
+            List<RenderingDef> renderingDefs = retrieveRenderingDefs(
+                    client, userId, Arrays.asList(pixelsId));
+            if (renderingDefs.size() == 0) {
+                return null;
+            }
+            // If we have user rendering settings prefer those
+            RenderingDef userRenderingDef = renderingDefs
+                .stream()
+                .filter(v -> v.getPixels().getId() == pixelsId)
+                .filter(v -> v.getDetails().getOwner().getId() == userId)
+                .findFirst()
+                .orElse(null);
+            if (userRenderingDef != null) {
+                return userRenderingDef;
+            }
+            // Otherwise pick the first (from the owner) if available
+            return renderingDefs
+                    .stream()
+                    .filter(v -> v.getPixels().getId() == pixelsId)
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            span.error(e);
+        } finally {
+            span.finish();
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves rendering settings either from the user or image owner
+     * corresponding to any of the specified pixels sets.
+     * @param client OMERO client to use for querying.
+     * @param userId The current user ID.
+     * @param pixelsIds The pixels set identifiers.
+     * @return See above.
+     */
+    private List<RenderingDef> retrieveRenderingDefs(
+            omero.client client, final long userId, final List<Long> pixelsIds)
+                throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_rendering_def");
+                .startScopedSpan("retrieve_rendering_defs");
         // Ask for rendering settings for the current user or the image owner
         String q = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
-                + "rdef.pixels.id = :id "
+                + "rdef.pixels.id in (:ids) "
                 + "and ("
                 + "  rdef.details.owner.id = rdef.pixels.details.owner.id"
                 + "    or rdef.details.owner.id = :userId"
@@ -201,24 +246,11 @@ public class ImageRegionRequestHandler {
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
-            long userId = sf.getAdminService().getEventContext().userId;
             ParametersI params = new ParametersI();
-            params.addId(pixelsId);
+            params.addIds(pixelsIds);
             params.add("userId", omero.rtypes.rlong(userId));
-            List<RenderingDef> renderingDefs =
-                    (List<RenderingDef>) mapper.reverse(
+            return (List<RenderingDef>) mapper.reverse(
                             iQuery.findAllByQuery(q, params, ctx));
-            if (renderingDefs.size() == 0) {
-                return null;
-            }
-            for (RenderingDef renderingDef : renderingDefs) {
-                // If we have user rendering settings prefer those
-                if (renderingDef.getDetails().getOwner().getId() == userId) {
-                    return renderingDef;
-                }
-            }
-            // Otherwise pick the first
-            return renderingDefs.get(0);
         } catch (Exception e) {
             span.error(e);
             return null;
