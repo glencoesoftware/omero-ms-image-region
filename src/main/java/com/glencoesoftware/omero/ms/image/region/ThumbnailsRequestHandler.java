@@ -35,7 +35,6 @@ import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.lut.LutProvider;
-import omero.RType;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
@@ -131,12 +130,9 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries =
-                    getPixelsIdAndSeries(iQuery, imageId);
             thumbnailCtx.format = "jpeg";
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                Pixels pixels = retrievePixDescription(
-                        pixelsIdAndSeries, iPixels, iQuery);
+            Pixels pixels = retrievePixDescription(iQuery, imageId);
+            if (pixels != null) {
                 Array array = render(pixels, iPixels);
                 int[] shape = array.getShape();
                 BufferedImage image = getBufferedImage(array);

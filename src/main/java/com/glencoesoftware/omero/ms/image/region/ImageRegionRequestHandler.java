@@ -47,7 +47,6 @@ import brave.Tracing;
 import ome.api.local.LocalCompress;
 import ome.io.nio.InMemoryPlanarPixelBuffer;
 import ome.io.nio.PixelBuffer;
-import ome.model.core.Image;
 import ome.model.core.Pixels;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
@@ -62,7 +61,6 @@ import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantizationException;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.ApiUsageException;
-import omero.RType;
 import omero.ServerError;
 import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
@@ -130,50 +128,14 @@ public class ImageRegionRequestHandler {
     }
 
     /**
-     * Retrieves a single {@link Pixels} identifier and Bio-Formats series from
-     * the server for a given {@link Image} or <code>null</code> if no such
-     * identifier exists or the user does not have permissions to access it.
-     * @param iQuery OMERO query service to use for metadata access.
-     * @param imageId {@link Image} identifier to query for.
-     * @return See above.
-     * @throws ServerError If there was any sort of error retrieving the pixels
-     * id.
-     */
-    protected List<RType> getPixelsIdAndSeries(IQueryPrx iQuery, Long imageId)
-            throws ServerError {
-        Map<String, String> ctx = new HashMap<String, String>();
-        ctx.put("omero.group", "-1");
-        ParametersI params = new ParametersI();
-        params.addId(imageId);
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixels_id_and_series");
-        span.tag("omero.image_id", imageId.toString());
-        try {
-            List<List<RType>> data = iQuery.projection(
-                    "SELECT p.id, p.image.series FROM Pixels AS p " +
-                    "WHERE p.image.id = :id",
-                    params, ctx
-                );
-            if (data.size() < 1) {
-                return null;
-            }
-            return data.get(0);  // The first row
-        } finally {
-            span.finish();
-        }
-    }
-
-    /**
-     * Get Pixels information from ID
-     * @param pixelsIdAndSeries ID and Series for this Pixels object
-     * @param iPixels Pixels proxy service
+     * Get Pixels information from Image ID
+     * @param imageId Image ID to get Pixels information for
      * @param iQuery Query proxy service
      * @return Populated Pixels object
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected Pixels retrievePixDescription(
-        List<RType> pixelsIdAndSeries, IPixelsPrx iPixels, IQueryPrx iQuery)
+    protected Pixels retrievePixDescription(IQueryPrx iQuery, long imageId)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
@@ -181,15 +143,13 @@ public class ImageRegionRequestHandler {
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
-            long pixelsId =
-                    ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
-            span.tag("omero.pixels_id", Long.toString(pixelsId));
+            span.tag("omero.image_id", Long.toString(imageId));
             // Query pulled from ome.logic.PixelsImpl and expanded to include
             // our required Image / Plate metadata; loading both sides of the
             // Image <--> WellSample <--> Well collection so that we can
             // resolve our field index.
             ParametersI params = new ParametersI();
-            params.addId(pixelsId);
+            params.addId(imageId);
             pixels = (Pixels) mapper.reverse(
                     iQuery.findByQuery(
                         "select p from Pixels as p "
@@ -205,7 +165,7 @@ public class ImageRegionRequestHandler {
                         + "left outer join fetch lc.illumination "
                         + "left outer join fetch lc.mode "
                         + "left outer join fetch lc.contrastMethod "
-                        + "where p.id = :id", params, ctx));
+                        + "where i.id = :id", params, ctx));
             return pixels;
         } finally {
             span.finish();
@@ -277,10 +237,10 @@ public class ImageRegionRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             IPixelsPrx iPixels = sf.getPixelsService();
-            List<RType> pixelsIdAndSeries = getPixelsIdAndSeries(
-                    iQuery, imageRegionCtx.imageId);
-            if (pixelsIdAndSeries != null && pixelsIdAndSeries.size() == 2) {
-                return getRegion(iQuery, iPixels, pixelsIdAndSeries);
+            Pixels pixels =
+                    retrievePixDescription(iQuery, imageRegionCtx.imageId);
+            if (pixels != null) {
+                return getRegion(iPixels, pixels);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -295,19 +255,14 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param iQuery OMERO query service to use for metadata access.
      * @param iPixels OMERO pixels service to use for metadata access.
-     * @param pixelsAndSeries {@link Pixels} identifier and Bio-Formats series
-     * to retrieve image region for.
+     * @param pixels pixels metadata
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    protected byte[] getRegion(
-            IQueryPrx iQuery, IPixelsPrx iPixels, List<RType> pixelsIdAndSeries)
-                    throws IllegalArgumentException, ServerError, IOException,
-                    QuantizationException {
-        Pixels pixels = retrievePixDescription(
-                pixelsIdAndSeries, iPixels, iQuery);
+    protected byte[] getRegion(IPixelsPrx iPixels, Pixels pixels)
+            throws IllegalArgumentException, ServerError, IOException,
+                QuantizationException {
         return compress(getBufferedImage(render(pixels, iPixels)));
     }
 
