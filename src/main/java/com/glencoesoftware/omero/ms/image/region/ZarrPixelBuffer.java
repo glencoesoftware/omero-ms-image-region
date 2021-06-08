@@ -162,8 +162,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * @return byte array of data from the ZarrArray
      */
     private ByteBuffer getBytes(int[] shape, int[] offset) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_bytes_zarr");
         if (shape[4] > maxTileLength) {
             throw new IllegalArgumentException(String.format(
                     "sizeX %d > maxTileLength %d", shape[4], maxTileLength));
@@ -172,6 +170,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(String.format(
                     "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
         }
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_bytes");
         try {
             int length = IntStream.of(shape).reduce(1, Math::multiplyExact);
             int bytesPerPixel = getBytesPerPixel();
