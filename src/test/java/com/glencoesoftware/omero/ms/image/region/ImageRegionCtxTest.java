@@ -47,7 +47,6 @@ import ome.model.enums.PixelsType;
 import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.constants.projection.ProjectionType;
 
