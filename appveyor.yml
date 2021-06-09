@@ -1,10 +1,10 @@
 build: off
 
 build_script:
-  - gradlew build -i
+  - gradlew build
 
 test_script:
-  - gradlew test -i
+  - gradlew test
 
 after_test:
   - gradlew distZip
