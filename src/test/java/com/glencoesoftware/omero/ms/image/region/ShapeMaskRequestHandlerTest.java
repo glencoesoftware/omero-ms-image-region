@@ -27,9 +27,9 @@ import io.vertx.core.http.CaseInsensitiveHeaders;
 
 import javax.imageio.ImageIO;
 
-import org.testng.annotations.Test;
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
+import org.junit.Test;
+import org.junit.Assert;
+import org.junit.Before;
 
 import ome.xml.model.primitives.Color;
 import omero.model.Mask;
@@ -47,7 +47,7 @@ public class ShapeMaskRequestHandlerTest {
         Assert.assertEquals(image.getHeight(), height);
     }
 
-    @BeforeMethod
+    @Before
     public void setUp() {
         MultiMap params = new CaseInsensitiveHeaders();
 
@@ -207,19 +207,19 @@ public class ShapeMaskRequestHandlerTest {
         testAllFlips(src, sizeX, sizeY);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipNullImage() {
         byte[] nullArray = null;
         ShapeMaskRequestHandler.flip(nullArray, 4, 4, true, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipZeroXImage() {
         byte[] src = {1};
         ShapeMaskRequestHandler.flip(src, 0, 4, true, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipZeroYImage() {
         byte[] src = {1};
         ShapeMaskRequestHandler.flip(src, 4, 0, true, true);

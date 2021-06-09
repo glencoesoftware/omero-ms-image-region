@@ -25,9 +25,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.Test;
+import org.junit.Assert;
+import org.junit.Before;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.CaseInsensitiveHeaders;
@@ -44,7 +44,7 @@ public class ImageRegionRequestHandlerTest {
 
     private ImageRegionRequestHandler reqHandler;
 
-    @BeforeMethod
+    @Before
     public void setUp() {
         MultiMap params = new CaseInsensitiveHeaders();
 
@@ -422,19 +422,19 @@ public class ImageRegionRequestHandlerTest {
         Assert.assertEquals(rdef.getHeight(), 512 - rdef.getY());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipNullImage() {
         int[] nullArray = null;
         reqHandler.flip(nullArray, 4, 4, true, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipZeroXImage() {
         int[] src = {1};
         reqHandler.flip(src, 0, 4, true, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testFlipZeroYImage() {
         int[] src = {1};
         reqHandler.flip(src, 4, 0, true, true);
