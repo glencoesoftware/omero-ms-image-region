@@ -108,7 +108,7 @@ public class ImageRegionCtxTest {
     }
 
     private void assertChannelInfo(ImageRegionCtx imageCtx) {
-        Assert.assertEquals(imageCtx.compressionQuality, Float.valueOf(q));
+        Assert.assertEquals(imageCtx.compressionQuality, q, 0);
 
         Assert.assertEquals(imageCtx.colors.size(), 3);
         Assert.assertEquals(imageCtx.windows.size(), 3);
@@ -121,12 +121,12 @@ public class ImageRegionCtxTest {
         Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
         Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals(imageCtx.windows.get(0)[0], Double.valueOf(window0[0]));
-        Assert.assertEquals(imageCtx.windows.get(0)[1], Double.valueOf(window0[1]));
-        Assert.assertEquals(imageCtx.windows.get(1)[0], Double.valueOf(window1[0]));
-        Assert.assertEquals(imageCtx.windows.get(1)[1], Double.valueOf(window1[1]));
-        Assert.assertEquals(imageCtx.windows.get(2)[0], Double.valueOf(window2[0]));
-        Assert.assertEquals(imageCtx.windows.get(2)[1], Double.valueOf(window2[1]));
+        Assert.assertEquals(imageCtx.windows.get(0)[0], window0[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(0)[1], window0[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(1)[0], window1[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(1)[1], window1[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(2)[0], window2[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1], 0);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -496,16 +496,16 @@ public class ImageRegionCtxTest {
             ctx.setWindow(renderer, i, i);
         }
         ChannelBinding cb = renderer.getChannelBindings()[0];
-        Assert.assertEquals(cb.getInputStart(), Double.valueOf(window0[0]));
-        Assert.assertEquals(cb.getInputEnd(), Double.valueOf(window0[1]));
+        Assert.assertEquals(cb.getInputStart(), window0[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window0[1], 0);
 
         cb = renderer.getChannelBindings()[1];
-        Assert.assertEquals(cb.getInputStart(), Double.valueOf(window1[0]));
-        Assert.assertEquals(cb.getInputEnd(), Double.valueOf(window1[1]));
+        Assert.assertEquals(cb.getInputStart(), window1[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window1[1], 0);
 
         cb = renderer.getChannelBindings()[2];
-        Assert.assertEquals(cb.getInputStart(), Double.valueOf(window2[0]));
-        Assert.assertEquals(cb.getInputEnd(), Double.valueOf(window2[1]));
+        Assert.assertEquals(cb.getInputStart(), window2[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window2[1], 0);
     }
 
     @Test
@@ -523,7 +523,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
-        Assert.assertEquals(cb.getCoefficient(), Double.valueOf(1.0));
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -542,7 +542,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
-        Assert.assertEquals(cb.getCoefficient(), Double.valueOf(1.8));
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -561,7 +561,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
-        Assert.assertEquals(cb.getCoefficient(), Double.valueOf(1.8));
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -595,7 +595,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
-        Assert.assertEquals(cb.getCoefficient(), Double.valueOf(1.8));
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -613,7 +613,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
-        Assert.assertEquals(cb.getCoefficient(), Double.valueOf(1.0));
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 }
