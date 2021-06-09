@@ -425,15 +425,11 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         log.debug("Quantization enabled");
         Map<String, Object> quantization = map.get("quantization");
         String family = quantization.get("family").toString();
-        Double coefficient = null;
-        if (family.equals(Family.VALUE_LOGARITHMIC)) {
-            coefficient = 1.0; //Value doesn't matter so set default
-        } else {
-            try {
-                coefficient = (Double) quantization.get("coefficient");
-            } catch (ClassCastException e) {
-                coefficient = Double.valueOf((Integer) quantization.get("coefficient"));
-            }
+        Double coefficient;
+        try {
+            coefficient = Double.valueOf((Double) quantization.getOrDefault("coefficient", 1.0d));
+        } catch (ClassCastException e) {
+            coefficient = Double.valueOf((Integer) quantization.get("coefficient"));
         }
         for (Family f : families) {
             if (f.getValue().equals(family)) {
