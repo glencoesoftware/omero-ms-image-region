@@ -100,7 +100,6 @@ jar {
 }
 
 test {
-  // enable TestNG support (default is JUnit)
   useJUnit()
 }
 
