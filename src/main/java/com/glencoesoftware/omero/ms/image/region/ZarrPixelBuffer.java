@@ -430,7 +430,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
                     getPixelsType(), ByteBuffer.wrap(asArray));
             d.setOrder(ByteOrder.nativeOrder());
             return d;
-        } catch(DimensionsOutOfBoundsException e) {
+        } catch (DimensionsOutOfBoundsException e) {
             log.error("Tile dimension error while retrieving pixel data", e);
             span.error(e);
             throw(e);
