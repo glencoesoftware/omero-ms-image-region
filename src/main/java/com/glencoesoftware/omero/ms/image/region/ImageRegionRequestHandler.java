@@ -320,8 +320,10 @@ public class ImageRegionRequestHandler {
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(imageRegionCtx.imageId));
             Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
+            RenderingDef renderingDef =
+                    getRenderingDef(client, imageRegionCtx.imageId);
             if (pixels != null) {
-                return getRegion(client, pixels);
+                return getRegion(client, pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -338,13 +340,14 @@ public class ImageRegionRequestHandler {
      * defined by <code>imageRegionCtx.format</code>.
      * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
+     * @param renderingDef rendering settings to use
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(omero.client client, Pixels pixels)
-            throws IllegalArgumentException, ServerError, IOException,
-                QuantizationException {
-        RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
+    private byte[] getRegion(
+            omero.client client, Pixels pixels, RenderingDef renderingDef)
+                    throws IllegalArgumentException, ServerError, IOException,
+                        QuantizationException {
         return compress(getBufferedImage(render(client, pixels, renderingDef)));
     }
 
