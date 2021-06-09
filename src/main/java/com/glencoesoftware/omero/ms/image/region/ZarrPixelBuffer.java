@@ -173,6 +173,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_bytes");
         try {
+            span.tag("omero.zarr.shape", Arrays.toString(shape));
+            span.tag("omero.zarr.offset", Arrays.toString(offset));
+            span.tag("omero.zarr.array", array.toString());
             int length = IntStream.of(shape).reduce(1, Math::multiplyExact);
             int bytesPerPixel = getBytesPerPixel();
             ByteBuffer asByteBuffer = ByteBuffer.allocate(
@@ -385,9 +388,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
                 .startScopedSpan("get_pixel_data_from_zarr");
         try {
             int[] shape = new int[] { 1, 1, 1, h, w };
-            int[] offsets = new int[] { t, c, z, y, x };
+            int[] offset = new int[] { t, c, z, y, x };
             PixelData d = new PixelData(
-                    getPixelsType(), getBytes(shape, offsets));
+                    getPixelsType(), getBytes(shape, offset));
             d.setOrder(ByteOrder.BIG_ENDIAN);
             return d;
         } catch (Exception e) {
