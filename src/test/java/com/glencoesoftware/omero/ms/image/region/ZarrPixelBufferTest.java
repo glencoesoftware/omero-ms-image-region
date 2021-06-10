@@ -394,4 +394,76 @@ public class ZarrPixelBufferTest {
         }
     }
 
+    @Test
+    public void testCheckBoundsValidZeros() throws IOException {
+        int sizeT = 1;
+        int sizeC = 2;
+        int sizeZ = 3;
+        int sizeY = 512;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            zpbuf.checkBounds(0, 0, 0, 0, 0);
+        }
+    }
+
+    @Test
+    public void testCheckBoundsValidEnd() throws IOException {
+        int sizeT = 1;
+        int sizeC = 2;
+        int sizeZ = 3;
+        int sizeY = 512;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            zpbuf.checkBounds(2047, 511, 2, 1, 0);
+        }
+    }
+
+    @Test(expected = DimensionsOutOfBoundsException.class)
+    public void testCheckBoundsOutOfRange() throws IOException {
+        int sizeT = 1;
+        int sizeC = 2;
+        int sizeZ = 3;
+        int sizeY = 512;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            zpbuf.checkBounds(2048, 511, 2, 1, 0);
+        }
+    }
+
+    @Test(expected = DimensionsOutOfBoundsException.class)
+    public void testCheckBounds() throws IOException {
+        int sizeT = 1;
+        int sizeC = 2;
+        int sizeZ = 3;
+        int sizeY = 512;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            zpbuf.checkBounds(-1, 0, 0, 0, 0);
+        }
+    }
+
 }
