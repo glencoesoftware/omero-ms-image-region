@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 
+import brave.ScopedSpan;
+import brave.Tracer;
+import brave.Tracing;
 import io.vertx.core.MultiMap;
 import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
@@ -79,8 +82,8 @@ public class ThumbnailCtx extends ImageRegionCtx {
 
     /**
      * Apply the first resolution level larger than the thumbnail
-     * @param resolutionDescriptions
-     * @return
+     * @param renderer fully initialized renderer
+     * @param pixelBuffer pixel buffer providing data for the image
      */
     @Override
     public void setResolutionLevel(

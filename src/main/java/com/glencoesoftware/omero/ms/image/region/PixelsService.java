@@ -196,7 +196,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
             throw new IllegalArgumentException("NGFF dir not configured");
         }
         Path root = ngffDir.resolve(getLabelImageSubPath(pixels, uuid));
-        return new ZarrPixelBuffer(root, maxTileLength);
+        return new ZarrPixelBuffer(pixels, root, maxTileLength);
     }
 
     /**
@@ -214,7 +214,8 @@ public class PixelsService extends ome.io.nio.PixelsService {
         if (ngffDir != null) {
             try {
                 Path root = ngffDir.resolve(getImageSubPath(pixels));
-                PixelBuffer v = new ZarrPixelBuffer(root, maxTileLength);
+                PixelBuffer v =
+                        new ZarrPixelBuffer(pixels, root, maxTileLength);
                 log.info("Using NGFF Pixel Buffer");
                 return v;
             } catch (Exception e) {

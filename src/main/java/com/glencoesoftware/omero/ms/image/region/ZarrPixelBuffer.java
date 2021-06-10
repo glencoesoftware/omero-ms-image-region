@@ -41,6 +41,7 @@ import brave.Tracing;
 import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
+import ome.model.core.Pixels;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
 
@@ -48,6 +49,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(PixelBuffer.class);
+
+    /** Reference to the pixels. */
+    private final Pixels pixels;
 
     /** Root of the OME-NGFF multiscale we are operating on */
     private final Path root;
@@ -77,8 +81,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * read operations
      * @throws IOException
      */
-    public ZarrPixelBuffer(Path root, Integer maxTileLength)
+    public ZarrPixelBuffer(Pixels pixels, Path root, Integer maxTileLength)
             throws IOException {
+        this.pixels = pixels;
         this.root = root;
         rootGroup = ZarrGroup.open(this.root);
         rootGroupAttributes = rootGroup.getAttributes();
@@ -156,9 +161,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * @param offset The offset of the region
      * @return byte array of data from the ZarrArray
      */
-    private byte[] getBytes(int[] shape, int[] offset) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_bytes_zarr");
+    private ByteBuffer getBytes(int[] shape, int[] offset) {
         if (shape[4] > maxTileLength) {
             throw new IllegalArgumentException(String.format(
                     "sizeX %d > maxTileLength %d", shape[4], maxTileLength));
@@ -167,7 +170,12 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(String.format(
                     "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
         }
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_bytes");
         try {
+            span.tag("omero.zarr.shape", Arrays.toString(shape));
+            span.tag("omero.zarr.offset", Arrays.toString(offset));
+            span.tag("omero.zarr.array", array.toString());
             int length = IntStream.of(shape).reduce(1, Math::multiplyExact);
             int bytesPerPixel = getBytesPerPixel();
             ByteBuffer asByteBuffer = ByteBuffer.allocate(
@@ -176,38 +184,38 @@ public class ZarrPixelBuffer implements PixelBuffer {
             switch (dataType) {
                 case u1:
                 case i1:
-                    return (byte[]) array.read(shape, offset);
+                    return ByteBuffer.wrap((byte[]) array.read(shape, offset));
                 case u2:
                 case i2:
                 {
                     short[] data = (short[]) array.read(shape, offset);
                     asByteBuffer.asShortBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case u4:
                 case i4:
                 {
                     int[] data = (int[]) array.read(shape, offset);
                     asByteBuffer.asIntBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case i8:
                 {
                     long[] data = (long[]) array.read(shape, offset);
                     asByteBuffer.asLongBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case f4:
                 {
                     float[] data = (float[]) array.read(shape, offset);
                     asByteBuffer.asFloatBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 case f8:
                 {
                     double[] data = (double[]) array.read(shape, offset);
                     asByteBuffer.asDoubleBuffer().put(data);
-                    return asByteBuffer.array();
+                    return asByteBuffer;
                 }
                 default:
                     log.error("Unsupported data type" + dataType);
@@ -219,24 +227,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
         } finally {
             span.finish();
         }
-    }
-
-    /**
-     * Retrieves the array shapes of all subresolutions of this multiscale
-     * buffer.
-     * @return See above.
-     * @throws IOException
-     */
-    public int[][] getShapes() throws IOException {
-        List<Map<String, String>> datasets = getDatasets();
-        List<int[]> shapes = new ArrayList<int[]>();
-        for (Map<String, String> dataset : datasets) {
-            ZarrArray resolutionArray =
-                    ZarrArray.open(root.resolve(dataset.get("path")));
-            int[] shape = resolutionArray.getShape();
-            shapes.add(0, shape);
-        }
-        return shapes.toArray(new int[shapes.size()][]);
     }
 
     /**
@@ -424,10 +414,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
         try {
             checkBounds(x + w, y + h, z, c, t);
             int[] shape = new int[] { 1, 1, 1, h, w };
-            int[] offsets = new int[] { t, c, z, y, x };
-            byte[] asArray = getBytes(shape, offsets);
+            int[] offset = new int[] { t, c, z, y, x };
             PixelData d = new PixelData(
-                    getPixelsType(), ByteBuffer.wrap(asArray));
+                    getPixelsType(), getBytes(shape, offset));
             d.setOrder(ByteOrder.BIG_ENDIAN);
             return d;
         } catch (DimensionsOutOfBoundsException e) {
@@ -699,11 +688,16 @@ public class ZarrPixelBuffer implements PixelBuffer {
     @Override
     public List<List<Integer>> getResolutionDescriptions() {
         try {
-            int[][] shapes = getShapes();
+            int resolutionLevels = getResolutionLevels();
             List<List<Integer>> resolutionDescriptions =
                     new ArrayList<List<Integer>>();
-            for (int[] shape : shapes) {
-                resolutionDescriptions.add(Arrays.asList(shape[4], shape[3]));
+            int sizeX = pixels.getSizeX();
+            int sizeY = pixels.getSizeY();
+            for (int i = 0; i < resolutionLevels; i++) {
+                double scale = Math.pow(2, i);
+                resolutionDescriptions.add(
+                        0, Arrays.asList(
+                                (int) (sizeX / scale), (int) (sizeY / scale)));
             }
             return resolutionDescriptions;
         } catch (Exception e) {

@@ -320,8 +320,10 @@ public class ImageRegionRequestHandler {
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(imageRegionCtx.imageId));
             Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
+            RenderingDef renderingDef =
+                    getRenderingDef(client, imageRegionCtx.imageId);
             if (pixels != null) {
-                return getRegion(client, pixels);
+                return getRegion(client, pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -338,13 +340,14 @@ public class ImageRegionRequestHandler {
      * defined by <code>imageRegionCtx.format</code>.
      * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
+     * @param renderingDef rendering settings to use
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(omero.client client, Pixels pixels)
-            throws IllegalArgumentException, ServerError, IOException,
-                QuantizationException {
-        RenderingDef renderingDef = getRenderingDef(client, pixels.getId());
+    private byte[] getRegion(
+            omero.client client, Pixels pixels, RenderingDef renderingDef)
+                    throws IllegalArgumentException, ServerError, IOException,
+                        QuantizationException {
         return compress(getBufferedImage(render(client, pixels, renderingDef)));
     }
 
@@ -405,6 +408,26 @@ public class ImageRegionRequestHandler {
     }
 
     /**
+     * Returns a pixel buffer for a given set of pixels.
+     * @param pixels pixels metadata
+     * @return See above.
+     * @see PixelsService#getPixelBuffer(Pixels)
+     */
+    private PixelBuffer getPixelBuffer(Pixels pixels) {
+        Tracer tracer = Tracing.currentTracer();
+        ScopedSpan span = tracer.startScopedSpan("get_pixel_buffer");
+        try {
+            span.tag("omero.pixels_id", Long.toString(pixels.getId()));
+            return pixelsService.getPixelBuffer(pixels, false);
+        } catch (Exception e) {
+            span.error(e);
+            throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    /**
      * Prepares an in memory pixel buffer of the desired project pixels based
      * on input.
      * @param pixels pixels metadata
@@ -419,7 +442,7 @@ public class ImageRegionRequestHandler {
         int projectedSizeC = 0;
         ChannelBinding[] channelBindings =
                 renderer.getChannelBindings();
-        PixelBuffer pixelBuffer = pixelsService.getPixelBuffer(pixels, false);
+        PixelBuffer pixelBuffer = getPixelBuffer(pixels);
         int start = Optional
                 .ofNullable(imageRegionCtx.projectionStart)
                 .orElse(0);
@@ -428,7 +451,7 @@ public class ImageRegionRequestHandler {
                 .orElse(pixels.getSizeZ() - 1);
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span = tracer.startScopedSpan(
-                "prepare_porjected_pixel_buffer");
+                "prepare_projected_pixel_buffer");
         try {
             for (int i = 0; i < channelBindings.length; i++) {
                 if (!channelBindings[i].getActive()) {
@@ -494,8 +517,7 @@ public class ImageRegionRequestHandler {
         ScopedSpan span = tracer.startScopedSpan("render_as_packed_int");
         span.tag("omero.pixels_id", pixels.getId().toString());
         Renderer renderer = null;
-        try (PixelBuffer pixelBuffer =
-                pixelsService.getPixelBuffer(pixels, false)) {
+        try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             renderer = new Renderer(
                 quantumFactory, renderingModels, pixels, renderingDef,
                 pixelBuffer, lutProvider

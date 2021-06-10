@@ -94,7 +94,10 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
      */
     public Map<Long, byte[]> renderThumbnails(omero.client client) {
         Map<Long, byte[]> thumbnails = new HashMap<Long, byte[]>();
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("render_thumbnails");
         try {
+            span.tag("omero.image_ids", thumbnailCtx.imageIds.toString());
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             long userId = sf.getAdminService().getEventContext().userId;
@@ -123,7 +126,10 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 thumbnails.put(imageId, thumbnail);
             }
         } catch (Exception e) {
+            span.error(e);
             log.error("Exception while rendering thumbnails", e);
+        } finally {
+            span.finish();
         }
         return thumbnails;
     }
