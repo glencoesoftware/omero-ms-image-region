@@ -214,7 +214,10 @@ public class PixelsService extends ome.io.nio.PixelsService {
         if (ngffDir != null) {
             try {
                 Path root = ngffDir.resolve(getImageSubPath(pixels));
-                return new ZarrPixelBuffer(pixels, root, maxTileLength);
+                PixelBuffer v =
+                        new ZarrPixelBuffer(pixels, root, maxTileLength);
+                log.info("Using NGFF Pixel Buffer");
+                return v;
             } catch (Exception e) {
                 log.info(
                     "Getting NGFF Pixel Buffer failed - " +

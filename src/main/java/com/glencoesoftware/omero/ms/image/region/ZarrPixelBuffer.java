@@ -286,11 +286,36 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     }
 
-    @Override
-    public void checkBounds(Integer x, Integer y, Integer z, Integer c, Integer t)
+    /**
+     * Implemented as specified by {@link PixelBuffer} I/F.
+     * @see PixelBuffer#checkBounds(Integer, Integer, Integer, Integer, Integer)
+     */
+    public void checkBounds(Integer x, Integer y, Integer z, Integer c,
+            Integer t)
             throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
+        if (x != null && (x > getSizeX() - 1 || x < 0)) {
+            throw new DimensionsOutOfBoundsException("X '" + x
+                    + "' greater than sizeX '" + getSizeX() + "'.");
+        }
+        if (y != null && (y > getSizeY() - 1 || y < 0)) {
+            throw new DimensionsOutOfBoundsException("Y '" + y
+                    + "' greater than sizeY '" + getSizeY() + "'.");
+        }
 
+        if (z != null && (z > getSizeZ() - 1 || z < 0)) {
+            throw new DimensionsOutOfBoundsException("Z '" + z
+                    + "' greater than sizeZ '" + getSizeZ() + "'.");
+        }
+
+        if (c != null && (c > getSizeC() - 1 || c < 0)) {
+            throw new DimensionsOutOfBoundsException("C '" + c
+                    + "' greater than sizeC '" + getSizeC() + "'.");
+        }
+
+        if (t != null && (t > getSizeT() - 1 || t < 0)) {
+            throw new DimensionsOutOfBoundsException("T '" + t
+                    + "' greater than sizeT '" + getSizeT() + "'.");
+        }
     }
 
     @Override
@@ -387,12 +412,17 @@ public class ZarrPixelBuffer implements PixelBuffer {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_data_from_zarr");
         try {
+            checkBounds(x + w, y + h, z, c, t);
             int[] shape = new int[] { 1, 1, 1, h, w };
             int[] offset = new int[] { t, c, z, y, x };
             PixelData d = new PixelData(
                     getPixelsType(), getBytes(shape, offset));
             d.setOrder(ByteOrder.BIG_ENDIAN);
             return d;
+        } catch (DimensionsOutOfBoundsException e) {
+            log.error("Tile dimension error while retrieving pixel data", e);
+            span.error(e);
+            throw(e);
         } catch (Exception e) {
             log.error("Error while retrieving pixel data", e);
             span.error(e);

@@ -26,14 +26,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.testng.annotations.Test;
-
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
+import org.junit.Test;
+import org.junit.Assert;
+import org.junit.Before;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
@@ -48,7 +47,6 @@ import ome.model.enums.PixelsType;
 import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.constants.projection.ProjectionType;
 
@@ -92,7 +90,7 @@ public class ImageRegionCtxTest {
 
     private MultiMap params;
 
-    @BeforeMethod
+    @Before
     public void setUp() throws IOException {
         params = MultiMap.caseInsensitiveMultiMap();
         params.add("imageId", String.valueOf(imageId));
@@ -109,7 +107,7 @@ public class ImageRegionCtxTest {
     }
 
     private void assertChannelInfo(ImageRegionCtx imageCtx) {
-        Assert.assertEquals(imageCtx.compressionQuality, q);
+        Assert.assertEquals(imageCtx.compressionQuality, q, 0);
 
         Assert.assertEquals(imageCtx.colors.size(), 3);
         Assert.assertEquals(imageCtx.windows.size(), 3);
@@ -122,85 +120,85 @@ public class ImageRegionCtxTest {
         Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
         Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals(imageCtx.windows.get(0)[0], window0[0]);
-        Assert.assertEquals(imageCtx.windows.get(0)[1], window0[1]);
-        Assert.assertEquals(imageCtx.windows.get(1)[0], window1[0]);
-        Assert.assertEquals(imageCtx.windows.get(1)[1], window1[1]);
-        Assert.assertEquals(imageCtx.windows.get(2)[0], window2[0]);
-        Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1]);
+        Assert.assertEquals(imageCtx.windows.get(0)[0], window0[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(0)[1], window0[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(1)[0], window1[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(1)[1], window1[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(2)[0], window2[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1], 0);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testMissingImageId()
             throws JsonParseException, JsonMappingException, IOException {
         params.remove("imageId");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testImageIdFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("imageId", "abc");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testMissingTheZ()
             throws JsonParseException, JsonMappingException, IOException {
         params.remove("theZ");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testTheZFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("theZ", "abc");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testMissingTheT()
             throws JsonParseException, JsonMappingException, IOException {
         params.remove("theT");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testTheTFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("theT", "abc");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testRegionFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("region", "1,2,3,abc");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testChannelFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testChannelFormatActive()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("c", "-1|0:65535$0000FF,a|1755:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testChannelFormatRange()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("c", "-1|0:65535$0000FF,1|abc:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testQualityFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("q", "abc");
@@ -497,16 +495,16 @@ public class ImageRegionCtxTest {
             ctx.setWindow(renderer, i, i);
         }
         ChannelBinding cb = renderer.getChannelBindings()[0];
-        Assert.assertEquals(cb.getInputStart(), window0[0]);
-        Assert.assertEquals(cb.getInputEnd(), window0[1]);
+        Assert.assertEquals(cb.getInputStart(), window0[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window0[1], 0);
 
         cb = renderer.getChannelBindings()[1];
-        Assert.assertEquals(cb.getInputStart(), window1[0]);
-        Assert.assertEquals(cb.getInputEnd(), window1[1]);
+        Assert.assertEquals(cb.getInputStart(), window1[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window1[1], 0);
 
         cb = renderer.getChannelBindings()[2];
-        Assert.assertEquals(cb.getInputStart(), window2[0]);
-        Assert.assertEquals(cb.getInputEnd(), window2[1]);
+        Assert.assertEquals(cb.getInputStart(), window2[0], 0);
+        Assert.assertEquals(cb.getInputEnd(), window2[1], 0);
     }
 
     @Test
@@ -524,7 +522,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
-        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -543,7 +541,26 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
-        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testMapsPolynomialIntegerCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -562,13 +579,13 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
-        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testMapsLogarithmicNegativeCoefficient() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":-1.8}}]";
+    @Test
+    public void testMapsLogarithmicNoCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\"}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -579,6 +596,10 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
         ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
     @Test
@@ -596,7 +617,26 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
-        Assert.assertEquals(cb.getCoefficient(), 1.8);
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMapsExponentialNegativeCoefficient() {
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":-1.8}}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_LOGARITHMIC));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.setMapProperties(renderer, families, 0);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals(cb.getFamily().getValue(), "exponential");
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 
@@ -614,7 +654,7 @@ public class ImageRegionCtxTest {
         ctx.setMapProperties(renderer, families, 0);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
-        Assert.assertEquals(cb.getCoefficient(), 1.0);
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
 }
