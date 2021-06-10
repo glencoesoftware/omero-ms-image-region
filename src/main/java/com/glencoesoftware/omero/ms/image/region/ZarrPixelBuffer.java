@@ -412,7 +412,10 @@ public class ZarrPixelBuffer implements PixelBuffer {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_pixel_data_from_zarr");
         try {
-            checkBounds(x + w, y + h, z, c, t);
+            //Check origin indices > 0
+            checkBounds(x, y, z, c, t);
+            //Check check bottom-right of tile in bounds
+            checkBounds(x + w - 1, y + h - 1, z, c, t);
             int[] shape = new int[] { 1, 1, 1, h, w };
             int[] offset = new int[] { t, c, z, y, x };
             PixelData d = new PixelData(
