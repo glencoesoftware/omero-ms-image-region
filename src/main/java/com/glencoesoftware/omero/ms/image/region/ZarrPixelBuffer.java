@@ -655,10 +655,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
         return array.getShape()[0];
     }
 
-    public int[] getShape() {
-        return array.getShape();
-    }
-
     @Override
     public int getResolutionLevels() {
         return getDatasets().size();

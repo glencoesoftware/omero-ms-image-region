@@ -375,7 +375,7 @@ public class ShapeMaskRequestHandler {
         if (uuid == null) {
             return mask.getBytes();
         }
-        ZarrPixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
+        PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
                 (ome.model.core.Pixels) mapper.reverse(
                         mask.getRoi().getImage().getPrimaryPixels()),
                 uuid);
@@ -403,7 +403,7 @@ public class ShapeMaskRequestHandler {
         }
         int[][] shapesAndOffsets =
                 pixelsService.getShapeAndStartFromString(domain);
-        truncateShapes(shapesAndOffsets, pixelBuffer);
+        clampShapes(shapesAndOffsets, pixelBuffer);
         int sizeT = shapesAndOffsets[0][0];
         int sizeC = shapesAndOffsets[0][1];
         int sizeZ = shapesAndOffsets[0][2];
@@ -441,16 +441,17 @@ public class ShapeMaskRequestHandler {
      * @param shapesAndOffsets
      * @param pixelBuffer
      */
-    private void truncateShapes(int[][] shapesAndOffsets, ZarrPixelBuffer pixelBuffer) {
-        int[] imageShape = pixelBuffer.getShape();
-        for (int i = 0; i < imageShape.length; i++) {
-            if (shapesAndOffsets[1][i] >= imageShape[i]) {
-                throw new IllegalArgumentException(
-                        String.format("Requested origin outside image bounds in dimension %d", i));
-            }
-            shapesAndOffsets[0][i] = Math.min(shapesAndOffsets[0][i],
-                                              imageShape[i] - shapesAndOffsets[1][i]);
+    private void clampShapes(int[][] shapesAndOffsets, PixelBuffer pixelBuffer) {
+        if (shapesAndOffsets[1][4] >= pixelBuffer.getSizeX()) {
+            throw new IllegalArgumentException("Requested origin outside image bounds in dimension X");
         }
+        if (shapesAndOffsets[1][3] >= pixelBuffer.getSizeY()) {
+            throw new IllegalArgumentException("Requested origin outside image bounds in dimension Y");
+        }
+        shapesAndOffsets[0][4] = Math.min(shapesAndOffsets[0][4],
+                pixelBuffer.getSizeX() - shapesAndOffsets[1][4]);
+        shapesAndOffsets[0][3] = Math.min(shapesAndOffsets[0][3],
+                pixelBuffer.getSizeY() - shapesAndOffsets[1][3]);
     }
 
     /**
