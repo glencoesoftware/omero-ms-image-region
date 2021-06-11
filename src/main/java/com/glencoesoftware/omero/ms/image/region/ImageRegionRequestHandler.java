@@ -320,9 +320,9 @@ public class ImageRegionRequestHandler {
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(imageRegionCtx.imageId));
             Pixels pixels = imagePixels.get(imageRegionCtx.imageId);
-            RenderingDef renderingDef =
-                    getRenderingDef(client, imageRegionCtx.imageId);
             if (pixels != null) {
+                RenderingDef renderingDef =
+                        getRenderingDef(client, pixels.getId());
                 return getRegion(client, pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
