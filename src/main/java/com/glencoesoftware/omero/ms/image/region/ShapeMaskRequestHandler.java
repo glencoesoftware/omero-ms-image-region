@@ -375,7 +375,7 @@ public class ShapeMaskRequestHandler {
         if (uuid == null) {
             return mask.getBytes();
         }
-        PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
+        ZarrPixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
                 (ome.model.core.Pixels) mapper.reverse(
                         mask.getRoi().getImage().getPrimaryPixels()),
                 uuid);
@@ -403,6 +403,7 @@ public class ShapeMaskRequestHandler {
         }
         int[][] shapesAndOffsets =
                 pixelsService.getShapeAndStartFromString(domain);
+        truncateShapes(shapesAndOffsets, pixelBuffer);
         int sizeT = shapesAndOffsets[0][0];
         int sizeC = shapesAndOffsets[0][1];
         int sizeZ = shapesAndOffsets[0][2];
@@ -432,6 +433,24 @@ public class ShapeMaskRequestHandler {
                 .getTile(z, c, t, x, y, sizeX, sizeY)
                 .getData()
                 .array();
+    }
+
+    /**
+     * If necessary and possible, truncate the shape so that it fits
+     * within the bounds of the image at the current resolution level
+     * @param shapesAndOffsets
+     * @param pixelBuffer
+     */
+    private void truncateShapes(int[][] shapesAndOffsets, ZarrPixelBuffer pixelBuffer) {
+        int[] imageShape = pixelBuffer.getShape();
+        for (int i = 0; i < imageShape.length; i++) {
+            if (shapesAndOffsets[1][i] >= imageShape[i]) {
+                throw new IllegalArgumentException(
+                        String.format("Requested origin outside image bounds in dimension %d", i));
+            }
+            shapesAndOffsets[0][i] = Math.min(shapesAndOffsets[0][i],
+                                              imageShape[i] - shapesAndOffsets[1][i]);
+        }
     }
 
     /**
