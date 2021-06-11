@@ -326,7 +326,6 @@ public class ImageRegionRequestHandler {
                 return getRegion(client, pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
-
         } catch (Exception e) {
             span.error(e);
             log.error("Exception while retrieving image region", e);
