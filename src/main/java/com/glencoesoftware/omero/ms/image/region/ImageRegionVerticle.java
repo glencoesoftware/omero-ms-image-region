@@ -101,6 +101,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     /** Scaling service for thumbnails */
     private final IScale iScale;
+    /** thread pool size for rendering */
+    private final int corePoolSize;
+    private final int maxPoolSize;
 
     /** Original File Service for getting paths */
     private OriginalFilesService ioService;
@@ -114,7 +117,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             int maxTileLength,
             ZarrPixelsService pixelsService,
             IScale iScale,
-            OriginalFilesService ioService)
+            OriginalFilesService ioService,
+            int corePoolSize,
+            int maxPoolSize)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
@@ -122,6 +127,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         this.pixelsService = pixelsService;
         this.iScale = iScale;
         this.ioService = ioService;
+        this.corePoolSize = corePoolSize;
+        this.maxPoolSize = maxPoolSize;
     }
 
     /* (non-Javadoc)
@@ -202,7 +209,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             lutProvider,
                             compressionService,
                             maxTileLength,
-                            pixelsService)::renderImageRegion);
+                            pixelsService,
+                            corePoolSize,
+                            maxPoolSize)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(
