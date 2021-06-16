@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
@@ -101,9 +102,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     /** Scaling service for thumbnails */
     private final IScale iScale;
-    /** thread pool size for rendering */
+
+    /** Rendering ThreadPool sizes */
     private final int corePoolSize;
     private final int maxPoolSize;
+
+    /** Thread pool for rendering operations */
+    private final ExecutorService processor;
 
     /** Original File Service for getting paths */
     private OriginalFilesService ioService;
@@ -119,7 +124,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             IScale iScale,
             OriginalFilesService ioService,
             int corePoolSize,
-            int maxPoolSize)
+            int maxPoolSize,
+            ExecutorService processor)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
@@ -129,6 +135,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         this.ioService = ioService;
         this.corePoolSize = corePoolSize;
         this.maxPoolSize = maxPoolSize;
+        this.processor = processor;
     }
 
     /* (non-Javadoc)
@@ -211,7 +218,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             maxTileLength,
                             pixelsService,
                             corePoolSize,
-                            maxPoolSize)::renderImageRegion);
+                            maxPoolSize,
+                            processor)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {
                 message.fail(
@@ -282,7 +290,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         compressionService,
                         maxTileLength,
                         pixelsService,
-                        iScale)::renderThumbnail);
+                        iScale,
+                        processor)::renderThumbnail);
             if (thumbnail == null) {
                 message.fail(
                         404, "Cannot find Images:" + thumbnailCtx.imageIds);
@@ -347,7 +356,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             compressionService,
                             maxTileLength,
                             pixelsService,
-                            iScale)::renderThumbnails);
+                            iScale,
+                            processor)::renderThumbnails);
 
             if (thumbnails == null) {
                 message.fail(404, "Cannot find one or more Images");

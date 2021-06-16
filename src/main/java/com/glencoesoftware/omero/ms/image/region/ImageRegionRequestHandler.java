@@ -110,10 +110,13 @@ public class ImageRegionRequestHandler {
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
-
+    
     /** Rendering ThreadPool sizes */
     private final int corePoolSize;
     private final int maxPoolSize;
+
+    /** Rendering ThreadPool ExecutorService*/
+    ExecutorService processor;
 
     /**
      * Default constructor.
@@ -128,7 +131,8 @@ public class ImageRegionRequestHandler {
             int maxTileLength,
             ZarrPixelsService pixelsService,
             int corePoolSize,
-            int maxPoolSize) {
+            int maxPoolSize,
+            ExecutorService processor) {
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
         this.families = families;
@@ -138,6 +142,7 @@ public class ImageRegionRequestHandler {
         this.maxTileLength = maxTileLength;
         this.corePoolSize = corePoolSize;
         this.maxPoolSize = maxPoolSize;
+        this.processor = processor;
         projectionService = new ProjectionService();
     }
 
@@ -530,8 +535,6 @@ public class ImageRegionRequestHandler {
         span.tag("omero.pixels_id", pixels.getId().toString());
         Renderer renderer = null;
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-            BlockingQueue<Runnable> blockingQueue = new LinkedBlockingQueue<Runnable>();
-            ExecutorService processor = new ThreadPoolExecutor(corePoolSize, maxPoolSize, 0L, TimeUnit.MILLISECONDS, blockingQueue);
             renderer = new Renderer(
                 quantumFactory, renderingModels, pixels, renderingDef,
                 pixelBuffer, lutProvider, processor

@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
@@ -77,14 +78,18 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             LocalCompress compressionSrv,
             int maxTileLength,
             ZarrPixelsService pixelsService,
-            IScale iScale) {
+            IScale iScale,
+            ExecutorService processor) {
         super(thumbnailCtx,
                 families,
                 renderingModels,
                 lutProvider,
                 compressionSrv,
                 maxTileLength,
-                pixelsService);
+                pixelsService,
+                maxTileLength,
+                maxTileLength,
+                processor);
         this.thumbnailCtx = thumbnailCtx;
         this.iScale = iScale;
     }
