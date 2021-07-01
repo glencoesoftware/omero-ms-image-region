@@ -459,7 +459,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("flip")
                                  .add("mask-color")
                                  .add("png-tiles")
-                                 .add("gamma-correction"))
+                                 .add("quantization"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength)
                                .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
