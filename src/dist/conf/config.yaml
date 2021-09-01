@@ -33,6 +33,8 @@ omero.server:
     #  * https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
     #
     # NOTE: The access and secret key MUST be URL encoded where required.
+    # The AWS user must have GetObject, ListBucket, and GetObjectAcl on
+    # the bucket and objects and ListAllMyBuckets on "*"
     omero.ngff.dir: "/opt/omero/data/labelimages/"
 # OMERO.web configuration
 omero.web:

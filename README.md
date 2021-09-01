@@ -179,6 +179,44 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
+NGFF Configuration
+==================
+
+To read from NGFF files, `omero.ngff.dir` must be added to the `omero.server` section of `config.yaml`
+This must be either a path to a local directory or a URL to S3-compatible object storage. If you're using
+object storage, The url should be like s3://<access_key>:<secret_key>@<regional_endpoint>/<bucket_name>/path/
+If using AWS, the IAM user whose credentials are in the URL should have a permissions policy that looks like the following:
+
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "VisualEditor0",
+                "Effect": "Allow",
+                "Action": [
+                    "s3:GetObject",
+                    "s3:ListBucket",
+                    "s3:GetObjectAcl"
+                ],
+                "Resource": [
+                    "arn:aws:s3:::<bucket_name>/*",
+                    "arn:aws:s3:::<bucket_name>"
+                ]
+            },
+            {
+                "Sid": "VisualEditor1",
+                "Effect": "Allow",
+                "Action": [
+                    "s3:ListAllMyBuckets"
+                ],
+                "Resource": [
+                    "*"
+                ]
+            }
+        ]
+    }
+
+
 Development Installation
 ========================
 
