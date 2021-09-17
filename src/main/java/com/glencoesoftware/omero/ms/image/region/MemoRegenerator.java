@@ -204,6 +204,7 @@ public class MemoRegenerator implements Callable<Void> {
 
                 Method getOriginalFilePath = pixelsService
                         .getClass()
+                        .getSuperclass()
                         .getDeclaredMethod("getOriginalFilePath", Pixels.class);
                 getOriginalFilePath.setAccessible(true);
                 String originalFilePath = (String) getOriginalFilePath.invoke(
