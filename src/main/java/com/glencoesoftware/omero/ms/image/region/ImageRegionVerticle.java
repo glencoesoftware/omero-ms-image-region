@@ -64,6 +64,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public static final String GET_THUMBNAILS_EVENT =
             "omero.get_thumbnails";
 
+    public static final String GET_IMAGE_DATA =
+            "omero.get_image_data";
+
     /** OMERO server host */
     private String host;
 
@@ -134,6 +137,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     RENDER_THUMBNAIL_EVENT, this::renderThumbnail);
             vertx.eventBus().<String>consumer(
                     GET_THUMBNAILS_EVENT, this::getThumbnails);
+            vertx.eventBus().<String>consumer(
+                    GET_IMAGE_DATA, this::getImageData);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -343,6 +348,42 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             message.fail(403, v);
         } catch (Exception e) {
             String v = "Exception while retrieving thumbnail";
+            log.error(v, e);
+            message.fail(500, v);
+        } finally {
+            span.finish();
+        }
+    }
+
+    private void getImageData(Message<String> message) {
+        log.info("In Verticle::getImageData");
+        ObjectMapper mapper = new ObjectMapper();
+        ImageDataCtx imgDataCtx;
+        try {
+            imgDataCtx = mapper.readValue(message.body(), ImageDataCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal image data context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_image_data",
+                extractor().extract(imgDataCtx.traceContext).context());
+        String omeroSessionKey = imgDataCtx.omeroSessionKey;
+        log.debug("Get image data request: {}", imgDataCtx.toString());
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, omeroSessionKey)) {
+                JsonObject imgData = request.execute(
+                    new ImageDataRequestHandler(imgDataCtx)::getImageData);
+                message.reply(imgData);
+        } catch (PermissionDeniedException
+                 | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while getting image data";
             log.error(v, e);
             message.fail(500, v);
         } finally {

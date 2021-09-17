@@ -332,6 +332,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webclient/render_image/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
 
+        // ImageData request handlers
+        router.get("/omero_ms_image_region/imgData/:imageId").handler(this::getImageData);
+        router.get("/omero_ms_image_region/imgData/:imageId/:keys").handler(this::getImageData);
+
         // ShapeMask request handlers
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
@@ -650,6 +654,46 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         "Content-Length",
                         String.valueOf(metadataJson.encodePrettily().length()));
                 response.write(metadataJson.encodePrettily());
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /**
+     * Get image data event handler.
+     * Responds with JSON payload of image data on success based
+     * on the <code>imageId</code> encoded in the URL or HTTP 404 if the
+     * Image does not exist or the user does not have permissions to
+     * access it.
+     * @param event Current routing context.
+     */
+    private void getImageData(RoutingContext event) {
+        log.info("Getting image data");
+        HttpServerRequest request = event.request();
+
+        ImageDataCtx imageDataCtx = new ImageDataCtx(request.params(),
+                event.get("omero.session_key"));
+        imageDataCtx.injectCurrentTraceContext();
+        final HttpServerResponse response = event.response();
+        log.info("1");
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_IMAGE_DATA,
+                Json.encode(imageDataCtx), result -> {
+            try {
+                log.info("2");
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                JsonObject imgDataJson = result.result().body();
+                response.headers().set("Content-Type", "application/json");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(imgDataJson.encodePrettily().length()));
+                response.write(imgDataJson.encodePrettily());
             } finally {
                 if (!response.closed()) {
                     response.end();
