@@ -20,7 +20,11 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -166,6 +170,13 @@ public class MemoRegenerator implements Callable<Void> {
         }
     }
 
+    private void printSkip(int i, int total, long imageId, long startTime) {
+        long elapsedTime = System.nanoTime() - startTime;
+        System.out.printf(
+            "%d/%d - skip: %d %.3f%n",
+            i, total, imageId, (float) elapsedTime/1000000);
+    }
+
     private void regen() {
         // imageId, pixelsId, series, pixelsType, sizeX, sizeY
         ObjectRowListProcessor rowProcessor = new ObjectRowListProcessor();
@@ -190,6 +201,44 @@ public class MemoRegenerator implements Callable<Void> {
             Long imageId = (Long) row[0];
             try {
                 Pixels pixels = pixelsFromRow(row);
+
+                Method getOriginalFilePath = pixelsService
+                        .getClass()
+                        .getSuperclass()
+                        .getDeclaredMethod("getOriginalFilePath", Pixels.class);
+                getOriginalFilePath.setAccessible(true);
+                String originalFilePath = (String) getOriginalFilePath.invoke(
+                        pixelsService, pixels);
+                // Check whether or not an original file path can be looked up
+                if (originalFilePath == null) {
+                    log.warn(
+                        "No original file path row {} ImageID {}", i, imageId
+                    );
+                    printSkip(i, total, imageId, startTime);
+                    continue;
+                }
+                // We have an original file path in the managed repository,
+                // check that the symlink exists
+                Path p = Paths.get(originalFilePath);
+                if (!Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
+                    log.warn(
+                        "Managed repository symlink missing row {} ImageID {}",
+                        i, imageId
+                    );
+                    printSkip(i, total, imageId, startTime);
+                    continue;
+                }
+                // We have a symlink in the managed repository, assert that the
+                // symlink is not dangling
+                if (!Files.exists(p)) {
+                    log.warn(
+                        "Managed repository dangling symlink row {} ImageID {}",
+                        i, imageId
+                    );
+                    printSkip(i, total, imageId, startTime);
+                    continue;
+                }
+
                 PixelBuffer buffer =
                         pixelsService.getPixelBuffer(pixels, false);
                 if (buffer != null) {
@@ -198,8 +247,7 @@ public class MemoRegenerator implements Callable<Void> {
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (MissingPyramidException e) {
-                long elapsedTime = System.nanoTime() - startTime;
-                System.out.printf("%d/%d - skip: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
+                printSkip(i, total, imageId, startTime);
             } catch (Exception e) {
                 log.error("Caught exception processing row {} ImageID {}", i, imageId, e);
                 long elapsedTime = System.nanoTime() - startTime;
