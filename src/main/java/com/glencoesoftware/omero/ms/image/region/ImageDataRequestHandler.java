@@ -19,6 +19,7 @@ import ome.model.core.Image;
 import ome.model.core.Pixels;
 import omero.ApiUsageException;
 import omero.ServerError;
+import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
@@ -46,6 +47,7 @@ public class ImageDataRequestHandler {
     public JsonObject getImageData(omero.client client) {
         log.info("In ReqeustHandler::getImageData");
         try {
+            //testGetContainer(client);
             Long imageId = imageDataCtx.imageId;
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
@@ -86,6 +88,16 @@ public class ImageDataRequestHandler {
                 meta.put("datasetName", ds.getName());
                 meta.put("datasetId", ds.getId());
                 meta.put("datasetDescription", ds.getDescription());
+                List<Project> projects = ds.linkedProjectList();
+                if (projects.size() > 1) {
+                    meta.put("projectName", "Multiple");
+                } else if (projects.size() == 1){
+                    Project project = projects.get(0);
+                    meta.put("projectName", project.getName());
+                    meta.put("projectId", project.getId());
+                    meta.put("projectDescription", project.getDescription());
+                }
+
             }
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
             if (wellSample.isPresent()) {
@@ -145,7 +157,7 @@ public class ImageDataRequestHandler {
         }
     }
 
-    public static Optional<WellSampleI> getWellSample(IQueryPrx iQuery, Long imageId) {
+    public Optional<WellSampleI> getWellSample(IQueryPrx iQuery, Long imageId) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_wellsample");
         try {
@@ -172,5 +184,21 @@ public class ImageDataRequestHandler {
             span.finish();
         }
         return Optional.empty();
+    }
+
+    public void testGetContainer(omero.client client) {
+        ServiceFactoryPrx sf = client.getSession();
+        try {
+            IContainerPrx csvc = sf.getContainerService();
+            ParametersI params = new ParametersI();
+            List<Long> ids = new ArrayList<Long>();
+            ids.add(251l);
+            List<IObject> objs = csvc.loadContainerHierarchy("Project", ids, params);
+            Project project = (Project) mapper.reverse(objs.get(0));
+            log.info(project.toString());
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 }
