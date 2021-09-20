@@ -16,7 +16,10 @@ import io.vertx.core.json.JsonObject;
 import ome.model.containers.Dataset;
 import ome.model.containers.Project;
 import ome.model.core.Image;
-import ome.model.core.Pixels;
+import ome.model.internal.Details;
+import ome.model.internal.Permissions;
+import ome.model.internal.Permissions.Role;
+import ome.model.meta.Experimenter;
 import omero.ApiUsageException;
 import omero.ServerError;
 import omero.api.IContainerPrx;
@@ -24,6 +27,7 @@ import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
 import omero.model.WellSampleI;
+import omero.sys.EventContext;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
@@ -52,12 +56,20 @@ public class ImageDataRequestHandler {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             Image image = queryImageData(iQuery, imageId);
+            if (image == null) {
+                return null;
+            }
+            Details details = image.getDetails();
+            Experimenter owner = details.getOwner();
+
             log.info(image.toString());
             JsonObject imgData = new JsonObject();
             imgData.put("id", imageId);
+
             JsonObject meta = new JsonObject();
             meta.put("imageName", image.getName());
             meta.put("imageDescription", image.getDescription());
+            meta.put("imageAuthor", owner.getId());
             //meta.put("imageAuthor", image.getAuthor())
             List<Dataset> datasets = image.linkedDatasetList();
             if(datasets.size() > 1) {
@@ -108,7 +120,24 @@ public class ImageDataRequestHandler {
             meta.put("pixelsType", image.getPixels(0).getPixelsType().toString());
             imgData.put("meta", meta);
 
+
+            Permissions permissions = details.getPermissions();
+            EventContext ec = sf.getAdminService().getEventContext();
+            Long userId = ec.userId;
+            Role role = null;
+            if (owner.getId() == userId) {
+                role = Permissions.Role.USER;
+            } else {
+                role = Permissions.Role.GROUP;
+            }
+            boolean canRead = permissions.isGranted(role, Permissions.Right.READ);
+            boolean canAnnotate = permissions.isGranted(role, Permissions.Right.ANNOTATE) ||
+                                  permissions.isGranted(role, Permissions.Right.WRITE);
+            boolean canWrite = permissions.isGranted(role, Permissions.Right.WRITE);
             JsonObject perms = new JsonObject();
+            perms.put("canRead", canRead);
+            perms.put("canAnnotate", canAnnotate);
+            perms.put("canWrite", canWrite);
             imgData.put("perms", perms);
             /*
                     "perms": {

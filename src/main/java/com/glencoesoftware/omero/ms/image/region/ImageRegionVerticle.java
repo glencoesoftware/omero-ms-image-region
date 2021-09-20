@@ -376,6 +376,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 host, port, omeroSessionKey)) {
                 JsonObject imgData = request.execute(
                     new ImageDataRequestHandler(imgDataCtx)::getImageData);
+                if (imgData == null) {
+                    message.fail(404, "Cannot find the Image");
+                }
                 message.reply(imgData);
         } catch (PermissionDeniedException
                  | CannotCreateSessionException e) {
