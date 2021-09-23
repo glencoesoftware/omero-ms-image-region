@@ -375,7 +375,11 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         try (OmeroRequest request = new OmeroRequest(
                 host, port, omeroSessionKey)) {
                 JsonObject imgData = request.execute(
-                    new ImageDataRequestHandler(imgDataCtx)::getImageData);
+                    new ImageDataRequestHandler(imgDataCtx,
+                            pixelsService,
+                            families,
+                            renderingModels,
+                            lutProvider)::getImageData);
                 if (imgData == null) {
                     message.fail(404, "Cannot find the Image");
                 }
