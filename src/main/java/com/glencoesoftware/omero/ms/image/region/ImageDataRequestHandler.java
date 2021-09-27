@@ -255,6 +255,43 @@ public class ImageDataRequestHandler {
             rd.put("projection", rdef.sizeOfProjections() > 0 ? rdef.getPrimaryProjectionDef().toString() : null);
             rd.put("defaultZ", rdef.getDefaultZ());
             rd.put("defaultT", rdef.getDefaultT());
+
+            JsonObject splitChannel = new JsonObject();
+            int c = channelCount;
+            JsonObject g = new JsonObject();
+            // Greyscale, no channel overlayed image
+            double x = Math.sqrt(c);
+            long y = Math.round(x);
+            long longX = 0;
+            if (x > y) {
+                longX = y+1;
+            } else {
+                longX = y;
+            }
+            int border = 2;
+            g.put("width", pixels.getSizeX()*longX + border*(longX+1));
+            g.put("height", pixels.getSizeY()*y+border*(y+1));
+            g.put("border", border);
+            g.put("gridx", x);
+            g.put("gridy", y);
+            splitChannel.put("g", g);
+            JsonObject clr = new JsonObject();
+            // Color, one extra image with all channels overlayed
+            c += 1;
+            x = Math.sqrt(c);
+            y = Math.round(x);
+            if (x > y) {
+                longX = y+1;
+            } else {
+                longX = y;
+            }
+            clr.put("width", pixels.getSizeX()*longX + border*(longX+1));
+            clr.put("height", pixels.getSizeY()*y+border*(y+1));
+            clr.put("border", border);
+            clr.put("gridx", x);
+            clr.put("gridy", y);
+            splitChannel.put("c", clr);
+            imgData.put("split_channel", splitChannel);
             return imgData;
         } catch (ServerError e) {
             log.error("Error getting image data");
