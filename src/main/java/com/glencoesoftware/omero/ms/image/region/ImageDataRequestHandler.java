@@ -292,6 +292,28 @@ public class ImageDataRequestHandler {
             clr.put("gridy", y);
             splitChannel.put("c", clr);
             imgData.put("split_channel", splitChannel);
+
+            JsonObject rdefObj = new JsonObject();
+            String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale" ?
+                    "greyscale" : "color";
+            rdefObj.put("model", rmodel);
+            // "projection" and "invertAxis" are always going to be
+            // "normal" and false in standard OMERO installs.
+            rdefObj.put("projection", "normal");
+            rdefObj.put("invertAxis", false);
+            rdefObj.put("defaultZ", rdef.getDefaultZ());
+            rdefObj.put("defaultT", rdef.getDefaultT());
+
+            if (resLvlCount > 1) {
+                JsonObject zoomLvlScaling = new JsonObject();
+                List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
+                int maxXSize = resDescs.get(0).get(0);
+                for (int i = 0; i < resLvlCount; i++) {
+                    List<Integer> desc = resDescs.get(i);
+                    zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
+                }
+                imgData.put("zoomLevelScaling", zoomLvlScaling);
+            }
             return imgData;
         } catch (ServerError e) {
             log.error("Error getting image data");
