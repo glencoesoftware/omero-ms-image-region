@@ -29,7 +29,10 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.model.enums.UnitsLength;
 import ome.model.stats.StatsInfo;
+import ome.model.units.Length;
+import ome.units.unit.Unit;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
 import omeis.providers.re.codomain.CodomainMapContext;
@@ -44,6 +47,7 @@ import omero.ApiUsageException;
 import omero.ServerError;
 import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
+import omero.api.RawPixelsStorePrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
 import omero.model.WellSampleI;
@@ -201,11 +205,42 @@ public class ImageDataRequestHandler {
 
             JsonObject pixelSize = new JsonObject();
             //Divide by units?
-            pixelSize.put("x", pixels.getPhysicalSizeX().getValue());
-            pixelSize.put("y", pixels.getPhysicalSizeY().getValue());
-            pixelSize.put("z", pixels.getPhysicalSizeZ() != null ? pixels.getPhysicalSizeZ().getValue() : null);
+            pixelSize.put("x", Length.convertLength(pixels.getPhysicalSizeX(), UnitsLength.MICROMETER.getSymbol()).getValue());
+            pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY(), UnitsLength.MICROMETER.getSymbol()).getValue());
+            pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
+                    Length.convertLength(pixels.getPhysicalSizeZ(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
+            imgData.put("pixel_size", pixelSize);
 
+            imgData.put("init_zoom", 0);
+            if (resLvlCount > 1) {
+                JsonObject zoomLvlScaling = new JsonObject();
+                List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
+                int maxXSize = resDescs.get(0).get(0);
+                for (int i = 0; i < resLvlCount; i++) {
+                    List<Integer> desc = resDescs.get(i);
+                    zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
+                }
+                imgData.put("zoomLevelScaling", zoomLvlScaling);
+            }
 
+            JsonArray pixelRange = new JsonArray();
+            RawPixelsStorePrx rp = sf.createRawPixelsStore();
+            try {
+                Map<String, String> pixCtx = new HashMap<String, String>();
+                pixCtx.put("omero.group", "-1");
+                rp.setPixelsId(pixels.getId(), true, pixCtx);
+                long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
+                if (rp.isSigned()) {
+                    pixelRange.add(-1 * pmax / 2);
+                    pixelRange.add(pmax / 2 - 1);
+                } else {
+                    pixelRange.add(0);
+                    pixelRange.add(pmax -1 );
+                }
+                imgData.put("pixel_range", pixelRange);
+            } finally {
+                rp.close();
+            }
             JsonArray channels = new JsonArray();
             int channelCount = pixels.sizeOfChannels();
             for (int i = 0; i < channelCount; i++) {
@@ -303,22 +338,70 @@ public class ImageDataRequestHandler {
             rdefObj.put("invertAxis", false);
             rdefObj.put("defaultZ", rdef.getDefaultZ());
             rdefObj.put("defaultT", rdef.getDefaultT());
+            imgData.put("rdefs", rdefObj);
 
-            if (resLvlCount > 1) {
-                JsonObject zoomLvlScaling = new JsonObject();
-                List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
-                int maxXSize = resDescs.get(0).get(0);
-                for (int i = 0; i < resLvlCount; i++) {
-                    List<Integer> desc = resDescs.get(i);
-                    zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
-                }
-                imgData.put("zoomLevelScaling", zoomLvlScaling);
-            }
             return imgData;
         } catch (ServerError e) {
             log.error("Error getting image data");
         }
         return null;
+    }
+
+    private JsonObject getImageDataMeta(Image image,
+            Pixels pixels,
+            Experimenter owner,
+            Optional<WellSampleI> wellSample) {
+        JsonObject meta = new JsonObject();
+        meta.put("imageName", image.getName().getValue());
+        meta.put("imageDescription", image.getDescription().getValue());
+        meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
+        List<Dataset> datasets = image.linkedDatasetList();
+        if(datasets.size() > 1) {
+            meta.put("datasetName", "Multiple");
+            Set<Long> projectIds = new HashSet<Long>();
+            for(Dataset ds : datasets) {
+                List<Project> projects = ds.linkedProjectList();
+                if (projects.size() > 1) {
+                    meta.put("projectName", "Multiple");
+                    break;
+                } else {
+                    if (projectIds.contains(projects.get(0).getId().getValue())) {
+                        meta.put("projectName", "Multiple");
+                        break;
+                    } else {
+                        projectIds.add(projects.get(0).getId().getValue());
+                    }
+                }
+            }
+            if (!meta.containsKey("projectName")) {
+                Project project = datasets.get(0).linkedProjectList().get(0);
+                meta.put("projectName", project.getName());
+                meta.put("projectId", project.getId());
+                meta.put("projectDescription", project.getDescription());
+            }
+        } else if(datasets.size() == 1) {
+            Dataset ds = datasets.get(0);
+            meta.put("datasetName", ds.getName().getValue());
+            meta.put("datasetId", ds.getId().getValue());
+            meta.put("datasetDescription", ds.getDescription().getValue());
+            List<Project> projects = ds.linkedProjectList();
+            if (projects.size() > 1) {
+                meta.put("projectName", "Multiple");
+            } else if (projects.size() == 1){
+                Project project = projects.get(0);
+                meta.put("projectName", project.getName().getValue());
+                meta.put("projectId", project.getId().getValue());
+                meta.put("projectDescription", project.getDescription().getValue());
+            }
+
+        }
+        if (wellSample.isPresent()) {
+            meta.put("wellSampleId", wellSample.get().getId().getValue());
+            meta.put("wellId", wellSample.get().getWell().getId().getValue());
+        }
+        meta.put("imageId", image.getId().getValue());
+        meta.put("pixelsType", pixels.getPixelsType().getValue());
+        return meta;
     }
 
     private boolean isInverted(Renderer renderer, int channel) {
