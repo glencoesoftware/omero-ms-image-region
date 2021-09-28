@@ -68,6 +68,11 @@ public class ImageDataRequestHandler {
     List<RenderingModel> renderingModels;
 
     LutProvider lutProvider;
+
+    private int init_zoom;
+
+    private boolean interpolate;
+
     /**
      * Mapper between <code>omero.model</code> client side Ice backed objects
      * and <code>ome.model</code> server side Hibernate backed objects.
@@ -78,13 +83,16 @@ public class ImageDataRequestHandler {
             PixelsService pixelsService,
             List<Family> families,
             List<RenderingModel> renderingModels,
-            LutProvider lutProvider) {
+            LutProvider lutProvider,
+            int init_zoom,
+            boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
-
+        this.init_zoom = init_zoom;
+        this.interpolate = interpolate;
     }
 
     public JsonObject getImageData(omero.client client) {
@@ -121,67 +129,12 @@ public class ImageDataRequestHandler {
                     pixelBuffer, lutProvider
                 );
 
-            JsonObject meta = new JsonObject();
-            meta.put("imageName", image.getName().getValue());
-            meta.put("imageDescription", image.getDescription().getValue());
-            meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
-            //meta.put("imageAuthor", image.getAuthor())
-            List<Dataset> datasets = image.linkedDatasetList();
-            if(datasets.size() > 1) {
-                meta.put("datasetName", "Multiple");
-                Set<Long> projectIds = new HashSet<Long>();
-                for(Dataset ds : datasets) {
-                    List<Project> projects = ds.linkedProjectList();
-                    if (projects.size() > 1) {
-                        meta.put("projectName", "Multiple");
-                        break;
-                    } else {
-                        if (projectIds.contains(projects.get(0).getId().getValue())) {
-                            meta.put("projectName", "Multiple");
-                            break;
-                        } else {
-                            projectIds.add(projects.get(0).getId().getValue());
-                        }
-                    }
-                }
-                if (!meta.containsKey("projectName")) {
-                    Project project = datasets.get(0).linkedProjectList().get(0);
-                    meta.put("projectName", project.getName());
-                    meta.put("projectId", project.getId());
-                    meta.put("projectDescription", project.getDescription());
-                }
-            } else if(datasets.size() == 1) {
-                Dataset ds = datasets.get(0);
-                meta.put("datasetName", ds.getName().getValue());
-                meta.put("datasetId", ds.getId().getValue());
-                meta.put("datasetDescription", ds.getDescription().getValue());
-                List<Project> projects = ds.linkedProjectList();
-                if (projects.size() > 1) {
-                    meta.put("projectName", "Multiple");
-                } else if (projects.size() == 1){
-                    Project project = projects.get(0);
-                    meta.put("projectName", project.getName().getValue());
-                    meta.put("projectId", project.getId().getValue());
-                    meta.put("projectDescription", project.getDescription().getValue());
-                }
-
-            }
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
-            if (wellSample.isPresent()) {
-                meta.put("wellSampleId", wellSample.get().getId().getValue());
-                meta.put("wellId", wellSample.get().getWell().getId().getValue());
-            }
-            meta.put("imageId", image.getId().getValue());
-            meta.put("pixelsType", pixels.getPixelsType().getValue());
+            JsonObject meta = getImageDataMeta(image, pixels, owner, wellSample);
             imgData.put("meta", meta);
 
-
             Permissions permissions = details.getPermissions();
-            JsonObject perms = new JsonObject();
-            perms.put("canRead", true); //User would not have been able to load the image otherwise
-            perms.put("canAnnotate", permissions.canAnnotate());
-            perms.put("canWrite", permissions.canEdit());
-            perms.put("canLink", permissions.canLink());
+            JsonObject perms = getImageDataPerms(permissions);
             imgData.put("perms", perms);
 
 
@@ -194,6 +147,8 @@ public class ImageDataRequestHandler {
                 imgData.put("tile_size", tileSize);
             }
             imgData.put("levels", resLvlCount);
+
+            imgData.put("interpolate", interpolate);
 
             JsonObject size = new JsonObject();
             size.put("width", pixelBuffer.getSizeX());
@@ -211,7 +166,7 @@ public class ImageDataRequestHandler {
                     Length.convertLength(pixels.getPhysicalSizeZ(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
             imgData.put("pixel_size", pixelSize);
 
-            imgData.put("init_zoom", 0);
+            imgData.put("init_zoom", init_zoom);
             if (resLvlCount > 1) {
                 JsonObject zoomLvlScaling = new JsonObject();
                 List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
@@ -402,6 +357,15 @@ public class ImageDataRequestHandler {
         meta.put("imageId", image.getId().getValue());
         meta.put("pixelsType", pixels.getPixelsType().getValue());
         return meta;
+    }
+
+    private JsonObject getImageDataPerms(Permissions permissions) {
+        JsonObject perms = new JsonObject();
+        perms.put("canRead", true); //User would not have been able to load the image otherwise
+        perms.put("canAnnotate", permissions.canAnnotate());
+        perms.put("canWrite", permissions.canEdit());
+        perms.put("canLink", permissions.canLink());
+        return perms;
     }
 
     private boolean isInverted(Renderer renderer, int channel) {

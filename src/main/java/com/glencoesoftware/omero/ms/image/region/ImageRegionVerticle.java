@@ -372,6 +372,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 extractor().extract(imgDataCtx.traceContext).context());
         String omeroSessionKey = imgDataCtx.omeroSessionKey;
         log.debug("Get image data request: {}", imgDataCtx.toString());
+        JsonObject omeroServer = config().getJsonObject("omero.server");
+        int init_zoom = Integer.valueOf(omeroServer.getString("omero.client.viewer.initial_zoom_level", "0"));
+        boolean interpolate = Boolean.valueOf(omeroServer.getString("omero.client.viewer.interpolate_pixels", "true"));
         try (OmeroRequest request = new OmeroRequest(
                 host, port, omeroSessionKey)) {
                 JsonObject imgData = request.execute(
@@ -379,7 +382,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             pixelsService,
                             families,
                             renderingModels,
-                            lutProvider)::getImageData);
+                            lutProvider,
+                            init_zoom,
+                            interpolate)::getImageData);
                 if (imgData == null) {
                     message.fail(404, "Cannot find the Image");
                 }
