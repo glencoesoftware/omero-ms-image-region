@@ -141,159 +141,34 @@ public class ImageDataRequestHandler {
             int resLvlCount = pixelBuffer.getResolutionLevels();
             if (resLvlCount > 1) {
                 imgData.put("tiles", true);
-                JsonObject tileSize = new JsonObject();
-                tileSize.put("width", pixelBuffer.getTileSize().width);
-                tileSize.put("height", pixelBuffer.getTileSize().height);
-                imgData.put("tile_size", tileSize);
+                imgData.put("tile_size", getImageDataTileSize(pixelBuffer));
             }
             imgData.put("levels", resLvlCount);
 
             imgData.put("interpolate", interpolate);
 
-            JsonObject size = new JsonObject();
-            size.put("width", pixelBuffer.getSizeX());
-            size.put("height", pixelBuffer.getSizeY());
-            size.put("z", pixelBuffer.getSizeZ());
-            size.put("c", pixelBuffer.getSizeC());
-            size.put("t", pixelBuffer.getSizeT());
-            imgData.put("size", size);
+            imgData.put("size", getImageDataSize(pixelBuffer));
 
-            JsonObject pixelSize = new JsonObject();
-            //Divide by units?
-            pixelSize.put("x", Length.convertLength(pixels.getPhysicalSizeX(), UnitsLength.MICROMETER.getSymbol()).getValue());
-            pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY(), UnitsLength.MICROMETER.getSymbol()).getValue());
-            pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
-                    Length.convertLength(pixels.getPhysicalSizeZ(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
-            imgData.put("pixel_size", pixelSize);
+            imgData.put("pixel_size", getImageDataPixelSize(pixels));
 
             imgData.put("init_zoom", init_zoom);
+
             if (resLvlCount > 1) {
-                JsonObject zoomLvlScaling = new JsonObject();
-                List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
-                int maxXSize = resDescs.get(0).get(0);
-                for (int i = 0; i < resLvlCount; i++) {
-                    List<Integer> desc = resDescs.get(i);
-                    zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
-                }
-                imgData.put("zoomLevelScaling", zoomLvlScaling);
+                imgData.put("zoomLevelScaling", getImageDataZoomLevelScaling(renderer));
             }
 
-            JsonArray pixelRange = new JsonArray();
             RawPixelsStorePrx rp = sf.createRawPixelsStore();
             try {
-                Map<String, String> pixCtx = new HashMap<String, String>();
-                pixCtx.put("omero.group", "-1");
-                rp.setPixelsId(pixels.getId(), true, pixCtx);
-                long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
-                if (rp.isSigned()) {
-                    pixelRange.add(-1 * pmax / 2);
-                    pixelRange.add(pmax / 2 - 1);
-                } else {
-                    pixelRange.add(0);
-                    pixelRange.add(pmax -1 );
-                }
-                imgData.put("pixel_range", pixelRange);
+                imgData.put("pixel_range", getImageDataPixelRange(pixels, rp));
             } finally {
                 rp.close();
             }
-            JsonArray channels = new JsonArray();
-            int channelCount = pixels.sizeOfChannels();
-            for (int i = 0; i < channelCount; i++) {
-                Channel channel = pixels.getChannel(i);
-                LogicalChannel logicalChannel = channel.getLogicalChannel();
-                String label = null;
-                logicalChannel.getName();
-                if (logicalChannel.getName() != null && logicalChannel.getName().length() > 0) {
-                    label = logicalChannel.getName();
-                } else {
-                    if (logicalChannel.getEmissionWave() != null) {
-                        label = logicalChannel.getEmissionWave().toString();
-                    } else {
-                        label = Integer.toString(i);
-                    }
-                }
-                log.info(channel.toString());
-                JsonObject ch = new JsonObject();
-                ch.put("emissionWave", logicalChannel.getEmissionWave() != null ?
-                            logicalChannel.getEmissionWave().getValue() : null);
-                ch.put("label", label);
-                ch.put("color", getColorString(channel));
-                ch.put("inverted", isInverted(renderer, i));
-                ch.put("reverseIntensity", isInverted(renderer, i));
-                ChannelBinding cb = renderer.getChannelBindings()[i];
-                ch.put("family", cb.getFamily().getValue());
-                ch.put("coefficient", cb.getCoefficient());
-                ch.put("active", cb.getActive());
-                StatsInfo statsInfo  = channel.getStatsInfo();
-                JsonObject window = new JsonObject();
-                if (statsInfo != null) {
-                    window.put("min", statsInfo.getGlobalMin());
-                    window.put("max", statsInfo.getGlobalMax());
-                } else {
-                    window.put("min", renderer.getPixelsTypeLowerBound(i));
-                    window.put("max", renderer.getPixelsTypeUpperBound(i));
-                }
-                window.put("start", cb.getInputStart());
-                window.put("end", cb.getInputEnd());
-                ch.put("window", window);
 
-                channels.add(ch);
-            }
-            imgData.put("channels", channels);
-            JsonObject rd = new JsonObject();
-            rd.put("model", rdef.getModel().getValue());
-            rd.put("projection", rdef.sizeOfProjections() > 0 ? rdef.getPrimaryProjectionDef().toString() : null);
-            rd.put("defaultZ", rdef.getDefaultZ());
-            rd.put("defaultT", rdef.getDefaultT());
+            imgData.put("channels", getImageDataChannels(pixels, renderer));
 
-            JsonObject splitChannel = new JsonObject();
-            int c = channelCount;
-            JsonObject g = new JsonObject();
-            // Greyscale, no channel overlayed image
-            double x = Math.sqrt(c);
-            long y = Math.round(x);
-            long longX = 0;
-            if (x > y) {
-                longX = y+1;
-            } else {
-                longX = y;
-            }
-            int border = 2;
-            g.put("width", pixels.getSizeX()*longX + border*(longX+1));
-            g.put("height", pixels.getSizeY()*y+border*(y+1));
-            g.put("border", border);
-            g.put("gridx", x);
-            g.put("gridy", y);
-            splitChannel.put("g", g);
-            JsonObject clr = new JsonObject();
-            // Color, one extra image with all channels overlayed
-            c += 1;
-            x = Math.sqrt(c);
-            y = Math.round(x);
-            if (x > y) {
-                longX = y+1;
-            } else {
-                longX = y;
-            }
-            clr.put("width", pixels.getSizeX()*longX + border*(longX+1));
-            clr.put("height", pixels.getSizeY()*y+border*(y+1));
-            clr.put("border", border);
-            clr.put("gridx", x);
-            clr.put("gridy", y);
-            splitChannel.put("c", clr);
-            imgData.put("split_channel", splitChannel);
+            imgData.put("split_channel", getImageDataSplitChannel(pixels));
 
-            JsonObject rdefObj = new JsonObject();
-            String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale" ?
-                    "greyscale" : "color";
-            rdefObj.put("model", rmodel);
-            // "projection" and "invertAxis" are always going to be
-            // "normal" and false in standard OMERO installs.
-            rdefObj.put("projection", "normal");
-            rdefObj.put("invertAxis", false);
-            rdefObj.put("defaultZ", rdef.getDefaultZ());
-            rdefObj.put("defaultT", rdef.getDefaultT());
-            imgData.put("rdefs", rdefObj);
+            imgData.put("rdefs", getImageDataRdef(rdef));
 
             return imgData;
         } catch (ServerError e) {
@@ -366,6 +241,160 @@ public class ImageDataRequestHandler {
         perms.put("canWrite", permissions.canEdit());
         perms.put("canLink", permissions.canLink());
         return perms;
+    }
+
+    private JsonObject getImageDataTileSize(PixelBuffer pixelBuffer) {
+        JsonObject tileSize = new JsonObject();
+        tileSize.put("width", pixelBuffer.getTileSize().width);
+        tileSize.put("height", pixelBuffer.getTileSize().height);
+        return tileSize;
+    }
+
+    private JsonObject getImageDataSize(PixelBuffer pixelBuffer) {
+        JsonObject size = new JsonObject();
+        size.put("width", pixelBuffer.getSizeX());
+        size.put("height", pixelBuffer.getSizeY());
+        size.put("z", pixelBuffer.getSizeZ());
+        size.put("c", pixelBuffer.getSizeC());
+        size.put("t", pixelBuffer.getSizeT());
+        return size;
+    }
+
+    private JsonObject getImageDataPixelSize(Pixels pixels) {
+        JsonObject pixelSize = new JsonObject();
+        //Divide by units?
+        pixelSize.put("x", Length.convertLength(pixels.getPhysicalSizeX(), UnitsLength.MICROMETER.getSymbol()).getValue());
+        pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY(), UnitsLength.MICROMETER.getSymbol()).getValue());
+        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
+                Length.convertLength(pixels.getPhysicalSizeZ(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
+        return pixelSize;
+    }
+
+    private JsonObject getImageDataZoomLevelScaling(Renderer renderer) {
+        JsonObject zoomLvlScaling = new JsonObject();
+        List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
+        int maxXSize = resDescs.get(0).get(0);
+        for (int i = 0; i < resDescs.size(); i++) {
+            List<Integer> desc = resDescs.get(i);
+            zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
+        }
+        return zoomLvlScaling;
+    }
+
+    private JsonArray getImageDataPixelRange(Pixels pixels, RawPixelsStorePrx rp) throws ServerError {
+        Map<String, String> pixCtx = new HashMap<String, String>();
+        pixCtx.put("omero.group", "-1");
+        rp.setPixelsId(pixels.getId(), true, pixCtx);
+        long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
+        JsonArray pixelRange = new JsonArray();
+        if (rp.isSigned()) {
+            pixelRange.add(-1 * pmax / 2);
+            pixelRange.add(pmax / 2 - 1);
+        } else {
+            pixelRange.add(0);
+            pixelRange.add(pmax -1 );
+        }
+        return pixelRange;
+    }
+
+    private JsonArray getImageDataChannels(Pixels pixels, Renderer renderer) {
+        JsonArray channels = new JsonArray();
+        int channelCount = pixels.sizeOfChannels();
+        for (int i = 0; i < channelCount; i++) {
+            Channel channel = pixels.getChannel(i);
+            LogicalChannel logicalChannel = channel.getLogicalChannel();
+            String label = null;
+            logicalChannel.getName();
+            if (logicalChannel.getName() != null && logicalChannel.getName().length() > 0) {
+                label = logicalChannel.getName();
+            } else {
+                if (logicalChannel.getEmissionWave() != null) {
+                    label = logicalChannel.getEmissionWave().toString();
+                } else {
+                    label = Integer.toString(i);
+                }
+            }
+            log.info(channel.toString());
+            JsonObject ch = new JsonObject();
+            ch.put("emissionWave", logicalChannel.getEmissionWave() != null ?
+                        logicalChannel.getEmissionWave().getValue() : null);
+            ch.put("label", label);
+            ch.put("color", getColorString(channel));
+            ch.put("inverted", isInverted(renderer, i));
+            ch.put("reverseIntensity", isInverted(renderer, i));
+            ChannelBinding cb = renderer.getChannelBindings()[i];
+            ch.put("family", cb.getFamily().getValue());
+            ch.put("coefficient", cb.getCoefficient());
+            ch.put("active", cb.getActive());
+            StatsInfo statsInfo  = channel.getStatsInfo();
+            JsonObject window = new JsonObject();
+            if (statsInfo != null) {
+                window.put("min", statsInfo.getGlobalMin());
+                window.put("max", statsInfo.getGlobalMax());
+            } else {
+                window.put("min", renderer.getPixelsTypeLowerBound(i));
+                window.put("max", renderer.getPixelsTypeUpperBound(i));
+            }
+            window.put("start", cb.getInputStart());
+            window.put("end", cb.getInputEnd());
+            ch.put("window", window);
+
+            channels.add(ch);
+        }
+        return channels;
+    }
+
+    private JsonObject getImageDataSplitChannel(Pixels pixels) {
+        JsonObject splitChannel = new JsonObject();
+        int c = pixels.sizeOfChannels();
+        JsonObject g = new JsonObject();
+        // Greyscale, no channel overlayed image
+        double x = Math.sqrt(c);
+        long y = Math.round(x);
+        long longX = 0;
+        if (x > y) {
+            longX = y+1;
+        } else {
+            longX = y;
+        }
+        int border = 2;
+        g.put("width", pixels.getSizeX()*longX + border*(longX+1));
+        g.put("height", pixels.getSizeY()*y+border*(y+1));
+        g.put("border", border);
+        g.put("gridx", x);
+        g.put("gridy", y);
+        splitChannel.put("g", g);
+        JsonObject clr = new JsonObject();
+        // Color, one extra image with all channels overlayed
+        c += 1;
+        x = Math.sqrt(c);
+        y = Math.round(x);
+        if (x > y) {
+            longX = y+1;
+        } else {
+            longX = y;
+        }
+        clr.put("width", pixels.getSizeX()*longX + border*(longX+1));
+        clr.put("height", pixels.getSizeY()*y+border*(y+1));
+        clr.put("border", border);
+        clr.put("gridx", x);
+        clr.put("gridy", y);
+        splitChannel.put("c", clr);
+        return splitChannel;
+    }
+
+    private JsonObject getImageDataRdef(RenderingDef rdef) {
+        JsonObject rdefObj = new JsonObject();
+        String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale" ?
+                "greyscale" : "color";
+        rdefObj.put("model", rmodel);
+        // "projection" and "invertAxis" are always going to be
+        // "normal" and false in standard OMERO installs.
+        rdefObj.put("projection", "normal");
+        rdefObj.put("invertAxis", false);
+        rdefObj.put("defaultZ", rdef.getDefaultZ());
+        rdefObj.put("defaultT", rdef.getDefaultT());
+        return rdefObj;
     }
 
     private boolean isInverted(Renderer renderer, int channel) {
