@@ -97,10 +97,9 @@ public class ImageDataRequestHandler {
 
     public JsonObject getImageData(omero.client client) {
         log.info("In ReqeustHandler::getImageData");
+        ServiceFactoryPrx sf = client.getSession();
         try {
-            //testGetContainer(client);
             Long imageId = imageDataCtx.imageId;
-            ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             Image image = queryImageData(iQuery, imageId);
             if (image == null) {
@@ -130,51 +129,64 @@ public class ImageDataRequestHandler {
                 );
 
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
-            JsonObject meta = getImageDataMeta(image, pixels, owner, wellSample);
-            imgData.put("meta", meta);
-
             Permissions permissions = details.getPermissions();
-            JsonObject perms = getImageDataPerms(permissions);
-            imgData.put("perms", perms);
-
-
-            int resLvlCount = pixelBuffer.getResolutionLevels();
-            if (resLvlCount > 1) {
-                imgData.put("tiles", true);
-                imgData.put("tile_size", getImageDataTileSize(pixelBuffer));
-            }
-            imgData.put("levels", resLvlCount);
-
-            imgData.put("interpolate", interpolate);
-
-            imgData.put("size", getImageDataSize(pixelBuffer));
-
-            imgData.put("pixel_size", getImageDataPixelSize(pixels));
-
-            imgData.put("init_zoom", init_zoom);
-
-            if (resLvlCount > 1) {
-                imgData.put("zoomLevelScaling", getImageDataZoomLevelScaling(renderer));
-            }
-
             RawPixelsStorePrx rp = sf.createRawPixelsStore();
             try {
-                imgData.put("pixel_range", getImageDataPixelRange(pixels, rp));
+                return populateImageData(image, pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             } finally {
                 rp.close();
             }
-
-            imgData.put("channels", getImageDataChannels(pixels, renderer));
-
-            imgData.put("split_channel", getImageDataSplitChannel(pixels));
-
-            imgData.put("rdefs", getImageDataRdef(rdef));
-
-            return imgData;
         } catch (ServerError e) {
             log.error("Error getting image data");
         }
         return null;
+    }
+
+    public JsonObject populateImageData(Image image,
+            Pixels pixels,
+            Experimenter owner,
+            Optional<WellSampleI> wellSample,
+            Permissions permissions,
+            PixelBuffer pixelBuffer,
+            RawPixelsStorePrx rp,
+            Renderer renderer,
+            RenderingDef rdef
+            ) throws ServerError {
+        JsonObject imgData = new JsonObject();
+        JsonObject meta = getImageDataMeta(image, pixels, owner, wellSample);
+        imgData.put("meta", meta);
+
+        JsonObject perms = getImageDataPerms(permissions);
+        imgData.put("perms", perms);
+
+        int resLvlCount = pixelBuffer.getResolutionLevels();
+        if (resLvlCount > 1) {
+            imgData.put("tiles", true);
+            imgData.put("tile_size", getImageDataTileSize(pixelBuffer));
+        }
+        imgData.put("levels", resLvlCount);
+
+        imgData.put("interpolate", interpolate);
+
+        imgData.put("size", getImageDataSize(pixelBuffer));
+
+        imgData.put("pixel_size", getImageDataPixelSize(pixels));
+
+        imgData.put("init_zoom", init_zoom);
+
+        if (resLvlCount > 1) {
+            imgData.put("zoomLevelScaling", getImageDataZoomLevelScaling(renderer));
+        }
+
+        imgData.put("pixel_range", getImageDataPixelRange(pixels, rp));
+
+        imgData.put("channels", getImageDataChannels(pixels, renderer));
+
+        imgData.put("split_channel", getImageDataSplitChannel(pixels));
+
+        imgData.put("rdefs", getImageDataRdef(rdef));
+
+        return imgData;
     }
 
     private JsonObject getImageDataMeta(Image image,
