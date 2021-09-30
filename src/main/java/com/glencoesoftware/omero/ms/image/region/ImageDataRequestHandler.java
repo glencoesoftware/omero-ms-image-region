@@ -18,14 +18,13 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.logic.PixelsImpl;
-import ome.model.core.Channel;
-import ome.model.core.LogicalChannel;
+import omero.model.Channel;
+import omero.model.LogicalChannel;
 import omero.model.Dataset;
 import omero.model.Project;
 import omero.model.Image;
 import omero.model.ImageI;
 import omero.model.Permissions;
-//import ome.model.core.Pixels;
 import omero.model.Pixels;
 import omero.model.PixelsI;
 import ome.model.display.ChannelBinding;
@@ -33,7 +32,7 @@ import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.model.enums.UnitsLength;
-import ome.model.stats.StatsInfo;
+import omero.model.StatsInfo;
 import omero.model.Length;
 import ome.units.unit.Unit;
 import omeis.providers.re.Renderer;
@@ -246,7 +245,7 @@ public class ImageDataRequestHandler {
             meta.put("wellId", wellSample.get().getWell().getId().getValue());
         }
         meta.put("imageId", image.getId().getValue());
-        meta.put("pixelsType", pixels.getPixelsType().getValue());
+        meta.put("pixelsType", pixels.getPixelsType().getValue().getValue());
         return meta;
     }
 
@@ -327,8 +326,8 @@ public class ImageDataRequestHandler {
             LogicalChannel logicalChannel = channel.getLogicalChannel();
             String label = null;
             logicalChannel.getName();
-            if (logicalChannel.getName() != null && logicalChannel.getName().length() > 0) {
-                label = logicalChannel.getName();
+            if (logicalChannel.getName() != null && logicalChannel.getName().getValue().length() > 0) {
+                label = logicalChannel.getName().getValue();
             } else {
                 if (logicalChannel.getEmissionWave() != null) {
                     label = logicalChannel.getEmissionWave().toString();
@@ -380,8 +379,8 @@ public class ImageDataRequestHandler {
             longX = y;
         }
         int border = 2;
-        g.put("width", pixels.getSizeX()*longX + border*(longX+1));
-        g.put("height", pixels.getSizeY()*y+border*(y+1));
+        g.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
+        g.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
         g.put("border", border);
         g.put("gridx", x);
         g.put("gridy", y);
@@ -396,8 +395,8 @@ public class ImageDataRequestHandler {
         } else {
             longX = y;
         }
-        clr.put("width", pixels.getSizeX()*longX + border*(longX+1));
-        clr.put("height", pixels.getSizeY()*y+border*(y+1));
+        clr.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
+        clr.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
         clr.put("border", border);
         clr.put("gridx", x);
         clr.put("gridy", y);
@@ -432,18 +431,18 @@ public class ImageDataRequestHandler {
 
     private String getColorString(Channel channel) {
         StringBuilder colorBuilder = new StringBuilder();
-        if (channel.getRed() < 16) {
+        if (channel.getRed().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getRed()).toUpperCase());
-        if (channel.getGreen() < 16) {
+        colorBuilder.append(Integer.toHexString(channel.getRed().getValue()).toUpperCase());
+        if (channel.getGreen().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getGreen()).toUpperCase());
-        if (channel.getBlue() < 16) {
+        colorBuilder.append(Integer.toHexString(channel.getGreen().getValue()).toUpperCase());
+        if (channel.getBlue().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getBlue()).toUpperCase());
+        colorBuilder.append(Integer.toHexString(channel.getBlue().getValue()).toUpperCase());
         return colorBuilder.toString();
     }
 
@@ -526,15 +525,16 @@ public class ImageDataRequestHandler {
      * Returns a pixel buffer for a given set of pixels.
      * @param pixels pixels metadata
      * @return See above.
+     * @throws ApiUsageException
      * @see PixelsService#getPixelBuffer(Pixels)
      */
-    private PixelBuffer getPixelBuffer(Pixels pixels) {
+    private PixelBuffer getPixelBuffer(Pixels pixels) throws ApiUsageException {
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span = tracer.startScopedSpan("get_pixel_buffer");
         try {
-            span.tag("omero.pixels_id", Long.toString(pixels.getId()));
-            return pixelsService.getPixelBuffer(pixels, false);
-        } catch (Exception e) {
+            span.tag("omero.pixels_id", Long.toString(pixels.getId().getValue()));
+            return pixelsService.getPixelBuffer((ome.model.core.Pixels) mapper.reverse(pixels), false);
+        } catch (ApiUsageException e) {
             span.error(e);
             throw e;
         } finally {
