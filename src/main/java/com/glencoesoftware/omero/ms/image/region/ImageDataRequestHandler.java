@@ -23,15 +23,18 @@ import ome.model.core.LogicalChannel;
 import omero.model.Dataset;
 import omero.model.Project;
 import omero.model.Image;
+import omero.model.ImageI;
 import omero.model.Permissions;
-import ome.model.core.Pixels;
+//import ome.model.core.Pixels;
+import omero.model.Pixels;
+import omero.model.PixelsI;
 import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.model.enums.UnitsLength;
 import ome.model.stats.StatsInfo;
-import ome.model.units.Length;
+import omero.model.Length;
 import ome.units.unit.Unit;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
@@ -41,6 +44,7 @@ import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantumFactory;
 import omeis.providers.re.quantum.QuantumStrategy;
 import omero.model.Details;
+import omero.model.DetailsI;
 //import omero.model.Permissions;
 import omero.model.Experimenter;
 import omero.ApiUsageException;
@@ -101,7 +105,7 @@ public class ImageDataRequestHandler {
         try {
             Long imageId = imageDataCtx.imageId;
             IQueryPrx iQuery = sf.getQueryService();
-            Image image = queryImageData(iQuery, imageId);
+            ImageI image = queryImageData(iQuery, imageId);
             if (image == null) {
                 return null;
             }
@@ -120,11 +124,11 @@ public class ImageDataRequestHandler {
             PixelBuffer pixelBuffer = getPixelBuffer(pixels);
             QuantumFactory quantumFactory = new QuantumFactory(families);
             List<Long> pixIds = new ArrayList<Long>();
-            pixIds.add(pixels.getId());
+            pixIds.add(pixels.getId().getValue());
             List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId, pixIds);
-            RenderingDef rdef = selectRenderingDef(rdefs, userId, pixels.getId());
+            RenderingDef rdef = selectRenderingDef(rdefs, userId, pixels.getId().getValue());
             Renderer renderer = new Renderer(
-                    quantumFactory, renderingModels, pixels, rdef,
+                    quantumFactory, renderingModels, (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
                     pixelBuffer, lutProvider
                 );
 
@@ -275,10 +279,16 @@ public class ImageDataRequestHandler {
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
         //Divide by units?
+        /*
         pixelSize.put("x", Length.convertLength(pixels.getPhysicalSizeX(), UnitsLength.MICROMETER.getSymbol()).getValue());
-        pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY(), UnitsLength.MICROMETER.getSymbol()).getValue());
+        pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY().getValue(), UnitsLength.MICROMETER.getSymbol()).getValue());
         pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
-                Length.convertLength(pixels.getPhysicalSizeZ(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
+                Length.convertLength(pixels.getPhysicalSizeZ().getValue(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
+                */
+        pixelSize.put("x", pixels.getPhysicalSizeX().getValue());
+        pixelSize.put("y", pixels.getPhysicalSizeY().getValue());
+        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
+                pixels.getPhysicalSizeZ().getValue() : null);
         return pixelSize;
     }
 
@@ -296,7 +306,7 @@ public class ImageDataRequestHandler {
     private JsonArray getImageDataPixelRange(Pixels pixels, RawPixelsStorePrx rp) throws ServerError {
         Map<String, String> pixCtx = new HashMap<String, String>();
         pixCtx.put("omero.group", "-1");
-        rp.setPixelsId(pixels.getId(), true, pixCtx);
+        rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
         long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
         JsonArray pixelRange = new JsonArray();
         if (rp.isSigned()) {
@@ -437,7 +447,7 @@ public class ImageDataRequestHandler {
         return colorBuilder.toString();
     }
 
-    protected Image queryImageData(
+    protected ImageI queryImageData(
             IQueryPrx iQuery, Long imageId)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
@@ -452,7 +462,7 @@ public class ImageDataRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addId(imageId);
-            Image image = (Image)
+            ImageI image = (ImageI)
                     iQuery.findByQuery(
                             "select i from Image as i " +
                             " join fetch i.pixels as pixels" +
@@ -608,7 +618,7 @@ public class ImageDataRequestHandler {
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected Map<Long, Pixels> retrievePixDescription(
+    protected Map<Long, PixelsI> retrievePixDescription(
             IQueryPrx iQuery, List<Long> imageIds)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
@@ -623,7 +633,7 @@ public class ImageDataRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addIds(imageIds);
-            List<Pixels> pixelsList = (List<Pixels>) mapper.reverse(
+            List<IObject> pixelsList =
                     iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
@@ -638,10 +648,11 @@ public class ImageDataRequestHandler {
                         + "left outer join fetch lc.illumination "
                         + "left outer join fetch lc.mode "
                         + "left outer join fetch lc.contrastMethod "
-                        + "where i.id in (:ids)", params, ctx));
-            Map<Long, Pixels> toReturn = new HashMap<Long, Pixels>();
-            for (Pixels pixels : pixelsList) {
-                toReturn.put(pixels.getImage().getId(), pixels);
+                        + "where i.id in (:ids)", params, ctx);
+            Map<Long, PixelsI> toReturn = new HashMap<Long, PixelsI>();
+            for (IObject pixelsObj : pixelsList) {
+                PixelsI pixels = (PixelsI) pixelsObj;
+                toReturn.put(pixels.getImage().getId().getValue(), pixels);
             }
             return toReturn;
         } finally {
