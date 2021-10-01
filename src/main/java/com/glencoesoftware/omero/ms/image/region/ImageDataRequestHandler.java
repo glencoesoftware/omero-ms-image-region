@@ -1,7 +1,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,20 +30,14 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
-import ome.model.enums.UnitsLength;
 import omero.model.StatsInfo;
-import omero.model.Length;
-import ome.units.unit.Unit;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
 import omeis.providers.re.codomain.CodomainMapContext;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantumFactory;
-import omeis.providers.re.quantum.QuantumStrategy;
 import omero.model.Details;
-import omero.model.DetailsI;
-//import omero.model.Permissions;
 import omero.model.Experimenter;
 import omero.ApiUsageException;
 import omero.ServerError;
@@ -119,7 +112,7 @@ public class ImageDataRequestHandler {
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
-            Pixels pixels = retrievePixDescription(iQuery, imageIds).get(imageId);
+            PixelsI pixels = retrievePixDescription(iQuery, imageIds).get(imageId);
             PixelBuffer pixelBuffer = getPixelBuffer(pixels);
             QuantumFactory quantumFactory = new QuantumFactory(families);
             List<Long> pixIds = new ArrayList<Long>();
@@ -134,6 +127,9 @@ public class ImageDataRequestHandler {
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
             Permissions permissions = details.getPermissions();
             RawPixelsStorePrx rp = sf.createRawPixelsStore();
+            Map<String, String> pixCtx = new HashMap<String, String>();
+            pixCtx.put("omero.group", "-1");
+            rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
             try {
                 return populateImageData(image, pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             } finally {
@@ -146,7 +142,7 @@ public class ImageDataRequestHandler {
     }
 
     public JsonObject populateImageData(Image image,
-            Pixels pixels,
+            PixelsI pixels,
             Experimenter owner,
             Optional<WellSampleI> wellSample,
             Permissions permissions,
@@ -181,7 +177,7 @@ public class ImageDataRequestHandler {
             imgData.put("zoomLevelScaling", getImageDataZoomLevelScaling(renderer));
         }
 
-        imgData.put("pixel_range", getImageDataPixelRange(pixels, rp));
+        imgData.put("pixel_range", getImageDataPixelRange(rp));
 
         imgData.put("channels", getImageDataChannels(pixels, renderer));
 
@@ -302,10 +298,7 @@ public class ImageDataRequestHandler {
         return zoomLvlScaling;
     }
 
-    private JsonArray getImageDataPixelRange(Pixels pixels, RawPixelsStorePrx rp) throws ServerError {
-        Map<String, String> pixCtx = new HashMap<String, String>();
-        pixCtx.put("omero.group", "-1");
-        rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
+    private JsonArray getImageDataPixelRange(RawPixelsStorePrx rp) throws ServerError {
         long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
         JsonArray pixelRange = new JsonArray();
         if (rp.isSigned()) {
@@ -318,7 +311,7 @@ public class ImageDataRequestHandler {
         return pixelRange;
     }
 
-    private JsonArray getImageDataChannels(Pixels pixels, Renderer renderer) {
+    private JsonArray getImageDataChannels(PixelsI pixels, Renderer renderer) {
         JsonArray channels = new JsonArray();
         int channelCount = pixels.sizeOfChannels();
         for (int i = 0; i < channelCount; i++) {
@@ -350,8 +343,8 @@ public class ImageDataRequestHandler {
             StatsInfo statsInfo  = channel.getStatsInfo();
             JsonObject window = new JsonObject();
             if (statsInfo != null) {
-                window.put("min", statsInfo.getGlobalMin());
-                window.put("max", statsInfo.getGlobalMax());
+                window.put("min", statsInfo.getGlobalMin().getValue());
+                window.put("max", statsInfo.getGlobalMax().getValue());
             } else {
                 window.put("min", renderer.getPixelsTypeLowerBound(i));
                 window.put("max", renderer.getPixelsTypeUpperBound(i));
