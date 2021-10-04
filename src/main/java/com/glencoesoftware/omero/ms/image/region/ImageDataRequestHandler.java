@@ -152,6 +152,7 @@ public class ImageDataRequestHandler {
             RenderingDef rdef
             ) throws ServerError {
         JsonObject imgData = new JsonObject();
+        imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, owner, wellSample);
         imgData.put("meta", meta);
 
@@ -232,9 +233,9 @@ public class ImageDataRequestHandler {
                 Project project = projects.get(0);
                 meta.put("projectName", project.getName().getValue());
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription", project.getDescription().getValue());
+                meta.put("projectDescription", project.getDescription() != null ?
+                        project.getDescription().getValue() : "");
             }
-
         }
         if (wellSample.isPresent()) {
             meta.put("wellSampleId", wellSample.get().getId().getValue());
@@ -247,10 +248,10 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataPerms(Permissions permissions) {
         JsonObject perms = new JsonObject();
-        perms.put("canRead", true); //User would not have been able to load the image otherwise
         perms.put("canAnnotate", permissions.canAnnotate());
-        perms.put("canWrite", permissions.canEdit());
+        perms.put("canEdit", permissions.canEdit());
         perms.put("canLink", permissions.canLink());
+        perms.put("canDelete", permissions.canDelete());
         return perms;
     }
 
@@ -375,7 +376,7 @@ public class ImageDataRequestHandler {
         g.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
         g.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
         g.put("border", border);
-        g.put("gridx", x);
+        g.put("gridx", longX);
         g.put("gridy", y);
         splitChannel.put("g", g);
         JsonObject clr = new JsonObject();
@@ -391,7 +392,7 @@ public class ImageDataRequestHandler {
         clr.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
         clr.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
         clr.put("border", border);
-        clr.put("gridx", x);
+        clr.put("gridx", longX);
         clr.put("gridy", y);
         splitChannel.put("c", clr);
         return splitChannel;
@@ -413,6 +414,9 @@ public class ImageDataRequestHandler {
 
     private boolean isInverted(Renderer renderer, int channel) {
         CodomainChain chain = renderer.getCodomainChain(channel);
+        if (chain == null) {
+            return false;
+        }
         List<CodomainMapContext> mapContexts = chain.getContexts();
         for (CodomainMapContext cmctx : mapContexts) {
             if (cmctx instanceof ReverseIntensityContext) {

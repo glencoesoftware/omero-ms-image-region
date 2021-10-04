@@ -17,8 +17,6 @@ import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
-//import ome.model.enums.UnitsLength;
-//import ome.model.units.Length;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
 import omero.ServerError;
@@ -93,6 +91,138 @@ public class ImageDataRequestHandlerTest {
 
     public static int BYTE_WIDTH = 1;
 
+
+    JsonObject stdCorrect = new JsonObject("{" +
+            "    \"id\": " + Long.toString(IMAGE_ID) + "," +
+            "    \"meta\": {\n" +
+            "        \"imageName\": \"" + IMAGE_NAME + "\"," +
+            "        \"imageDescription\": \"" + IMAGE_DESC + "\"," +
+            "        \"imageAuthor\": \"" + OWNER_FIRST_NAME + " " + OWNER_LAST_NAME + "\"," +
+            "        \"projectName\": \"" + PROJECT_NAME_1 + "\"," +
+            "        \"projectId\": " + Long.toString(PROJECT_ID_1) + "," +
+            "        \"projectDescription\": \"" + PROJECT_DESC_1 + "\"," +
+            "        \"datasetName\": \"" + DATASET_NAME_1 + "\"," +
+            "        \"datasetId\": " + Long.toString(DATASET_ID_1) +  "," +
+            "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\"," +
+            //"        \"wellSampleId\": \"\",\n" +
+            //"        \"wellId\": \"\",\n" +
+            //"        \"imageTimestamp\": 1614187774.0,\n" +
+            "        \"imageId\": " + Long.toString(IMAGE_ID) + ",\n" +
+            "        \"pixelsType\": \"" + PIX_TYPE_STR + "\"" +
+            "    },\n" +
+            "    \"perms\": {\n" +
+            "        \"canAnnotate\": true,\n" +
+            "        \"canEdit\": true,\n" +
+            "        \"canDelete\": true,\n" +
+            "        \"canLink\": true\n" +
+            "    },\n" +
+            "    \"tiles\": true,\n" +
+            "    \"tile_size\": {\n" +
+            "        \"width\": " + TILE_WIDTH + ",\n" +
+            "        \"height\": " + TILE_HEIGHT + "\n" +
+            "    },\n" +
+            "    \"levels\": 5,\n" +
+            "    \"zoomLevelScaling\": {\n" +
+            "        \"0\": 1.0,\n" +
+            "        \"1\": 0.5,\n" +
+            "        \"2\": 0.25,\n" +
+            "        \"3\": 0.125,\n" +
+            "        \"4\": 0.0625\n" +
+            "    },\n" +
+            "    \"interpolate\": true,\n" +
+            "    \"size\": {\n" +
+            "        \"width\": 512,\n" +
+            "        \"height\": 1024,\n" +
+            "        \"z\": 1,\n" +
+            "        \"t\": 1,\n" +
+            "        \"c\": 3\n" +
+            "    },\n" +
+            "    \"pixel_size\": {\n" +
+            "        \"x\": 1.0,\n" +
+            "        \"y\": 2.0,\n" +
+            "        \"z\": null\n" +
+            "    },\n" +
+            "    \"init_zoom\": 0,\n" +
+            "    \"pixel_range\": [\n" +
+            "        0,\n" +
+            "        255\n" +
+            "    ],\n" +
+            "    \"channels\": [\n" +
+            "        {\n" +
+            "            \"emissionWave\": null,\n" +
+            "            \"label\": \"" + CHANNEL_NAME_1 + "\",\n" +
+            "            \"color\": \"FF0000\",\n" +
+            "            \"inverted\": false,\n" +
+            "            \"reverseIntensity\": false,\n" +
+            "            \"family\": \"linear\",\n" +
+            "            \"coefficient\": 1.1,\n" +
+            "            \"window\": {\n" +
+            "                \"min\": -10.0,\n" +
+            "                \"max\": 10.0,\n" +
+            "                \"start\": 0.0,\n" +
+            "                \"end\": 30.0\n" +
+            "            },\n" +
+            "            \"active\": true\n" +
+            "        },\n" +
+            "        {\n" +
+            "            \"emissionWave\": null,\n" +
+            "            \"label\": \"" + CHANNEL_NAME_2 + "\",\n" +
+            "            \"color\": \"00FF00\",\n" +
+            "            \"inverted\": false,\n" +
+            "            \"reverseIntensity\": false,\n" +
+            "            \"family\": \"linear\",\n" +
+            "            \"coefficient\": 1.2,\n" +
+            "            \"window\": {\n" +
+            "                \"min\": -20.0,\n" +
+            "                \"max\": 20.0,\n" +
+            "                \"start\": 0.0,\n" +
+            "                \"end\": 31.0\n" +
+            "            },\n" +
+            "            \"active\": true\n" +
+            "        },\n" +
+            "        {\n" +
+            "            \"emissionWave\": null,\n" +
+            "            \"label\": \"" + CHANNEL_NAME_3 + "\",\n" +
+            "            \"color\": \"0000FF\",\n" +
+            "            \"inverted\": false,\n" +
+            "            \"reverseIntensity\": false,\n" +
+            "            \"family\": \"linear\",\n" +
+            "            \"coefficient\": 1.3,\n" +
+            "            \"window\": {\n" +
+            "                \"min\": -30.0,\n" +
+            "                \"max\": 30.0,\n" +
+            "                \"start\": 0.0,\n" +
+            "                \"end\": 32.0\n" +
+            "            },\n" +
+            "            \"active\": true\n" +
+            "        }\n" +
+            "    ],\n" +
+            "    \"split_channel\": {\n" +
+            "        \"g\": {\n" +
+            "            \"width\": 1030,\n" +
+            "            \"height\": 2054,\n" +
+            "            \"border\": 2,\n" +
+            "            \"gridx\": 2,\n" +
+            "            \"gridy\": 2\n" +
+            "        },\n" +
+            "        \"c\": {\n" +
+            "            \"width\": 1030,\n" +
+            "            \"height\": 2054,\n" +
+            "            \"border\": 2,\n" +
+            "            \"gridx\": 2,\n" +
+            "            \"gridy\": 2\n" +
+            "        }\n" +
+            "    },\n" +
+            "    \"rdefs\": {\n" +
+            "        \"model\": \"color\",\n" +
+            "        \"projection\": \"normal\",\n" +
+            "        \"defaultZ\": 1,\n" +
+            "        \"defaultT\": 0,\n" +
+            "        \"invertAxis\": false\n" +
+            "    }\n" +
+            "}");
+
+
     @Before
     public void setup() {
 
@@ -111,8 +241,10 @@ public class ImageDataRequestHandlerTest {
         ProjectDatasetLinkI projLink1 = new ProjectDatasetLinkI(PROJECT_DS_LINK_ID_1, true);
         ProjectI proj_1 = new ProjectI(PROJECT_ID_1, true);
         proj_1.setName(rtypes.rstring(PROJECT_NAME_1));
+        proj_1.setDescription(rtypes.rstring(PROJECT_DESC_1));
         projLink1.setParent(proj_1);
         image.addDatasetImageLink(dslink1);
+        ds1.addProjectDatasetLink(projLink1);
 
         pixels = new PixelsI(PIXELS_ID, true);
         PixelsTypeI pixType = new PixelsTypeI();
@@ -138,7 +270,7 @@ public class ImageDataRequestHandlerTest {
         ChannelI channel2 = new ChannelI();
         channel2.setRed(rtypes.rint(0));
         channel2.setGreen(rtypes.rint(255));
-        channel1.setBlue(rtypes.rint(0));
+        channel2.setBlue(rtypes.rint(0));
         LogicalChannelI logCh2 = new LogicalChannelI();
         logCh2.setName(rtypes.rstring(CHANNEL_NAME_2));
         channel2.setLogicalChannel(logCh2);
@@ -148,12 +280,12 @@ public class ImageDataRequestHandlerTest {
         channel2.setStatsInfo(statsInfo2);
 
         ChannelI channel3 = new ChannelI();
-        channel2.setRed(rtypes.rint(0));
-        channel2.setGreen(rtypes.rint(0));
+        channel3.setRed(rtypes.rint(0));
+        channel3.setGreen(rtypes.rint(0));
         channel3.setBlue(rtypes.rint(255));
         LogicalChannelI logCh3 = new LogicalChannelI();
         logCh3.setName(rtypes.rstring(CHANNEL_NAME_3));
-        channel3.setLogicalChannel(logCh1);
+        channel3.setLogicalChannel(logCh3);
         StatsInfoI statsInfo3 = new StatsInfoI();
         statsInfo3.setGlobalMin(rtypes.rdouble(-30.0));
         statsInfo3.setGlobalMax(rtypes.rdouble(30.0));
@@ -179,7 +311,7 @@ public class ImageDataRequestHandlerTest {
         rp = mock(RawPixelsStorePrx.class);
         try {
             when(rp.getByteWidth()).thenReturn(BYTE_WIDTH);
-            when(rp.isSigned()).thenReturn(true);
+            when(rp.isSigned()).thenReturn(false);
         } catch (ServerError e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -259,6 +391,8 @@ public class ImageDataRequestHandlerTest {
                     renderer,
                     rdef);
             System.out.println(basicObj.toString());
+            System.out.println(stdCorrect.toString());
+            Assert.assertEquals(basicObj, stdCorrect);
         } catch (ServerError e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
