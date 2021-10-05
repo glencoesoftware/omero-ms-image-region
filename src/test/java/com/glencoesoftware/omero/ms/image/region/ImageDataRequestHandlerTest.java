@@ -23,6 +23,7 @@ import omeis.providers.re.codomain.CodomainChain;
 import omero.ServerError;
 import omero.rtypes;
 import omero.api.RawPixelsStorePrx;
+import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
 import omero.model.DatasetImageLinkI;
@@ -532,8 +533,6 @@ public class ImageDataRequestHandlerTest {
             pixRange.add(0);
             pixRange.add(65535); //2^(8*2) - 1
             pixRangeCorrect.put("pixel_range", pixRange);
-            System.out.println(basicObj.toString());
-            System.out.println(pixRangeCorrect.toString());
             Assert.assertEquals(basicObj, pixRangeCorrect);
 
             when(rp.isSigned()).thenReturn(true);
@@ -545,6 +544,50 @@ public class ImageDataRequestHandlerTest {
             pixRange.add(32767);
             pixRangeCorrect.put("pixel_range", pixRange);
             Assert.assertEquals(basicObj, pixRangeCorrect);
+
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataSplitChannel() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            List<Channel> channels = pixels.copyChannels();
+            channels.remove(2);
+            pixels.clearChannels();
+            pixels.addAllChannelSet(channels);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject splitChannelCorrect = stdCorrect.copy();
+            JsonObject g = new JsonObject();
+            g.put("width", 1030);
+            g.put("height", 1028);
+            g.put("border", 2);
+            g.put("gridx", 2);
+            g.put("gridy", 1);
+            JsonObject c = new JsonObject();
+            c.put("width", 1030);
+            c.put("height", 2054);
+            c.put("border", 2);
+            c.put("gridx", 2);
+            c.put("gridy", 2);
+            JsonObject splitChannel = new JsonObject();
+            splitChannel.put("g", g);
+            splitChannel.put("c", c);
+            splitChannelCorrect.put("split_channel", splitChannel);
+            splitChannelCorrect.getJsonArray("channels").remove(2);
+            System.out.println(basicObj.toString());
+            System.out.println(splitChannelCorrect.toString());
+
+            Assert.assertEquals(basicObj, splitChannelCorrect);
 
         } catch (ServerError e) {
             // TODO Auto-generated catch block
