@@ -206,8 +206,8 @@ public class ImageDataRequestHandler {
                 if (projects.size() > 1) {
                     meta.put("projectName", "Multiple");
                     break;
-                } else {
-                    if (projectIds.contains(projects.get(0).getId().getValue())) {
+                } else if (projects.size() == 1) {
+                    if (!projectIds.isEmpty() && !projectIds.contains(projects.get(0).getId().getValue())) {
                         meta.put("projectName", "Multiple");
                         break;
                     } else {
@@ -217,9 +217,9 @@ public class ImageDataRequestHandler {
             }
             if (!meta.containsKey("projectName")) {
                 Project project = datasets.get(0).linkedProjectList().get(0);
-                meta.put("projectName", project.getName());
-                meta.put("projectId", project.getId());
-                meta.put("projectDescription", project.getDescription());
+                meta.put("projectName", project.getName().getValue());
+                meta.put("projectId", project.getId().getValue());
+                meta.put("projectDescription", project.getDescription().getValue());
             }
         } else if(datasets.size() == 1) {
             Dataset ds = datasets.get(0);

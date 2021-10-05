@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import org.junit.Test;
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.model.display.ChannelBinding;
@@ -374,25 +375,177 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null,
-                null,
-                null,
-                null,
-                0,
-                true);
+                null, null, null, null, 0, true);
         try {
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels,
-                    owner,
-                    wellSample,
-                    permissions,
-                    pixelBuffer,
-                    rp,
-                    renderer,
-                    rdef);
-            System.out.println(basicObj.toString());
-            System.out.println(stdCorrect.toString());
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             Assert.assertEquals(basicObj, stdCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataMultipleProjects() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            ProjectI project2 = new ProjectI(123, true);
+            project2.setName(rtypes.rstring("proj2 name"));
+            project2.setDescription(rtypes.rstring("proj2 desc"));
+            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234, true);
+            projLink2.setParent(project2);
+            image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject multProjCorrect = stdCorrect.copy();
+            multProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
+            multProjCorrect.getJsonObject("meta").remove("projectId");
+            multProjCorrect.getJsonObject("meta").remove("projectDescription");
+            Assert.assertEquals(basicObj, multProjCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataMultipleDatasetsAnd() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            DatasetI ds2 = new DatasetI(123, true);
+            ds2.setName(rtypes.rstring("ds2 name"));
+            ds2.setDescription(rtypes.rstring("ds2 desc"));
+            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
+            projLink2.setParent(image.linkedDatasetList().get(0).linkedProjectList().get(0));
+            ds2.addProjectDatasetLink(projLink2);
+            DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
+            dsLink2.setParent(ds2);
+            image.addDatasetImageLink(dsLink2);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject multDsCorrect = stdCorrect.copy();
+            multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
+            multDsCorrect.getJsonObject("meta").remove("datasetId");
+            multDsCorrect.getJsonObject("meta").remove("datasetDescription");
+            Assert.assertEquals(basicObj, multDsCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataMultipleDatasetsAndProjects() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            ProjectI project2 = new ProjectI(123, true);
+            project2.setName(rtypes.rstring("proj2 name"));
+            project2.setDescription(rtypes.rstring("proj2 desc"));
+            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234, true);
+            projLink2.setParent(project2);
+
+            DatasetI ds2 = new DatasetI(123, true);
+            ds2.setName(rtypes.rstring("ds2 name"));
+            ds2.setDescription(rtypes.rstring("ds2 desc"));
+            projLink2.setParent(project2);
+            ds2.addProjectDatasetLink(projLink2);
+            DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
+            dsLink2.setParent(ds2);
+            image.addDatasetImageLink(dsLink2);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject multDsProjCorrect = stdCorrect.copy();
+            multDsProjCorrect.getJsonObject("meta").put("datasetName", "Multiple");
+            multDsProjCorrect.getJsonObject("meta").remove("datasetId");
+            multDsProjCorrect.getJsonObject("meta").remove("datasetDescription");
+
+            multDsProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
+            multDsProjCorrect.getJsonObject("meta").remove("projectId");
+            multDsProjCorrect.getJsonObject("meta").remove("projectDescription");
+            Assert.assertEquals(basicObj, multDsProjCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataZoomLvl() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
+            resLvlDescs.add(Arrays.asList(512, 1024));
+            resLvlDescs.add(Arrays.asList(128, 256));
+            resLvlDescs.add(Arrays.asList(32, 64));
+            when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject zoomLvlsCorrect = stdCorrect.copy();
+            JsonObject zoomLvls = new JsonObject();
+            zoomLvls.put("0", 1.0);
+            zoomLvls.put("1", 0.25);
+            zoomLvls.put("2", 0.0625);
+            zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
+            Assert.assertEquals(basicObj, zoomLvlsCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataPixelRange() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            when(rp.getByteWidth()).thenReturn(2);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject pixRangeCorrect = stdCorrect.copy();
+            JsonArray pixRange = new JsonArray();
+            pixRange.add(0);
+            pixRange.add(65535); //2^(8*2) - 1
+            pixRangeCorrect.put("pixel_range", pixRange);
+            System.out.println(basicObj.toString());
+            System.out.println(pixRangeCorrect.toString());
+            Assert.assertEquals(basicObj, pixRangeCorrect);
+
+            when(rp.isSigned()).thenReturn(true);
+            basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+
+            pixRange = new JsonArray();
+            pixRange.add(-32768);
+            pixRange.add(32767);
+            pixRangeCorrect.put("pixel_range", pixRange);
+            Assert.assertEquals(basicObj, pixRangeCorrect);
+
         } catch (ServerError e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
