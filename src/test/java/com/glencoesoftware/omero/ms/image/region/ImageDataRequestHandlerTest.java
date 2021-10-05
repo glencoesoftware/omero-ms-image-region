@@ -318,7 +318,6 @@ public class ImageDataRequestHandlerTest {
             when(rp.getByteWidth()).thenReturn(BYTE_WIDTH);
             when(rp.isSigned()).thenReturn(false);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
@@ -385,7 +384,6 @@ public class ImageDataRequestHandlerTest {
                     pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             Assert.assertEquals(basicObj, stdCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -413,7 +411,6 @@ public class ImageDataRequestHandlerTest {
             multProjCorrect.getJsonObject("meta").remove("projectDescription");
             Assert.assertEquals(basicObj, multProjCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -444,7 +441,6 @@ public class ImageDataRequestHandlerTest {
             multDsCorrect.getJsonObject("meta").remove("datasetDescription");
             Assert.assertEquals(basicObj, multDsCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -484,7 +480,6 @@ public class ImageDataRequestHandlerTest {
             multDsProjCorrect.getJsonObject("meta").remove("projectDescription");
             Assert.assertEquals(basicObj, multDsProjCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -514,7 +509,6 @@ public class ImageDataRequestHandlerTest {
             zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
             Assert.assertEquals(basicObj, zoomLvlsCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -549,7 +543,6 @@ public class ImageDataRequestHandlerTest {
             Assert.assertEquals(basicObj, pixRangeCorrect);
 
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -591,7 +584,6 @@ public class ImageDataRequestHandlerTest {
             Assert.assertEquals(basicObj, splitChannelCorrect);
 
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -619,7 +611,6 @@ public class ImageDataRequestHandlerTest {
             channel.put("reverseIntensity", true);
             Assert.assertEquals(basicObj, invertedCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
@@ -644,11 +635,8 @@ public class ImageDataRequestHandlerTest {
             pixSize.put("x", 3000.0);
             pixSize.put("y", 40000.0);
             pixSize.put("z", 0.005);
-            System.out.println(basicObj.toString());
-            System.out.println(pixelSizeCorrect.toString());
             Assert.assertEquals(basicObj, pixelSizeCorrect);
         } catch (ServerError e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
             Assert.fail();
         }
