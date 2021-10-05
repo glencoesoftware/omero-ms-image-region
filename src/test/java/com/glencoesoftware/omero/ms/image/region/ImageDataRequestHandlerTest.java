@@ -20,6 +20,8 @@ import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
+import omeis.providers.re.codomain.CodomainMapContext;
+import omeis.providers.re.codomain.ReverseIntensityContext;
 import omero.ServerError;
 import omero.rtypes;
 import omero.api.RawPixelsStorePrx;
@@ -360,8 +362,8 @@ public class ImageDataRequestHandlerTest {
 
         CodomainChain cc = new CodomainChain(0, 1);
         when(renderer.getCodomainChain(0)).thenReturn(cc);
-        when(renderer.getCodomainChain(0)).thenReturn(cc);
-        when(renderer.getCodomainChain(0)).thenReturn(cc);
+        when(renderer.getCodomainChain(1)).thenReturn(cc);
+        when(renderer.getCodomainChain(2)).thenReturn(cc);
 
         rdef = new RenderingDef();
         rdef.setDefaultT(0);
@@ -584,11 +586,40 @@ public class ImageDataRequestHandlerTest {
             splitChannel.put("c", c);
             splitChannelCorrect.put("split_channel", splitChannel);
             splitChannelCorrect.getJsonArray("channels").remove(2);
-            System.out.println(basicObj.toString());
-            System.out.println(splitChannelCorrect.toString());
 
             Assert.assertEquals(basicObj, splitChannelCorrect);
 
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataInverted() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+
+            ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
+            List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
+            ctxList.add(reverseIntensityCtx);
+            CodomainChain cc = mock(CodomainChain.class);
+            when(cc.getContexts()).thenReturn(ctxList);
+            when(renderer.getCodomainChain(0)).thenReturn(cc);
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject invertedCorrect = stdCorrect.copy();
+            JsonObject channel = invertedCorrect.getJsonArray("channels").getJsonObject(0);
+            channel.put("inverted", true);
+            channel.put("reverseIntensity", true);
+            System.out.println(basicObj.toString());
+            System.out.println(invertedCorrect.toString());
+            Assert.assertEquals(basicObj, invertedCorrect);
         } catch (ServerError e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
