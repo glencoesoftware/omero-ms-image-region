@@ -18,6 +18,7 @@ import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
+import ome.units.UNITS;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
 import omeis.providers.re.codomain.CodomainMapContext;
@@ -603,7 +604,6 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
         try {
-
             ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
             List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
             ctxList.add(reverseIntensityCtx);
@@ -617,9 +617,36 @@ public class ImageDataRequestHandlerTest {
             JsonObject channel = invertedCorrect.getJsonArray("channels").getJsonObject(0);
             channel.put("inverted", true);
             channel.put("reverseIntensity", true);
-            System.out.println(basicObj.toString());
-            System.out.println(invertedCorrect.toString());
             Assert.assertEquals(basicObj, invertedCorrect);
+        } catch (ServerError e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataPixelSize() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+
+            pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
+            pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
+            pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject pixelSizeCorrect = stdCorrect.copy();
+            JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
+            pixSize.put("x", 3000.0);
+            pixSize.put("y", 40000.0);
+            pixSize.put("z", 0.005);
+            System.out.println(basicObj.toString());
+            System.out.println(pixelSizeCorrect.toString());
+            Assert.assertEquals(basicObj, pixelSizeCorrect);
         } catch (ServerError e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

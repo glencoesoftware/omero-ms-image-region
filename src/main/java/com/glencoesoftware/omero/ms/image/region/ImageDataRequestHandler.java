@@ -30,6 +30,9 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.RenderingDef;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
+import ome.model.units.BigResult;
+import omero.model.Length;
+import omero.model.LengthI;
 import omero.model.StatsInfo;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
@@ -47,8 +50,10 @@ import omero.api.RawPixelsStorePrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
 import omero.model.WellSampleI;
+import omero.model.enums.UnitsLength;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
+import ome.units.UNITS;
 
 public class ImageDataRequestHandler {
 
@@ -275,16 +280,14 @@ public class ImageDataRequestHandler {
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
         //Divide by units?
-        /*
-        pixelSize.put("x", Length.convertLength(pixels.getPhysicalSizeX(), UnitsLength.MICROMETER.getSymbol()).getValue());
-        pixelSize.put("y", Length.convertLength(pixels.getPhysicalSizeY().getValue(), UnitsLength.MICROMETER.getSymbol()).getValue());
-        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
-                Length.convertLength(pixels.getPhysicalSizeZ().getValue(), UnitsLength.MICROMETER.getSymbol()).getValue() : null);
-                */
-        pixelSize.put("x", pixels.getPhysicalSizeX().getValue());
-        pixelSize.put("y", pixels.getPhysicalSizeY().getValue());
-        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ?
-                pixels.getPhysicalSizeZ().getValue() : null);
+        try {
+        pixelSize.put("x", new LengthI(pixels.getPhysicalSizeX(), UNITS.MICROMETER).getValue());
+        pixelSize.put("y", new LengthI(pixels.getPhysicalSizeY(), UNITS.MICROMETER).getValue());
+        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ? new LengthI(pixels.getPhysicalSizeZ(), UNITS.MICROMETER).getValue()
+                : null);
+        } catch (BigResult e) {
+            log.error("BigResult error when converting pixel size", e);
+        }
         return pixelSize;
     }
 
@@ -426,7 +429,7 @@ public class ImageDataRequestHandler {
         return false;
     }
 
-    private String getColorString(Channel channel) {
+    public static String getColorString(Channel channel) {
         StringBuilder colorBuilder = new StringBuilder();
         if (channel.getRed().getValue() < 16) {
             colorBuilder.append("0");
