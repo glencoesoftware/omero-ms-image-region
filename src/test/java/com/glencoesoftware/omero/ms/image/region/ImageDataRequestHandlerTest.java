@@ -41,6 +41,7 @@ import omero.model.PixelsI;
 import omero.model.ProjectDatasetLinkI;
 import omero.model.ProjectI;
 import omero.model.StatsInfoI;
+import omero.model.WellI;
 import omero.model.WellSampleI;
 import omero.model.enums.UnitsLength;
 
@@ -96,6 +97,9 @@ public class ImageDataRequestHandlerTest {
 
     public static int BYTE_WIDTH = 1;
 
+    public static long WELL_SAMPLE_ID = 2l;
+    public static long WELL_ID = 20l;
+
 
     JsonObject stdCorrect = new JsonObject("{" +
             "    \"id\": " + Long.toString(IMAGE_ID) + "," +
@@ -109,8 +113,8 @@ public class ImageDataRequestHandlerTest {
             "        \"datasetName\": \"" + DATASET_NAME_1 + "\"," +
             "        \"datasetId\": " + Long.toString(DATASET_ID_1) +  "," +
             "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\"," +
-            //"        \"wellSampleId\": \"\",\n" +
-            //"        \"wellId\": \"\",\n" +
+            "        \"wellSampleId\": " + Long.toString(WELL_SAMPLE_ID) + ",\n" +
+            "        \"wellId\": " + Long.toString(WELL_ID) + ",\n" +
             //"        \"imageTimestamp\": 1614187774.0,\n" +
             "        \"imageId\": " + Long.toString(IMAGE_ID) + ",\n" +
             "        \"pixelsType\": \"" + PIX_TYPE_STR + "\"" +
@@ -371,6 +375,10 @@ public class ImageDataRequestHandlerTest {
         RenderingModel model = new RenderingModel(RenderingModel.VALUE_RGB);
         rdef.setModel(model);
 
+        WellSampleI ws = new WellSampleI(WELL_SAMPLE_ID, true);
+        WellI well = new WellI(WELL_ID, true);
+        ws.setWell(well);
+        wellSample = Optional.of(ws);
     }
 
     @Test
@@ -409,6 +417,8 @@ public class ImageDataRequestHandlerTest {
             multProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
             multProjCorrect.getJsonObject("meta").remove("projectId");
             multProjCorrect.getJsonObject("meta").remove("projectDescription");
+            System.out.println(basicObj.toString());
+            System.out.println(multProjCorrect.toString());
             Assert.assertEquals(basicObj, multProjCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
