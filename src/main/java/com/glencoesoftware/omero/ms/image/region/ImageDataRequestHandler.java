@@ -46,6 +46,7 @@ import omero.model.Experimenter;
 import omero.ApiUsageException;
 import omero.RString;
 import omero.ServerError;
+import omero.rtypes;
 import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
 import omero.api.RawPixelsStorePrx;
@@ -198,18 +199,14 @@ public class ImageDataRequestHandler {
         return imgData;
     }
 
-    private String handleRstring(RString rstr) {
-        return rstr != null ? rstr.getValue() : null;
-    }
-
     private JsonObject getImageDataMeta(Image image,
             Pixels pixels,
             EventI creationEvent,
             Experimenter owner,
             Optional<WellSampleI> wellSample) {
         JsonObject meta = new JsonObject();
-        meta.put("imageName", handleRstring(image.getName()));
-        meta.put("imageDescription", handleRstring(image.getDescription()));
+        meta.put("imageName", rtypes.unwrap(image.getName()));
+        meta.put("imageDescription", rtypes.unwrap(image.getDescription()));
         if (image.getAcquisitionDate() != null) {
             meta.put("imageTimestamp", image.getAcquisitionDate().getValue()/1000);
         } else {
@@ -238,23 +235,23 @@ public class ImageDataRequestHandler {
             }
             if (!meta.containsKey("projectName")) {
                 Project project = datasets.get(0).linkedProjectList().get(0);
-                meta.put("projectName", handleRstring(project.getName()));
+                meta.put("projectName", rtypes.unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription", handleRstring(project.getDescription()));
+                meta.put("projectDescription", rtypes.unwrap(project.getDescription()));
             }
         } else if(datasets.size() == 1) {
             Dataset ds = datasets.get(0);
-            meta.put("datasetName", handleRstring(ds.getName()));
+            meta.put("datasetName", rtypes.unwrap(ds.getName()));
             meta.put("datasetId", ds.getId().getValue());
-            meta.put("datasetDescription", handleRstring(ds.getDescription()));
+            meta.put("datasetDescription", rtypes.unwrap(ds.getDescription()));
             List<Project> projects = ds.linkedProjectList();
             if (projects.size() > 1) {
                 meta.put("projectName", "Multiple");
             } else if (projects.size() == 1){
                 Project project = projects.get(0);
-                meta.put("projectName", handleRstring(project.getName()));
+                meta.put("projectName", rtypes.unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription", handleRstring(project.getDescription()));
+                meta.put("projectDescription", rtypes.unwrap(project.getDescription()));
             }
         }
         if (wellSample.isPresent()) {
@@ -262,7 +259,7 @@ public class ImageDataRequestHandler {
             meta.put("wellId", wellSample.get().getWell().getId().getValue());
         }
         meta.put("imageId", image.getId().getValue());
-        meta.put("pixelsType", pixels.getPixelsType().getValue().getValue());
+        meta.put("pixelsType", rtypes.unwrap(pixels.getPixelsType().getValue()));
         return meta;
     }
 
