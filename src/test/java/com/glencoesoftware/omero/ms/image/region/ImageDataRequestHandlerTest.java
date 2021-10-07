@@ -30,6 +30,7 @@ import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
 import omero.model.DatasetImageLinkI;
+import omero.model.EventI;
 import omero.model.Experimenter;
 import omero.model.ExperimenterI;
 import omero.model.ImageI;
@@ -52,6 +53,7 @@ public class ImageDataRequestHandlerTest {
 
     ImageI image;
     PixelsI pixels;
+    EventI creationEvent;
     Experimenter owner;
     Optional<WellSampleI> wellSample;
     Permissions permissions;
@@ -115,7 +117,7 @@ public class ImageDataRequestHandlerTest {
             "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\"," +
             "        \"wellSampleId\": " + Long.toString(WELL_SAMPLE_ID) + ",\n" +
             "        \"wellId\": " + Long.toString(WELL_ID) + ",\n" +
-            //"        \"imageTimestamp\": 1614187774.0,\n" +
+            "        \"imageTimestamp\": 12345,\n" +
             "        \"imageId\": " + Long.toString(IMAGE_ID) + ",\n" +
             "        \"pixelsType\": \"" + PIX_TYPE_STR + "\"" +
             "    },\n" +
@@ -235,6 +237,8 @@ public class ImageDataRequestHandlerTest {
     @Before
     public void setup() {
 
+        creationEvent = new EventI();
+        creationEvent.setTime(rtypes.rtime(12345678l));
         owner = new ExperimenterI();
         owner.setFirstName(rtypes.rstring(OWNER_FIRST_NAME));
         owner.setLastName(rtypes.rstring(OWNER_LAST_NAME));
@@ -389,7 +393,7 @@ public class ImageDataRequestHandlerTest {
                 null, null, null, null, 0, true);
         try {
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             Assert.assertEquals(basicObj, stdCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
@@ -412,13 +416,11 @@ public class ImageDataRequestHandlerTest {
             image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject multProjCorrect = stdCorrect.copy();
             multProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
             multProjCorrect.getJsonObject("meta").remove("projectId");
             multProjCorrect.getJsonObject("meta").remove("projectDescription");
-            System.out.println(basicObj.toString());
-            System.out.println(multProjCorrect.toString());
             Assert.assertEquals(basicObj, multProjCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
@@ -444,7 +446,7 @@ public class ImageDataRequestHandlerTest {
             image.addDatasetImageLink(dsLink2);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject multDsCorrect = stdCorrect.copy();
             multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
             multDsCorrect.getJsonObject("meta").remove("datasetId");
@@ -479,7 +481,7 @@ public class ImageDataRequestHandlerTest {
             image.addDatasetImageLink(dsLink2);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject multDsProjCorrect = stdCorrect.copy();
             multDsProjCorrect.getJsonObject("meta").put("datasetName", "Multiple");
             multDsProjCorrect.getJsonObject("meta").remove("datasetId");
@@ -510,7 +512,7 @@ public class ImageDataRequestHandlerTest {
 
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject zoomLvlsCorrect = stdCorrect.copy();
             JsonObject zoomLvls = new JsonObject();
             zoomLvls.put("0", 1.0);
@@ -534,7 +536,7 @@ public class ImageDataRequestHandlerTest {
             when(rp.getByteWidth()).thenReturn(2);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject pixRangeCorrect = stdCorrect.copy();
             JsonArray pixRange = new JsonArray();
             pixRange.add(0);
@@ -544,7 +546,7 @@ public class ImageDataRequestHandlerTest {
 
             when(rp.isSigned()).thenReturn(true);
             basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
 
             pixRange = new JsonArray();
             pixRange.add(-32768);
@@ -571,7 +573,7 @@ public class ImageDataRequestHandlerTest {
             pixels.addAllChannelSet(channels);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject splitChannelCorrect = stdCorrect.copy();
             JsonObject g = new JsonObject();
             g.put("width", 1030);
@@ -614,7 +616,7 @@ public class ImageDataRequestHandlerTest {
             when(renderer.getCodomainChain(0)).thenReturn(cc);
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject invertedCorrect = stdCorrect.copy();
             JsonObject channel = invertedCorrect.getJsonArray("channels").getJsonObject(0);
             channel.put("inverted", true);
@@ -639,13 +641,34 @@ public class ImageDataRequestHandlerTest {
             pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
             JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             JsonObject pixelSizeCorrect = stdCorrect.copy();
             JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
             pixSize.put("x", 3000.0);
             pixSize.put("y", 40000.0);
             pixSize.put("z", 0.005);
             Assert.assertEquals(basicObj, pixelSizeCorrect);
+        } catch (ServerError e) {
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataTimestampOnImage() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+
+            image.setAcquisitionDate(rtypes.rtime(22222222));
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject timestampCorrect = stdCorrect.copy();
+            timestampCorrect.getJsonObject("meta").put("imageTimestamp", 22222);
+            Assert.assertEquals(basicObj, timestampCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
             Assert.fail();

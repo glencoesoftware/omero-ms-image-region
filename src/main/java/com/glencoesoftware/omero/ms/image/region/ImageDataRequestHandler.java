@@ -41,6 +41,7 @@ import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.lut.LutProvider;
 import omeis.providers.re.quantum.QuantumFactory;
 import omero.model.Details;
+import omero.model.EventI;
 import omero.model.Experimenter;
 import omero.ApiUsageException;
 import omero.RString;
@@ -109,6 +110,7 @@ public class ImageDataRequestHandler {
             }
             Details details = image.getDetails();
             Experimenter owner = details.getOwner();
+            EventI creationEvent = queryEvent(iQuery, details.getCreationEvent().getId().getValue());
 
             log.info(image.toString());
             JsonObject imgData = new JsonObject();
@@ -137,7 +139,7 @@ public class ImageDataRequestHandler {
             pixCtx.put("omero.group", "-1");
             rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
             try {
-                return populateImageData(image, pixels, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                return populateImageData(image, pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
             } finally {
                 rp.close();
             }
@@ -149,6 +151,7 @@ public class ImageDataRequestHandler {
 
     public JsonObject populateImageData(Image image,
             PixelsI pixels,
+            EventI creationEvent,
             Experimenter owner,
             Optional<WellSampleI> wellSample,
             Permissions permissions,
@@ -159,7 +162,7 @@ public class ImageDataRequestHandler {
             ) throws ServerError {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
-        JsonObject meta = getImageDataMeta(image, pixels, owner, wellSample);
+        JsonObject meta = getImageDataMeta(image, pixels, creationEvent, owner, wellSample);
         imgData.put("meta", meta);
 
         JsonObject perms = getImageDataPerms(permissions);
@@ -201,11 +204,17 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataMeta(Image image,
             Pixels pixels,
+            EventI creationEvent,
             Experimenter owner,
             Optional<WellSampleI> wellSample) {
         JsonObject meta = new JsonObject();
         meta.put("imageName", handleRstring(image.getName()));
         meta.put("imageDescription", handleRstring(image.getDescription()));
+        if (image.getAcquisitionDate() != null) {
+            meta.put("imageTimestamp", image.getAcquisitionDate().getValue()/1000);
+        } else {
+            meta.put("imageTimestamp", creationEvent.getTime().getValue()/1000);
+        }
         if (owner.getFirstName() != null && owner.getLastName() != null) {
             meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
         }
@@ -455,7 +464,7 @@ public class ImageDataRequestHandler {
             IQueryPrx iQuery, Long imageId)
                 throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("retrieve_pix_description");
+                .startScopedSpan("query_image_data");
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
@@ -660,6 +669,31 @@ public class ImageDataRequestHandler {
                 toReturn.put(pixels.getImage().getId().getValue(), pixels);
             }
             return toReturn;
+        } finally {
+            span.finish();
+        }
+    }
+
+    protected EventI queryEvent(
+            IQueryPrx iQuery, Long eventId)
+                throws ApiUsageException, ServerError {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("query_event");
+        try {
+            Map<String, String> ctx = new HashMap<String, String>();
+            ctx.put("omero.group", "-1");
+            span.tag("omero.image_id", eventId.toString());
+            // Query pulled from ome.logic.PixelsImpl and expanded to include
+            // our required Image / Plate metadata; loading both sides of the
+            // Image <--> WellSample <--> Well collection so that we can
+            // resolve our field index.
+            ParametersI params = new ParametersI();
+            params.addId(eventId);
+            EventI event = (EventI)
+                    iQuery.findByQuery(
+                            "select e from Event as e " +
+                            " where e.id=:id", params, ctx);
+            return event;
         } finally {
             span.finish();
         }
