@@ -672,7 +672,6 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
         try {
-
             image.setAcquisitionDate(rtypes.rtime(22222222));
 
             JsonObject basicObj = reqHandler.populateImageData(image,
@@ -680,6 +679,26 @@ public class ImageDataRequestHandlerTest {
             JsonObject timestampCorrect = stdCorrect.copy();
             timestampCorrect.getJsonObject("meta").put("imageTimestamp", 22222);
             Assert.assertEquals(basicObj, timestampCorrect);
+        } catch (ServerError e) {
+            e.printStackTrace();
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testImageDataUnloadedOwner() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+        try {
+            owner.unload();
+
+            JsonObject basicObj = reqHandler.populateImageData(image,
+                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject unloadedOwnerCorrect = stdCorrect.copy();
+            unloadedOwnerCorrect.getJsonObject("meta").remove("imageAuthor");
+            Assert.assertEquals(basicObj, unloadedOwnerCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
             Assert.fail();

@@ -215,7 +215,7 @@ public class ImageDataRequestHandler {
         } else {
             meta.put("imageTimestamp", creationEvent.getTime().getValue()/1000);
         }
-        if (owner.getFirstName() != null && owner.getLastName() != null) {
+        if (owner.isLoaded() && owner.getFirstName() != null && owner.getLastName() != null) {
             meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
         }
         List<Dataset> datasets = image.linkedDatasetList();
