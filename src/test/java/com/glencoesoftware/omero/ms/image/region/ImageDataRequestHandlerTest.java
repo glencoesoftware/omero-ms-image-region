@@ -36,6 +36,8 @@ import omero.model.ExperimenterI;
 import omero.model.ImageI;
 import omero.model.LengthI;
 import omero.model.LogicalChannelI;
+import omero.model.ObjectiveI;
+import omero.model.ObjectiveSettingsI;
 import omero.model.Permissions;
 import omero.model.PermissionsI;
 import omero.model.PixelsI;
@@ -102,6 +104,8 @@ public class ImageDataRequestHandlerTest {
     public static long WELL_SAMPLE_ID = 2l;
     public static long WELL_ID = 20l;
 
+    public static double NOMINAL_MAGNIFICATION = 123.456;
+
 
     JsonObject stdCorrect = new JsonObject("{" +
             "    \"id\": " + Long.toString(IMAGE_ID) + "," +
@@ -154,6 +158,7 @@ public class ImageDataRequestHandlerTest {
             "        \"z\": null\n" +
             "    },\n" +
             "    \"init_zoom\": 0,\n" +
+            "    \"nominalMagnification\": " + Double.toString(NOMINAL_MAGNIFICATION) + ",\n" +
             "    \"pixel_range\": [\n" +
             "        0,\n" +
             "        255\n" +
@@ -383,6 +388,12 @@ public class ImageDataRequestHandlerTest {
         WellI well = new WellI(WELL_ID, true);
         ws.setWell(well);
         wellSample = Optional.of(ws);
+
+        ObjectiveSettingsI os = new ObjectiveSettingsI();
+        ObjectiveI obj = new ObjectiveI();
+        obj.setNominalMagnification(rtypes.rdouble(NOMINAL_MAGNIFICATION));
+        os.setObjective(obj);
+        image.setObjectiveSettings(os);
     }
 
     @Test

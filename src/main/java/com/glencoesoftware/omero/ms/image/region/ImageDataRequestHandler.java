@@ -165,6 +165,9 @@ public class ImageDataRequestHandler {
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, creationEvent, owner, wellSample);
         imgData.put("meta", meta);
+        if (image.getObjectiveSettings() != null) {
+            imgData.put("nominalMagnification", rtypes.unwrap(image.getObjectiveSettings().getObjective().getNominalMagnification()));
+        }
 
         JsonObject perms = getImageDataPerms(permissions);
         imgData.put("perms", perms);
@@ -480,6 +483,8 @@ public class ImageDataRequestHandler {
                             " left outer join fetch links.parent as dataset " +
                             " left outer join fetch dataset.projectLinks as plinks " +
                             " left outer join fetch plinks.parent as project " +
+                            " left outer join fetch i.objectiveSettings as os " +
+                            " left outer join fetch os.objective as objective " +
                             " where i.id=:id", params, ctx);
             return image;
         } finally {
