@@ -674,11 +674,18 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private void getImageData(RoutingContext event) {
         log.info("Getting image data");
         HttpServerRequest request = event.request();
-
-        ImageDataCtx imageDataCtx = new ImageDataCtx(request.params(),
-                event.get("omero.session_key"));
-        imageDataCtx.injectCurrentTraceContext();
         final HttpServerResponse response = event.response();
+        ImageDataCtx imageDataCtx = null;
+        try {
+        imageDataCtx = new ImageDataCtx(request.params(),
+                event.get("omero.session_key"));
+        }
+        catch (Exception e) {
+            log.error("Error creating ImageDataCtx", e);
+            response.setStatusCode(500);
+            response.end();
+        }
+        imageDataCtx.injectCurrentTraceContext();
         log.info("1");
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA,

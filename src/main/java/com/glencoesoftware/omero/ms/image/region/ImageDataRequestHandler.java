@@ -485,6 +485,7 @@ public class ImageDataRequestHandler {
                             " left outer join fetch plinks.parent as project " +
                             " left outer join fetch i.objectiveSettings as os " +
                             " left outer join fetch os.objective as objective " +
+                            " join fetch i.details.owner as owner " +
                             " where i.id=:id", params, ctx);
             return image;
         } finally {
