@@ -215,9 +215,10 @@ public class ImageDataRequestHandler {
         } else {
             meta.put("imageTimestamp", creationEvent.getTime().getValue()/1000);
         }
-        if (owner.isLoaded() && owner.getFirstName() != null && owner.getLastName() != null) {
+        if (owner.getFirstName() != null && owner.getLastName() != null) {
             meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
         }
+        meta.put("imageAuthorId", owner.getId().getValue());
         List<Dataset> datasets = image.linkedDatasetList();
         if(datasets != null && datasets.size() > 1) {
             meta.put("datasetName", "Multiple");
@@ -260,6 +261,9 @@ public class ImageDataRequestHandler {
         if (wellSample.isPresent()) {
             meta.put("wellSampleId", wellSample.get().getId().getValue());
             meta.put("wellId", wellSample.get().getWell().getId().getValue());
+        } else {
+            meta.put("wellSampleId", "");
+            meta.put("wellId", "");
         }
         meta.put("imageId", image.getId().getValue());
         meta.put("pixelsType", rtypes.unwrap(pixels.getPixelsType().getValue()));

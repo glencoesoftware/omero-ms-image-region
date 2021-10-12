@@ -66,6 +66,7 @@ public class ImageDataRequestHandlerTest {
 
     public static String OWNER_FIRST_NAME = "firstname";
     public static String OWNER_LAST_NAME = "lastname";
+    public static Long OWNER_ID = 123l;
 
     public static long IMAGE_ID = 1l;
     public static String IMAGE_NAME = "test name";
@@ -113,6 +114,7 @@ public class ImageDataRequestHandlerTest {
             "        \"imageName\": \"" + IMAGE_NAME + "\"," +
             "        \"imageDescription\": \"" + IMAGE_DESC + "\"," +
             "        \"imageAuthor\": \"" + OWNER_FIRST_NAME + " " + OWNER_LAST_NAME + "\"," +
+            "        \"imageAuthorId\":" + OWNER_ID + "," +
             "        \"projectName\": \"" + PROJECT_NAME_1 + "\"," +
             "        \"projectId\": " + Long.toString(PROJECT_ID_1) + "," +
             "        \"projectDescription\": \"" + PROJECT_DESC_1 + "\"," +
@@ -247,6 +249,7 @@ public class ImageDataRequestHandlerTest {
         owner = new ExperimenterI();
         owner.setFirstName(rtypes.rstring(OWNER_FIRST_NAME));
         owner.setLastName(rtypes.rstring(OWNER_LAST_NAME));
+        owner.setId(rtypes.rlong(OWNER_ID));
 
         image = new ImageI(IMAGE_ID, true);
         image.setName(rtypes.rstring(IMAGE_NAME));
@@ -684,25 +687,4 @@ public class ImageDataRequestHandlerTest {
             Assert.fail();
         }
     }
-
-    @Test
-    public void testImageDataUnloadedOwner() {
-        ImageDataCtx ctx = new ImageDataCtx();
-        ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
-        try {
-            owner.unload();
-
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
-            JsonObject unloadedOwnerCorrect = stdCorrect.copy();
-            unloadedOwnerCorrect.getJsonObject("meta").remove("imageAuthor");
-            Assert.assertEquals(basicObj, unloadedOwnerCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
-    }
-
 }
