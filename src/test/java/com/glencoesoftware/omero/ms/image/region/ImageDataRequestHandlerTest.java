@@ -125,139 +125,95 @@ public class ImageDataRequestHandlerTest {
 
     public static double NOMINAL_MAGNIFICATION = 123.456;
 
-
-    JsonObject stdCorrect = new JsonObject("{" +
-            "    \"id\": " + Long.toString(IMAGE_ID) + "," +
-            "    \"meta\": {\n" +
-            "        \"imageName\": \"" + IMAGE_NAME + "\"," +
-            "        \"imageDescription\": \"" + IMAGE_DESC + "\"," +
-            "        \"imageAuthor\": \"" + OWNER_FIRST_NAME + " " + OWNER_LAST_NAME + "\"," +
-            "        \"imageAuthorId\":" + OWNER_ID + "," +
-            "        \"projectName\": \"" + PROJECT_NAME_1 + "\"," +
-            "        \"projectId\": " + Long.toString(PROJECT_ID_1) + "," +
-            "        \"projectDescription\": \"" + PROJECT_DESC_1 + "\"," +
-            "        \"datasetName\": \"" + DATASET_NAME_1 + "\"," +
-            "        \"datasetId\": " + Long.toString(DATASET_ID_1) +  "," +
-            "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\"," +
-            "        \"wellSampleId\": " + Long.toString(WELL_SAMPLE_ID) + ",\n" +
-            "        \"wellId\": " + Long.toString(WELL_ID) + ",\n" +
-            "        \"imageTimestamp\": 12345,\n" +
-            "        \"imageId\": " + Long.toString(IMAGE_ID) + ",\n" +
-            "        \"pixelsType\": \"" + PIX_TYPE_STR + "\"" +
-            "    },\n" +
-            "    \"perms\": {\n" +
-            "        \"canAnnotate\": true,\n" +
-            "        \"canEdit\": true,\n" +
-            "        \"canDelete\": true,\n" +
-            "        \"canLink\": true\n" +
-            "    },\n" +
-            "    \"tiles\": true,\n" +
-            "    \"tile_size\": {\n" +
-            "        \"width\": " + TILE_WIDTH + ",\n" +
-            "        \"height\": " + TILE_HEIGHT + "\n" +
-            "    },\n" +
-            "    \"levels\": 5,\n" +
-            "    \"zoomLevelScaling\": {\n" +
-            "        \"0\": 1.0,\n" +
-            "        \"1\": 0.5,\n" +
-            "        \"2\": 0.25,\n" +
-            "        \"3\": 0.125,\n" +
-            "        \"4\": 0.0625\n" +
-            "    },\n" +
-            "    \"interpolate\": true,\n" +
-            "    \"size\": {\n" +
-            "        \"width\": 512,\n" +
-            "        \"height\": 1024,\n" +
-            "        \"z\": 1,\n" +
-            "        \"t\": 1,\n" +
-            "        \"c\": 3\n" +
-            "    },\n" +
-            "    \"pixel_size\": {\n" +
-            "        \"x\": 1.0,\n" +
-            "        \"y\": 2.0,\n" +
-            "        \"z\": null\n" +
-            "    },\n" +
-            "    \"init_zoom\": 0,\n" +
-            "    \"nominalMagnification\": " + Double.toString(NOMINAL_MAGNIFICATION) + ",\n" +
-            "    \"pixel_range\": [\n" +
-            "        0,\n" +
-            "        255\n" +
-            "    ],\n" +
-            "    \"channels\": [\n" +
-            "        {\n" +
-            "            \"emissionWave\": null,\n" +
-            "            \"label\": \"" + CHANNEL_NAME_1 + "\",\n" +
-            "            \"color\": \"FF0000\",\n" +
-            "            \"inverted\": false,\n" +
-            "            \"reverseIntensity\": false,\n" +
-            "            \"family\": \"linear\",\n" +
-            "            \"coefficient\": 1.1,\n" +
-            "            \"window\": {\n" +
-            "                \"min\": -10.0,\n" +
-            "                \"max\": 10.0,\n" +
-            "                \"start\": 0.0,\n" +
-            "                \"end\": 30.0\n" +
-            "            },\n" +
-            "            \"active\": true\n" +
-            "        },\n" +
-            "        {\n" +
-            "            \"emissionWave\": null,\n" +
-            "            \"label\": \"" + CHANNEL_NAME_2 + "\",\n" +
-            "            \"color\": \"00FF00\",\n" +
-            "            \"inverted\": false,\n" +
-            "            \"reverseIntensity\": false,\n" +
-            "            \"family\": \"linear\",\n" +
-            "            \"coefficient\": 1.2,\n" +
-            "            \"window\": {\n" +
-            "                \"min\": -20.0,\n" +
-            "                \"max\": 20.0,\n" +
-            "                \"start\": 0.0,\n" +
-            "                \"end\": 31.0\n" +
-            "            },\n" +
-            "            \"active\": true\n" +
-            "        },\n" +
-            "        {\n" +
-            "            \"emissionWave\": null,\n" +
-            "            \"label\": \"" + CHANNEL_NAME_3 + "\",\n" +
-            "            \"color\": \"0000FF\",\n" +
-            "            \"inverted\": false,\n" +
-            "            \"reverseIntensity\": false,\n" +
-            "            \"family\": \"linear\",\n" +
-            "            \"coefficient\": 1.3,\n" +
-            "            \"window\": {\n" +
-            "                \"min\": -30.0,\n" +
-            "                \"max\": 30.0,\n" +
-            "                \"start\": 0.0,\n" +
-            "                \"end\": 32.0\n" +
-            "            },\n" +
-            "            \"active\": true\n" +
-            "        }\n" +
-            "    ],\n" +
-            "    \"split_channel\": {\n" +
-            "        \"g\": {\n" +
-            "            \"width\": 1030,\n" +
-            "            \"height\": 2054,\n" +
-            "            \"border\": 2,\n" +
-            "            \"gridx\": 2,\n" +
-            "            \"gridy\": 2\n" +
-            "        },\n" +
-            "        \"c\": {\n" +
-            "            \"width\": 1030,\n" +
-            "            \"height\": 2054,\n" +
-            "            \"border\": 2,\n" +
-            "            \"gridx\": 2,\n" +
-            "            \"gridy\": 2\n" +
-            "        }\n" +
-            "    },\n" +
-            "    \"rdefs\": {\n" +
-            "        \"model\": \"color\",\n" +
-            "        \"projection\": \"normal\",\n" +
-            "        \"defaultZ\": 1,\n" +
-            "        \"defaultT\": 0,\n" +
-            "        \"invertAxis\": false\n" +
-            "    }\n" +
-            "}");
-
+    JsonObject stdCorrect = new JsonObject("{" + "    \"id\": "
+            + Long.toString(IMAGE_ID) + "," + "    \"meta\": {\n"
+            + "        \"imageName\": \"" + IMAGE_NAME + "\","
+            + "        \"imageDescription\": \"" + IMAGE_DESC + "\","
+            + "        \"imageAuthor\": \"" + OWNER_FIRST_NAME + " "
+            + OWNER_LAST_NAME + "\"," + "        \"imageAuthorId\":" + OWNER_ID
+            + "," + "        \"projectName\": \"" + PROJECT_NAME_1 + "\","
+            + "        \"projectId\": " + Long.toString(PROJECT_ID_1) + ","
+            + "        \"projectDescription\": \"" + PROJECT_DESC_1 + "\","
+            + "        \"datasetName\": \"" + DATASET_NAME_1 + "\","
+            + "        \"datasetId\": " + Long.toString(DATASET_ID_1) + ","
+            + "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\","
+            + "        \"wellSampleId\": " + Long.toString(WELL_SAMPLE_ID)
+            + ",\n" + "        \"wellId\": " + Long.toString(WELL_ID) + ",\n"
+            + "        \"imageTimestamp\": 12345,\n" + "        \"imageId\": "
+            + Long.toString(IMAGE_ID) + ",\n" + "        \"pixelsType\": \""
+            + PIX_TYPE_STR + "\"" + "    },\n" + "    \"perms\": {\n"
+            + "        \"canAnnotate\": true,\n"
+            + "        \"canEdit\": true,\n" + "        \"canDelete\": true,\n"
+            + "        \"canLink\": true\n" + "    },\n"
+            + "    \"tiles\": true,\n" + "    \"tile_size\": {\n"
+            + "        \"width\": " + TILE_WIDTH + ",\n"
+            + "        \"height\": " + TILE_HEIGHT + "\n" + "    },\n"
+            + "    \"levels\": 5,\n" + "    \"zoomLevelScaling\": {\n"
+            + "        \"0\": 1.0,\n" + "        \"1\": 0.5,\n"
+            + "        \"2\": 0.25,\n" + "        \"3\": 0.125,\n"
+            + "        \"4\": 0.0625\n" + "    },\n"
+            + "    \"interpolate\": true,\n" + "    \"size\": {\n"
+            + "        \"width\": 512,\n" + "        \"height\": 1024,\n"
+            + "        \"z\": 1,\n" + "        \"t\": 1,\n"
+            + "        \"c\": 3\n" + "    },\n" + "    \"pixel_size\": {\n"
+            + "        \"x\": 1.0,\n" + "        \"y\": 2.0,\n"
+            + "        \"z\": null\n" + "    },\n" + "    \"init_zoom\": 0,\n"
+            + "    \"nominalMagnification\": "
+            + Double.toString(NOMINAL_MAGNIFICATION) + ",\n"
+            + "    \"pixel_range\": [\n" + "        0,\n" + "        255\n"
+            + "    ],\n" + "    \"channels\": [\n" + "        {\n"
+            + "            \"emissionWave\": null,\n"
+            + "            \"label\": \"" + CHANNEL_NAME_1 + "\",\n"
+            + "            \"color\": \"FF0000\",\n"
+            + "            \"inverted\": false,\n"
+            + "            \"reverseIntensity\": false,\n"
+            + "            \"family\": \"linear\",\n"
+            + "            \"coefficient\": 1.1,\n"
+            + "            \"window\": {\n"
+            + "                \"min\": -10.0,\n"
+            + "                \"max\": 10.0,\n"
+            + "                \"start\": 0.0,\n"
+            + "                \"end\": 30.0\n" + "            },\n"
+            + "            \"active\": true\n" + "        },\n" + "        {\n"
+            + "            \"emissionWave\": null,\n"
+            + "            \"label\": \"" + CHANNEL_NAME_2 + "\",\n"
+            + "            \"color\": \"00FF00\",\n"
+            + "            \"inverted\": false,\n"
+            + "            \"reverseIntensity\": false,\n"
+            + "            \"family\": \"linear\",\n"
+            + "            \"coefficient\": 1.2,\n"
+            + "            \"window\": {\n"
+            + "                \"min\": -20.0,\n"
+            + "                \"max\": 20.0,\n"
+            + "                \"start\": 0.0,\n"
+            + "                \"end\": 31.0\n" + "            },\n"
+            + "            \"active\": true\n" + "        },\n" + "        {\n"
+            + "            \"emissionWave\": null,\n"
+            + "            \"label\": \"" + CHANNEL_NAME_3 + "\",\n"
+            + "            \"color\": \"0000FF\",\n"
+            + "            \"inverted\": false,\n"
+            + "            \"reverseIntensity\": false,\n"
+            + "            \"family\": \"linear\",\n"
+            + "            \"coefficient\": 1.3,\n"
+            + "            \"window\": {\n"
+            + "                \"min\": -30.0,\n"
+            + "                \"max\": 30.0,\n"
+            + "                \"start\": 0.0,\n"
+            + "                \"end\": 32.0\n" + "            },\n"
+            + "            \"active\": true\n" + "        }\n" + "    ],\n"
+            + "    \"split_channel\": {\n" + "        \"g\": {\n"
+            + "            \"width\": 1030,\n"
+            + "            \"height\": 2054,\n"
+            + "            \"border\": 2,\n" + "            \"gridx\": 2,\n"
+            + "            \"gridy\": 2\n" + "        },\n"
+            + "        \"c\": {\n" + "            \"width\": 1030,\n"
+            + "            \"height\": 2054,\n"
+            + "            \"border\": 2,\n" + "            \"gridx\": 2,\n"
+            + "            \"gridy\": 2\n" + "        }\n" + "    },\n"
+            + "    \"rdefs\": {\n" + "        \"model\": \"color\",\n"
+            + "        \"projection\": \"normal\",\n"
+            + "        \"defaultZ\": 1,\n" + "        \"defaultT\": 0,\n"
+            + "        \"invertAxis\": false\n" + "    }\n" + "}");
 
     @Before
     public void setup() {
@@ -272,12 +228,14 @@ public class ImageDataRequestHandlerTest {
         image = new ImageI(IMAGE_ID, true);
         image.setName(rtypes.rstring(IMAGE_NAME));
         image.setDescription(rtypes.rstring(IMAGE_DESC));
-        DatasetImageLinkI dslink1 = new DatasetImageLinkI(DATASET_LINK_ID_1, true);
+        DatasetImageLinkI dslink1 = new DatasetImageLinkI(DATASET_LINK_ID_1,
+                true);
         DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
         ds1.setName(rtypes.rstring(DATASET_NAME_1));
         ds1.setDescription(rtypes.rstring(DATASET_DESC_1));
         dslink1.setParent(ds1);
-        ProjectDatasetLinkI projLink1 = new ProjectDatasetLinkI(PROJECT_DS_LINK_ID_1, true);
+        ProjectDatasetLinkI projLink1 = new ProjectDatasetLinkI(
+                PROJECT_DS_LINK_ID_1, true);
         ProjectI proj_1 = new ProjectI(PROJECT_ID_1, true);
         proj_1.setName(rtypes.rstring(PROJECT_NAME_1));
         proj_1.setDescription(rtypes.rstring(PROJECT_DESC_1));
@@ -340,7 +298,8 @@ public class ImageDataRequestHandlerTest {
 
         pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getResolutionLevels()).thenReturn(RES_LVL_COUNT);
-        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(TILE_WIDTH, TILE_HEIGHT));
+        when(pixelBuffer.getTileSize())
+                .thenReturn(new Dimension(TILE_WIDTH, TILE_HEIGHT));
         when(pixelBuffer.getSizeX()).thenReturn(PIXELS_SIZE_X);
         when(pixelBuffer.getSizeY()).thenReturn(PIXELS_SIZE_Y);
         when(pixelBuffer.getSizeZ()).thenReturn(PIXELS_SIZE_Z);
@@ -385,7 +344,7 @@ public class ImageDataRequestHandlerTest {
         cb3.setInputStart(0.0);
         cb3.setInputEnd(32.0);
 
-        ChannelBinding[] cbs = new ChannelBinding[] {cb1, cb2, cb3};
+        ChannelBinding[] cbs = new ChannelBinding[] { cb1, cb2, cb3 };
         when(renderer.getChannelBindings()).thenReturn(cbs);
         when(renderer.getPixelsTypeLowerBound(0)).thenReturn(0.0);
         when(renderer.getPixelsTypeLowerBound(1)).thenReturn(1.0);
@@ -424,8 +383,9 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
         try {
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             Assert.assertEquals(basicObj, stdCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
@@ -443,14 +403,17 @@ public class ImageDataRequestHandlerTest {
             ProjectI project2 = new ProjectI(123, true);
             project2.setName(rtypes.rstring("proj2 name"));
             project2.setDescription(rtypes.rstring("proj2 desc"));
-            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234, true);
+            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
+                    true);
             projLink2.setParent(project2);
             image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject multProjCorrect = stdCorrect.copy();
-            multProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
+            multProjCorrect.getJsonObject("meta").put("projectName",
+                    "Multiple");
             multProjCorrect.getJsonObject("meta").remove("projectId");
             multProjCorrect.getJsonObject("meta").remove("projectDescription");
             Assert.assertEquals(basicObj, multProjCorrect);
@@ -471,14 +434,16 @@ public class ImageDataRequestHandlerTest {
             ds2.setName(rtypes.rstring("ds2 name"));
             ds2.setDescription(rtypes.rstring("ds2 desc"));
             ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
-            projLink2.setParent(image.linkedDatasetList().get(0).linkedProjectList().get(0));
+            projLink2.setParent(image.linkedDatasetList().get(0)
+                    .linkedProjectList().get(0));
             ds2.addProjectDatasetLink(projLink2);
             DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
             dsLink2.setParent(ds2);
             image.addDatasetImageLink(dsLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject multDsCorrect = stdCorrect.copy();
             multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
             multDsCorrect.getJsonObject("meta").remove("datasetId");
@@ -500,7 +465,8 @@ public class ImageDataRequestHandlerTest {
             ProjectI project2 = new ProjectI(123, true);
             project2.setName(rtypes.rstring("proj2 name"));
             project2.setDescription(rtypes.rstring("proj2 desc"));
-            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234, true);
+            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
+                    true);
             projLink2.setParent(project2);
 
             DatasetI ds2 = new DatasetI(123, true);
@@ -512,16 +478,21 @@ public class ImageDataRequestHandlerTest {
             dsLink2.setParent(ds2);
             image.addDatasetImageLink(dsLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject multDsProjCorrect = stdCorrect.copy();
-            multDsProjCorrect.getJsonObject("meta").put("datasetName", "Multiple");
+            multDsProjCorrect.getJsonObject("meta").put("datasetName",
+                    "Multiple");
             multDsProjCorrect.getJsonObject("meta").remove("datasetId");
-            multDsProjCorrect.getJsonObject("meta").remove("datasetDescription");
+            multDsProjCorrect.getJsonObject("meta")
+                    .remove("datasetDescription");
 
-            multDsProjCorrect.getJsonObject("meta").put("projectName", "Multiple");
+            multDsProjCorrect.getJsonObject("meta").put("projectName",
+                    "Multiple");
             multDsProjCorrect.getJsonObject("meta").remove("projectId");
-            multDsProjCorrect.getJsonObject("meta").remove("projectDescription");
+            multDsProjCorrect.getJsonObject("meta")
+                    .remove("projectDescription");
             Assert.assertEquals(basicObj, multDsProjCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
@@ -542,9 +513,9 @@ public class ImageDataRequestHandlerTest {
             resLvlDescs.add(Arrays.asList(32, 64));
             when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
-
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject zoomLvlsCorrect = stdCorrect.copy();
             JsonObject zoomLvls = new JsonObject();
             zoomLvls.put("0", 1.0);
@@ -567,18 +538,20 @@ public class ImageDataRequestHandlerTest {
         try {
             when(rp.getByteWidth()).thenReturn(2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject pixRangeCorrect = stdCorrect.copy();
             JsonArray pixRange = new JsonArray();
             pixRange.add(0);
-            pixRange.add(65535); //2^(8*2) - 1
+            pixRange.add(65535); // 2^(8*2) - 1
             pixRangeCorrect.put("pixel_range", pixRange);
             Assert.assertEquals(basicObj, pixRangeCorrect);
 
             when(rp.isSigned()).thenReturn(true);
-            basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
 
             pixRange = new JsonArray();
             pixRange.add(-32768);
@@ -604,8 +577,9 @@ public class ImageDataRequestHandlerTest {
             pixels.clearChannels();
             pixels.addAllChannelSet(channels);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject splitChannelCorrect = stdCorrect.copy();
             JsonObject g = new JsonObject();
             g.put("width", 1030);
@@ -647,10 +621,12 @@ public class ImageDataRequestHandlerTest {
             when(cc.getContexts()).thenReturn(ctxList);
             when(renderer.getCodomainChain(0)).thenReturn(cc);
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject invertedCorrect = stdCorrect.copy();
-            JsonObject channel = invertedCorrect.getJsonArray("channels").getJsonObject(0);
+            JsonObject channel = invertedCorrect.getJsonArray("channels")
+                    .getJsonObject(0);
             channel.put("inverted", true);
             channel.put("reverseIntensity", true);
             Assert.assertEquals(basicObj, invertedCorrect);
@@ -672,8 +648,9 @@ public class ImageDataRequestHandlerTest {
             pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
             pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject pixelSizeCorrect = stdCorrect.copy();
             JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
             pixSize.put("x", 3000.0);
@@ -695,10 +672,12 @@ public class ImageDataRequestHandlerTest {
         try {
             image.setAcquisitionDate(rtypes.rtime(22222222));
 
-            JsonObject basicObj = reqHandler.populateImageData(image,
-                    pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    rp, renderer, rdef);
             JsonObject timestampCorrect = stdCorrect.copy();
-            timestampCorrect.getJsonObject("meta").put("imageTimestamp", 22222);
+            timestampCorrect.getJsonObject("meta").put("imageTimestamp",
+                    22222);
             Assert.assertEquals(basicObj, timestampCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
