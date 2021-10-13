@@ -320,7 +320,6 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
-        // Divide by units?
         try {
             pixelSize.put("x",
                     new LengthI(pixels.getPhysicalSizeX(), UNITS.MICROMETER)
@@ -328,11 +327,10 @@ public class ImageDataRequestHandler {
             pixelSize.put("y",
                     new LengthI(pixels.getPhysicalSizeY(), UNITS.MICROMETER)
                             .getValue());
-            pixelSize.put("z",
-                    pixels.getPhysicalSizeZ() != null
-                            ? new LengthI(pixels.getPhysicalSizeZ(),
-                                    UNITS.MICROMETER).getValue()
-                            : null);
+            if (pixels.getPhysicalSizeZ() != null) {
+                pixelSize.put("z", new LengthI(pixels.getPhysicalSizeZ(),
+                        UNITS.MICROMETER).getValue());
+            }
         } catch (BigResult e) {
             log.error("BigResult error when converting pixel size", e);
         }
@@ -384,10 +382,9 @@ public class ImageDataRequestHandler {
                 }
             }
             JsonObject ch = new JsonObject();
-            ch.put("emissionWave",
-                    logicalChannel.getEmissionWave() != null
-                            ? logicalChannel.getEmissionWave().getValue()
-                            : null);
+            if (logicalChannel.getEmissionWave() != null) {
+                ch.put("emissionWave", logicalChannel.getEmissionWave().getValue());
+            }
             ch.put("label", label);
             ch.put("color", getColorString(channel));
             ch.put("inverted", isInverted(renderer, i));
@@ -457,10 +454,11 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataRdef(RenderingDef rdef) {
         JsonObject rdefObj = new JsonObject();
-        String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale"
-                ? "greyscale"
-                : "color";
-        rdefObj.put("model", rmodel);
+        if (rdef.getModel().getValue().toLowerCase() == "greyscale") {
+            rdefObj.put("model", "greyscale");
+        } else {
+            rdefObj.put("model", "color");
+        }
         // "projection" and "invertAxis" are always going to be
         // "normal" and false in standard OMERO installs.
         rdefObj.put("projection", "normal");

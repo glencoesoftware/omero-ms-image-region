@@ -156,13 +156,12 @@ public class ImageDataRequestHandlerTest {
             + "        \"width\": 512,\n" + "        \"height\": 1024,\n"
             + "        \"z\": 1,\n" + "        \"t\": 1,\n"
             + "        \"c\": 3\n" + "    },\n" + "    \"pixel_size\": {\n"
-            + "        \"x\": 1.0,\n" + "        \"y\": 2.0,\n"
-            + "        \"z\": null\n" + "    },\n" + "    \"init_zoom\": 0,\n"
+            + "        \"x\": 1.0,\n" + "        \"y\": 2.0},\n"
+            + "    \"init_zoom\": 0,\n"
             + "    \"nominalMagnification\": "
             + Double.toString(NOMINAL_MAGNIFICATION) + ",\n"
             + "    \"pixel_range\": [\n" + "        0,\n" + "        255\n"
             + "    ],\n" + "    \"channels\": [\n" + "        {\n"
-            + "            \"emissionWave\": null,\n"
             + "            \"label\": \"" + CHANNEL_NAME_1 + "\",\n"
             + "            \"color\": \"FF0000\",\n"
             + "            \"inverted\": false,\n"
@@ -175,7 +174,6 @@ public class ImageDataRequestHandlerTest {
             + "                \"start\": 0.0,\n"
             + "                \"end\": 30.0\n" + "            },\n"
             + "            \"active\": true\n" + "        },\n" + "        {\n"
-            + "            \"emissionWave\": null,\n"
             + "            \"label\": \"" + CHANNEL_NAME_2 + "\",\n"
             + "            \"color\": \"00FF00\",\n"
             + "            \"inverted\": false,\n"
@@ -188,7 +186,6 @@ public class ImageDataRequestHandlerTest {
             + "                \"start\": 0.0,\n"
             + "                \"end\": 31.0\n" + "            },\n"
             + "            \"active\": true\n" + "        },\n" + "        {\n"
-            + "            \"emissionWave\": null,\n"
             + "            \"label\": \"" + CHANNEL_NAME_3 + "\",\n"
             + "            \"color\": \"0000FF\",\n"
             + "            \"inverted\": false,\n"
@@ -416,6 +413,8 @@ public class ImageDataRequestHandlerTest {
                     "Multiple");
             multProjCorrect.getJsonObject("meta").remove("projectId");
             multProjCorrect.getJsonObject("meta").remove("projectDescription");
+            System.out.println(basicObj.toString());
+            System.out.println(multProjCorrect.toString());
             Assert.assertEquals(basicObj, multProjCorrect);
         } catch (ServerError e) {
             e.printStackTrace();
