@@ -16,7 +16,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
@@ -79,8 +78,8 @@ import ome.units.UNITS;
 
 public class ImageDataRequestHandler {
 
-    private static final org.slf4j.Logger log =
-            LoggerFactory.getLogger(ImageDataRequestHandler.class);
+    private static final org.slf4j.Logger log = LoggerFactory
+            .getLogger(ImageDataRequestHandler.class);
 
     private ImageDataCtx imageDataCtx;
 
@@ -97,18 +96,15 @@ public class ImageDataRequestHandler {
     private boolean interpolate;
 
     /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
+     * Mapper between <code>omero.model</code> client side Ice backed objects and
+     * <code>ome.model</code> server side Hibernate backed objects.
      */
     protected final IceMapper mapper = new IceMapper();
 
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
-            PixelsService pixelsService,
-            List<Family> families,
-            List<RenderingModel> renderingModels,
-            LutProvider lutProvider,
-            int init_zoom,
-            boolean interpolate) {
+            PixelsService pixelsService, List<Family> families,
+            List<RenderingModel> renderingModels, LutProvider lutProvider,
+            int init_zoom, boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;
         this.families = families;
@@ -130,27 +126,29 @@ public class ImageDataRequestHandler {
             }
             Details details = image.getDetails();
             Experimenter owner = details.getOwner();
-            EventI creationEvent = queryEvent(iQuery, details.getCreationEvent().getId().getValue());
+            EventI creationEvent = queryEvent(iQuery,
+                    details.getCreationEvent().getId().getValue());
 
             log.info(image.toString());
             JsonObject imgData = new JsonObject();
             imgData.put("id", imageId);
 
-
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
-            PixelsI pixels = retrievePixDescription(iQuery, imageIds).get(imageId);
+            PixelsI pixels = retrievePixDescription(iQuery, imageIds)
+                    .get(imageId);
             PixelBuffer pixelBuffer = getPixelBuffer(pixels);
             QuantumFactory quantumFactory = new QuantumFactory(families);
             List<Long> pixIds = new ArrayList<Long>();
             pixIds.add(pixels.getId().getValue());
-            List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId, pixIds);
-            RenderingDef rdef = selectRenderingDef(rdefs, userId, pixels.getId().getValue());
-            Renderer renderer = new Renderer(
-                    quantumFactory, renderingModels, (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
-                    pixelBuffer, lutProvider
-                );
+            List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId,
+                    pixIds);
+            RenderingDef rdef = selectRenderingDef(rdefs, userId,
+                    pixels.getId().getValue());
+            Renderer renderer = new Renderer(quantumFactory, renderingModels,
+                    (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
+                    pixelBuffer, lutProvider);
 
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
             Permissions permissions = details.getPermissions();
@@ -159,7 +157,9 @@ public class ImageDataRequestHandler {
             pixCtx.put("omero.group", "-1");
             rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
             try {
-                return populateImageData(image, pixels, creationEvent, owner, wellSample, permissions, pixelBuffer, rp, renderer, rdef);
+                return populateImageData(image, pixels, creationEvent, owner,
+                        wellSample, permissions, pixelBuffer, rp, renderer,
+                        rdef);
             } finally {
                 rp.close();
             }
@@ -169,23 +169,20 @@ public class ImageDataRequestHandler {
         return null;
     }
 
-    public JsonObject populateImageData(Image image,
-            PixelsI pixels,
-            EventI creationEvent,
-            Experimenter owner,
-            Optional<WellSampleI> wellSample,
-            Permissions permissions,
-            PixelBuffer pixelBuffer,
-            RawPixelsStorePrx rp,
-            Renderer renderer,
-            RenderingDef rdef
-            ) throws ServerError {
+    public JsonObject populateImageData(Image image, PixelsI pixels,
+            EventI creationEvent, Experimenter owner,
+            Optional<WellSampleI> wellSample, Permissions permissions,
+            PixelBuffer pixelBuffer, RawPixelsStorePrx rp, Renderer renderer,
+            RenderingDef rdef) throws ServerError {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
-        JsonObject meta = getImageDataMeta(image, pixels, creationEvent, owner, wellSample);
+        JsonObject meta = getImageDataMeta(image, pixels, creationEvent, owner,
+                wellSample);
         imgData.put("meta", meta);
         if (image.getObjectiveSettings() != null) {
-            imgData.put("nominalMagnification", rtypes.unwrap(image.getObjectiveSettings().getObjective().getNominalMagnification()));
+            imgData.put("nominalMagnification",
+                    rtypes.unwrap(image.getObjectiveSettings().getObjective()
+                            .getNominalMagnification()));
         }
 
         JsonObject perms = getImageDataPerms(permissions);
@@ -207,7 +204,8 @@ public class ImageDataRequestHandler {
         imgData.put("init_zoom", init_zoom);
 
         if (resLvlCount > 1) {
-            imgData.put("zoomLevelScaling", getImageDataZoomLevelScaling(renderer));
+            imgData.put("zoomLevelScaling",
+                    getImageDataZoomLevelScaling(renderer));
         }
 
         imgData.put("pixel_range", getImageDataPixelRange(rp));
@@ -221,34 +219,36 @@ public class ImageDataRequestHandler {
         return imgData;
     }
 
-    private JsonObject getImageDataMeta(Image image,
-            Pixels pixels,
-            EventI creationEvent,
-            Experimenter owner,
+    private JsonObject getImageDataMeta(Image image, Pixels pixels,
+            EventI creationEvent, Experimenter owner,
             Optional<WellSampleI> wellSample) {
         JsonObject meta = new JsonObject();
         meta.put("imageName", rtypes.unwrap(image.getName()));
         meta.put("imageDescription", rtypes.unwrap(image.getDescription()));
         if (image.getAcquisitionDate() != null) {
-            meta.put("imageTimestamp", image.getAcquisitionDate().getValue()/1000);
+            meta.put("imageTimestamp",
+                    image.getAcquisitionDate().getValue() / 1000);
         } else {
-            meta.put("imageTimestamp", creationEvent.getTime().getValue()/1000);
+            meta.put("imageTimestamp",
+                    creationEvent.getTime().getValue() / 1000);
         }
         if (owner.getFirstName() != null && owner.getLastName() != null) {
-            meta.put("imageAuthor", owner.getFirstName().getValue() + " " + owner.getLastName().getValue());
+            meta.put("imageAuthor", owner.getFirstName().getValue() + " "
+                    + owner.getLastName().getValue());
         }
         meta.put("imageAuthorId", owner.getId().getValue());
         List<Dataset> datasets = image.linkedDatasetList();
-        if(datasets != null && datasets.size() > 1) {
+        if (datasets != null && datasets.size() > 1) {
             meta.put("datasetName", "Multiple");
             Set<Long> projectIds = new HashSet<Long>();
-            for(Dataset ds : datasets) {
+            for (Dataset ds : datasets) {
                 List<Project> projects = ds.linkedProjectList();
                 if (projects.size() > 1) {
                     meta.put("projectName", "Multiple");
                     break;
                 } else if (projects.size() == 1) {
-                    if (!projectIds.isEmpty() && !projectIds.contains(projects.get(0).getId().getValue())) {
+                    if (!projectIds.isEmpty() && !projectIds
+                            .contains(projects.get(0).getId().getValue())) {
                         meta.put("projectName", "Multiple");
                         break;
                     } else {
@@ -260,9 +260,10 @@ public class ImageDataRequestHandler {
                 Project project = datasets.get(0).linkedProjectList().get(0);
                 meta.put("projectName", rtypes.unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription", rtypes.unwrap(project.getDescription()));
+                meta.put("projectDescription",
+                        rtypes.unwrap(project.getDescription()));
             }
-        } else if(datasets.size() == 1) {
+        } else if (datasets.size() == 1) {
             Dataset ds = datasets.get(0);
             meta.put("datasetName", rtypes.unwrap(ds.getName()));
             meta.put("datasetId", ds.getId().getValue());
@@ -270,11 +271,12 @@ public class ImageDataRequestHandler {
             List<Project> projects = ds.linkedProjectList();
             if (projects.size() > 1) {
                 meta.put("projectName", "Multiple");
-            } else if (projects.size() == 1){
+            } else if (projects.size() == 1) {
                 Project project = projects.get(0);
                 meta.put("projectName", rtypes.unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription", rtypes.unwrap(project.getDescription()));
+                meta.put("projectDescription",
+                        rtypes.unwrap(project.getDescription()));
             }
         }
         if (wellSample.isPresent()) {
@@ -285,7 +287,8 @@ public class ImageDataRequestHandler {
             meta.put("wellId", "");
         }
         meta.put("imageId", image.getId().getValue());
-        meta.put("pixelsType", rtypes.unwrap(pixels.getPixelsType().getValue()));
+        meta.put("pixelsType",
+                rtypes.unwrap(pixels.getPixelsType().getValue()));
         return meta;
     }
 
@@ -317,12 +320,19 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
-        //Divide by units?
+        // Divide by units?
         try {
-        pixelSize.put("x", new LengthI(pixels.getPhysicalSizeX(), UNITS.MICROMETER).getValue());
-        pixelSize.put("y", new LengthI(pixels.getPhysicalSizeY(), UNITS.MICROMETER).getValue());
-        pixelSize.put("z", pixels.getPhysicalSizeZ() != null ? new LengthI(pixels.getPhysicalSizeZ(), UNITS.MICROMETER).getValue()
-                : null);
+            pixelSize.put("x",
+                    new LengthI(pixels.getPhysicalSizeX(), UNITS.MICROMETER)
+                            .getValue());
+            pixelSize.put("y",
+                    new LengthI(pixels.getPhysicalSizeY(), UNITS.MICROMETER)
+                            .getValue());
+            pixelSize.put("z",
+                    pixels.getPhysicalSizeZ() != null
+                            ? new LengthI(pixels.getPhysicalSizeZ(),
+                                    UNITS.MICROMETER).getValue()
+                            : null);
         } catch (BigResult e) {
             log.error("BigResult error when converting pixel size", e);
         }
@@ -335,12 +345,14 @@ public class ImageDataRequestHandler {
         int maxXSize = resDescs.get(0).get(0);
         for (int i = 0; i < resDescs.size(); i++) {
             List<Integer> desc = resDescs.get(i);
-            zoomLvlScaling.put(Integer.toString(i), desc.get(0).doubleValue()/maxXSize);
+            zoomLvlScaling.put(Integer.toString(i),
+                    desc.get(0).doubleValue() / maxXSize);
         }
         return zoomLvlScaling;
     }
 
-    private JsonArray getImageDataPixelRange(RawPixelsStorePrx rp) throws ServerError {
+    private JsonArray getImageDataPixelRange(RawPixelsStorePrx rp)
+            throws ServerError {
         long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
         JsonArray pixelRange = new JsonArray();
         if (rp.isSigned()) {
@@ -348,7 +360,7 @@ public class ImageDataRequestHandler {
             pixelRange.add(pmax / 2 - 1);
         } else {
             pixelRange.add(0);
-            pixelRange.add(pmax -1 );
+            pixelRange.add(pmax - 1);
         }
         return pixelRange;
     }
@@ -361,7 +373,8 @@ public class ImageDataRequestHandler {
             LogicalChannel logicalChannel = channel.getLogicalChannel();
             String label = null;
             logicalChannel.getName();
-            if (logicalChannel.getName() != null && logicalChannel.getName().getValue().length() > 0) {
+            if (logicalChannel.getName() != null
+                    && logicalChannel.getName().getValue().length() > 0) {
                 label = logicalChannel.getName().getValue();
             } else {
                 if (logicalChannel.getEmissionWave() != null) {
@@ -371,8 +384,10 @@ public class ImageDataRequestHandler {
                 }
             }
             JsonObject ch = new JsonObject();
-            ch.put("emissionWave", logicalChannel.getEmissionWave() != null ?
-                        logicalChannel.getEmissionWave().getValue() : null);
+            ch.put("emissionWave",
+                    logicalChannel.getEmissionWave() != null
+                            ? logicalChannel.getEmissionWave().getValue()
+                            : null);
             ch.put("label", label);
             ch.put("color", getColorString(channel));
             ch.put("inverted", isInverted(renderer, i));
@@ -381,7 +396,7 @@ public class ImageDataRequestHandler {
             ch.put("family", cb.getFamily().getValue());
             ch.put("coefficient", cb.getCoefficient());
             ch.put("active", cb.getActive());
-            StatsInfo statsInfo  = channel.getStatsInfo();
+            StatsInfo statsInfo = channel.getStatsInfo();
             JsonObject window = new JsonObject();
             if (statsInfo != null) {
                 window.put("min", statsInfo.getGlobalMin().getValue());
@@ -408,13 +423,14 @@ public class ImageDataRequestHandler {
         long y = Math.round(x);
         long longX = 0;
         if (x > y) {
-            longX = y+1;
+            longX = y + 1;
         } else {
             longX = y;
         }
         int border = 2;
-        g.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
-        g.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
+        g.put("width",
+                pixels.getSizeX().getValue() * longX + border * (longX + 1));
+        g.put("height", pixels.getSizeY().getValue() * y + border * (y + 1));
         g.put("border", border);
         g.put("gridx", longX);
         g.put("gridy", y);
@@ -425,12 +441,13 @@ public class ImageDataRequestHandler {
         x = Math.sqrt(c);
         y = Math.round(x);
         if (x > y) {
-            longX = y+1;
+            longX = y + 1;
         } else {
             longX = y;
         }
-        clr.put("width", pixels.getSizeX().getValue()*longX + border*(longX+1));
-        clr.put("height", pixels.getSizeY().getValue()*y+border*(y+1));
+        clr.put("width",
+                pixels.getSizeX().getValue() * longX + border * (longX + 1));
+        clr.put("height", pixels.getSizeY().getValue() * y + border * (y + 1));
         clr.put("border", border);
         clr.put("gridx", longX);
         clr.put("gridy", y);
@@ -440,8 +457,9 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataRdef(RenderingDef rdef) {
         JsonObject rdefObj = new JsonObject();
-        String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale" ?
-                "greyscale" : "color";
+        String rmodel = rdef.getModel().getValue().toLowerCase() == "greyscale"
+                ? "greyscale"
+                : "color";
         rdefObj.put("model", rmodel);
         // "projection" and "invertAxis" are always going to be
         // "normal" and false in standard OMERO installs.
@@ -471,21 +489,23 @@ public class ImageDataRequestHandler {
         if (channel.getRed().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getRed().getValue()).toUpperCase());
+        colorBuilder.append(Integer.toHexString(channel.getRed().getValue())
+                .toUpperCase());
         if (channel.getGreen().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getGreen().getValue()).toUpperCase());
+        colorBuilder.append(Integer.toHexString(channel.getGreen().getValue())
+                .toUpperCase());
         if (channel.getBlue().getValue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getBlue().getValue()).toUpperCase());
+        colorBuilder.append(Integer.toHexString(channel.getBlue().getValue())
+                .toUpperCase());
         return colorBuilder.toString();
     }
 
-    protected ImageI queryImageData(
-            IQueryPrx iQuery, Long imageId)
-                throws ApiUsageException, ServerError {
+    protected ImageI queryImageData(IQueryPrx iQuery, Long imageId)
+            throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("query_image_data");
         try {
@@ -498,27 +518,27 @@ public class ImageDataRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addId(imageId);
-            ImageI image = (ImageI)
-                    iQuery.findByQuery(
-                            "select i from Image as i " +
-                            " join fetch i.pixels as pixels" +
-                            " left outer JOIN FETCH i.datasetLinks as links " +
-                            " left outer join fetch links.parent as dataset " +
-                            " left outer join fetch dataset.projectLinks as plinks " +
-                            " left outer join fetch plinks.parent as project " +
-                            " left outer join fetch i.objectiveSettings as os " +
-                            " left outer join fetch os.objective as objective " +
-                            " join fetch i.details.owner as owner " +
-                            " where i.id=:id", params, ctx);
+            ImageI image = (ImageI) iQuery
+                    .findByQuery("select i from Image as i "
+                            + " join fetch i.pixels as pixels"
+                            + " left outer JOIN FETCH i.datasetLinks as links "
+                            + " left outer join fetch links.parent as dataset "
+                            + " left outer join fetch dataset.projectLinks as plinks "
+                            + " left outer join fetch plinks.parent as project "
+                            + " left outer join fetch i.objectiveSettings as os "
+                            + " left outer join fetch os.objective as objective "
+                            + " join fetch i.details.owner as owner "
+                            + " where i.id=:id", params, ctx);
             return image;
         } finally {
             span.finish();
         }
     }
 
-    public Optional<WellSampleI> getWellSample(IQueryPrx iQuery, Long imageId) {
-        ScopedSpan span =
-                Tracing.currentTracer().startScopedSpan("get_wellsample");
+    public Optional<WellSampleI> getWellSample(IQueryPrx iQuery,
+            Long imageId) {
+        ScopedSpan span = Tracing.currentTracer()
+                .startScopedSpan("get_wellsample");
         try {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
@@ -526,12 +546,12 @@ public class ImageDataRequestHandler {
             List<Long> ids = new ArrayList<Long>();
             ids.add(imageId);
             params.addIds(ids);
-            List<IObject> wellSamples = iQuery.findAllByQuery(
-                    "SELECT ws FROM WellSample AS ws" +
-                    "  LEFT OUTER JOIN FETCH ws.well AS w" +
-                    "  WHERE ws.image.id IN :ids",
-                    params, ctx
-                );
+            List<IObject> wellSamples = iQuery
+                    .findAllByQuery(
+                            "SELECT ws FROM WellSample AS ws"
+                                    + "  LEFT OUTER JOIN FETCH ws.well AS w"
+                                    + "  WHERE ws.image.id IN :ids",
+                            params, ctx);
             for (IObject ob : wellSamples) {
                 WellSampleI ws = (WellSampleI) ob;
                 return Optional.of(ws);
@@ -552,7 +572,8 @@ public class ImageDataRequestHandler {
             ParametersI params = new ParametersI();
             List<Long> ids = new ArrayList<Long>();
             ids.add(251l);
-            List<IObject> objs = csvc.loadContainerHierarchy("Project", ids, params);
+            List<IObject> objs = csvc.loadContainerHierarchy("Project", ids,
+                    params);
             Project project = (Project) mapper.reverse(objs.get(0));
             log.info(project.toString());
         } catch (ServerError e) {
@@ -563,17 +584,21 @@ public class ImageDataRequestHandler {
 
     /**
      * Returns a pixel buffer for a given set of pixels.
+     *
      * @param pixels pixels metadata
      * @return See above.
      * @throws ApiUsageException
      * @see PixelsService#getPixelBuffer(Pixels)
      */
-    private PixelBuffer getPixelBuffer(Pixels pixels) throws ApiUsageException {
+    private PixelBuffer getPixelBuffer(Pixels pixels)
+            throws ApiUsageException {
         Tracer tracer = Tracing.currentTracer();
         ScopedSpan span = tracer.startScopedSpan("get_pixel_buffer");
         try {
-            span.tag("omero.pixels_id", Long.toString(pixels.getId().getValue()));
-            return pixelsService.getPixelBuffer((ome.model.core.Pixels) mapper.reverse(pixels), false);
+            span.tag("omero.pixels_id",
+                    Long.toString(pixels.getId().getValue()));
+            return pixelsService.getPixelBuffer(
+                    (ome.model.core.Pixels) mapper.reverse(pixels), false);
         } catch (ApiUsageException e) {
             span.error(e);
             throw e;
@@ -585,33 +610,31 @@ public class ImageDataRequestHandler {
     /**
      * Retrieves rendering settings either from the user or image owner
      * corresponding to any of the specified pixels sets.
-     * @param client OMERO client to use for querying.
-     * @param userId The current user ID.
+     *
+     * @param client    OMERO client to use for querying.
+     * @param userId    The current user ID.
      * @param pixelsIds The pixels set identifiers.
      * @return See above.
      */
-    protected List<RenderingDef> retrieveRenderingDefs(
-            omero.client client, final long userId, final List<Long> pixelsIds)
-                throws ServerError {
+    protected List<RenderingDef> retrieveRenderingDefs(omero.client client,
+            final long userId, final List<Long> pixelsIds) throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_rendering_defs");
         // Ask for rendering settings for the current user or the image owner
         String q = PixelsImpl.RENDERING_DEF_QUERY_PREFIX
-                + "rdef.pixels.id in (:ids) "
-                + "and ("
+                + "rdef.pixels.id in (:ids) " + "and ("
                 + "  rdef.details.owner.id = rdef.pixels.details.owner.id"
-                + "    or rdef.details.owner.id = :userId"
-                + ")";
+                + "    or rdef.details.owner.id = :userId" + ")";
         try {
             ServiceFactoryPrx sf = client.getSession();
             IQueryPrx iQuery = sf.getQueryService();
             ParametersI params = new ParametersI();
             params.addIds(pixelsIds);
             params.add("userId", omero.rtypes.rlong(userId));
-            return (List<RenderingDef>) mapper.reverse(
-                            iQuery.findAllByQuery(q, params, ctx));
+            return (List<RenderingDef>) mapper
+                    .reverse(iQuery.findAllByQuery(q, params, ctx));
         } catch (Exception e) {
             span.error(e);
             return null;
@@ -621,46 +644,39 @@ public class ImageDataRequestHandler {
     }
 
     /**
-     * Selects the correct rendering settings either from the user
-     * (preferred) or image owner corresponding to the specified
-     * pixels set.
+     * Selects the correct rendering settings either from the user (preferred) or
+     * image owner corresponding to the specified pixels set.
+     *
      * @param renderingDefs A list of rendering settings to select from.
-     * @param pixelsId The identifier of the pixels.
+     * @param pixelsId      The identifier of the pixels.
      * @return See above.
      */
-    protected RenderingDef selectRenderingDef(
-            List<RenderingDef> renderingDefs, final long userId,
-            final long pixelsId)
-                throws ServerError {
-        RenderingDef userRenderingDef = renderingDefs
-            .stream()
-            .filter(v -> v.getPixels().getId() == pixelsId)
-            .filter(v -> v.getDetails().getOwner().getId() == userId)
-            .findFirst()
-            .orElse(null);
+    protected RenderingDef selectRenderingDef(List<RenderingDef> renderingDefs,
+            final long userId, final long pixelsId) throws ServerError {
+        RenderingDef userRenderingDef = renderingDefs.stream()
+                .filter(v -> v.getPixels().getId() == pixelsId)
+                .filter(v -> v.getDetails().getOwner().getId() == userId)
+                .findFirst().orElse(null);
         if (userRenderingDef != null) {
             return userRenderingDef;
         }
         // Otherwise pick the first (from the owner) if available
-        return renderingDefs
-                .stream()
-                .filter(v -> v.getPixels().getId() == pixelsId)
-                .findFirst()
+        return renderingDefs.stream()
+                .filter(v -> v.getPixels().getId() == pixelsId).findFirst()
                 .orElse(null);
     }
 
-
     /**
      * Get Pixels information from Image IDs
+     *
      * @param imageIds Image IDs to get Pixels information for
-     * @param iQuery Query proxy service
+     * @param iQuery   Query proxy service
      * @return Map of Image ID vs. Populated Pixels object
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected Map<Long, PixelsI> retrievePixDescription(
-            IQueryPrx iQuery, List<Long> imageIds)
-                throws ApiUsageException, ServerError {
+    protected Map<Long, PixelsI> retrievePixDescription(IQueryPrx iQuery,
+            List<Long> imageIds) throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("retrieve_pix_description");
         try {
@@ -673,22 +689,21 @@ public class ImageDataRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addIds(imageIds);
-            List<IObject> pixelsList =
-                    iQuery.findAllByQuery(
-                        "select p from Pixels as p "
-                        + "join fetch p.image as i "
-                        + "left outer join fetch i.wellSamples as ws "
-                        + "left outer join fetch ws.well as w "
-                        + "left outer join fetch w.wellSamples "
-                        + "join fetch p.pixelsType "
-                        + "join fetch p.channels as c "
-                        + "join fetch c.logicalChannel as lc "
-                        + "left outer join fetch c.statsInfo "
-                        + "left outer join fetch lc.photometricInterpretation "
-                        + "left outer join fetch lc.illumination "
-                        + "left outer join fetch lc.mode "
-                        + "left outer join fetch lc.contrastMethod "
-                        + "where i.id in (:ids)", params, ctx);
+            List<IObject> pixelsList = iQuery.findAllByQuery(
+                    "select p from Pixels as p " + "join fetch p.image as i "
+                            + "left outer join fetch i.wellSamples as ws "
+                            + "left outer join fetch ws.well as w "
+                            + "left outer join fetch w.wellSamples "
+                            + "join fetch p.pixelsType "
+                            + "join fetch p.channels as c "
+                            + "join fetch c.logicalChannel as lc "
+                            + "left outer join fetch c.statsInfo "
+                            + "left outer join fetch lc.photometricInterpretation "
+                            + "left outer join fetch lc.illumination "
+                            + "left outer join fetch lc.mode "
+                            + "left outer join fetch lc.contrastMethod "
+                            + "where i.id in (:ids)",
+                    params, ctx);
             Map<Long, PixelsI> toReturn = new HashMap<Long, PixelsI>();
             for (IObject pixelsObj : pixelsList) {
                 PixelsI pixels = (PixelsI) pixelsObj;
@@ -700,9 +715,8 @@ public class ImageDataRequestHandler {
         }
     }
 
-    protected EventI queryEvent(
-            IQueryPrx iQuery, Long eventId)
-                throws ApiUsageException, ServerError {
+    protected EventI queryEvent(IQueryPrx iQuery, Long eventId)
+            throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("query_event");
         try {
@@ -715,10 +729,9 @@ public class ImageDataRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addId(eventId);
-            EventI event = (EventI)
-                    iQuery.findByQuery(
-                            "select e from Event as e " +
-                            " where e.id=:id", params, ctx);
+            EventI event = (EventI) iQuery.findByQuery(
+                    "select e from Event as e " + " where e.id=:id", params,
+                    ctx);
             return event;
         } finally {
             span.finish();
