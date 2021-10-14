@@ -454,7 +454,7 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataRdef(RenderingDef rdef) {
         JsonObject rdefObj = new JsonObject();
-        if (rdef.getModel().getValue().toLowerCase() == "greyscale") {
+        if (rdef.getModel().getValue().toLowerCase().equals("greyscale")) {
             rdefObj.put("model", "greyscale");
         } else {
             rdefObj.put("model", "color");
