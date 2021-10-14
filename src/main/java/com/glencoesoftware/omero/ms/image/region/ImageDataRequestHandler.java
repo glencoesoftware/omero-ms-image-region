@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -138,7 +139,7 @@ public class ImageDataRequestHandler {
             Long userId = sf.getAdminService().getEventContext().userId;
             PixelsI pixels = retrievePixDescription(iQuery, imageIds)
                     .get(imageId);
-            PixelBuffer pixelBuffer = getPixelBuffer(pixels);
+            try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             QuantumFactory quantumFactory = new QuantumFactory(families);
             List<Long> pixIds = new ArrayList<Long>();
             pixIds.add(pixels.getId().getValue());
@@ -157,7 +158,8 @@ public class ImageDataRequestHandler {
             return populateImageData(image, pixels, creationEvent, owner,
                     wellSample, permissions, pixelBuffer, renderer,
                     rdef);
-        } catch (ServerError e) {
+            }
+        } catch (ServerError | IOException e) {
             log.error("Error getting image data");
         }
         return null;
