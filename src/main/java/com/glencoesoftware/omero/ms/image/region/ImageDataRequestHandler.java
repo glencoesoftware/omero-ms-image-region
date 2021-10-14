@@ -67,14 +67,14 @@ import omero.ServerError;
 import omero.rtypes;
 import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
-import omero.api.RawPixelsStorePrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.IObject;
 import omero.model.WellSampleI;
-import omero.model.enums.UnitsLength;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 import ome.units.UNITS;
+
+import static omero.rtypes.unwrap;
 
 public class ImageDataRequestHandler {
 
@@ -152,17 +152,11 @@ public class ImageDataRequestHandler {
 
             Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
             Permissions permissions = details.getPermissions();
-            RawPixelsStorePrx rp = sf.createRawPixelsStore();
             Map<String, String> pixCtx = new HashMap<String, String>();
             pixCtx.put("omero.group", "-1");
-            rp.setPixelsId(pixels.getId().getValue(), true, pixCtx);
-            try {
-                return populateImageData(image, pixels, creationEvent, owner,
-                        wellSample, permissions, pixelBuffer, rp, renderer,
-                        rdef);
-            } finally {
-                rp.close();
-            }
+            return populateImageData(image, pixels, creationEvent, owner,
+                    wellSample, permissions, pixelBuffer, renderer,
+                    rdef);
         } catch (ServerError e) {
             log.error("Error getting image data");
         }
@@ -172,8 +166,8 @@ public class ImageDataRequestHandler {
     public JsonObject populateImageData(Image image, PixelsI pixels,
             EventI creationEvent, Experimenter owner,
             Optional<WellSampleI> wellSample, Permissions permissions,
-            PixelBuffer pixelBuffer, RawPixelsStorePrx rp, Renderer renderer,
-            RenderingDef rdef) throws ServerError {
+            PixelBuffer pixelBuffer, Renderer renderer,
+            RenderingDef rdef) {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, creationEvent, owner,
@@ -181,7 +175,7 @@ public class ImageDataRequestHandler {
         imgData.put("meta", meta);
         if (image.getObjectiveSettings() != null) {
             imgData.put("nominalMagnification",
-                    rtypes.unwrap(image.getObjectiveSettings().getObjective()
+                    unwrap(image.getObjectiveSettings().getObjective()
                             .getNominalMagnification()));
         }
 
@@ -208,7 +202,10 @@ public class ImageDataRequestHandler {
                     getImageDataZoomLevelScaling(renderer));
         }
 
-        imgData.put("pixel_range", getImageDataPixelRange(rp));
+        pixels.getPixelsType().getValue().getValue().startsWith("u");
+
+
+        imgData.put("pixel_range", getImageDataPixelRange(pixelBuffer));
 
         imgData.put("channels", getImageDataChannels(pixels, renderer));
 
@@ -223,8 +220,8 @@ public class ImageDataRequestHandler {
             EventI creationEvent, Experimenter owner,
             Optional<WellSampleI> wellSample) {
         JsonObject meta = new JsonObject();
-        meta.put("imageName", rtypes.unwrap(image.getName()));
-        meta.put("imageDescription", rtypes.unwrap(image.getDescription()));
+        meta.put("imageName", unwrap(image.getName()));
+        meta.put("imageDescription", unwrap(image.getDescription()));
         if (image.getAcquisitionDate() != null) {
             meta.put("imageTimestamp",
                     image.getAcquisitionDate().getValue() / 1000);
@@ -233,8 +230,8 @@ public class ImageDataRequestHandler {
                     creationEvent.getTime().getValue() / 1000);
         }
         if (owner.getFirstName() != null && owner.getLastName() != null) {
-            meta.put("imageAuthor", owner.getFirstName().getValue() + " "
-                    + owner.getLastName().getValue());
+            meta.put("imageAuthor", String.valueOf(unwrap(owner.getFirstName()) + " "
+                    + String.valueOf(unwrap(owner.getLastName()))));
         }
         meta.put("imageAuthorId", owner.getId().getValue());
         List<Dataset> datasets = image.linkedDatasetList();
@@ -258,25 +255,25 @@ public class ImageDataRequestHandler {
             }
             if (!meta.containsKey("projectName")) {
                 Project project = datasets.get(0).linkedProjectList().get(0);
-                meta.put("projectName", rtypes.unwrap(project.getName()));
+                meta.put("projectName", unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
                 meta.put("projectDescription",
-                        rtypes.unwrap(project.getDescription()));
+                        unwrap(project.getDescription()));
             }
         } else if (datasets.size() == 1) {
             Dataset ds = datasets.get(0);
-            meta.put("datasetName", rtypes.unwrap(ds.getName()));
+            meta.put("datasetName", unwrap(ds.getName()));
             meta.put("datasetId", ds.getId().getValue());
-            meta.put("datasetDescription", rtypes.unwrap(ds.getDescription()));
+            meta.put("datasetDescription", unwrap(ds.getDescription()));
             List<Project> projects = ds.linkedProjectList();
             if (projects.size() > 1) {
                 meta.put("projectName", "Multiple");
             } else if (projects.size() == 1) {
                 Project project = projects.get(0);
-                meta.put("projectName", rtypes.unwrap(project.getName()));
+                meta.put("projectName", unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
                 meta.put("projectDescription",
-                        rtypes.unwrap(project.getDescription()));
+                        unwrap(project.getDescription()));
             }
         }
         if (wellSample.isPresent()) {
@@ -288,7 +285,7 @@ public class ImageDataRequestHandler {
         }
         meta.put("imageId", image.getId().getValue());
         meta.put("pixelsType",
-                rtypes.unwrap(pixels.getPixelsType().getValue()));
+                unwrap(pixels.getPixelsType().getValue()));
         return meta;
     }
 
@@ -349,11 +346,10 @@ public class ImageDataRequestHandler {
         return zoomLvlScaling;
     }
 
-    private JsonArray getImageDataPixelRange(RawPixelsStorePrx rp)
-            throws ServerError {
-        long pmax = Math.round(Math.pow(2, 8 * rp.getByteWidth()));
+    private JsonArray getImageDataPixelRange(PixelBuffer pb) {
+        long pmax = Math.round(Math.pow(2, 8 * pb.getByteWidth()));
         JsonArray pixelRange = new JsonArray();
-        if (rp.isSigned()) {
+        if (pb.isSigned()) {
             pixelRange.add(-1 * pmax / 2);
             pixelRange.add(pmax / 2 - 1);
         } else {

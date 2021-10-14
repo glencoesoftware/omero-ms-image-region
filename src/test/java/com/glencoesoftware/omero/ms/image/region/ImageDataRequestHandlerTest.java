@@ -78,7 +78,6 @@ public class ImageDataRequestHandlerTest {
     Optional<WellSampleI> wellSample;
     Permissions permissions;
     PixelBuffer pixelBuffer;
-    RawPixelsStorePrx rp;
     Renderer renderer;
     RenderingDef rdef;
 
@@ -302,14 +301,8 @@ public class ImageDataRequestHandlerTest {
         when(pixelBuffer.getSizeZ()).thenReturn(PIXELS_SIZE_Z);
         when(pixelBuffer.getSizeC()).thenReturn(PIXELS_SIZE_C);
         when(pixelBuffer.getSizeT()).thenReturn(PIXELS_SIZE_T);
-
-        rp = mock(RawPixelsStorePrx.class);
-        try {
-            when(rp.getByteWidth()).thenReturn(BYTE_WIDTH);
-            when(rp.isSigned()).thenReturn(false);
-        } catch (ServerError e) {
-            e.printStackTrace();
-        }
+        when(pixelBuffer.getByteWidth()).thenReturn(BYTE_WIDTH);
+        when(pixelBuffer.isSigned()).thenReturn(false);
 
         renderer = mock(Renderer.class);
         List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
@@ -379,15 +372,10 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
             JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                     creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
+                    renderer, rdef);
             Assert.assertEquals(basicObj, stdCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
     }
 
     @Test
@@ -396,30 +384,25 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            ProjectI project2 = new ProjectI(123, true);
-            project2.setName(rtypes.rstring("proj2 name"));
-            project2.setDescription(rtypes.rstring("proj2 desc"));
-            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
-                    true);
-            projLink2.setParent(project2);
-            image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
+        ProjectI project2 = new ProjectI(123, true);
+        project2.setName(rtypes.rstring("proj2 name"));
+        project2.setDescription(rtypes.rstring("proj2 desc"));
+        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
+                true);
+        projLink2.setParent(project2);
+        image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject multProjCorrect = stdCorrect.copy();
-            multProjCorrect.getJsonObject("meta").put("projectName",
-                    "Multiple");
-            multProjCorrect.getJsonObject("meta").remove("projectId");
-            multProjCorrect.getJsonObject("meta").remove("projectDescription");
-            System.out.println(basicObj.toString());
-            System.out.println(multProjCorrect.toString());
-            Assert.assertEquals(basicObj, multProjCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject multProjCorrect = stdCorrect.copy();
+        multProjCorrect.getJsonObject("meta").put("projectName",
+                "Multiple");
+        multProjCorrect.getJsonObject("meta").remove("projectId");
+        multProjCorrect.getJsonObject("meta").remove("projectDescription");
+        System.out.println(basicObj.toString());
+        System.out.println(multProjCorrect.toString());
+        Assert.assertEquals(basicObj, multProjCorrect);
     }
 
     @Test
@@ -428,30 +411,25 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            DatasetI ds2 = new DatasetI(123, true);
-            ds2.setName(rtypes.rstring("ds2 name"));
-            ds2.setDescription(rtypes.rstring("ds2 desc"));
-            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
-            projLink2.setParent(image.linkedDatasetList().get(0)
-                    .linkedProjectList().get(0));
-            ds2.addProjectDatasetLink(projLink2);
-            DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
-            dsLink2.setParent(ds2);
-            image.addDatasetImageLink(dsLink2);
+        DatasetI ds2 = new DatasetI(123, true);
+        ds2.setName(rtypes.rstring("ds2 name"));
+        ds2.setDescription(rtypes.rstring("ds2 desc"));
+        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
+        projLink2.setParent(image.linkedDatasetList().get(0)
+                .linkedProjectList().get(0));
+        ds2.addProjectDatasetLink(projLink2);
+        DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
+        dsLink2.setParent(ds2);
+        image.addDatasetImageLink(dsLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject multDsCorrect = stdCorrect.copy();
-            multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
-            multDsCorrect.getJsonObject("meta").remove("datasetId");
-            multDsCorrect.getJsonObject("meta").remove("datasetDescription");
-            Assert.assertEquals(basicObj, multDsCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject multDsCorrect = stdCorrect.copy();
+        multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
+        multDsCorrect.getJsonObject("meta").remove("datasetId");
+        multDsCorrect.getJsonObject("meta").remove("datasetDescription");
+        Assert.assertEquals(basicObj, multDsCorrect);
     }
 
     @Test
@@ -460,43 +438,38 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            ProjectI project2 = new ProjectI(123, true);
-            project2.setName(rtypes.rstring("proj2 name"));
-            project2.setDescription(rtypes.rstring("proj2 desc"));
-            ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
-                    true);
-            projLink2.setParent(project2);
+        ProjectI project2 = new ProjectI(123, true);
+        project2.setName(rtypes.rstring("proj2 name"));
+        project2.setDescription(rtypes.rstring("proj2 desc"));
+        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
+                true);
+        projLink2.setParent(project2);
 
-            DatasetI ds2 = new DatasetI(123, true);
-            ds2.setName(rtypes.rstring("ds2 name"));
-            ds2.setDescription(rtypes.rstring("ds2 desc"));
-            projLink2.setParent(project2);
-            ds2.addProjectDatasetLink(projLink2);
-            DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
-            dsLink2.setParent(ds2);
-            image.addDatasetImageLink(dsLink2);
+        DatasetI ds2 = new DatasetI(123, true);
+        ds2.setName(rtypes.rstring("ds2 name"));
+        ds2.setDescription(rtypes.rstring("ds2 desc"));
+        projLink2.setParent(project2);
+        ds2.addProjectDatasetLink(projLink2);
+        DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
+        dsLink2.setParent(ds2);
+        image.addDatasetImageLink(dsLink2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject multDsProjCorrect = stdCorrect.copy();
-            multDsProjCorrect.getJsonObject("meta").put("datasetName",
-                    "Multiple");
-            multDsProjCorrect.getJsonObject("meta").remove("datasetId");
-            multDsProjCorrect.getJsonObject("meta")
-                    .remove("datasetDescription");
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject multDsProjCorrect = stdCorrect.copy();
+        multDsProjCorrect.getJsonObject("meta").put("datasetName",
+                "Multiple");
+        multDsProjCorrect.getJsonObject("meta").remove("datasetId");
+        multDsProjCorrect.getJsonObject("meta")
+                .remove("datasetDescription");
 
-            multDsProjCorrect.getJsonObject("meta").put("projectName",
-                    "Multiple");
-            multDsProjCorrect.getJsonObject("meta").remove("projectId");
-            multDsProjCorrect.getJsonObject("meta")
-                    .remove("projectDescription");
-            Assert.assertEquals(basicObj, multDsProjCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        multDsProjCorrect.getJsonObject("meta").put("projectName",
+                "Multiple");
+        multDsProjCorrect.getJsonObject("meta").remove("projectId");
+        multDsProjCorrect.getJsonObject("meta")
+                .remove("projectDescription");
+        Assert.assertEquals(basicObj, multDsProjCorrect);
     }
 
     @Test
@@ -505,27 +478,22 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
-            resLvlDescs.add(Arrays.asList(512, 1024));
-            resLvlDescs.add(Arrays.asList(128, 256));
-            resLvlDescs.add(Arrays.asList(32, 64));
-            when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
+        resLvlDescs.add(Arrays.asList(512, 1024));
+        resLvlDescs.add(Arrays.asList(128, 256));
+        resLvlDescs.add(Arrays.asList(32, 64));
+        when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject zoomLvlsCorrect = stdCorrect.copy();
-            JsonObject zoomLvls = new JsonObject();
-            zoomLvls.put("0", 1.0);
-            zoomLvls.put("1", 0.25);
-            zoomLvls.put("2", 0.0625);
-            zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
-            Assert.assertEquals(basicObj, zoomLvlsCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject zoomLvlsCorrect = stdCorrect.copy();
+        JsonObject zoomLvls = new JsonObject();
+        zoomLvls.put("0", 1.0);
+        zoomLvls.put("1", 0.25);
+        zoomLvls.put("2", 0.0625);
+        zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
+        Assert.assertEquals(basicObj, zoomLvlsCorrect);
     }
 
     @Test
@@ -534,34 +502,28 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            when(rp.getByteWidth()).thenReturn(2);
+        when(pixelBuffer.getByteWidth()).thenReturn(2);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject pixRangeCorrect = stdCorrect.copy();
-            JsonArray pixRange = new JsonArray();
-            pixRange.add(0);
-            pixRange.add(65535); // 2^(8*2) - 1
-            pixRangeCorrect.put("pixel_range", pixRange);
-            Assert.assertEquals(basicObj, pixRangeCorrect);
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject pixRangeCorrect = stdCorrect.copy();
+        JsonArray pixRange = new JsonArray();
+        pixRange.add(0);
+        pixRange.add(65535); // 2^(8*2) - 1
+        pixRangeCorrect.put("pixel_range", pixRange);
+        Assert.assertEquals(basicObj, pixRangeCorrect);
 
-            when(rp.isSigned()).thenReturn(true);
-            basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
+        when(pixelBuffer.isSigned()).thenReturn(true);
+        basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
 
-            pixRange = new JsonArray();
-            pixRange.add(-32768);
-            pixRange.add(32767);
-            pixRangeCorrect.put("pixel_range", pixRange);
-            Assert.assertEquals(basicObj, pixRangeCorrect);
-
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        pixRange = new JsonArray();
+        pixRange.add(-32768);
+        pixRange.add(32767);
+        pixRangeCorrect.put("pixel_range", pixRange);
+        Assert.assertEquals(basicObj, pixRangeCorrect);
     }
 
     @Test
@@ -570,40 +532,34 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            List<Channel> channels = pixels.copyChannels();
-            channels.remove(2);
-            pixels.clearChannels();
-            pixels.addAllChannelSet(channels);
+        List<Channel> channels = pixels.copyChannels();
+        channels.remove(2);
+        pixels.clearChannels();
+        pixels.addAllChannelSet(channels);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject splitChannelCorrect = stdCorrect.copy();
-            JsonObject g = new JsonObject();
-            g.put("width", 1030);
-            g.put("height", 1028);
-            g.put("border", 2);
-            g.put("gridx", 2);
-            g.put("gridy", 1);
-            JsonObject c = new JsonObject();
-            c.put("width", 1030);
-            c.put("height", 2054);
-            c.put("border", 2);
-            c.put("gridx", 2);
-            c.put("gridy", 2);
-            JsonObject splitChannel = new JsonObject();
-            splitChannel.put("g", g);
-            splitChannel.put("c", c);
-            splitChannelCorrect.put("split_channel", splitChannel);
-            splitChannelCorrect.getJsonArray("channels").remove(2);
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject splitChannelCorrect = stdCorrect.copy();
+        JsonObject g = new JsonObject();
+        g.put("width", 1030);
+        g.put("height", 1028);
+        g.put("border", 2);
+        g.put("gridx", 2);
+        g.put("gridy", 1);
+        JsonObject c = new JsonObject();
+        c.put("width", 1030);
+        c.put("height", 2054);
+        c.put("border", 2);
+        c.put("gridx", 2);
+        c.put("gridy", 2);
+        JsonObject splitChannel = new JsonObject();
+        splitChannel.put("g", g);
+        splitChannel.put("c", c);
+        splitChannelCorrect.put("split_channel", splitChannel);
+        splitChannelCorrect.getJsonArray("channels").remove(2);
 
-            Assert.assertEquals(basicObj, splitChannelCorrect);
-
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        Assert.assertEquals(basicObj, splitChannelCorrect);
     }
 
     @Test
@@ -612,27 +568,22 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
-            List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
-            ctxList.add(reverseIntensityCtx);
-            CodomainChain cc = mock(CodomainChain.class);
-            when(cc.getContexts()).thenReturn(ctxList);
-            when(renderer.getCodomainChain(0)).thenReturn(cc);
+        ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
+        List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
+        ctxList.add(reverseIntensityCtx);
+        CodomainChain cc = mock(CodomainChain.class);
+        when(cc.getContexts()).thenReturn(ctxList);
+        when(renderer.getCodomainChain(0)).thenReturn(cc);
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject invertedCorrect = stdCorrect.copy();
-            JsonObject channel = invertedCorrect.getJsonArray("channels")
-                    .getJsonObject(0);
-            channel.put("inverted", true);
-            channel.put("reverseIntensity", true);
-            Assert.assertEquals(basicObj, invertedCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject invertedCorrect = stdCorrect.copy();
+        JsonObject channel = invertedCorrect.getJsonArray("channels")
+                .getJsonObject(0);
+        channel.put("inverted", true);
+        channel.put("reverseIntensity", true);
+        Assert.assertEquals(basicObj, invertedCorrect);
     }
 
     @Test
@@ -641,25 +592,19 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
+        pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
-            pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
-            pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
-            pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
-
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject pixelSizeCorrect = stdCorrect.copy();
-            JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
-            pixSize.put("x", 3000.0);
-            pixSize.put("y", 40000.0);
-            pixSize.put("z", 0.005);
-            Assert.assertEquals(basicObj, pixelSizeCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject pixelSizeCorrect = stdCorrect.copy();
+        JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
+        pixSize.put("x", 3000.0);
+        pixSize.put("y", 40000.0);
+        pixSize.put("z", 0.005);
+        Assert.assertEquals(basicObj, pixelSizeCorrect);
     }
 
     @Test
@@ -668,19 +613,14 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        try {
-            image.setAcquisitionDate(rtypes.rtime(22222222));
+        image.setAcquisitionDate(rtypes.rtime(22222222));
 
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
-                    rp, renderer, rdef);
-            JsonObject timestampCorrect = stdCorrect.copy();
-            timestampCorrect.getJsonObject("meta").put("imageTimestamp",
-                    22222);
-            Assert.assertEquals(basicObj, timestampCorrect);
-        } catch (ServerError e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject timestampCorrect = stdCorrect.copy();
+        timestampCorrect.getJsonObject("meta").put("imageTimestamp",
+                22222);
+        Assert.assertEquals(basicObj, timestampCorrect);
     }
 }
