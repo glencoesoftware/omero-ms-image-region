@@ -132,8 +132,8 @@ public class ImageDataRequestHandlerTest {
     public static int PIXELS_SIZE_C = 3;
     public static int PIXELS_SIZE_T = 1;
 
-    public static double PIX_SIZE_X = 1.0;
-    public static double PIX_SIZE_Y = 2.0;
+    public static double PHYSICAL_SIZE_X = 1.0;
+    public static double PHYSICAL_SIZE_Y = 2.0;
 
     public static int PIX_RANGE_START = 0;
     public static int PIX_RANGE_END = 255;
@@ -155,10 +155,10 @@ public class ImageDataRequestHandlerTest {
     public static String CH1_FAMILY = "linear";
     public static boolean CH1_INVERTED = false;
     public static String CH1_LABEL = "channel name 1";
-    public static int CH1_WINDOW_START = 0;
-    public static int CH1_WINDOW_END = 30;
-    public static int CH1_WINDOW_MIN = -10;
-    public static int CH1_WINDOW_MAX = 10;
+    public static double CH1_WINDOW_START = 0;
+    public static double CH1_WINDOW_END = 30;
+    public static double CH1_WINDOW_MIN = -10;
+    public static double CH1_WINDOW_MAX = 10;
 
     public static boolean CH2_ACTIVE = true;
     public static double CH2_COEFFICIENT = 1.2;
@@ -166,10 +166,10 @@ public class ImageDataRequestHandlerTest {
     public static String CH2_FAMILY = "linear";
     public static boolean CH2_INVERTED = false;
     public static String CH2_LABEL = "channel name 2";
-    public static int CH2_WINDOW_START = 0;
-    public static int CH2_WINDOW_END = 31;
-    public static int CH2_WINDOW_MIN = -20;
-    public static int CH2_WINDOW_MAX = 20;
+    public static double CH2_WINDOW_START = 0;
+    public static double CH2_WINDOW_END = 31;
+    public static double CH2_WINDOW_MIN = -20;
+    public static double CH2_WINDOW_MAX = 20;
 
 
     public static boolean CH3_ACTIVE = true;
@@ -178,10 +178,10 @@ public class ImageDataRequestHandlerTest {
     public static String CH3_FAMILY = "linear";
     public static boolean CH3_INVERTED = false;
     public static String CH3_LABEL = "channel name 3";
-    public static int CH3_WINDOW_START = 0;
-    public static int CH3_WINDOW_END = 32;
-    public static int CH3_WINDOW_MIN = -30;
-    public static int CH3_WINDOW_MAX = 30;
+    public static double CH3_WINDOW_START = 0;
+    public static double CH3_WINDOW_END = 32;
+    public static double CH3_WINDOW_MIN = -30;
+    public static double CH3_WINDOW_MAX = 30;
 
     public static int SPLIT_CH_C_BORDER = 2;
     public static int SPLIT_CH_C_GRIDX = 2;
@@ -283,8 +283,8 @@ public class ImageDataRequestHandlerTest {
 
     public JsonObject getImageDataPixelSizeTest() {
         JsonObject pixelSize = new JsonObject();
-        pixelSize.put("x", PIX_SIZE_X);
-        pixelSize.put("y", PIX_SIZE_Y);
+        pixelSize.put("x", PHYSICAL_SIZE_X);
+        pixelSize.put("y", PHYSICAL_SIZE_Y);
         return pixelSize;
     }
 
@@ -396,7 +396,7 @@ public class ImageDataRequestHandlerTest {
         setupStdJson();
 
         creationEvent = new EventI();
-        creationEvent.setTime(rtypes.rtime(12345678l));
+        creationEvent.setTime(rtypes.rtime(IMAGE_TIMESTAMP*1000));
         owner = new ExperimenterI();
         owner.setFirstName(rtypes.rstring(OWNER_FIRST_NAME));
         owner.setLastName(rtypes.rstring(OWNER_LAST_NAME));
@@ -424,8 +424,8 @@ public class ImageDataRequestHandlerTest {
         PixelsTypeI pixType = new PixelsTypeI();
         pixType.setValue(rtypes.rstring(PIX_TYPE_STR));
         pixels.setPixelsType(pixType);
-        pixels.setPhysicalSizeX(new LengthI(1.0, UnitsLength.MICROMETER));
-        pixels.setPhysicalSizeY(new LengthI(2.0, UnitsLength.MICROMETER));
+        pixels.setPhysicalSizeX(new LengthI(PHYSICAL_SIZE_X, UnitsLength.MICROMETER));
+        pixels.setPhysicalSizeY(new LengthI(PHYSICAL_SIZE_Y, UnitsLength.MICROMETER));
         pixels.setSizeX(rtypes.rint(PIXELS_SIZE_X));
         pixels.setSizeY(rtypes.rint(PIXELS_SIZE_Y));
 
@@ -437,8 +437,8 @@ public class ImageDataRequestHandlerTest {
         logCh1.setName(rtypes.rstring(CH1_LABEL));
         channel1.setLogicalChannel(logCh1);
         StatsInfoI statsInfo1 = new StatsInfoI();
-        statsInfo1.setGlobalMin(rtypes.rdouble(-10.0));
-        statsInfo1.setGlobalMax(rtypes.rdouble(10.0));
+        statsInfo1.setGlobalMin(rtypes.rdouble(CH1_WINDOW_MIN));
+        statsInfo1.setGlobalMax(rtypes.rdouble(CH1_WINDOW_MAX));
         channel1.setStatsInfo(statsInfo1);
 
         ChannelI channel2 = new ChannelI();
@@ -449,8 +449,8 @@ public class ImageDataRequestHandlerTest {
         logCh2.setName(rtypes.rstring(CH2_LABEL));
         channel2.setLogicalChannel(logCh2);
         StatsInfoI statsInfo2 = new StatsInfoI();
-        statsInfo2.setGlobalMin(rtypes.rdouble(-20.0));
-        statsInfo2.setGlobalMax(rtypes.rdouble(20.0));
+        statsInfo2.setGlobalMin(rtypes.rdouble(CH2_WINDOW_MIN));
+        statsInfo2.setGlobalMax(rtypes.rdouble(CH2_WINDOW_MAX));
         channel2.setStatsInfo(statsInfo2);
 
         ChannelI channel3 = new ChannelI();
@@ -461,8 +461,8 @@ public class ImageDataRequestHandlerTest {
         logCh3.setName(rtypes.rstring(CH3_LABEL));
         channel3.setLogicalChannel(logCh3);
         StatsInfoI statsInfo3 = new StatsInfoI();
-        statsInfo3.setGlobalMin(rtypes.rdouble(-30.0));
-        statsInfo3.setGlobalMax(rtypes.rdouble(30.0));
+        statsInfo3.setGlobalMin(rtypes.rdouble(CH3_WINDOW_MIN));
+        statsInfo3.setGlobalMax(rtypes.rdouble(CH3_WINDOW_MAX));
         channel3.setStatsInfo(statsInfo3);
 
         pixels.addChannel(channel1);
@@ -487,42 +487,50 @@ public class ImageDataRequestHandlerTest {
 
         renderer = mock(Renderer.class);
         List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
-        resLvlDescs.add(Arrays.asList(512, 1024));
-        resLvlDescs.add(Arrays.asList(256, 512));
-        resLvlDescs.add(Arrays.asList(128, 256));
-        resLvlDescs.add(Arrays.asList(64, 128));
-        resLvlDescs.add(Arrays.asList(32, 64));
+        resLvlDescs.add(Arrays.asList(PIXELS_SIZE_X, PIXELS_SIZE_Y));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_1)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_1))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_2)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_2))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_3)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_3))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_4)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_4))));
         when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
         ChannelBinding cb1 = new ChannelBinding();
         cb1.setFamily(new Family(Family.VALUE_LINEAR));
-        cb1.setCoefficient(1.1);
-        cb1.setActive(true);
-        cb1.setInputStart(0.0);
-        cb1.setInputEnd(30.0);
+        cb1.setCoefficient(CH1_COEFFICIENT);
+        cb1.setActive(CH1_ACTIVE);
+        cb1.setInputStart(CH1_WINDOW_START);
+        cb1.setInputEnd(CH1_WINDOW_END);
 
         ChannelBinding cb2 = new ChannelBinding();
         cb2.setFamily(new Family(Family.VALUE_LINEAR));
-        cb2.setCoefficient(1.2);
-        cb2.setActive(true);
-        cb2.setInputStart(0.0);
-        cb2.setInputEnd(31.0);
+        cb2.setCoefficient(CH2_COEFFICIENT);
+        cb2.setActive(CH2_ACTIVE);
+        cb2.setInputStart(CH2_WINDOW_START);
+        cb2.setInputEnd(CH2_WINDOW_END);
 
         ChannelBinding cb3 = new ChannelBinding();
         cb3.setFamily(new Family(Family.VALUE_LINEAR));
-        cb3.setCoefficient(1.3);
-        cb3.setActive(true);
-        cb3.setInputStart(0.0);
-        cb3.setInputEnd(32.0);
+        cb3.setCoefficient(CH3_COEFFICIENT);
+        cb3.setActive(CH3_ACTIVE);
+        cb3.setInputStart(CH3_WINDOW_START);
+        cb3.setInputEnd(CH3_WINDOW_END);
 
         ChannelBinding[] cbs = new ChannelBinding[] { cb1, cb2, cb3 };
         when(renderer.getChannelBindings()).thenReturn(cbs);
-        when(renderer.getPixelsTypeLowerBound(0)).thenReturn(0.0);
-        when(renderer.getPixelsTypeLowerBound(1)).thenReturn(1.0);
-        when(renderer.getPixelsTypeLowerBound(2)).thenReturn(2.0);
-        when(renderer.getPixelsTypeUpperBound(0)).thenReturn(0.0);
-        when(renderer.getPixelsTypeUpperBound(1)).thenReturn(1.0);
-        when(renderer.getPixelsTypeUpperBound(2)).thenReturn(2.0);
+        when(renderer.getPixelsTypeLowerBound(0)).thenReturn(CH1_WINDOW_MIN);
+        when(renderer.getPixelsTypeLowerBound(1)).thenReturn(CH2_WINDOW_MIN);
+        when(renderer.getPixelsTypeLowerBound(2)).thenReturn(CH3_WINDOW_MIN);
+        when(renderer.getPixelsTypeUpperBound(0)).thenReturn(CH1_WINDOW_MAX);
+        when(renderer.getPixelsTypeUpperBound(1)).thenReturn(CH2_WINDOW_MAX);
+        when(renderer.getPixelsTypeUpperBound(2)).thenReturn(CH3_WINDOW_MAX);
 
         CodomainChain cc = new CodomainChain(0, 1);
         when(renderer.getCodomainChain(0)).thenReturn(cc);
@@ -530,8 +538,8 @@ public class ImageDataRequestHandlerTest {
         when(renderer.getCodomainChain(2)).thenReturn(cc);
 
         rdef = new RenderingDef();
-        rdef.setDefaultT(0);
-        rdef.setDefaultZ(1);
+        rdef.setDefaultT(DEFAULT_T);
+        rdef.setDefaultZ(DEFAULT_Z);
         RenderingModel model = new RenderingModel(RenderingModel.VALUE_RGB);
         rdef.setModel(model);
 
@@ -556,8 +564,6 @@ public class ImageDataRequestHandlerTest {
             JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                     creationEvent, owner, wellSample, permissions, pixelBuffer,
                     renderer, rdef);
-            System.out.println(imgData.toString());
-            System.out.println(basicObj.toString());
             Assert.assertEquals(basicObj, imgData);
     }
 
@@ -567,11 +573,10 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        ProjectI project2 = new ProjectI(123, true);
+        ProjectI project2 = new ProjectI();
         project2.setName(rtypes.rstring("proj2 name"));
         project2.setDescription(rtypes.rstring("proj2 desc"));
-        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
-                true);
+        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
         projLink2.setParent(project2);
         image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
 
@@ -592,7 +597,7 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-        DatasetI ds2 = new DatasetI(123, true);
+        DatasetI ds2 = new DatasetI();
         ds2.setName(rtypes.rstring("ds2 name"));
         ds2.setDescription(rtypes.rstring("ds2 desc"));
         ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
