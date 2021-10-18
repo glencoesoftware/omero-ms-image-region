@@ -508,10 +508,6 @@ public class ImageDataRequestHandler {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
             span.tag("omero.image_id", imageId.toString());
-            // Query pulled from ome.logic.PixelsImpl and expanded to include
-            // our required Image / Plate metadata; loading both sides of the
-            // Image <--> WellSample <--> Well collection so that we can
-            // resolve our field index.
             ParametersI params = new ParametersI();
             params.addId(imageId);
             ImageI image = (ImageI) iQuery
@@ -680,10 +676,6 @@ public class ImageDataRequestHandler {
             Map<String, String> ctx = new HashMap<String, String>();
             ctx.put("omero.group", "-1");
             span.tag("omero.image_ids", imageIds.toString());
-            // Query pulled from ome.logic.PixelsImpl and expanded to include
-            // our required Image / Plate metadata; loading both sides of the
-            // Image <--> WellSample <--> Well collection so that we can
-            // resolve our field index.
             ParametersI params = new ParametersI();
             params.addIds(imageIds);
             List<IObject> pixelsList = iQuery.findAllByQuery(

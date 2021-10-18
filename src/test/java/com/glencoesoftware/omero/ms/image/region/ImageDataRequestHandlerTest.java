@@ -21,6 +21,11 @@ package com.glencoesoftware.omero.ms.image.region;
 import static org.mockito.Mockito.*;
 
 import java.awt.Dimension;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -124,95 +129,11 @@ public class ImageDataRequestHandlerTest {
 
     public static double NOMINAL_MAGNIFICATION = 123.456;
 
-    JsonObject stdCorrect = new JsonObject("{" + "    \"id\": "
-            + Long.toString(IMAGE_ID) + "," + "    \"meta\": {\n"
-            + "        \"imageName\": \"" + IMAGE_NAME + "\","
-            + "        \"imageDescription\": \"" + IMAGE_DESC + "\","
-            + "        \"imageAuthor\": \"" + OWNER_FIRST_NAME + " "
-            + OWNER_LAST_NAME + "\"," + "        \"imageAuthorId\":" + OWNER_ID
-            + "," + "        \"projectName\": \"" + PROJECT_NAME_1 + "\","
-            + "        \"projectId\": " + Long.toString(PROJECT_ID_1) + ","
-            + "        \"projectDescription\": \"" + PROJECT_DESC_1 + "\","
-            + "        \"datasetName\": \"" + DATASET_NAME_1 + "\","
-            + "        \"datasetId\": " + Long.toString(DATASET_ID_1) + ","
-            + "        \"datasetDescription\": \"" + DATASET_DESC_1 + "\","
-            + "        \"wellSampleId\": " + Long.toString(WELL_SAMPLE_ID)
-            + ",\n" + "        \"wellId\": " + Long.toString(WELL_ID) + ",\n"
-            + "        \"imageTimestamp\": 12345,\n" + "        \"imageId\": "
-            + Long.toString(IMAGE_ID) + ",\n" + "        \"pixelsType\": \""
-            + PIX_TYPE_STR + "\"" + "    },\n" + "    \"perms\": {\n"
-            + "        \"canAnnotate\": true,\n"
-            + "        \"canEdit\": true,\n" + "        \"canDelete\": true,\n"
-            + "        \"canLink\": true\n" + "    },\n"
-            + "    \"tiles\": true,\n" + "    \"tile_size\": {\n"
-            + "        \"width\": " + TILE_WIDTH + ",\n"
-            + "        \"height\": " + TILE_HEIGHT + "\n" + "    },\n"
-            + "    \"levels\": 5,\n" + "    \"zoomLevelScaling\": {\n"
-            + "        \"0\": 1.0,\n" + "        \"1\": 0.5,\n"
-            + "        \"2\": 0.25,\n" + "        \"3\": 0.125,\n"
-            + "        \"4\": 0.0625\n" + "    },\n"
-            + "    \"interpolate\": true,\n" + "    \"size\": {\n"
-            + "        \"width\": 512,\n" + "        \"height\": 1024,\n"
-            + "        \"z\": 1,\n" + "        \"t\": 1,\n"
-            + "        \"c\": 3\n" + "    },\n" + "    \"pixel_size\": {\n"
-            + "        \"x\": 1.0,\n" + "        \"y\": 2.0},\n"
-            + "    \"init_zoom\": 0,\n"
-            + "    \"nominalMagnification\": "
-            + Double.toString(NOMINAL_MAGNIFICATION) + ",\n"
-            + "    \"pixel_range\": [\n" + "        0,\n" + "        255\n"
-            + "    ],\n" + "    \"channels\": [\n" + "        {\n"
-            + "            \"label\": \"" + CHANNEL_NAME_1 + "\",\n"
-            + "            \"color\": \"FF0000\",\n"
-            + "            \"inverted\": false,\n"
-            + "            \"reverseIntensity\": false,\n"
-            + "            \"family\": \"linear\",\n"
-            + "            \"coefficient\": 1.1,\n"
-            + "            \"window\": {\n"
-            + "                \"min\": -10.0,\n"
-            + "                \"max\": 10.0,\n"
-            + "                \"start\": 0.0,\n"
-            + "                \"end\": 30.0\n" + "            },\n"
-            + "            \"active\": true\n" + "        },\n" + "        {\n"
-            + "            \"label\": \"" + CHANNEL_NAME_2 + "\",\n"
-            + "            \"color\": \"00FF00\",\n"
-            + "            \"inverted\": false,\n"
-            + "            \"reverseIntensity\": false,\n"
-            + "            \"family\": \"linear\",\n"
-            + "            \"coefficient\": 1.2,\n"
-            + "            \"window\": {\n"
-            + "                \"min\": -20.0,\n"
-            + "                \"max\": 20.0,\n"
-            + "                \"start\": 0.0,\n"
-            + "                \"end\": 31.0\n" + "            },\n"
-            + "            \"active\": true\n" + "        },\n" + "        {\n"
-            + "            \"label\": \"" + CHANNEL_NAME_3 + "\",\n"
-            + "            \"color\": \"0000FF\",\n"
-            + "            \"inverted\": false,\n"
-            + "            \"reverseIntensity\": false,\n"
-            + "            \"family\": \"linear\",\n"
-            + "            \"coefficient\": 1.3,\n"
-            + "            \"window\": {\n"
-            + "                \"min\": -30.0,\n"
-            + "                \"max\": 30.0,\n"
-            + "                \"start\": 0.0,\n"
-            + "                \"end\": 32.0\n" + "            },\n"
-            + "            \"active\": true\n" + "        }\n" + "    ],\n"
-            + "    \"split_channel\": {\n" + "        \"g\": {\n"
-            + "            \"width\": 1030,\n"
-            + "            \"height\": 2054,\n"
-            + "            \"border\": 2,\n" + "            \"gridx\": 2,\n"
-            + "            \"gridy\": 2\n" + "        },\n"
-            + "        \"c\": {\n" + "            \"width\": 1030,\n"
-            + "            \"height\": 2054,\n"
-            + "            \"border\": 2,\n" + "            \"gridx\": 2,\n"
-            + "            \"gridy\": 2\n" + "        }\n" + "    },\n"
-            + "    \"rdefs\": {\n" + "        \"model\": \"color\",\n"
-            + "        \"projection\": \"normal\",\n"
-            + "        \"defaultZ\": 1,\n" + "        \"defaultT\": 0,\n"
-            + "        \"invertAxis\": false\n" + "    }\n" + "}");
+    JsonObject stdCorrect;
 
     @Before
-    public void setup() {
+    public void setup() throws IOException {
+        stdCorrect = new JsonObject(new String(Files.readAllBytes(Paths.get("./testImageData.json")), StandardCharsets.UTF_8));
 
         creationEvent = new EventI();
         creationEvent.setTime(rtypes.rtime(12345678l));
@@ -400,8 +321,6 @@ public class ImageDataRequestHandlerTest {
                 "Multiple");
         multProjCorrect.getJsonObject("meta").remove("projectId");
         multProjCorrect.getJsonObject("meta").remove("projectDescription");
-        System.out.println(basicObj.toString());
-        System.out.println(multProjCorrect.toString());
         Assert.assertEquals(basicObj, multProjCorrect);
     }
 
