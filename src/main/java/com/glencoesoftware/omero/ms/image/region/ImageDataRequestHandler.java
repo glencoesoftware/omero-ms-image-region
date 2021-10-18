@@ -129,10 +129,6 @@ public class ImageDataRequestHandler {
             Details details = image.getDetails();
             Experimenter owner = details.getOwner();
 
-            log.info(image.toString());
-            JsonObject imgData = new JsonObject();
-            imgData.put("id", imageId);
-
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
@@ -203,9 +199,6 @@ public class ImageDataRequestHandler {
             imgData.put("zoomLevelScaling",
                     getImageDataZoomLevelScaling(renderer));
         }
-
-        pixels.getPixelsType().getValue().getValue().startsWith("u");
-
 
         imgData.put("pixel_range", getImageDataPixelRange(pixelBuffer));
 

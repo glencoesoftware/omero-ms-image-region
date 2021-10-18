@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import static omero.rtypes.unwrap;
 import static org.mockito.Mockito.*;
 
 import java.awt.Dimension;
@@ -93,6 +94,7 @@ public class ImageDataRequestHandlerTest {
     public static long IMAGE_ID = 1l;
     public static String IMAGE_NAME = "test name";
     public static String IMAGE_DESC = "test image description";
+    public static long IMAGE_TIMESTAMP = 12345l;
 
     public static long DATASET_LINK_ID_1 = 10l;
 
@@ -109,11 +111,19 @@ public class ImageDataRequestHandlerTest {
     public static long PIXELS_ID = 12l;
     public static String PIX_TYPE_STR = "uint8";
 
-    public static String CHANNEL_NAME_1 = "channel name 1";
-    public static String CHANNEL_NAME_2 = "channel name 2";
-    public static String CHANNEL_NAME_3 = "channel name 3";
+    public static boolean CAN_ANNOTATE = true;
+    public static boolean CAN_DELETE = true;
+    public static boolean CAN_EDIT = true;
+    public static boolean CAN_LINK = true;
 
+    public static boolean TILES_BOOL = true;
     public static Integer RES_LVL_COUNT = 5;
+    public static double ZOOM_LVL_0 = 1;
+    public static double ZOOM_LVL_1 = 0.5;
+    public static double ZOOM_LVL_2 = 0.25;
+    public static double ZOOM_LVL_3 = 0.125;
+    public static double ZOOM_LVL_4 = 0.0625;
+
     public static Integer TILE_WIDTH = 256;
     public static Integer TILE_HEIGHT = 512;
     public static int PIXELS_SIZE_X = 512;
@@ -122,6 +132,15 @@ public class ImageDataRequestHandlerTest {
     public static int PIXELS_SIZE_C = 3;
     public static int PIXELS_SIZE_T = 1;
 
+    public static double PIX_SIZE_X = 1.0;
+    public static double PIX_SIZE_Y = 2.0;
+
+    public static int PIX_RANGE_START = 0;
+    public static int PIX_RANGE_END = 255;
+
+    public static boolean INTERPOLATE_BOOL = true;
+    public static int INIT_ZOOM = 0;
+
     public static int BYTE_WIDTH = 1;
 
     public static long WELL_SAMPLE_ID = 2l;
@@ -129,11 +148,252 @@ public class ImageDataRequestHandlerTest {
 
     public static double NOMINAL_MAGNIFICATION = 123.456;
 
-    JsonObject stdCorrect;
+
+    public static boolean CH1_ACTIVE = true;
+    public static double CH1_COEFFICIENT = 1.1;
+    public static String CH1_COLOR = "FF0000";
+    public static String CH1_FAMILY = "linear";
+    public static boolean CH1_INVERTED = false;
+    public static String CH1_LABEL = "channel name 1";
+    public static int CH1_WINDOW_START = 0;
+    public static int CH1_WINDOW_END = 30;
+    public static int CH1_WINDOW_MIN = -10;
+    public static int CH1_WINDOW_MAX = 10;
+
+    public static boolean CH2_ACTIVE = true;
+    public static double CH2_COEFFICIENT = 1.2;
+    public static String CH2_COLOR = "00FF00";
+    public static String CH2_FAMILY = "linear";
+    public static boolean CH2_INVERTED = false;
+    public static String CH2_LABEL = "channel name 2";
+    public static int CH2_WINDOW_START = 0;
+    public static int CH2_WINDOW_END = 31;
+    public static int CH2_WINDOW_MIN = -20;
+    public static int CH2_WINDOW_MAX = 20;
+
+
+    public static boolean CH3_ACTIVE = true;
+    public static double CH3_COEFFICIENT = 1.3;
+    public static String CH3_COLOR = "0000FF";
+    public static String CH3_FAMILY = "linear";
+    public static boolean CH3_INVERTED = false;
+    public static String CH3_LABEL = "channel name 3";
+    public static int CH3_WINDOW_START = 0;
+    public static int CH3_WINDOW_END = 32;
+    public static int CH3_WINDOW_MIN = -30;
+    public static int CH3_WINDOW_MAX = 30;
+
+    public static int SPLIT_CH_C_BORDER = 2;
+    public static int SPLIT_CH_C_GRIDX = 2;
+    public static int SPLIT_CH_C_GRIDY = 2;
+    public static int SPLIT_CH_C_HEIGHT = 2054;
+    public static int SPLIT_CH_C_WIDTH = 1030;
+
+    public static int SPLIT_CH_G_BORDER = 2;
+    public static int SPLIT_CH_G_GRIDX = 2;
+    public static int SPLIT_CH_G_GRIDY = 2;
+    public static int SPLIT_CH_G_HEIGHT = 2054;
+    public static int SPLIT_CH_G_WIDTH = 1030;
+
+    public static int DEFAULT_T = 0;
+    public static int DEFAULT_Z = 1;
+    public static boolean INVERT_AXIS = false;
+    public static String MODEL = "color";
+    public static String PROJECTION = "normal";
+
+    JsonObject imgData;
+
+    public void setupStdJson() {
+        imgData = new JsonObject();
+        imgData.put("id", IMAGE_ID);
+        imgData.put("meta", getImageDataMetaTest());
+        imgData.put("nominalMagnification", NOMINAL_MAGNIFICATION);
+
+        imgData.put("perms", getImageDataPermsTest());
+
+        imgData.put("tiles", TILES_BOOL);
+        imgData.put("tile_size", getImageDataTileSizeTest());
+        imgData.put("levels", RES_LVL_COUNT);
+
+        imgData.put("interpolate", INTERPOLATE_BOOL);
+
+        imgData.put("size", getImageDataSizeTest());
+
+        imgData.put("pixel_size", getImageDataPixelSizeTest());
+
+        imgData.put("init_zoom", INIT_ZOOM);
+
+        imgData.put("zoomLevelScaling",
+                getImageDataZoomLevelScalingTest());
+
+        imgData.put("pixel_range", getImageDataPixelRangeTest());
+
+        imgData.put("channels", getImageDataChannelsTest());
+
+        imgData.put("split_channel", getImageDataSplitChannelTest());
+
+        imgData.put("rdefs", getImageDataRdefTest());
+    }
+
+    public JsonObject getImageDataMetaTest() {
+        JsonObject meta = new JsonObject();
+        meta.put("datasetDescription", DATASET_DESC_1);
+        meta.put("datasetId", DATASET_ID_1);
+        meta.put("datasetName", DATASET_NAME_1);
+        meta.put("imageAuthor", OWNER_FIRST_NAME + " " + OWNER_LAST_NAME);
+        meta.put("imageAuthorId", OWNER_ID);
+        meta.put("imageDescription", IMAGE_DESC);
+        meta.put("imageId", IMAGE_ID);
+        meta.put("imageName", IMAGE_NAME);
+        meta.put("imageTimestamp", IMAGE_TIMESTAMP);
+        meta.put("pixelsType", PIX_TYPE_STR);
+        meta.put("projectDescription", PROJECT_DESC_1);
+        meta.put("projectId", PROJECT_ID_1);
+        meta.put("projectName", PROJECT_NAME_1);
+        meta.put("wellId", WELL_ID);
+        meta.put("wellSampleId", WELL_SAMPLE_ID);
+        return meta;
+    }
+
+    public JsonObject getImageDataPermsTest() {
+        JsonObject perms = new JsonObject();
+        perms.put("canAnnotate", CAN_ANNOTATE);
+        perms.put("canDelete", CAN_DELETE);
+        perms.put("canEdit", CAN_EDIT);
+        perms.put("canLink", CAN_LINK);
+        return perms;
+    }
+
+    public JsonObject getImageDataTileSizeTest() {
+        JsonObject tileSize = new JsonObject();
+        tileSize.put("height", TILE_HEIGHT);
+        tileSize.put("width", TILE_WIDTH);
+        return tileSize;
+    }
+
+    public JsonObject getImageDataSizeTest() {
+        JsonObject size = new JsonObject();
+        size.put("c", PIXELS_SIZE_C);
+        size.put("height", PIXELS_SIZE_Y);
+        size.put("t", PIXELS_SIZE_T);
+        size.put("width", PIXELS_SIZE_X);
+        size.put("z", PIXELS_SIZE_Z);
+        return size;
+    }
+
+    public JsonObject getImageDataPixelSizeTest() {
+        JsonObject pixelSize = new JsonObject();
+        pixelSize.put("x", PIX_SIZE_X);
+        pixelSize.put("y", PIX_SIZE_Y);
+        return pixelSize;
+    }
+
+    public JsonObject getImageDataZoomLevelScalingTest() {
+        JsonObject zoomLvlScaling = new JsonObject();
+        zoomLvlScaling.put("0", ZOOM_LVL_0);
+        zoomLvlScaling.put("1", ZOOM_LVL_1);
+        zoomLvlScaling.put("2", ZOOM_LVL_2);
+        zoomLvlScaling.put("3", ZOOM_LVL_3);
+        zoomLvlScaling.put("4", ZOOM_LVL_4);
+        return zoomLvlScaling;
+    }
+
+    public JsonArray getImageDataPixelRangeTest() {
+        JsonArray pixelRange = new JsonArray();
+        pixelRange.add(PIX_RANGE_START);
+        pixelRange.add(PIX_RANGE_END);
+        return pixelRange;
+    }
+
+    public JsonArray getImageDataChannelsTest() {
+        JsonArray channels = new JsonArray();
+        JsonObject ch1 = new JsonObject();
+        ch1.put("active", CH1_ACTIVE);
+        ch1.put("coefficient", CH1_COEFFICIENT);
+        ch1.put("color", CH1_COLOR);
+        ch1.put("family", CH1_FAMILY);
+        ch1.put("inverted", CH1_INVERTED);
+        ch1.put("reverseIntensity", CH1_INVERTED);
+        ch1.put("label", CH1_LABEL);
+        JsonObject ch1Window = new JsonObject();
+        ch1Window.put("start", CH1_WINDOW_START);
+        ch1Window.put("end", CH1_WINDOW_END);
+        ch1Window.put("min", CH1_WINDOW_MIN);
+        ch1Window.put("max", CH1_WINDOW_MAX);
+        ch1.put("window", ch1Window);
+
+        JsonObject ch2 = new JsonObject();
+        ch2.put("active", CH2_ACTIVE);
+        ch2.put("coefficient", CH2_COEFFICIENT);
+        ch2.put("color", CH2_COLOR);
+        ch2.put("family", CH2_FAMILY);
+        ch2.put("inverted", CH2_INVERTED);
+        ch2.put("reverseIntensity", CH2_INVERTED);
+        ch2.put("label", CH2_LABEL);
+        JsonObject ch2Window = new JsonObject();
+        ch2Window.put("start", CH2_WINDOW_START);
+        ch2Window.put("end", CH2_WINDOW_END);
+        ch2Window.put("min", CH2_WINDOW_MIN);
+        ch2Window.put("max", CH2_WINDOW_MAX);
+        ch2.put("window", ch2Window);
+
+        JsonObject ch3 = new JsonObject();
+        ch3.put("active", CH3_ACTIVE);
+        ch3.put("coefficient", CH3_COEFFICIENT);
+        ch3.put("color", CH3_COLOR);
+        ch3.put("family", CH3_FAMILY);
+        ch3.put("inverted", CH3_INVERTED);
+        ch3.put("reverseIntensity", CH3_INVERTED);
+        ch3.put("label", CH3_LABEL);
+        JsonObject ch3Window = new JsonObject();
+        ch3Window.put("start", CH3_WINDOW_START);
+        ch3Window.put("end", CH3_WINDOW_END);
+        ch3Window.put("min", CH3_WINDOW_MIN);
+        ch3Window.put("max", CH3_WINDOW_MAX);
+        ch3.put("window", ch3Window);
+
+        channels.add(ch1);
+        channels.add(ch2);
+        channels.add(ch3);
+
+        return channels;
+    }
+
+    public JsonObject getImageDataSplitChannelTest() {
+        JsonObject splitChannel = new JsonObject();
+        JsonObject c = new JsonObject();
+        c.put("border", SPLIT_CH_C_BORDER);
+        c.put("gridx", SPLIT_CH_C_GRIDX);
+        c.put("gridy", SPLIT_CH_C_GRIDY);
+        c.put("height", SPLIT_CH_C_HEIGHT);
+        c.put("width", SPLIT_CH_C_WIDTH);
+
+        JsonObject g = new JsonObject();
+        g.put("border", SPLIT_CH_G_BORDER);
+        g.put("gridx", SPLIT_CH_G_GRIDX);
+        g.put("gridy", SPLIT_CH_G_GRIDY);
+        g.put("height", SPLIT_CH_G_HEIGHT);
+        g.put("width", SPLIT_CH_G_WIDTH);
+
+        splitChannel.put("c", c);
+        splitChannel.put("g", g);
+        return splitChannel;
+    }
+
+    public JsonObject getImageDataRdefTest() {
+        JsonObject rdef = new JsonObject();
+        rdef.put("defaultT", DEFAULT_T);
+        rdef.put("defaultZ", DEFAULT_Z);
+        rdef.put("invertAxis", INVERT_AXIS);
+        rdef.put("model", MODEL);
+        rdef.put("projection", PROJECTION);
+        return rdef;
+    }
 
     @Before
     public void setup() throws IOException {
-        stdCorrect = new JsonObject(new String(Files.readAllBytes(Paths.get("./testImageData.json")), StandardCharsets.UTF_8));
+        //imgData = new JsonObject(new String(Files.readAllBytes(Paths.get("./testImageData.json")), StandardCharsets.UTF_8));
+        setupStdJson();
 
         creationEvent = new EventI();
         creationEvent.setTime(rtypes.rtime(12345678l));
@@ -174,7 +434,7 @@ public class ImageDataRequestHandlerTest {
         channel1.setGreen(rtypes.rint(0));
         channel1.setBlue(rtypes.rint(0));
         LogicalChannelI logCh1 = new LogicalChannelI();
-        logCh1.setName(rtypes.rstring(CHANNEL_NAME_1));
+        logCh1.setName(rtypes.rstring(CH1_LABEL));
         channel1.setLogicalChannel(logCh1);
         StatsInfoI statsInfo1 = new StatsInfoI();
         statsInfo1.setGlobalMin(rtypes.rdouble(-10.0));
@@ -186,7 +446,7 @@ public class ImageDataRequestHandlerTest {
         channel2.setGreen(rtypes.rint(255));
         channel2.setBlue(rtypes.rint(0));
         LogicalChannelI logCh2 = new LogicalChannelI();
-        logCh2.setName(rtypes.rstring(CHANNEL_NAME_2));
+        logCh2.setName(rtypes.rstring(CH2_LABEL));
         channel2.setLogicalChannel(logCh2);
         StatsInfoI statsInfo2 = new StatsInfoI();
         statsInfo2.setGlobalMin(rtypes.rdouble(-20.0));
@@ -198,7 +458,7 @@ public class ImageDataRequestHandlerTest {
         channel3.setGreen(rtypes.rint(0));
         channel3.setBlue(rtypes.rint(255));
         LogicalChannelI logCh3 = new LogicalChannelI();
-        logCh3.setName(rtypes.rstring(CHANNEL_NAME_3));
+        logCh3.setName(rtypes.rstring(CH3_LABEL));
         channel3.setLogicalChannel(logCh3);
         StatsInfoI statsInfo3 = new StatsInfoI();
         statsInfo3.setGlobalMin(rtypes.rdouble(-30.0));
@@ -296,7 +556,9 @@ public class ImageDataRequestHandlerTest {
             JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                     creationEvent, owner, wellSample, permissions, pixelBuffer,
                     renderer, rdef);
-            Assert.assertEquals(basicObj, stdCorrect);
+            System.out.println(imgData.toString());
+            System.out.println(basicObj.toString());
+            Assert.assertEquals(basicObj, imgData);
     }
 
     @Test
@@ -316,7 +578,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject multProjCorrect = stdCorrect.copy();
+        JsonObject multProjCorrect = imgData.copy();
         multProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
         multProjCorrect.getJsonObject("meta").remove("projectId");
@@ -344,7 +606,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject multDsCorrect = stdCorrect.copy();
+        JsonObject multDsCorrect = imgData.copy();
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
         multDsCorrect.getJsonObject("meta").remove("datasetId");
         multDsCorrect.getJsonObject("meta").remove("datasetDescription");
@@ -376,7 +638,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject multDsProjCorrect = stdCorrect.copy();
+        JsonObject multDsProjCorrect = imgData.copy();
         multDsProjCorrect.getJsonObject("meta").put("datasetName",
                 "Multiple");
         multDsProjCorrect.getJsonObject("meta").remove("datasetId");
@@ -406,7 +668,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject zoomLvlsCorrect = stdCorrect.copy();
+        JsonObject zoomLvlsCorrect = imgData.copy();
         JsonObject zoomLvls = new JsonObject();
         zoomLvls.put("0", 1.0);
         zoomLvls.put("1", 0.25);
@@ -426,7 +688,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject pixRangeCorrect = stdCorrect.copy();
+        JsonObject pixRangeCorrect = imgData.copy();
         JsonArray pixRange = new JsonArray();
         pixRange.add(0);
         pixRange.add(65535); // 2^(8*2) - 1
@@ -459,7 +721,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject splitChannelCorrect = stdCorrect.copy();
+        JsonObject splitChannelCorrect = imgData.copy();
         JsonObject g = new JsonObject();
         g.put("width", 1030);
         g.put("height", 1028);
@@ -497,7 +759,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject invertedCorrect = stdCorrect.copy();
+        JsonObject invertedCorrect = imgData.copy();
         JsonObject channel = invertedCorrect.getJsonArray("channels")
                 .getJsonObject(0);
         channel.put("inverted", true);
@@ -518,7 +780,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject pixelSizeCorrect = stdCorrect.copy();
+        JsonObject pixelSizeCorrect = imgData.copy();
         JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
         pixSize.put("x", 3000.0);
         pixSize.put("y", 40000.0);
@@ -537,7 +799,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, wellSample, permissions, pixelBuffer,
                 renderer, rdef);
-        JsonObject timestampCorrect = stdCorrect.copy();
+        JsonObject timestampCorrect = imgData.copy();
         timestampCorrect.getJsonObject("meta").put("imageTimestamp",
                 22222);
         Assert.assertEquals(basicObj, timestampCorrect);
