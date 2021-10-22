@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -145,8 +146,11 @@ public class ImageDataRequestHandler {
             Renderer renderer = new Renderer(quantumFactory, renderingModels,
                     (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
                     pixelBuffer, lutProvider);
-
-            Optional<WellSampleI> wellSample = getWellSample(iQuery, imageId);
+            Optional<WellSampleI> wellSample = Optional.empty();
+            Iterator<WellSampleI> wellSamples = image.iterateWellSamples();
+            if (wellSamples.hasNext()) {
+               wellSample = Optional.of(wellSamples.next());
+            }
             Permissions permissions = details.getPermissions();
             Event creationEvent = details.getCreationEvent();
             Map<String, String> pixCtx = new HashMap<String, String>();
@@ -514,41 +518,13 @@ public class ImageDataRequestHandler {
                             + " left outer join fetch os.objective as objective "
                             + " join fetch i.details.owner as owner "
                             + " join fetch i.details.creationEvent "
+                            + " left outer join fetch i.wellSamples as ws"
+                            + " left outer join fetch ws.well"
                             + " where i.id=:id", params, ctx);
             return image;
         } finally {
             span.finish();
         }
-    }
-
-    public Optional<WellSampleI> getWellSample(IQueryPrx iQuery,
-            Long imageId) {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_wellsample");
-        try {
-            Map<String, String> ctx = new HashMap<String, String>();
-            ctx.put("omero.group", "-1");
-            ParametersI params = new ParametersI();
-            List<Long> ids = new ArrayList<Long>();
-            ids.add(imageId);
-            params.addIds(ids);
-            List<IObject> wellSamples = iQuery
-                    .findAllByQuery(
-                            "SELECT ws FROM WellSample AS ws"
-                                    + "  LEFT OUTER JOIN FETCH ws.well AS w"
-                                    + "  WHERE ws.image.id IN :ids",
-                            params, ctx);
-            for (IObject ob : wellSamples) {
-                WellSampleI ws = (WellSampleI) ob;
-                return Optional.of(ws);
-            }
-        } catch (Exception e) {
-            span.error(e);
-            log.error("Exception while retrieving image region", e);
-        } finally {
-            span.finish();
-        }
-        return Optional.empty();
     }
 
     public void testGetContainer(omero.client client) {
