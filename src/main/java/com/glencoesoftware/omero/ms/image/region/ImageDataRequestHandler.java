@@ -129,12 +129,10 @@ public class ImageDataRequestHandler {
             }
             Details details = image.getDetails();
             Experimenter owner = details.getOwner();
-
+            PixelsI pixels = (PixelsI) image.getPrimaryPixels();
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
-            PixelsI pixels = retrievePixDescription(iQuery, imageIds)
-                    .get(imageId);
             try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             QuantumFactory quantumFactory = new QuantumFactory(families);
             List<Long> pixIds = new ArrayList<Long>();
@@ -509,7 +507,7 @@ public class ImageDataRequestHandler {
             params.addId(imageId);
             ImageI image = (ImageI) iQuery
                     .findByQuery("select i from Image as i "
-                            + " join fetch i.pixels as pixels"
+                            + " join fetch i.pixels as p"
                             + " left outer JOIN FETCH i.datasetLinks as links "
                             + " left outer join fetch links.parent as dataset "
                             + " left outer join fetch dataset.projectLinks as plinks "
@@ -520,6 +518,14 @@ public class ImageDataRequestHandler {
                             + " join fetch i.details.creationEvent "
                             + " left outer join fetch i.wellSamples as ws"
                             + " left outer join fetch ws.well"
+                            + " join fetch p.pixelsType "
+                            + " join fetch p.channels as c "
+                            + " join fetch c.logicalChannel as lc "
+                            + " left outer join fetch c.statsInfo "
+                            + " left outer join fetch lc.photometricInterpretation "
+                            + " left outer join fetch lc.illumination "
+                            + " left outer join fetch lc.mode "
+                            + " left outer join fetch lc.contrastMethod "
                             + " where i.id=:id", params, ctx);
             return image;
         } finally {
@@ -626,50 +632,5 @@ public class ImageDataRequestHandler {
         return renderingDefs.stream()
                 .filter(v -> v.getPixels().getId() == pixelsId).findFirst()
                 .orElse(null);
-    }
-
-    /**
-     * Get Pixels information from Image IDs
-     *
-     * @param imageIds Image IDs to get Pixels information for
-     * @param iQuery   Query proxy service
-     * @return Map of Image ID vs. Populated Pixels object
-     * @throws ApiUsageException
-     * @throws ServerError
-     */
-    protected Map<Long, PixelsI> retrievePixDescription(IQueryPrx iQuery,
-            List<Long> imageIds) throws ApiUsageException, ServerError {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("retrieve_pix_description");
-        try {
-            Map<String, String> ctx = new HashMap<String, String>();
-            ctx.put("omero.group", "-1");
-            span.tag("omero.image_ids", imageIds.toString());
-            ParametersI params = new ParametersI();
-            params.addIds(imageIds);
-            List<IObject> pixelsList = iQuery.findAllByQuery(
-                    "select p from Pixels as p " + "join fetch p.image as i "
-                            + "left outer join fetch i.wellSamples as ws "
-                            + "left outer join fetch ws.well as w "
-                            + "left outer join fetch w.wellSamples "
-                            + "join fetch p.pixelsType "
-                            + "join fetch p.channels as c "
-                            + "join fetch c.logicalChannel as lc "
-                            + "left outer join fetch c.statsInfo "
-                            + "left outer join fetch lc.photometricInterpretation "
-                            + "left outer join fetch lc.illumination "
-                            + "left outer join fetch lc.mode "
-                            + "left outer join fetch lc.contrastMethod "
-                            + "where i.id in (:ids)",
-                    params, ctx);
-            Map<Long, PixelsI> toReturn = new HashMap<Long, PixelsI>();
-            for (IObject pixelsObj : pixelsList) {
-                PixelsI pixels = (PixelsI) pixelsObj;
-                toReturn.put(pixels.getImage().getId().getValue(), pixels);
-            }
-            return toReturn;
-        } finally {
-            span.finish();
-        }
     }
 }
