@@ -18,15 +18,10 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import static omero.rtypes.unwrap;
 import static org.mockito.Mockito.*;
 
 import java.awt.Dimension;
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,9 +42,7 @@ import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.CodomainChain;
 import omeis.providers.re.codomain.CodomainMapContext;
 import omeis.providers.re.codomain.ReverseIntensityContext;
-import omero.ServerError;
 import omero.rtypes;
-import omero.api.RawPixelsStorePrx;
 import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
