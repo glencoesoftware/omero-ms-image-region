@@ -62,6 +62,7 @@ import omero.model.ProjectDatasetLinkI;
 import omero.model.ProjectI;
 import omero.model.StatsInfoI;
 import omero.model.WellI;
+import omero.model.WellSample;
 import omero.model.WellSampleI;
 import omero.model.enums.UnitsLength;
 
@@ -395,7 +396,8 @@ public class ImageDataRequestHandlerTest {
         owner.setLastName(rtypes.rstring(OWNER_LAST_NAME));
         owner.setId(rtypes.rlong(OWNER_ID));
 
-        image = new ImageI(IMAGE_ID, true);
+        image = spy(ImageI.class);
+        image.setId(rtypes.rlong(IMAGE_ID));
         image.setName(rtypes.rstring(IMAGE_NAME));
         image.setDescription(rtypes.rstring(IMAGE_DESC));
         DatasetImageLinkI dslink1 = new DatasetImageLinkI(DATASET_LINK_ID_1,
@@ -539,7 +541,10 @@ public class ImageDataRequestHandlerTest {
         WellSampleI ws = new WellSampleI(WELL_SAMPLE_ID, true);
         WellI well = new WellI(WELL_ID, true);
         ws.setWell(well);
-        wellSample = Optional.of(ws);
+        List<WellSample> wsList = new ArrayList<WellSample>();
+        wsList.add(ws);
+        when(image.copyWellSamples()).thenReturn(wsList);
+        when(image.sizeOfWellSamples()).thenReturn(1);
 
         ObjectiveSettingsI os = new ObjectiveSettingsI();
         ObjectiveI obj = new ObjectiveI();
@@ -555,8 +560,10 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
             JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, wellSample, permissions, pixelBuffer,
+                    creationEvent, owner, permissions, pixelBuffer,
                     renderer, rdef);
+            System.out.println(basicObj.toString());
+            System.out.println(imgData.toString());
             Assert.assertEquals(basicObj, imgData);
     }
 
@@ -574,7 +581,7 @@ public class ImageDataRequestHandlerTest {
         image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject multProjCorrect = imgData.copy();
         multProjCorrect.getJsonObject("meta").put("projectName",
@@ -602,7 +609,7 @@ public class ImageDataRequestHandlerTest {
         image.addDatasetImageLink(dsLink2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject multDsCorrect = imgData.copy();
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
@@ -634,7 +641,7 @@ public class ImageDataRequestHandlerTest {
         image.addDatasetImageLink(dsLink2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject multDsProjCorrect = imgData.copy();
         multDsProjCorrect.getJsonObject("meta").put("datasetName",
@@ -664,7 +671,7 @@ public class ImageDataRequestHandlerTest {
         when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject zoomLvlsCorrect = imgData.copy();
         JsonObject zoomLvls = new JsonObject();
@@ -684,7 +691,7 @@ public class ImageDataRequestHandlerTest {
         when(pixelBuffer.getByteWidth()).thenReturn(2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject pixRangeCorrect = imgData.copy();
         JsonArray pixRange = new JsonArray();
@@ -695,7 +702,7 @@ public class ImageDataRequestHandlerTest {
 
         when(pixelBuffer.isSigned()).thenReturn(true);
         basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
 
         pixRange = new JsonArray();
@@ -717,7 +724,7 @@ public class ImageDataRequestHandlerTest {
         pixels.addAllChannelSet(channels);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject splitChannelCorrect = imgData.copy();
         JsonObject g = new JsonObject();
@@ -755,7 +762,7 @@ public class ImageDataRequestHandlerTest {
         when(renderer.getCodomainChain(0)).thenReturn(cc);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject invertedCorrect = imgData.copy();
         JsonObject channel = invertedCorrect.getJsonArray("channels")
@@ -776,7 +783,7 @@ public class ImageDataRequestHandlerTest {
         pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject pixelSizeCorrect = imgData.copy();
         JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
@@ -795,7 +802,7 @@ public class ImageDataRequestHandlerTest {
         image.setAcquisitionDate(rtypes.rtime(22222222));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, wellSample, permissions, pixelBuffer,
+                creationEvent, owner, permissions, pixelBuffer,
                 renderer, rdef);
         JsonObject timestampCorrect = imgData.copy();
         timestampCorrect.getJsonObject("meta").put("imageTimestamp",

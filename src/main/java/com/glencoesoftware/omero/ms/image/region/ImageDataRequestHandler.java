@@ -90,7 +90,7 @@ public class ImageDataRequestHandler {
 
     LutProvider lutProvider;
 
-    private int init_zoom;
+    private int initZoom;
 
     private boolean interpolate;
 
@@ -103,13 +103,13 @@ public class ImageDataRequestHandler {
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
             PixelsService pixelsService, List<Family> families,
             List<RenderingModel> renderingModels, LutProvider lutProvider,
-            int init_zoom, boolean interpolate) {
+            int initZoom, boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;
         this.families = families;
         this.renderingModels = renderingModels;
         this.lutProvider = lutProvider;
-        this.init_zoom = init_zoom;
+        this.initZoom = initZoom;
         this.interpolate = interpolate;
     }
 
@@ -140,17 +140,12 @@ public class ImageDataRequestHandler {
                 Renderer renderer = new Renderer(quantumFactory, renderingModels,
                         (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
                         pixelBuffer, lutProvider);
-                Optional<WellSampleI> wellSample = Optional.empty();
-                Iterator<WellSampleI> wellSamples = image.iterateWellSamples();
-                if (wellSamples.hasNext()) {
-                   wellSample = Optional.of(wellSamples.next());
-                }
                 Permissions permissions = details.getPermissions();
                 Event creationEvent = details.getCreationEvent();
                 Map<String, String> pixCtx = new HashMap<String, String>();
                 pixCtx.put("omero.group", "-1");
                 return populateImageData(image, pixels, creationEvent,
-                        owner, wellSample, permissions, pixelBuffer, renderer,
+                        owner, permissions, pixelBuffer, renderer,
                         rdef);
             }
         } catch (ServerError | IOException e) {
@@ -160,14 +155,13 @@ public class ImageDataRequestHandler {
     }
 
     public JsonObject populateImageData(Image image, PixelsI pixels,
-            Event creationEvent, Experimenter owner,
-            Optional<WellSampleI> wellSample, Permissions permissions,
+            Event creationEvent, Experimenter owner, Permissions permissions,
             PixelBuffer pixelBuffer, Renderer renderer,
             RenderingDef rdef) {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, creationEvent,
-                owner, wellSample);
+                owner);
         imgData.put("meta", meta);
         if (image.getObjectiveSettings() != null) {
             imgData.put("nominalMagnification",
@@ -191,7 +185,7 @@ public class ImageDataRequestHandler {
 
         imgData.put("pixel_size", getImageDataPixelSize(pixels));
 
-        imgData.put("init_zoom", init_zoom);
+        imgData.put("init_zoom", initZoom);
 
         if (resLvlCount > 1) {
             imgData.put("zoomLevelScaling",
@@ -210,8 +204,7 @@ public class ImageDataRequestHandler {
     }
 
     private JsonObject getImageDataMeta(Image image, Pixels pixels,
-            Event creationEvent, Experimenter owner,
-            Optional<WellSampleI> wellSample) {
+            Event creationEvent, Experimenter owner) {
         JsonObject meta = new JsonObject();
         meta.put("imageName", unwrap(image.getName()));
         meta.put("imageDescription", unwrap(image.getDescription()));
@@ -269,9 +262,10 @@ public class ImageDataRequestHandler {
                         unwrap(project.getDescription()));
             }
         }
-        if (wellSample.isPresent()) {
-            meta.put("wellSampleId", wellSample.get().getId().getValue());
-            meta.put("wellId", wellSample.get().getWell().getId().getValue());
+        if (image.sizeOfWellSamples() > 0) {
+            WellSampleI wellSample = (WellSampleI) image.copyWellSamples().get(0);
+            meta.put("wellSampleId", wellSample.getId().getValue());
+            meta.put("wellId", wellSample.getWell().getId().getValue());
         } else {
             meta.put("wellSampleId", "");
             meta.put("wellId", "");
@@ -526,23 +520,6 @@ public class ImageDataRequestHandler {
             return image;
         } finally {
             span.finish();
-        }
-    }
-
-    public void testGetContainer(omero.client client) {
-        ServiceFactoryPrx sf = client.getSession();
-        try {
-            IContainerPrx csvc = sf.getContainerService();
-            ParametersI params = new ParametersI();
-            List<Long> ids = new ArrayList<Long>();
-            ids.add(251l);
-            List<IObject> objs = csvc.loadContainerHierarchy("Project", ids,
-                    params);
-            Project project = (Project) mapper.reverse(objs.get(0));
-            log.info(project.toString());
-        } catch (ServerError e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         }
     }
 
