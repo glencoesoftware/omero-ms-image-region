@@ -134,28 +134,28 @@ public class ImageDataRequestHandler {
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
             try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-            QuantumFactory quantumFactory = new QuantumFactory(families);
-            List<Long> pixIds = new ArrayList<Long>();
-            pixIds.add(pixels.getId().getValue());
-            List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId,
-                    pixIds);
-            RenderingDef rdef = selectRenderingDef(rdefs, userId,
-                    pixels.getId().getValue());
-            Renderer renderer = new Renderer(quantumFactory, renderingModels,
-                    (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
-                    pixelBuffer, lutProvider);
-            Optional<WellSampleI> wellSample = Optional.empty();
-            Iterator<WellSampleI> wellSamples = image.iterateWellSamples();
-            if (wellSamples.hasNext()) {
-               wellSample = Optional.of(wellSamples.next());
-            }
-            Permissions permissions = details.getPermissions();
-            Event creationEvent = details.getCreationEvent();
-            Map<String, String> pixCtx = new HashMap<String, String>();
-            pixCtx.put("omero.group", "-1");
-            return populateImageData(image, pixels, creationEvent,
-                    owner, wellSample, permissions, pixelBuffer, renderer,
-                    rdef);
+                QuantumFactory quantumFactory = new QuantumFactory(families);
+                List<Long> pixIds = new ArrayList<Long>();
+                pixIds.add(pixels.getId().getValue());
+                List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId,
+                        pixIds);
+                RenderingDef rdef = selectRenderingDef(rdefs, userId,
+                        pixels.getId().getValue());
+                Renderer renderer = new Renderer(quantumFactory, renderingModels,
+                        (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
+                        pixelBuffer, lutProvider);
+                Optional<WellSampleI> wellSample = Optional.empty();
+                Iterator<WellSampleI> wellSamples = image.iterateWellSamples();
+                if (wellSamples.hasNext()) {
+                   wellSample = Optional.of(wellSamples.next());
+                }
+                Permissions permissions = details.getPermissions();
+                Event creationEvent = details.getCreationEvent();
+                Map<String, String> pixCtx = new HashMap<String, String>();
+                pixCtx.put("omero.group", "-1");
+                return populateImageData(image, pixels, creationEvent,
+                        owner, wellSample, permissions, pixelBuffer, renderer,
+                        rdef);
             }
         } catch (ServerError | IOException e) {
             log.error("Error getting image data", e);
