@@ -176,8 +176,10 @@ public class ImageDataRequestHandler {
         if (resLvlCount > 1) {
             imgData.put("tiles", true);
             imgData.put("tile_size", getImageDataTileSize(pixelBuffer));
+            imgData.put("levels", resLvlCount);
+        } else {
+            imgData.put("tiles", false);
         }
-        imgData.put("levels", resLvlCount);
 
         imgData.put("interpolate", interpolate);
 
@@ -261,6 +263,13 @@ public class ImageDataRequestHandler {
                 meta.put("projectDescription",
                         unwrap(project.getDescription()));
             }
+        } else if (datasets.size() == 0) {
+            meta.put("datasetName", "");
+            meta.putNull("datasetId");
+            meta.put("datasetDescription", "Multiple");
+            meta.put("projectName", "");
+            meta.putNull("projectId");
+            meta.put("projectDescription", "");
         }
         if (image.sizeOfWellSamples() > 0) {
             WellSampleI wellSample = (WellSampleI) image.copyWellSamples().get(0);
