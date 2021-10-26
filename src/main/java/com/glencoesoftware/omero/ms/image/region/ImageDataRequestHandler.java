@@ -270,10 +270,11 @@ public class ImageDataRequestHandler {
                         unwrap(project.getDescription()));
             }
         } else if (datasets.size() == 0) {
-            meta.put("datasetName", "");
+            //Dataset and Project names are Multiple to match omero-web
+            meta.put("datasetName", "Multiple");
             meta.putNull("datasetId");
-            meta.put("datasetDescription", "Multiple");
-            meta.put("projectName", "");
+            meta.put("datasetDescription", "");
+            meta.put("projectName", "Multiple");
             meta.putNull("projectId");
             meta.put("projectDescription", "");
         }
@@ -281,6 +282,9 @@ public class ImageDataRequestHandler {
             WellSampleI wellSample = (WellSampleI) image.copyWellSamples().get(0);
             meta.put("wellSampleId", wellSample.getId().getValue());
             meta.put("wellId", wellSample.getWell().getId().getValue());
+            if (image.sizeOfWellSamples() > 1) {
+                meta.put("wellSampleId", "");
+            }
         } else {
             meta.put("wellSampleId", "");
             meta.put("wellId", "");
@@ -386,6 +390,7 @@ public class ImageDataRequestHandler {
                 ch.putNull("emissionWave");
             }
             ch.put("label", label);
+            log.info(label);
             ch.put("color", getColorString(channel));
             ch.put("inverted", isInverted(renderer, i));
             ch.put("reverseIntensity", isInverted(renderer, i));
@@ -483,9 +488,9 @@ public class ImageDataRequestHandler {
     }
 
     public static String getColorString(Channel channel) {
-        log.info(Integer.toString(channel.getRed().getValue()));
-        log.info(Integer.toString(channel.getGreen().getValue()));
-        log.info(Integer.toString(channel.getBlue().getValue()));
+        log.info("R:" + Integer.toString(channel.getRed().getValue()));
+        log.info("G:" + Integer.toString(channel.getGreen().getValue()));
+        log.info("B:" + Integer.toString(channel.getBlue().getValue()));
         StringBuilder colorBuilder = new StringBuilder();
         if (channel.getRed().getValue() < 16) {
             colorBuilder.append("0");
