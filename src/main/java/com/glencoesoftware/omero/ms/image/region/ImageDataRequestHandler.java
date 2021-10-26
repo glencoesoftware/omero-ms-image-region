@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -64,6 +65,7 @@ import omero.model.Event;
 import omero.model.Experimenter;
 import omero.ApiUsageException;
 import omero.ServerError;
+import omero.rtypes;
 import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
@@ -209,7 +211,11 @@ public class ImageDataRequestHandler {
             Event creationEvent, Experimenter owner) {
         JsonObject meta = new JsonObject();
         meta.put("imageName", unwrap(image.getName()));
-        meta.put("imageDescription", unwrap(image.getDescription()));
+        if (image.getDescription() == null) {
+            meta.put("imageDescription", "");
+        } else {
+            meta.put("imageDescription", unwrap(image.getDescription()));
+        }
         if (image.getAcquisitionDate() != null) {
             meta.put("imageTimestamp",
                     image.getAcquisitionDate().getValue() / 1000);
@@ -376,6 +382,8 @@ public class ImageDataRequestHandler {
             JsonObject ch = new JsonObject();
             if (logicalChannel.getEmissionWave() != null) {
                 ch.put("emissionWave", logicalChannel.getEmissionWave().getValue());
+            } else {
+                ch.putNull("emissionWave");
             }
             ch.put("label", label);
             ch.put("color", getColorString(channel));
@@ -475,6 +483,9 @@ public class ImageDataRequestHandler {
     }
 
     public static String getColorString(Channel channel) {
+        log.info(Integer.toString(channel.getRed().getValue()));
+        log.info(Integer.toString(channel.getGreen().getValue()));
+        log.info(Integer.toString(channel.getBlue().getValue()));
         StringBuilder colorBuilder = new StringBuilder();
         if (channel.getRed().getValue() < 16) {
             colorBuilder.append("0");

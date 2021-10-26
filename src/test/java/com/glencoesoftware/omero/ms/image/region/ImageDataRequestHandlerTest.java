@@ -309,6 +309,7 @@ public class ImageDataRequestHandlerTest {
         ch1.put("inverted", CH1_INVERTED);
         ch1.put("reverseIntensity", CH1_INVERTED);
         ch1.put("label", CH1_LABEL);
+        ch1.putNull("emissionWave");
         JsonObject ch1Window = new JsonObject();
         ch1Window.put("start", CH1_WINDOW_START);
         ch1Window.put("end", CH1_WINDOW_END);
@@ -324,6 +325,7 @@ public class ImageDataRequestHandlerTest {
         ch2.put("inverted", CH2_INVERTED);
         ch2.put("reverseIntensity", CH2_INVERTED);
         ch2.put("label", CH2_LABEL);
+        ch2.putNull("emissionWave");
         JsonObject ch2Window = new JsonObject();
         ch2Window.put("start", CH2_WINDOW_START);
         ch2Window.put("end", CH2_WINDOW_END);
@@ -339,6 +341,7 @@ public class ImageDataRequestHandlerTest {
         ch3.put("inverted", CH3_INVERTED);
         ch3.put("reverseIntensity", CH3_INVERTED);
         ch3.put("label", CH3_LABEL);
+        ch3.putNull("emissionWave");
         JsonObject ch3Window = new JsonObject();
         ch3Window.put("start", CH3_WINDOW_START);
         ch3Window.put("end", CH3_WINDOW_END);
@@ -562,8 +565,6 @@ public class ImageDataRequestHandlerTest {
             JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                     creationEvent, owner, permissions, pixelBuffer,
                     renderer, rdef);
-            System.out.println(basicObj.toString());
-            System.out.println(imgData.toString());
             Assert.assertEquals(basicObj, imgData);
     }
 
@@ -808,5 +809,63 @@ public class ImageDataRequestHandlerTest {
         timestampCorrect.getJsonObject("meta").put("imageTimestamp",
                 22222);
         Assert.assertEquals(basicObj, timestampCorrect);
+    }
+
+    @Test
+    public void testImageDataChannels() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ChannelI channel = (ChannelI) pixels.getChannel(0);
+        channel.setRed(rtypes.rint(0));
+        channel.setGreen(rtypes.rint(17));
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject channelsCorrect = imgData.copy();
+        channelsCorrect.getJsonArray("channels").getJsonObject(0).put("color", "001100");
+        Assert.assertEquals(basicObj, channelsCorrect);
+    }
+
+    @Test
+    public void testImageData2Channels() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        pixels.removeChannel(pixels.getChannel(0));
+
+        ChannelBinding cb2 = new ChannelBinding();
+        cb2.setFamily(new Family(Family.VALUE_LINEAR));
+        cb2.setCoefficient(CH2_COEFFICIENT);
+        cb2.setActive(CH2_ACTIVE);
+        cb2.setInputStart(CH2_WINDOW_START);
+        cb2.setInputEnd(CH2_WINDOW_END);
+
+        ChannelBinding cb3 = new ChannelBinding();
+        cb3.setFamily(new Family(Family.VALUE_LINEAR));
+        cb3.setCoefficient(CH3_COEFFICIENT);
+        cb3.setActive(CH3_ACTIVE);
+        cb3.setInputStart(CH3_WINDOW_START);
+        cb3.setInputEnd(CH3_WINDOW_END);
+
+        ChannelBinding[] cbs = new ChannelBinding[] { cb2, cb3 };
+        when(renderer.getChannelBindings()).thenReturn(cbs);
+        when(renderer.getPixelsTypeLowerBound(1)).thenReturn(CH2_WINDOW_MIN);
+        when(renderer.getPixelsTypeLowerBound(2)).thenReturn(CH3_WINDOW_MIN);
+        when(renderer.getPixelsTypeUpperBound(1)).thenReturn(CH2_WINDOW_MAX);
+        when(renderer.getPixelsTypeUpperBound(2)).thenReturn(CH3_WINDOW_MAX);
+
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, permissions, pixelBuffer,
+                renderer, rdef);
+        JsonObject channelsCorrect = imgData.copy();
+        channelsCorrect.getJsonArray("channels").remove(0);
+        channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("gridy", 1);
+        channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("height", 1028);
+        Assert.assertEquals(basicObj, channelsCorrect);
     }
 }
