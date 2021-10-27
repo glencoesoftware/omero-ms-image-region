@@ -391,10 +391,10 @@ public class ImageDataRequestHandler {
             }
             ch.put("label", label);
             log.info(label);
-            ch.put("color", getColorString(channel));
             ch.put("inverted", isInverted(renderer, i));
             ch.put("reverseIntensity", isInverted(renderer, i));
             ChannelBinding cb = renderer.getChannelBindings()[i];
+            ch.put("color", getColorString(cb));
             ch.put("family", cb.getFamily().getValue());
             ch.put("coefficient", cb.getCoefficient());
             ch.put("active", cb.getActive());
@@ -487,25 +487,25 @@ public class ImageDataRequestHandler {
         return false;
     }
 
-    public static String getColorString(Channel channel) {
-        log.info("R:" + Integer.toString(channel.getRed().getValue()));
-        log.info("G:" + Integer.toString(channel.getGreen().getValue()));
-        log.info("B:" + Integer.toString(channel.getBlue().getValue()));
+    public static String getColorString(ChannelBinding cb) {
+        log.info("R:" + Integer.toString(cb.getRed()));
+        log.info("G:" + Integer.toString(cb.getGreen()));
+        log.info("B:" + Integer.toString(cb.getBlue()));
         StringBuilder colorBuilder = new StringBuilder();
-        if (channel.getRed().getValue() < 16) {
+        if (cb.getRed() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getRed().getValue())
+        colorBuilder.append(Integer.toHexString(cb.getRed())
                 .toUpperCase());
-        if (channel.getGreen().getValue() < 16) {
+        if (cb.getGreen() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getGreen().getValue())
+        colorBuilder.append(Integer.toHexString(cb.getGreen())
                 .toUpperCase());
-        if (channel.getBlue().getValue() < 16) {
+        if (cb.getBlue() < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(channel.getBlue().getValue())
+        colorBuilder.append(Integer.toHexString(cb.getBlue())
                 .toUpperCase());
         return colorBuilder.toString();
     }

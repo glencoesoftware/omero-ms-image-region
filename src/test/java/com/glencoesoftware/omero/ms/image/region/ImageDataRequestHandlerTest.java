@@ -80,6 +80,7 @@ public class ImageDataRequestHandlerTest {
     PixelBuffer pixelBuffer;
     Renderer renderer;
     RenderingDef rdef;
+    ChannelBinding[] cbs;
 
     public static String OWNER_FIRST_NAME = "firstname";
     public static String OWNER_LAST_NAME = "lastname";
@@ -506,6 +507,9 @@ public class ImageDataRequestHandlerTest {
         cb1.setActive(CH1_ACTIVE);
         cb1.setInputStart(CH1_WINDOW_START);
         cb1.setInputEnd(CH1_WINDOW_END);
+        cb1.setRed(255);
+        cb1.setGreen(0);
+        cb1.setBlue(0);
 
         ChannelBinding cb2 = new ChannelBinding();
         cb2.setFamily(new Family(Family.VALUE_LINEAR));
@@ -513,6 +517,9 @@ public class ImageDataRequestHandlerTest {
         cb2.setActive(CH2_ACTIVE);
         cb2.setInputStart(CH2_WINDOW_START);
         cb2.setInputEnd(CH2_WINDOW_END);
+        cb2.setRed(0);
+        cb2.setGreen(255);
+        cb2.setBlue(0);
 
         ChannelBinding cb3 = new ChannelBinding();
         cb3.setFamily(new Family(Family.VALUE_LINEAR));
@@ -520,8 +527,11 @@ public class ImageDataRequestHandlerTest {
         cb3.setActive(CH3_ACTIVE);
         cb3.setInputStart(CH3_WINDOW_START);
         cb3.setInputEnd(CH3_WINDOW_END);
+        cb3.setRed(0);
+        cb3.setGreen(0);
+        cb3.setBlue(255);
 
-        ChannelBinding[] cbs = new ChannelBinding[] { cb1, cb2, cb3 };
+        cbs = new ChannelBinding[] { cb1, cb2, cb3 };
         when(renderer.getChannelBindings()).thenReturn(cbs);
         when(renderer.getPixelsTypeLowerBound(0)).thenReturn(CH1_WINDOW_MIN);
         when(renderer.getPixelsTypeLowerBound(1)).thenReturn(CH2_WINDOW_MIN);
@@ -815,9 +825,9 @@ public class ImageDataRequestHandlerTest {
     public void testImageDataChannels() {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ChannelI channel = (ChannelI) pixels.getChannel(0);
-        channel.setRed(rtypes.rint(0));
-        channel.setGreen(rtypes.rint(17));
+        ChannelBinding cb = cbs[0];
+        cb.setRed(0);
+        cb.setGreen(17);
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
 
@@ -841,6 +851,9 @@ public class ImageDataRequestHandlerTest {
         cb2.setActive(CH2_ACTIVE);
         cb2.setInputStart(CH2_WINDOW_START);
         cb2.setInputEnd(CH2_WINDOW_END);
+        cb2.setRed(0);
+        cb2.setGreen(255);
+        cb2.setBlue(0);
 
         ChannelBinding cb3 = new ChannelBinding();
         cb3.setFamily(new Family(Family.VALUE_LINEAR));
@@ -848,6 +861,9 @@ public class ImageDataRequestHandlerTest {
         cb3.setActive(CH3_ACTIVE);
         cb3.setInputStart(CH3_WINDOW_START);
         cb3.setInputEnd(CH3_WINDOW_END);
+        cb3.setRed(0);
+        cb3.setGreen(0);
+        cb3.setBlue(255);
 
         ChannelBinding[] cbs = new ChannelBinding[] { cb2, cb3 };
         when(renderer.getChannelBindings()).thenReturn(cbs);
