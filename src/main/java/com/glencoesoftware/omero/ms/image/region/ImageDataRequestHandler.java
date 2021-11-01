@@ -390,7 +390,6 @@ public class ImageDataRequestHandler {
                 ch.putNull("emissionWave");
             }
             ch.put("label", label);
-            log.info(label);
             ch.put("inverted", isInverted(renderer, i));
             ch.put("reverseIntensity", isInverted(renderer, i));
             ChannelBinding cb = renderer.getChannelBindings()[i];
@@ -488,9 +487,6 @@ public class ImageDataRequestHandler {
     }
 
     public static String getColorString(ChannelBinding cb) {
-        log.info("R:" + Integer.toString(cb.getRed()));
-        log.info("G:" + Integer.toString(cb.getGreen()));
-        log.info("B:" + Integer.toString(cb.getBlue()));
         StringBuilder colorBuilder = new StringBuilder();
         if (cb.getRed() < 16) {
             colorBuilder.append("0");
