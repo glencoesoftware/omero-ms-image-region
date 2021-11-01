@@ -333,8 +333,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .handler(this::renderImageRegion);
 
         // ImageData request handlers
-        router.get("/omero_ms_image_region/imgData/:imageId").handler(this::getImageData);
-        router.get("/omero_ms_image_region/imgData/:imageId/:keys").handler(this::getImageData);
+        router.get("/webgateway/imgData/:imageId").handler(this::getImageData);
+        router.get("/webgateway/imgData/:imageId/:keys").handler(this::getImageData);
 
         // ShapeMask request handlers
         router.get(
