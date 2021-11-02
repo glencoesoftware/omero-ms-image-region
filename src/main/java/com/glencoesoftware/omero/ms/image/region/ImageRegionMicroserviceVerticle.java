@@ -335,6 +335,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId").handler(this::getImageData);
         router.get("/webgateway/imgData/:imageId/:keys").handler(this::getImageData);
+        router.get("/pathviewer/imgData/:imageId").handler(this::getImageData);
+        router.get("/pathviewer/imgData/:imageId/:keys").handler(this::getImageData);
 
         // ShapeMask request handlers
         router.get(
