@@ -270,9 +270,9 @@ public class ZarrPixelBufferTest {
         try (ZarrPixelBuffer zpbuf =
                 new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
             List<List<Integer>> expected = new ArrayList<List<Integer>>();
-            expected.add(Arrays.asList(new Integer[] {512, 128}));
-            expected.add(Arrays.asList(new Integer[] {1024, 256}));
             expected.add(Arrays.asList(new Integer[] {2048, 512}));
+            expected.add(Arrays.asList(new Integer[] {1024, 256}));
+            expected.add(Arrays.asList(new Integer[] {512, 128}));
             Assert.assertEquals(resolutions, zpbuf.getResolutionLevels());
             Assert.assertEquals(expected, zpbuf.getResolutionDescriptions());
 

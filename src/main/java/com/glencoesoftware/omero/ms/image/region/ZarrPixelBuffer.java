@@ -698,8 +698,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             int sizeY = pixels.getSizeY();
             for (int i = 0; i < resolutionLevels; i++) {
                 double scale = Math.pow(2, i);
-                resolutionDescriptions.add(
-                        0, Arrays.asList(
+                resolutionDescriptions.add(Arrays.asList(
                                 (int) (sizeX / scale), (int) (sizeY / scale)));
             }
             return resolutionDescriptions;
