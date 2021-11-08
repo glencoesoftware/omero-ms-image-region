@@ -702,11 +702,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     return;
                 }
                 JsonObject imgDataJson = result.result().body();
-                response.headers().set("Content-Type", "application/json");
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(imgDataJson.encodePrettily().length()));
-                response.write(imgDataJson.encodePrettily());
+                if (request.params().contains("callback")) {
+                    String callback = request.params().get("callback");
+                    String resJavascript = String.format("%s(%s)", callback, imgDataJson.toString());
+                    response.headers().set("Content-Type", "application/javascript");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(resJavascript.length()));
+                    response.write(resJavascript);
+                } else {
+                    response.headers().set("Content-Type", "application/json");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(imgDataJson.encodePrettily().length()));
+                    response.write(imgDataJson.encodePrettily());
+                }
             } finally {
                 if (!response.closed()) {
                     response.end();
