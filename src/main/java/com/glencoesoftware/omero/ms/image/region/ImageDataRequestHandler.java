@@ -76,18 +76,25 @@ public class ImageDataRequestHandler {
     private static final org.slf4j.Logger log = LoggerFactory
             .getLogger(ImageDataRequestHandler.class);
 
+    /** Image Data Context **/
     private ImageDataCtx imageDataCtx;
 
+    /** OMERO server pixels service. */
     private PixelsService pixelsService;
 
+    /** Available families */
     private List<Family> families;
 
+    /** Available rendering models */
     List<RenderingModel> renderingModels;
 
+    /** Lookup table provider */
     LutProvider lutProvider;
 
+    /** Initial Zoom level from server settings **/
     private int initZoom;
 
+    /** Interpolation server setting **/
     private boolean interpolate;
 
     /**
@@ -96,6 +103,16 @@ public class ImageDataRequestHandler {
      */
     protected final IceMapper mapper = new IceMapper();
 
+    /**
+     * Constructor
+     * @param imageDataCtx Image Data Context
+     * @param pixelsService OMERO server pixels service.
+     * @param families Available rendering models
+     * @param renderingModels Available rendering models
+     * @param lutProvider Lookup table provider
+     * @param initZoom Initial Zoom level from server settings
+     * @param interpolate Interpolation server setting
+     */
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
             PixelsService pixelsService, List<Family> families,
             List<RenderingModel> renderingModels, LutProvider lutProvider,
@@ -109,8 +126,12 @@ public class ImageDataRequestHandler {
         this.interpolate = interpolate;
     }
 
+    /**
+     * Get the image data as a VertX JsonObject
+     * @param client Omero client object
+     * @return JsonObject with the image data/metadata
+     */
     public JsonObject getImageData(omero.client client) {
-        log.info("In ReqeustHandler::getImageData");
         ServiceFactoryPrx sf = client.getSession();
         try {
             Long imageId = imageDataCtx.imageId;
@@ -150,6 +171,19 @@ public class ImageDataRequestHandler {
         return null;
     }
 
+    /**
+     * Takes populated Omero model objects and populates the data into
+     * a JsonObject
+     * @param image
+     * @param pixels
+     * @param creationEvent
+     * @param owner
+     * @param permissions
+     * @param pixelBuffer
+     * @param renderer
+     * @param rdef
+     * @return
+     */
     public JsonObject populateImageData(Image image, PixelsI pixels,
             Event creationEvent, Experimenter owner, Permissions permissions,
             PixelBuffer pixelBuffer, Renderer renderer,
@@ -201,6 +235,14 @@ public class ImageDataRequestHandler {
         return imgData;
     }
 
+    /**
+     * Populates the "metadata" in the image data JsonObject
+     * @param image
+     * @param pixels
+     * @param creationEvent
+     * @param owner
+     * @return JsonObject with metadata
+     */
     private JsonObject getImageDataMeta(Image image, Pixels pixels,
             Event creationEvent, Experimenter owner) {
         JsonObject meta = new JsonObject();
@@ -289,6 +331,11 @@ public class ImageDataRequestHandler {
         return meta;
     }
 
+    /**
+     * Populates the "perms" element of the image data JsonObject
+     * @param permissions
+     * @return JsonObject with permissions data
+     */
     private JsonObject getImageDataPerms(Permissions permissions) {
         JsonObject perms = new JsonObject();
         perms.put("canAnnotate", permissions.canAnnotate());
@@ -298,6 +345,11 @@ public class ImageDataRequestHandler {
         return perms;
     }
 
+    /**
+     * Populates the tile_size image data
+     * @param pixelBuffer
+     * @return the tile size JsonObject
+     */
     private JsonObject getImageDataTileSize(PixelBuffer pixelBuffer) {
         JsonObject tileSize = new JsonObject();
         tileSize.put("width", pixelBuffer.getTileSize().width);
@@ -305,6 +357,11 @@ public class ImageDataRequestHandler {
         return tileSize;
     }
 
+    /**
+     * Populates the size image data
+     * @param pixelBuffer
+     * @return The size JsonObject
+     */
     private JsonObject getImageDataSize(PixelBuffer pixelBuffer) {
         JsonObject size = new JsonObject();
         size.put("width", pixelBuffer.getSizeX());
@@ -315,6 +372,11 @@ public class ImageDataRequestHandler {
         return size;
     }
 
+    /**
+     * Populate the pixel size image data
+     * @param pixels
+     * @return The pixel size JsonObject
+     */
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
         try {
@@ -340,6 +402,11 @@ public class ImageDataRequestHandler {
         return pixelSize;
     }
 
+    /**
+     * Populate zoom level scaling image data
+     * @param renderer
+     * @return the zoom level scaling image data
+     */
     private JsonObject getImageDataZoomLevelScaling(Renderer renderer) {
         JsonObject zoomLvlScaling = new JsonObject();
         List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
@@ -352,6 +419,11 @@ public class ImageDataRequestHandler {
         return zoomLvlScaling;
     }
 
+    /**
+     * Populate pixel range image data
+     * @param pb
+     * @return The pixel range JsonObject
+     */
     private JsonArray getImageDataPixelRange(PixelBuffer pb) {
         long pmax = Math.round(Math.pow(2, 8 * pb.getByteWidth()));
         JsonArray pixelRange = new JsonArray();
@@ -365,6 +437,12 @@ public class ImageDataRequestHandler {
         return pixelRange;
     }
 
+    /**
+     * Populate channel image data
+     * @param pixels
+     * @param renderer
+     * @return JsonArray of channels image data
+     */
     private JsonArray getImageDataChannels(PixelsI pixels, Renderer renderer) {
         JsonArray channels = new JsonArray();
         int channelCount = pixels.sizeOfChannels();
@@ -415,6 +493,11 @@ public class ImageDataRequestHandler {
         return channels;
     }
 
+    /**
+     * Populate split channel image data
+     * @param pixels
+     * @return The split channel JsonObject
+     */
     private JsonObject getImageDataSplitChannel(Pixels pixels) {
         JsonObject splitChannel = new JsonObject();
         int c = pixels.sizeOfChannels();
@@ -472,6 +555,12 @@ public class ImageDataRequestHandler {
         return rdefObj;
     }
 
+    /**
+     * Whether the channel is inverted
+     * @param renderer
+     * @param channel
+     * @return Whether the channel is inverted
+     */
     private boolean isInverted(Renderer renderer, int channel) {
         CodomainChain chain = renderer.getCodomainChain(channel);
         if (chain == null) {
@@ -486,6 +575,15 @@ public class ImageDataRequestHandler {
         return false;
     }
 
+    /**
+     * Get a hex string representing the color from a ChannelBinding
+     */
+    /**
+     * Get a hex string representing the color from a ChannelBinding
+     * e.g. 00FF00 for green
+     * @param cb ChannelBinding to get the color of
+     * @return Hex string representing the color e.g. 00FF00 for green
+     */
     public static String getColorString(ChannelBinding cb) {
         StringBuilder colorBuilder = new StringBuilder();
         if (cb.getRed() < 16) {
@@ -506,6 +604,14 @@ public class ImageDataRequestHandler {
         return colorBuilder.toString();
     }
 
+    /**
+     * Query the server to get all possible relevant data about the image
+     * @param iQuery
+     * @param imageId
+     * @return ImageI object containing most image data
+     * @throws ApiUsageException
+     * @throws ServerError
+     */
     protected ImageI queryImageData(IQueryPrx iQuery, Long imageId)
             throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()

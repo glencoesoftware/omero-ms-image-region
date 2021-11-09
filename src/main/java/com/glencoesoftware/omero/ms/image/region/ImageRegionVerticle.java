@@ -355,6 +355,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         }
     }
 
+    /**
+     * Get image data event handler. Responds with a JSON string of image
+     * metadata.
+     * @param message JSON encoded event data. Required keys are
+     * <code>omeroSessionKey</code> (String) and <code>imageId</code>
+     */
     private void getImageData(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         ImageDataCtx imgDataCtx;
