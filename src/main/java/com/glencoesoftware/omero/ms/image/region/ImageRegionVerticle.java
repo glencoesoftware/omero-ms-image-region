@@ -356,7 +356,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     }
 
     private void getImageData(Message<String> message) {
-        log.info("In Verticle::getImageData");
         ObjectMapper mapper = new ObjectMapper();
         ImageDataCtx imgDataCtx;
         try {

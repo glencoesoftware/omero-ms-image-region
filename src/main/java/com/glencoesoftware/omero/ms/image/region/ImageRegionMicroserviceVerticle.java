@@ -681,7 +681,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         final HttpServerResponse response = event.response();
         ImageDataCtx imageDataCtx = null;
         try {
-        imageDataCtx = new ImageDataCtx(request.params(),
+            imageDataCtx = new ImageDataCtx(request.params(),
                 event.get("omero.session_key"));
         }
         catch (Exception e) {
@@ -690,12 +690,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             response.end();
         }
         imageDataCtx.injectCurrentTraceContext();
-        log.info("1");
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA,
                 Json.encode(imageDataCtx), result -> {
             try {
-                log.info("2");
                 if (handleResultFailed(result, response)) {
                     return;
                 }

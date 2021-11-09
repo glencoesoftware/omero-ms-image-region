@@ -391,7 +391,6 @@ public class ImageDataRequestHandlerTest {
 
     @Before
     public void setup() throws IOException {
-        //imgData = new JsonObject(new String(Files.readAllBytes(Paths.get("./testImageData.json")), StandardCharsets.UTF_8));
         setupStdJson();
 
         creationEvent = new EventI();

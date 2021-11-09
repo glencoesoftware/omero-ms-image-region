@@ -20,13 +20,10 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.LoggerFactory;
@@ -65,11 +62,8 @@ import omero.model.Event;
 import omero.model.Experimenter;
 import omero.ApiUsageException;
 import omero.ServerError;
-import omero.rtypes;
-import omero.api.IContainerPrx;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
-import omero.model.IObject;
 import omero.model.WellSampleI;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
