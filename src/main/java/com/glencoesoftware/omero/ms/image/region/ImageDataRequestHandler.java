@@ -324,15 +324,21 @@ public class ImageDataRequestHandler {
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
         try {
-            pixelSize.put("x",
-                    new LengthI(pixels.getPhysicalSizeX(), UNITS.MICROMETER)
-                            .getValue());
-            pixelSize.put("y",
-                    new LengthI(pixels.getPhysicalSizeY(), UNITS.MICROMETER)
-                            .getValue());
-            if (pixels.getPhysicalSizeZ() != null) {
+            if (pixels.getPhysicalSizeX() != null) {
+                pixelSize.put("x", new LengthI(pixels.getPhysicalSizeX(),
+                        UNITS.MICROMETER).getValue());
+            } else {
+                pixelSize.putNull("x");
+            } if (pixels.getPhysicalSizeY() != null) {
+                pixelSize.put("y", new LengthI(pixels.getPhysicalSizeY(),
+                        UNITS.MICROMETER).getValue());
+            } else {
+                pixelSize.putNull("y");
+            } if (pixels.getPhysicalSizeZ() != null) {
                 pixelSize.put("z", new LengthI(pixels.getPhysicalSizeZ(),
                         UNITS.MICROMETER).getValue());
+            } else {
+                pixelSize.putNull("z");
             }
         } catch (BigResult e) {
             log.error("BigResult error when converting pixel size", e);
