@@ -280,6 +280,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject pixelSize = new JsonObject();
         pixelSize.put("x", PHYSICAL_SIZE_X);
         pixelSize.put("y", PHYSICAL_SIZE_Y);
+        pixelSize.putNull("z");
         return pixelSize;
     }
 
@@ -572,10 +573,10 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, null, null, 0, true);
-            JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                    creationEvent, owner, permissions, pixelBuffer,
-                    renderer, rdef);
-            Assert.assertEquals(basicObj, imgData);
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, permissions, pixelBuffer,
+                renderer, rdef);
+        Assert.assertEquals(basicObj, imgData);
     }
 
     @Test
@@ -883,5 +884,26 @@ public class ImageDataRequestHandlerTest {
         channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("gridy", 1);
         channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("height", 1028);
         Assert.assertEquals(basicObj, channelsCorrect);
+    }
+
+    @Test
+    public void testImageDataNullPixelSizes() {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        pixels.setPhysicalSizeX(null);
+        pixels.setPhysicalSizeY(null);
+
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, null, null, 0, true);
+
+        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
+                creationEvent, owner, permissions, pixelBuffer,
+                renderer, rdef);
+
+        JsonObject nullPhysSizeCorrect = imgData.copy();
+        JsonObject pixelSize = nullPhysSizeCorrect.getJsonObject("pixel_size");
+        pixelSize.putNull("x");
+        pixelSize.putNull("y");
+        Assert.assertEquals(basicObj, nullPhysSizeCorrect);
     }
 }
