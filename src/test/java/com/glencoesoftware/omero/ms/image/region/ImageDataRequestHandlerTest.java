@@ -33,15 +33,13 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.model.display.ChannelBinding;
+import ome.model.display.CodomainMapContext;
 import ome.model.display.RenderingDef;
+import ome.model.display.ReverseIntensityContext;
 import ome.model.enums.Family;
 import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
 import ome.units.UNITS;
-import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.CodomainChain;
-import omeis.providers.re.codomain.CodomainMapContext;
-import omeis.providers.re.codomain.ReverseIntensityContext;
 import omero.rtypes;
 import omero.model.Channel;
 import omero.model.ChannelI;
@@ -78,7 +76,6 @@ public class ImageDataRequestHandlerTest {
     Optional<WellSampleI> wellSample;
     Permissions permissions;
     PixelBuffer pixelBuffer;
-    Renderer renderer;
     RenderingDef rdef;
     ChannelBinding[] cbs;
 
@@ -175,8 +172,6 @@ public class ImageDataRequestHandlerTest {
     public static String CH3_LABEL = "channel name 3";
     public static double CH3_WINDOW_START = 0;
     public static double CH3_WINDOW_END = 32;
-    public static double CH3_WINDOW_MIN = -30;
-    public static double CH3_WINDOW_MAX = 30;
 
     public static int SPLIT_CH_C_BORDER = 2;
     public static int SPLIT_CH_C_GRIDX = 2;
@@ -347,8 +342,8 @@ public class ImageDataRequestHandlerTest {
         JsonObject ch3Window = new JsonObject();
         ch3Window.put("start", CH3_WINDOW_START);
         ch3Window.put("end", CH3_WINDOW_END);
-        ch3Window.put("min", CH3_WINDOW_MIN);
-        ch3Window.put("max", CH3_WINDOW_MAX);
+        ch3Window.put("min", 0);
+        ch3Window.put("max", 255);
         ch3.put("window", ch3Window);
 
         channels.add(ch1);
@@ -423,6 +418,7 @@ public class ImageDataRequestHandlerTest {
         PixelsTypeI pixType = new PixelsTypeI();
         pixType.setValue(rtypes.rstring(PIX_TYPE_STR));
         pixels.setPixelsType(pixType);
+        pixType.setBitSize(rtypes.rint(8));
         pixels.setPhysicalSizeX(new LengthI(PHYSICAL_SIZE_X, UnitsLength.MICROMETER));
         pixels.setPhysicalSizeY(new LengthI(PHYSICAL_SIZE_Y, UnitsLength.MICROMETER));
         pixels.setSizeX(rtypes.rint(PIXELS_SIZE_X));
@@ -459,10 +455,6 @@ public class ImageDataRequestHandlerTest {
         LogicalChannelI logCh3 = new LogicalChannelI();
         logCh3.setName(rtypes.rstring(CH3_LABEL));
         channel3.setLogicalChannel(logCh3);
-        StatsInfoI statsInfo3 = new StatsInfoI();
-        statsInfo3.setGlobalMin(rtypes.rdouble(CH3_WINDOW_MIN));
-        statsInfo3.setGlobalMax(rtypes.rdouble(CH3_WINDOW_MAX));
-        channel3.setStatsInfo(statsInfo3);
 
         pixels.addChannel(channel1);
         pixels.addChannel(channel2);
@@ -484,7 +476,6 @@ public class ImageDataRequestHandlerTest {
         when(pixelBuffer.getByteWidth()).thenReturn(BYTE_WIDTH);
         when(pixelBuffer.isSigned()).thenReturn(false);
 
-        renderer = mock(Renderer.class);
         List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
         resLvlDescs.add(Arrays.asList(PIXELS_SIZE_X, PIXELS_SIZE_Y));
         resLvlDescs.add(Arrays.asList((int) Math.round(
@@ -499,7 +490,7 @@ public class ImageDataRequestHandlerTest {
         resLvlDescs.add(Arrays.asList((int) Math.round(
                 Math.floor(PIXELS_SIZE_X * ZOOM_LVL_4)),
                 (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_4))));
-        when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
         ChannelBinding cb1 = new ChannelBinding();
         cb1.setFamily(new Family(Family.VALUE_LINEAR));
@@ -531,21 +522,13 @@ public class ImageDataRequestHandlerTest {
         cb3.setGreen(0);
         cb3.setBlue(255);
 
-        cbs = new ChannelBinding[] { cb1, cb2, cb3 };
-        when(renderer.getChannelBindings()).thenReturn(cbs);
-        when(renderer.getPixelsTypeLowerBound(0)).thenReturn(CH1_WINDOW_MIN);
-        when(renderer.getPixelsTypeLowerBound(1)).thenReturn(CH2_WINDOW_MIN);
-        when(renderer.getPixelsTypeLowerBound(2)).thenReturn(CH3_WINDOW_MIN);
-        when(renderer.getPixelsTypeUpperBound(0)).thenReturn(CH1_WINDOW_MAX);
-        when(renderer.getPixelsTypeUpperBound(1)).thenReturn(CH2_WINDOW_MAX);
-        when(renderer.getPixelsTypeUpperBound(2)).thenReturn(CH3_WINDOW_MAX);
-
-        CodomainChain cc = new CodomainChain(0, 1);
-        when(renderer.getCodomainChain(0)).thenReturn(cc);
-        when(renderer.getCodomainChain(1)).thenReturn(cc);
-        when(renderer.getCodomainChain(2)).thenReturn(cc);
-
         rdef = new RenderingDef();
+
+        rdef.addChannelBinding(cb1);
+        rdef.addChannelBinding(cb2);
+        rdef.addChannelBinding(cb3);
+        cbs = new ChannelBinding[] { cb1, cb2, cb3 };
+
         rdef.setDefaultT(DEFAULT_T);
         rdef.setDefaultZ(DEFAULT_Z);
         RenderingModel model = new RenderingModel(RenderingModel.VALUE_RGB);
@@ -571,10 +554,10 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         Assert.assertEquals(basicObj, imgData);
     }
 
@@ -583,7 +566,7 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         ProjectI project2 = new ProjectI();
         project2.setName(rtypes.rstring("proj2 name"));
         project2.setDescription(rtypes.rstring("proj2 desc"));
@@ -593,7 +576,7 @@ public class ImageDataRequestHandlerTest {
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject multProjCorrect = imgData.copy();
         multProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
@@ -607,7 +590,7 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         DatasetI ds2 = new DatasetI();
         ds2.setName(rtypes.rstring("ds2 name"));
         ds2.setDescription(rtypes.rstring("ds2 desc"));
@@ -621,7 +604,7 @@ public class ImageDataRequestHandlerTest {
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject multDsCorrect = imgData.copy();
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
         multDsCorrect.getJsonObject("meta").remove("datasetId");
@@ -634,7 +617,7 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         ProjectI project2 = new ProjectI(123, true);
         project2.setName(rtypes.rstring("proj2 name"));
         project2.setDescription(rtypes.rstring("proj2 desc"));
@@ -653,7 +636,7 @@ public class ImageDataRequestHandlerTest {
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject multDsProjCorrect = imgData.copy();
         multDsProjCorrect.getJsonObject("meta").put("datasetName",
                 "Multiple");
@@ -674,16 +657,16 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
         resLvlDescs.add(Arrays.asList(512, 1024));
         resLvlDescs.add(Arrays.asList(128, 256));
         resLvlDescs.add(Arrays.asList(32, 64));
-        when(renderer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject zoomLvlsCorrect = imgData.copy();
         JsonObject zoomLvls = new JsonObject();
         zoomLvls.put("0", 1.0);
@@ -698,12 +681,12 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         when(pixelBuffer.getByteWidth()).thenReturn(2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject pixRangeCorrect = imgData.copy();
         JsonArray pixRange = new JsonArray();
         pixRange.add(0);
@@ -714,7 +697,7 @@ public class ImageDataRequestHandlerTest {
         when(pixelBuffer.isSigned()).thenReturn(true);
         basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
 
         pixRange = new JsonArray();
         pixRange.add(-32768);
@@ -728,7 +711,7 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         List<Channel> channels = pixels.copyChannels();
         channels.remove(2);
         pixels.clearChannels();
@@ -736,7 +719,7 @@ public class ImageDataRequestHandlerTest {
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject splitChannelCorrect = imgData.copy();
         JsonObject g = new JsonObject();
         g.put("width", 1030);
@@ -764,17 +747,15 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
         List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
         ctxList.add(reverseIntensityCtx);
-        CodomainChain cc = mock(CodomainChain.class);
-        when(cc.getContexts()).thenReturn(ctxList);
-        when(renderer.getCodomainChain(0)).thenReturn(cc);
+        rdef.getChannelBinding(0).addCodomainMapContext((CodomainMapContext) reverseIntensityCtx);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject invertedCorrect = imgData.copy();
         JsonObject channel = invertedCorrect.getJsonArray("channels")
                 .getJsonObject(0);
@@ -788,14 +769,14 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
         pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
         pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject pixelSizeCorrect = imgData.copy();
         JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
         pixSize.put("x", 3000.0);
@@ -809,12 +790,12 @@ public class ImageDataRequestHandlerTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
         image.setAcquisitionDate(rtypes.rtime(22222222));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject timestampCorrect = imgData.copy();
         timestampCorrect.getJsonObject("meta").put("imageTimestamp",
                 22222);
@@ -829,11 +810,11 @@ public class ImageDataRequestHandlerTest {
         cb.setRed(0);
         cb.setGreen(17);
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject channelsCorrect = imgData.copy();
         channelsCorrect.getJsonArray("channels").getJsonObject(0).put("color", "001100");
         Assert.assertEquals(basicObj, channelsCorrect);
@@ -865,19 +846,14 @@ public class ImageDataRequestHandlerTest {
         cb3.setGreen(0);
         cb3.setBlue(255);
 
-        ChannelBinding[] cbs = new ChannelBinding[] { cb2, cb3 };
-        when(renderer.getChannelBindings()).thenReturn(cbs);
-        when(renderer.getPixelsTypeLowerBound(1)).thenReturn(CH2_WINDOW_MIN);
-        when(renderer.getPixelsTypeLowerBound(2)).thenReturn(CH3_WINDOW_MIN);
-        when(renderer.getPixelsTypeUpperBound(1)).thenReturn(CH2_WINDOW_MAX);
-        when(renderer.getPixelsTypeUpperBound(2)).thenReturn(CH3_WINDOW_MAX);
+        rdef.removeChannelBinding(rdef.getChannelBinding(0));
 
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
         JsonObject channelsCorrect = imgData.copy();
         channelsCorrect.getJsonArray("channels").remove(0);
         channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("gridy", 1);
@@ -893,11 +869,11 @@ public class ImageDataRequestHandlerTest {
         pixels.setPhysicalSizeY(null);
 
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, null, null, 0, true);
+                null, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
-                renderer, rdef);
+                rdef);
 
         JsonObject nullPhysSizeCorrect = imgData.copy();
         JsonObject pixelSize = nullPhysSizeCorrect.getJsonObject("pixel_size");

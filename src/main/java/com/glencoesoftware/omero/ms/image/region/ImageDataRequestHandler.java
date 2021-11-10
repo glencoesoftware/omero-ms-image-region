@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,18 +46,13 @@ import omero.model.Permissions;
 import omero.model.Pixels;
 import omero.model.PixelsI;
 import ome.model.display.ChannelBinding;
+import ome.model.display.CodomainMapContext;
 import ome.model.display.RenderingDef;
-import ome.model.enums.Family;
+import ome.model.display.ReverseIntensityContext;
 import ome.model.enums.RenderingModel;
 import ome.model.units.BigResult;
 import omero.model.LengthI;
 import omero.model.StatsInfo;
-import omeis.providers.re.Renderer;
-import omeis.providers.re.codomain.CodomainChain;
-import omeis.providers.re.codomain.CodomainMapContext;
-import omeis.providers.re.codomain.ReverseIntensityContext;
-import omeis.providers.re.lut.LutProvider;
-import omeis.providers.re.quantum.QuantumFactory;
 import omero.model.Details;
 import omero.model.Event;
 import omero.model.Experimenter;
@@ -68,6 +64,7 @@ import omero.model.WellSampleI;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 import ome.units.UNITS;
+import omeis.providers.re.metadata.StatsFactory;
 
 import static omero.rtypes.unwrap;
 
@@ -82,14 +79,8 @@ public class ImageDataRequestHandler {
     /** OMERO server pixels service. */
     private PixelsService pixelsService;
 
-    /** Available families */
-    private List<Family> families;
-
     /** Available rendering models */
     List<RenderingModel> renderingModels;
-
-    /** Lookup table provider */
-    LutProvider lutProvider;
 
     /** Initial Zoom level from server settings **/
     private int initZoom;
@@ -107,21 +98,18 @@ public class ImageDataRequestHandler {
      * Constructor
      * @param imageDataCtx Image Data Context
      * @param pixelsService OMERO server pixels service.
-     * @param families Available rendering models
      * @param renderingModels Available rendering models
      * @param lutProvider Lookup table provider
      * @param initZoom Initial Zoom level from server settings
      * @param interpolate Interpolation server setting
      */
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
-            PixelsService pixelsService, List<Family> families,
-            List<RenderingModel> renderingModels, LutProvider lutProvider,
+            PixelsService pixelsService,
+            List<RenderingModel> renderingModels,
             int initZoom, boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;
-        this.families = families;
         this.renderingModels = renderingModels;
-        this.lutProvider = lutProvider;
         this.initZoom = initZoom;
         this.interpolate = interpolate;
     }
@@ -147,23 +135,18 @@ public class ImageDataRequestHandler {
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
             try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
-                QuantumFactory quantumFactory = new QuantumFactory(families);
                 List<Long> pixIds = new ArrayList<Long>();
                 pixIds.add(pixels.getId().getValue());
                 List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId,
                         pixIds);
                 RenderingDef rdef = selectRenderingDef(rdefs, userId,
                         pixels.getId().getValue());
-                Renderer renderer = new Renderer(quantumFactory, renderingModels,
-                        (ome.model.core.Pixels) mapper.reverse(pixels), rdef,
-                        pixelBuffer, lutProvider);
                 Permissions permissions = details.getPermissions();
                 Event creationEvent = details.getCreationEvent();
                 Map<String, String> pixCtx = new HashMap<String, String>();
                 pixCtx.put("omero.group", "-1");
                 return populateImageData(image, pixels, creationEvent,
-                        owner, permissions, pixelBuffer, renderer,
-                        rdef);
+                        owner, permissions, pixelBuffer, rdef);
             }
         } catch (ServerError | IOException e) {
             log.error("Error getting image data", e);
@@ -186,8 +169,7 @@ public class ImageDataRequestHandler {
      */
     public JsonObject populateImageData(Image image, PixelsI pixels,
             Event creationEvent, Experimenter owner, Permissions permissions,
-            PixelBuffer pixelBuffer, Renderer renderer,
-            RenderingDef rdef) {
+            PixelBuffer pixelBuffer, RenderingDef rdef) {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, creationEvent,
@@ -221,12 +203,12 @@ public class ImageDataRequestHandler {
 
         if (resLvlCount > 1) {
             imgData.put("zoomLevelScaling",
-                    getImageDataZoomLevelScaling(renderer));
+                    getImageDataZoomLevelScaling(pixelBuffer));
         }
 
         imgData.put("pixel_range", getImageDataPixelRange(pixelBuffer));
 
-        imgData.put("channels", getImageDataChannels(pixels, renderer));
+        imgData.put("channels", getImageDataChannels(pixels, rdef));
 
         imgData.put("split_channel", getImageDataSplitChannel(pixels));
 
@@ -385,12 +367,14 @@ public class ImageDataRequestHandler {
                         UNITS.MICROMETER).getValue());
             } else {
                 pixelSize.putNull("x");
-            } if (pixels.getPhysicalSizeY() != null) {
+            }
+            if (pixels.getPhysicalSizeY() != null) {
                 pixelSize.put("y", new LengthI(pixels.getPhysicalSizeY(),
                         UNITS.MICROMETER).getValue());
             } else {
                 pixelSize.putNull("y");
-            } if (pixels.getPhysicalSizeZ() != null) {
+            }
+            if (pixels.getPhysicalSizeZ() != null) {
                 pixelSize.put("z", new LengthI(pixels.getPhysicalSizeZ(),
                         UNITS.MICROMETER).getValue());
             } else {
@@ -404,12 +388,12 @@ public class ImageDataRequestHandler {
 
     /**
      * Populate zoom level scaling image data
-     * @param renderer
+     * @param pixelBuffer
      * @return the zoom level scaling image data
      */
-    private JsonObject getImageDataZoomLevelScaling(Renderer renderer) {
+    private JsonObject getImageDataZoomLevelScaling(PixelBuffer pixelBuffer) {
         JsonObject zoomLvlScaling = new JsonObject();
-        List<List<Integer>> resDescs = renderer.getResolutionDescriptions();
+        List<List<Integer>> resDescs = pixelBuffer.getResolutionDescriptions();
         int maxXSize = resDescs.get(0).get(0);
         for (int i = 0; i < resDescs.size(); i++) {
             List<Integer> desc = resDescs.get(i);
@@ -440,10 +424,10 @@ public class ImageDataRequestHandler {
     /**
      * Populate channel image data
      * @param pixels
-     * @param renderer
+     * @param rdef
      * @return JsonArray of channels image data
      */
-    private JsonArray getImageDataChannels(PixelsI pixels, Renderer renderer) {
+    private JsonArray getImageDataChannels(PixelsI pixels, RenderingDef rdef) {
         JsonArray channels = new JsonArray();
         int channelCount = pixels.sizeOfChannels();
         for (int i = 0; i < channelCount; i++) {
@@ -468,9 +452,9 @@ public class ImageDataRequestHandler {
                 ch.putNull("emissionWave");
             }
             ch.put("label", label);
-            ch.put("inverted", isInverted(renderer, i));
-            ch.put("reverseIntensity", isInverted(renderer, i));
-            ChannelBinding cb = renderer.getChannelBindings()[i];
+            ch.put("inverted", isInverted(rdef, i));
+            ch.put("reverseIntensity", isInverted(rdef, i));
+            ChannelBinding cb = rdef.getChannelBinding(i);
             ch.put("color", getColorString(cb));
             ch.put("family", cb.getFamily().getValue());
             ch.put("coefficient", cb.getCoefficient());
@@ -481,8 +465,10 @@ public class ImageDataRequestHandler {
                 window.put("min", statsInfo.getGlobalMin().getValue());
                 window.put("max", statsInfo.getGlobalMax().getValue());
             } else {
-                window.put("min", renderer.getPixelsTypeLowerBound(i));
-                window.put("max", renderer.getPixelsTypeUpperBound(i));
+                StatsFactory statsFactory = new StatsFactory();
+                double[] minMax = statsFactory.initPixelsRange((ome.model.core.Pixels) mapper.reverse(pixels));
+                window.put("min", minMax[0]);
+                window.put("max", minMax[1]);
             }
             window.put("start", cb.getInputStart());
             window.put("end", cb.getInputEnd());
@@ -561,14 +547,11 @@ public class ImageDataRequestHandler {
      * @param channel
      * @return Whether the channel is inverted
      */
-    private boolean isInverted(Renderer renderer, int channel) {
-        CodomainChain chain = renderer.getCodomainChain(channel);
-        if (chain == null) {
-            return false;
-        }
-        List<CodomainMapContext> mapContexts = chain.getContexts();
-        for (CodomainMapContext cmctx : mapContexts) {
-            if (cmctx instanceof ReverseIntensityContext) {
+    private boolean isInverted(RenderingDef rdef, int channel) {
+        ChannelBinding cb = rdef.getChannelBinding(channel);
+        Iterator<CodomainMapContext> codomainItr = cb.iterateSpatialDomainEnhancement();
+        while(codomainItr.hasNext()) {
+            if (codomainItr.next() instanceof ReverseIntensityContext) {
                 return true;
             }
         }
