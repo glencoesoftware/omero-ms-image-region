@@ -52,6 +52,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.spi.json.JsonCodec;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -333,11 +334,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .handler(this::renderImageRegion);
 
         // ImageData request handlers
-        router.get("/webgateway/imgData/:imageId/:keys").handler(this::getImageData);
-        router.get("/webgateway/imgData/:imageId/:keys/").handler(this::getImageData);
+        router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/webgateway/imgData/:imageId*").handler(this::getImageData);
-        router.get("/pathviewer/imgData/:imageId/:keys").handler(this::getImageData);
-        router.get("/pathviewer/imgData/:imageId/:keys/").handler(this::getImageData);
+        router.get("/pathviewer/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/pathviewer/imgData/:imageId*").handler(this::getImageData);
 
         // ShapeMask request handlers
@@ -698,9 +697,25 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     return;
                 }
                 JsonObject imgDataJson = result.result().body();
+                Object myObj = imgDataJson;
+                if (request.params().contains("keys")) {
+                    String[] keys = request.params().get("keys").split("\\.");
+                    for (int i = 0; i < keys.length - 1; i ++) {
+                        imgDataJson = imgDataJson.getJsonObject(keys[i]);
+                        if (imgDataJson == null) {
+                            break;
+                        }
+                    }
+                    if (imgDataJson == null) {
+                        myObj = null;
+                    } else {
+                        myObj = imgDataJson.getValue(keys[keys.length - 1]);
+                    }
+                }
+                String rv = JsonCodec.INSTANCE.toString(myObj, true);
                 if (request.params().contains("callback")) {
                     String callback = request.params().get("callback");
-                    String resJavascript = String.format("%s(%s)", callback, imgDataJson.toString());
+                    String resJavascript = String.format("%s(%s)", callback, rv);
                     response.headers().set("Content-Type", "application/javascript");
                     response.headers().set(
                             "Content-Length",
@@ -710,8 +725,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     response.headers().set("Content-Type", "application/json");
                     response.headers().set(
                             "Content-Length",
-                            String.valueOf(imgDataJson.encodePrettily().length()));
-                    response.write(imgDataJson.encodePrettily());
+                            String.valueOf(rv.length()));
+                    response.write(rv);
                 }
             } finally {
                 if (!response.closed()) {
