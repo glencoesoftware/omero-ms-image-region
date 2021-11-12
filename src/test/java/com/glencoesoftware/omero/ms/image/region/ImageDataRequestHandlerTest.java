@@ -385,6 +385,29 @@ public class ImageDataRequestHandlerTest {
         return rdef;
     }
 
+    private void setupPixelBuffer() {
+        pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getResolutionLevels()).thenReturn(RES_LVL_COUNT);
+        when(pixelBuffer.getTileSize())
+                .thenReturn(new Dimension(TILE_WIDTH, TILE_HEIGHT));
+
+        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
+        resLvlDescs.add(Arrays.asList(PIXELS_SIZE_X, PIXELS_SIZE_Y));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_1)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_1))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_2)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_2))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_3)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_3))));
+        resLvlDescs.add(Arrays.asList((int) Math.round(
+                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_4)),
+                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_4))));
+        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+    }
+
     @Before
     public void setup() throws IOException {
         setupStdJson();
@@ -424,6 +447,9 @@ public class ImageDataRequestHandlerTest {
         pixels.setPhysicalSizeY(new LengthI(PHYSICAL_SIZE_Y, UnitsLength.MICROMETER));
         pixels.setSizeX(rtypes.rint(PIXELS_SIZE_X));
         pixels.setSizeY(rtypes.rint(PIXELS_SIZE_Y));
+        pixels.setSizeZ(rtypes.rint(PIXELS_SIZE_Z));
+        pixels.setSizeC(rtypes.rint(PIXELS_SIZE_C));
+        pixels.setSizeT(rtypes.rint(PIXELS_SIZE_T));
 
         ChannelI channel1 = new ChannelI();
         channel1.setRed(rtypes.rint(255));
@@ -465,33 +491,7 @@ public class ImageDataRequestHandlerTest {
 
         wellSample = Optional.empty();
 
-        pixelBuffer = mock(PixelBuffer.class);
-        when(pixelBuffer.getResolutionLevels()).thenReturn(RES_LVL_COUNT);
-        when(pixelBuffer.getTileSize())
-                .thenReturn(new Dimension(TILE_WIDTH, TILE_HEIGHT));
-        when(pixelBuffer.getSizeX()).thenReturn(PIXELS_SIZE_X);
-        when(pixelBuffer.getSizeY()).thenReturn(PIXELS_SIZE_Y);
-        when(pixelBuffer.getSizeZ()).thenReturn(PIXELS_SIZE_Z);
-        when(pixelBuffer.getSizeC()).thenReturn(PIXELS_SIZE_C);
-        when(pixelBuffer.getSizeT()).thenReturn(PIXELS_SIZE_T);
-        when(pixelBuffer.getByteWidth()).thenReturn(BYTE_WIDTH);
-        when(pixelBuffer.isSigned()).thenReturn(false);
-
-        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
-        resLvlDescs.add(Arrays.asList(PIXELS_SIZE_X, PIXELS_SIZE_Y));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_1)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_1))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_2)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_2))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_3)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_3))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_4)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_4))));
-        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+        setupPixelBuffer();
 
         ChannelBinding cb1 = new ChannelBinding();
         cb1.setFamily(new Family(Family.VALUE_LINEAR));
@@ -683,7 +683,6 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
-        when(pixelBuffer.getByteWidth()).thenReturn(2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -695,15 +694,26 @@ public class ImageDataRequestHandlerTest {
         pixRangeCorrect.put("pixel_range", pixRange);
         Assert.assertEquals(basicObj, pixRangeCorrect);
 
-        when(pixelBuffer.isSigned()).thenReturn(true);
+        // Need new request handler because the Ice object mapper caches
+        // object instances and we're only changing a single value
+        reqHandler = new ImageDataRequestHandler(ctx,
+                null, null, 0, true);
+        pixels.getPixelsType().setValue(rtypes.rstring("int8"));
+        setupPixelBuffer();  // Resets pixel buffer with int8 pixels type
         basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
                 rdef);
 
-        pixRange = new JsonArray();
-        pixRange.add(-32768);
-        pixRange.add(32767);
-        pixRangeCorrect.put("pixel_range", pixRange);
+        pixRange = pixRangeCorrect.getJsonArray("pixel_range");
+        pixRange.set(0, -128);
+        pixRange.set(1, 127);
+        JsonObject window = pixRangeCorrect
+                .getJsonArray("channels")
+                .getJsonObject(2)
+                .getJsonObject("window");
+        window.put("min", -128);
+        window.put("max", 127);
+        pixRangeCorrect.getJsonObject("meta").put("pixelsType", "int8");
         Assert.assertEquals(basicObj, pixRangeCorrect);
     }
 
