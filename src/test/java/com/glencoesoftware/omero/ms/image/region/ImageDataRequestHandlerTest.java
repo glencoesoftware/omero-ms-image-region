@@ -41,7 +41,6 @@ import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
 import ome.units.UNITS;
 import omero.ApiUsageException;
-import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
 import omero.model.EventI;
@@ -704,10 +703,7 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
-        List<Channel> channels = pixels.copyChannels();
-        channels.remove(2);
-        pixels.clearChannels();
-        pixels.addAllChannelSet(channels);
+        pixels.removeChannel(pixels.getChannel(2));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
