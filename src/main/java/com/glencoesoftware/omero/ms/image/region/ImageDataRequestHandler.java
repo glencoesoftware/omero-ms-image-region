@@ -466,7 +466,8 @@ public class ImageDataRequestHandler {
                 window.put("max", statsInfo.getGlobalMax().getValue());
             } else {
                 StatsFactory statsFactory = new StatsFactory();
-                double[] minMax = statsFactory.initPixelsRange((ome.model.core.Pixels) mapper.reverse(pixels));
+                double[] minMax = statsFactory.initPixelsRange(
+                        (ome.model.core.Pixels) mapper.reverse(pixels));
                 window.put("min", minMax[0]);
                 window.put("max", minMax[1]);
             }
