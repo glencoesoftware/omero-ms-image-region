@@ -690,7 +690,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject pixRangeCorrect = imgData.copy();
         JsonArray pixRange = new JsonArray();
         pixRange.add(0);
-        pixRange.add(65535); // 2^(8*2) - 1
+        pixRange.add(255);
         pixRangeCorrect.put("pixel_range", pixRange);
         Assert.assertEquals(basicObj, pixRangeCorrect);
 
