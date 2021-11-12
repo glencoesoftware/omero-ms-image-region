@@ -170,6 +170,12 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(String.format(
                     "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
         }
+        if (shape[4] < 0) {
+            throw new IllegalArgumentException("sizeX < 0");
+        }
+        if (shape[3] < 0) {
+            throw new IllegalArgumentException("sizeY < 0");
+        }
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_bytes");
         try {
