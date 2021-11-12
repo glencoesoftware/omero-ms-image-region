@@ -55,7 +55,6 @@ import omero.model.PixelsI;
 import omero.model.ProjectI;
 import omero.model.StatsInfoI;
 import omero.model.WellI;
-import omero.model.WellSample;
 import omero.model.WellSampleI;
 import omero.model.enums.UnitsLength;
 
@@ -528,10 +527,7 @@ public class ImageDataRequestHandlerTest {
         WellSampleI ws = new WellSampleI(WELL_SAMPLE_ID, true);
         WellI well = new WellI(WELL_ID, true);
         ws.setWell(well);
-        List<WellSample> wsList = new ArrayList<WellSample>();
-        wsList.add(ws);
-        when(image.copyWellSamples()).thenReturn(wsList);
-        when(image.sizeOfWellSamples()).thenReturn(1);
+        image.addWellSample(ws);
 
         ObjectiveSettingsI os = new ObjectiveSettingsI();
         ObjectiveI obj = new ObjectiveI();
