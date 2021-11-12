@@ -242,7 +242,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             ZarrArray resolutionArray = ZarrArray.open(
                     root.resolve(dataset.get("path")));
             int[] shape = resolutionArray.getChunks();
-            chunks.add(0, shape);
+            chunks.add(shape);
         }
         return chunks.toArray(new int[chunks.size()][]);
     }

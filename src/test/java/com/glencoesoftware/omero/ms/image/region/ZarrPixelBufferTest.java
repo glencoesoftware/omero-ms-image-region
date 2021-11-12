@@ -221,9 +221,9 @@ public class ZarrPixelBufferTest {
                 new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
             int[][] chunks = zpbuf.getChunks();
             int[][] expectedChunks = new int[][] {
-                new int[] {1, 1, 1, 128, 512},
+                new int[] {1, 1, 1, 512, 1024},
                 new int[] {1, 1, 1, 256, 1024},
-                new int[] {1, 1, 1, 512, 1024}
+                new int[] {1, 1, 1, 128, 512}
             };
             for(int i = 0; i < chunks.length; i++) {
                 Assert.assertTrue(Arrays.equals(
