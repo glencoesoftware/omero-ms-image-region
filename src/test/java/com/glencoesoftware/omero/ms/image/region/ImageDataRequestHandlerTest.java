@@ -44,7 +44,6 @@ import omero.ApiUsageException;
 import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
-import omero.model.DatasetImageLinkI;
 import omero.model.EventI;
 import omero.model.Experimenter;
 import omero.model.ExperimenterI;
@@ -56,7 +55,6 @@ import omero.model.ObjectiveSettingsI;
 import omero.model.Permissions;
 import omero.model.PermissionsI;
 import omero.model.PixelsI;
-import omero.model.ProjectDatasetLinkI;
 import omero.model.ProjectI;
 import omero.model.StatsInfoI;
 import omero.model.WellI;
@@ -94,13 +92,9 @@ public class ImageDataRequestHandlerTest {
     public static String IMAGE_DESC = "test image description";
     public static long IMAGE_TIMESTAMP = 12345l;
 
-    public static long DATASET_LINK_ID_1 = 10l;
-
     public static long DATASET_ID_1 = 100l;
     public static String DATASET_NAME_1 = "ds name 1";
     public static String DATASET_DESC_1 = "ds description 1";
-
-    public static long PROJECT_DS_LINK_ID_1 = 1000l;
 
     public static long PROJECT_ID_1 = 10000l;
     public static String PROJECT_NAME_1 = "proj name 1";
@@ -428,20 +422,14 @@ public class ImageDataRequestHandlerTest {
         image.setId(rlong(IMAGE_ID));
         image.setName(rstring(IMAGE_NAME));
         image.setDescription(rstring(IMAGE_DESC));
-        DatasetImageLinkI dslink1 = new DatasetImageLinkI(DATASET_LINK_ID_1,
-                true);
         DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
         ds1.setName(rstring(DATASET_NAME_1));
         ds1.setDescription(rstring(DATASET_DESC_1));
-        dslink1.setParent(ds1);
-        ProjectDatasetLinkI projLink1 = new ProjectDatasetLinkI(
-                PROJECT_DS_LINK_ID_1, true);
         ProjectI proj_1 = new ProjectI(PROJECT_ID_1, true);
         proj_1.setName(rstring(PROJECT_NAME_1));
         proj_1.setDescription(rstring(PROJECT_DESC_1));
-        projLink1.setParent(proj_1);
-        image.addDatasetImageLink(dslink1);
-        ds1.addProjectDatasetLink(projLink1);
+        image.linkDataset(ds1);
+        ds1.linkProject(proj_1);
 
         pixels = new PixelsI(PIXELS_ID, true);
         PixelsTypeI pixType = new PixelsTypeI();
@@ -576,9 +564,7 @@ public class ImageDataRequestHandlerTest {
         ProjectI project2 = new ProjectI();
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
-        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
-        projLink2.setParent(project2);
-        image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
+        image.linkedDatasetList().get(0).linkProject(project2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -592,7 +578,8 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataMultipleDatasetsAnd() throws ApiUsageException {
+    public void testImageDataMultipleDatasets()
+            throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -600,13 +587,7 @@ public class ImageDataRequestHandlerTest {
         DatasetI ds2 = new DatasetI();
         ds2.setName(rstring("ds2 name"));
         ds2.setDescription(rstring("ds2 desc"));
-        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
-        projLink2.setParent(image.linkedDatasetList().get(0)
-                .linkedProjectList().get(0));
-        ds2.addProjectDatasetLink(projLink2);
-        DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
-        dsLink2.setParent(ds2);
-        image.addDatasetImageLink(dsLink2);
+        image.linkDataset(ds2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -619,7 +600,8 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataMultipleDatasetsAndProjects() throws ApiUsageException {
+    public void testImageDataMultipleDatasetsAndProjects()
+            throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -627,18 +609,12 @@ public class ImageDataRequestHandlerTest {
         ProjectI project2 = new ProjectI(123, true);
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
-        ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
-                true);
-        projLink2.setParent(project2);
 
         DatasetI ds2 = new DatasetI(123, true);
         ds2.setName(rstring("ds2 name"));
         ds2.setDescription(rstring("ds2 desc"));
-        projLink2.setParent(project2);
-        ds2.addProjectDatasetLink(projLink2);
-        DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
-        dsLink2.setParent(ds2);
-        image.addDatasetImageLink(dsLink2);
+        ds2.linkProject(project2);
+        image.linkDataset(ds2);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
