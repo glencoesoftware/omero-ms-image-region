@@ -197,7 +197,7 @@ public class ImageDataRequestHandler {
 
         imgData.put("interpolate", interpolate);
 
-        imgData.put("size", getImageDataSize(pixelBuffer));
+        imgData.put("size", getImageDataSize(pixels));
 
         imgData.put("pixel_size", getImageDataPixelSize(pixels));
 
@@ -343,16 +343,16 @@ public class ImageDataRequestHandler {
 
     /**
      * Populates the size image data
-     * @param pixelBuffer
+     * @param pixels
      * @return The size JsonObject
      */
-    private JsonObject getImageDataSize(PixelBuffer pixelBuffer) {
+    private JsonObject getImageDataSize(Pixels pixels) {
         JsonObject size = new JsonObject();
-        size.put("width", pixelBuffer.getSizeX());
-        size.put("height", pixelBuffer.getSizeY());
-        size.put("z", pixelBuffer.getSizeZ());
-        size.put("c", pixelBuffer.getSizeC());
-        size.put("t", pixelBuffer.getSizeT());
+        size.put("width", unwrap(pixels.getSizeX()));
+        size.put("height", unwrap(pixels.getSizeY()));
+        size.put("z", unwrap(pixels.getSizeZ()));
+        size.put("c", unwrap(pixels.getSizeC()));
+        size.put("t", unwrap(pixels.getSizeT()));
         return size;
     }
 
