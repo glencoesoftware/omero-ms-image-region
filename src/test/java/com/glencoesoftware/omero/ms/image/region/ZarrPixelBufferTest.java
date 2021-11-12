@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.awt.Dimension;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -463,6 +464,25 @@ public class ZarrPixelBufferTest {
         try (ZarrPixelBuffer zpbuf =
                 new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
             zpbuf.checkBounds(-1, 0, 0, 0, 0);
+        }
+    }
+
+    public void testGetTileSize() throws IOException {
+        int sizeT = 1;
+        int sizeC = 1;
+        int sizeZ = 1;
+        int sizeY = 2048;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            Dimension tileSize = zpbuf.getTileSize();
+            Assert.assertEquals(1024, tileSize.getWidth(), 0.1);
+            Assert.assertEquals(1024, tileSize.getHeight(), 0.1);
         }
     }
 
