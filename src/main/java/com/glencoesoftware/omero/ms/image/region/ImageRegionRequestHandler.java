@@ -70,6 +70,8 @@ import omero.util.IceMapper;
 import ucar.ma2.Array;
 import ucar.ma2.DataType;
 
+import static omero.rtypes.rlong;
+
 public class ImageRegionRequestHandler {
 
     private static final org.slf4j.Logger log =
@@ -258,7 +260,7 @@ public class ImageRegionRequestHandler {
             IQueryPrx iQuery = sf.getQueryService();
             ParametersI params = new ParametersI();
             params.addIds(pixelsIds);
-            params.add("userId", omero.rtypes.rlong(userId));
+            params.add("userId", rlong(userId));
             return (List<RenderingDef>) mapper.reverse(
                             iQuery.findAllByQuery(q, params, ctx));
         } catch (Exception e) {

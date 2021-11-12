@@ -41,7 +41,6 @@ import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
 import ome.units.UNITS;
 import omero.ApiUsageException;
-import omero.rtypes;
 import omero.model.Channel;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
@@ -67,6 +66,12 @@ import omero.model.enums.UnitsLength;
 
 import org.junit.Assert;
 import org.junit.Before;
+
+import static omero.rtypes.rdouble;
+import static omero.rtypes.rint;
+import static omero.rtypes.rlong;
+import static omero.rtypes.rstring;
+import static omero.rtypes.rtime;
 
 public class ImageDataRequestHandlerTest {
 
@@ -413,74 +418,74 @@ public class ImageDataRequestHandlerTest {
         setupStdJson();
 
         creationEvent = new EventI();
-        creationEvent.setTime(rtypes.rtime(IMAGE_TIMESTAMP*1000));
+        creationEvent.setTime(rtime(IMAGE_TIMESTAMP*1000));
         owner = new ExperimenterI();
-        owner.setFirstName(rtypes.rstring(OWNER_FIRST_NAME));
-        owner.setLastName(rtypes.rstring(OWNER_LAST_NAME));
-        owner.setId(rtypes.rlong(OWNER_ID));
+        owner.setFirstName(rstring(OWNER_FIRST_NAME));
+        owner.setLastName(rstring(OWNER_LAST_NAME));
+        owner.setId(rlong(OWNER_ID));
 
         image = spy(ImageI.class);
-        image.setId(rtypes.rlong(IMAGE_ID));
-        image.setName(rtypes.rstring(IMAGE_NAME));
-        image.setDescription(rtypes.rstring(IMAGE_DESC));
+        image.setId(rlong(IMAGE_ID));
+        image.setName(rstring(IMAGE_NAME));
+        image.setDescription(rstring(IMAGE_DESC));
         DatasetImageLinkI dslink1 = new DatasetImageLinkI(DATASET_LINK_ID_1,
                 true);
         DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
-        ds1.setName(rtypes.rstring(DATASET_NAME_1));
-        ds1.setDescription(rtypes.rstring(DATASET_DESC_1));
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
         dslink1.setParent(ds1);
         ProjectDatasetLinkI projLink1 = new ProjectDatasetLinkI(
                 PROJECT_DS_LINK_ID_1, true);
         ProjectI proj_1 = new ProjectI(PROJECT_ID_1, true);
-        proj_1.setName(rtypes.rstring(PROJECT_NAME_1));
-        proj_1.setDescription(rtypes.rstring(PROJECT_DESC_1));
+        proj_1.setName(rstring(PROJECT_NAME_1));
+        proj_1.setDescription(rstring(PROJECT_DESC_1));
         projLink1.setParent(proj_1);
         image.addDatasetImageLink(dslink1);
         ds1.addProjectDatasetLink(projLink1);
 
         pixels = new PixelsI(PIXELS_ID, true);
         PixelsTypeI pixType = new PixelsTypeI();
-        pixType.setValue(rtypes.rstring(PIX_TYPE_STR));
+        pixType.setValue(rstring(PIX_TYPE_STR));
         pixels.setPixelsType(pixType);
-        pixType.setBitSize(rtypes.rint(8));
+        pixType.setBitSize(rint(8));
         pixels.setPhysicalSizeX(new LengthI(PHYSICAL_SIZE_X, UnitsLength.MICROMETER));
         pixels.setPhysicalSizeY(new LengthI(PHYSICAL_SIZE_Y, UnitsLength.MICROMETER));
-        pixels.setSizeX(rtypes.rint(PIXELS_SIZE_X));
-        pixels.setSizeY(rtypes.rint(PIXELS_SIZE_Y));
-        pixels.setSizeZ(rtypes.rint(PIXELS_SIZE_Z));
-        pixels.setSizeC(rtypes.rint(PIXELS_SIZE_C));
-        pixels.setSizeT(rtypes.rint(PIXELS_SIZE_T));
+        pixels.setSizeX(rint(PIXELS_SIZE_X));
+        pixels.setSizeY(rint(PIXELS_SIZE_Y));
+        pixels.setSizeZ(rint(PIXELS_SIZE_Z));
+        pixels.setSizeC(rint(PIXELS_SIZE_C));
+        pixels.setSizeT(rint(PIXELS_SIZE_T));
 
         ChannelI channel1 = new ChannelI();
-        channel1.setRed(rtypes.rint(255));
-        channel1.setGreen(rtypes.rint(0));
-        channel1.setBlue(rtypes.rint(0));
+        channel1.setRed(rint(255));
+        channel1.setGreen(rint(0));
+        channel1.setBlue(rint(0));
         LogicalChannelI logCh1 = new LogicalChannelI();
-        logCh1.setName(rtypes.rstring(CH1_LABEL));
+        logCh1.setName(rstring(CH1_LABEL));
         channel1.setLogicalChannel(logCh1);
         StatsInfoI statsInfo1 = new StatsInfoI();
-        statsInfo1.setGlobalMin(rtypes.rdouble(CH1_WINDOW_MIN));
-        statsInfo1.setGlobalMax(rtypes.rdouble(CH1_WINDOW_MAX));
+        statsInfo1.setGlobalMin(rdouble(CH1_WINDOW_MIN));
+        statsInfo1.setGlobalMax(rdouble(CH1_WINDOW_MAX));
         channel1.setStatsInfo(statsInfo1);
 
         ChannelI channel2 = new ChannelI();
-        channel2.setRed(rtypes.rint(0));
-        channel2.setGreen(rtypes.rint(255));
-        channel2.setBlue(rtypes.rint(0));
+        channel2.setRed(rint(0));
+        channel2.setGreen(rint(255));
+        channel2.setBlue(rint(0));
         LogicalChannelI logCh2 = new LogicalChannelI();
-        logCh2.setName(rtypes.rstring(CH2_LABEL));
+        logCh2.setName(rstring(CH2_LABEL));
         channel2.setLogicalChannel(logCh2);
         StatsInfoI statsInfo2 = new StatsInfoI();
-        statsInfo2.setGlobalMin(rtypes.rdouble(CH2_WINDOW_MIN));
-        statsInfo2.setGlobalMax(rtypes.rdouble(CH2_WINDOW_MAX));
+        statsInfo2.setGlobalMin(rdouble(CH2_WINDOW_MIN));
+        statsInfo2.setGlobalMax(rdouble(CH2_WINDOW_MAX));
         channel2.setStatsInfo(statsInfo2);
 
         ChannelI channel3 = new ChannelI();
-        channel3.setRed(rtypes.rint(0));
-        channel3.setGreen(rtypes.rint(0));
-        channel3.setBlue(rtypes.rint(255));
+        channel3.setRed(rint(0));
+        channel3.setGreen(rint(0));
+        channel3.setBlue(rint(255));
         LogicalChannelI logCh3 = new LogicalChannelI();
-        logCh3.setName(rtypes.rstring(CH3_LABEL));
+        logCh3.setName(rstring(CH3_LABEL));
         channel3.setLogicalChannel(logCh3);
 
         pixels.addChannel(channel1);
@@ -545,7 +550,7 @@ public class ImageDataRequestHandlerTest {
 
         ObjectiveSettingsI os = new ObjectiveSettingsI();
         ObjectiveI obj = new ObjectiveI();
-        obj.setNominalMagnification(rtypes.rdouble(NOMINAL_MAGNIFICATION));
+        obj.setNominalMagnification(rdouble(NOMINAL_MAGNIFICATION));
         os.setObjective(obj);
         image.setObjectiveSettings(os);
     }
@@ -569,8 +574,8 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
         ProjectI project2 = new ProjectI();
-        project2.setName(rtypes.rstring("proj2 name"));
-        project2.setDescription(rtypes.rstring("proj2 desc"));
+        project2.setName(rstring("proj2 name"));
+        project2.setDescription(rstring("proj2 desc"));
         ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
         projLink2.setParent(project2);
         image.linkedDatasetList().get(0).addProjectDatasetLink(projLink2);
@@ -593,8 +598,8 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
         DatasetI ds2 = new DatasetI();
-        ds2.setName(rtypes.rstring("ds2 name"));
-        ds2.setDescription(rtypes.rstring("ds2 desc"));
+        ds2.setName(rstring("ds2 name"));
+        ds2.setDescription(rstring("ds2 desc"));
         ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI();
         projLink2.setParent(image.linkedDatasetList().get(0)
                 .linkedProjectList().get(0));
@@ -620,15 +625,15 @@ public class ImageDataRequestHandlerTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
         ProjectI project2 = new ProjectI(123, true);
-        project2.setName(rtypes.rstring("proj2 name"));
-        project2.setDescription(rtypes.rstring("proj2 desc"));
+        project2.setName(rstring("proj2 name"));
+        project2.setDescription(rstring("proj2 desc"));
         ProjectDatasetLinkI projLink2 = new ProjectDatasetLinkI(1234,
                 true);
         projLink2.setParent(project2);
 
         DatasetI ds2 = new DatasetI(123, true);
-        ds2.setName(rtypes.rstring("ds2 name"));
-        ds2.setDescription(rtypes.rstring("ds2 desc"));
+        ds2.setName(rstring("ds2 name"));
+        ds2.setDescription(rstring("ds2 desc"));
         projLink2.setParent(project2);
         ds2.addProjectDatasetLink(projLink2);
         DatasetImageLinkI dsLink2 = new DatasetImageLinkI();
@@ -698,7 +703,7 @@ public class ImageDataRequestHandlerTest {
         // object instances and we're only changing a single value
         reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
-        pixels.getPixelsType().setValue(rtypes.rstring("int8"));
+        pixels.getPixelsType().setValue(rstring("int8"));
         setupPixelBuffer();  // Resets pixel buffer with int8 pixels type
         basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -802,7 +807,7 @@ public class ImageDataRequestHandlerTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
-        image.setAcquisitionDate(rtypes.rtime(22222222));
+        image.setAcquisitionDate(rtime(22222222));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,

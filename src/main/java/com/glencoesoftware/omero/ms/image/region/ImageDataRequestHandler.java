@@ -67,6 +67,7 @@ import ome.units.UNITS;
 import omeis.providers.re.metadata.StatsFactory;
 
 import static omero.rtypes.unwrap;
+import static omero.rtypes.rlong;
 
 public class ImageDataRequestHandler {
 
@@ -696,7 +697,7 @@ public class ImageDataRequestHandler {
             IQueryPrx iQuery = sf.getQueryService();
             ParametersI params = new ParametersI();
             params.addIds(pixelsIds);
-            params.add("userId", omero.rtypes.rlong(userId));
+            params.add("userId", rlong(userId));
             return (List<RenderingDef>) mapper
                     .reverse(iQuery.findAllByQuery(q, params, ctx));
         } catch (Exception e) {
