@@ -40,6 +40,7 @@ import ome.model.enums.Family;
 import omero.model.PixelsTypeI;
 import ome.model.enums.RenderingModel;
 import ome.units.UNITS;
+import omero.ApiUsageException;
 import omero.rtypes;
 import omero.model.Channel;
 import omero.model.ChannelI;
@@ -550,7 +551,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataStd() {
+    public void testImageDataStd() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -562,7 +563,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataMultipleProjects() {
+    public void testImageDataMultipleProjects() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -586,7 +587,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataMultipleDatasetsAnd() {
+    public void testImageDataMultipleDatasetsAnd() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -613,7 +614,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataMultipleDatasetsAndProjects() {
+    public void testImageDataMultipleDatasetsAndProjects() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -653,7 +654,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataZoomLvl() {
+    public void testImageDataZoomLvl() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -677,7 +678,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataPixelRange() {
+    public void testImageDataPixelRange() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -707,7 +708,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataSplitChannel() {
+    public void testImageDataSplitChannel() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -743,7 +744,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataInverted() {
+    public void testImageDataInverted() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -765,7 +766,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataPixelSize() {
+    public void testImageDataPixelSize() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -786,7 +787,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataTimestampOnImage() {
+    public void testImageDataTimestampOnImage() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -803,7 +804,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataChannels() {
+    public void testImageDataChannels() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ChannelBinding cb = cbs[0];
@@ -821,7 +822,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageData2Channels() {
+    public void testImageData2Channels() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         pixels.removeChannel(pixels.getChannel(0));
@@ -862,7 +863,7 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataNullPixelSizes() {
+    public void testImageDataNullPixelSizes() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         pixels.setPhysicalSizeX(null);

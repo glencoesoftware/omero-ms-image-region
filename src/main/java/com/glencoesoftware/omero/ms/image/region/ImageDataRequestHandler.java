@@ -166,10 +166,12 @@ public class ImageDataRequestHandler {
      * @param renderer
      * @param rdef
      * @return
+     * @throws ApiUsageException 
      */
     public JsonObject populateImageData(Image image, PixelsI pixels,
             Event creationEvent, Experimenter owner, Permissions permissions,
-            PixelBuffer pixelBuffer, RenderingDef rdef) {
+            PixelBuffer pixelBuffer, RenderingDef rdef)
+                    throws ApiUsageException {
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image, pixels, creationEvent,
@@ -206,7 +208,7 @@ public class ImageDataRequestHandler {
                     getImageDataZoomLevelScaling(pixelBuffer));
         }
 
-        imgData.put("pixel_range", getImageDataPixelRange(pixelBuffer));
+        imgData.put("pixel_range", getImageDataPixelRange(pixels));
 
         imgData.put("channels", getImageDataChannels(pixels, rdef));
 
@@ -404,20 +406,30 @@ public class ImageDataRequestHandler {
     }
 
     /**
-     * Populate pixel range image data
-     * @param pb
-     * @return The pixel range JsonObject
+     * Retrieve the pixels type range for a given pixels set
+     * @param pixels
+     * @return See above.
+     * @throws ApiUsageException
      */
-    private JsonArray getImageDataPixelRange(PixelBuffer pb) {
-        long pmax = Math.round(Math.pow(2, 8 * pb.getByteWidth()));
+    private double[] getPixelsRange(PixelsI pixels) throws ApiUsageException {
+        StatsFactory statsFactory = new StatsFactory();
+        return statsFactory.initPixelsRange(
+                (ome.model.core.Pixels) mapper.reverse(pixels));
+    }
+
+    /**
+     * Populate pixel range image data
+     * NOTE: Unlike omero-web, <b>DOES</b> handle floats correctly.
+     * @param pixels
+     * @return The pixel range JsonObject
+     * @throws ApiUsageException 
+     */
+    private JsonArray getImageDataPixelRange(PixelsI pixels)
+            throws ApiUsageException {
+        double[] minMax = getPixelsRange(pixels);
         JsonArray pixelRange = new JsonArray();
-        if (pb.isSigned()) {
-            pixelRange.add(-1 * pmax / 2);
-            pixelRange.add(pmax / 2 - 1);
-        } else {
-            pixelRange.add(0);
-            pixelRange.add(pmax - 1);
-        }
+        pixelRange.add(Math.round(minMax[0]));
+        pixelRange.add(Math.round(minMax[1]));
         return pixelRange;
     }
 
@@ -426,8 +438,10 @@ public class ImageDataRequestHandler {
      * @param pixels
      * @param rdef
      * @return JsonArray of channels image data
+     * @throws ApiUsageException 
      */
-    private JsonArray getImageDataChannels(PixelsI pixels, RenderingDef rdef) {
+    private JsonArray getImageDataChannels(PixelsI pixels, RenderingDef rdef)
+            throws ApiUsageException {
         JsonArray channels = new JsonArray();
         int channelCount = pixels.sizeOfChannels();
         for (int i = 0; i < channelCount; i++) {
@@ -465,9 +479,7 @@ public class ImageDataRequestHandler {
                 window.put("min", statsInfo.getGlobalMin().getValue());
                 window.put("max", statsInfo.getGlobalMax().getValue());
             } else {
-                StatsFactory statsFactory = new StatsFactory();
-                double[] minMax = statsFactory.initPixelsRange(
-                        (ome.model.core.Pixels) mapper.reverse(pixels));
+                double[] minMax = getPixelsRange(pixels);
                 window.put("min", minMax[0]);
                 window.put("max", minMax[1]);
             }
