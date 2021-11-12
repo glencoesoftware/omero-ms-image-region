@@ -44,7 +44,6 @@ import omero.ApiUsageException;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
 import omero.model.EventI;
-import omero.model.Experimenter;
 import omero.model.ExperimenterI;
 import omero.model.ImageI;
 import omero.model.LengthI;
@@ -75,7 +74,7 @@ public class ImageDataRequestHandlerTest {
     ImageI image;
     PixelsI pixels;
     EventI creationEvent;
-    Experimenter owner;
+    ExperimenterI owner;
     Optional<WellSampleI> wellSample;
     Permissions permissions;
     PixelBuffer pixelBuffer;
