@@ -18,12 +18,9 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import static org.mockito.Mockito.*;
-
-import java.awt.Dimension;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,6 +54,7 @@ import omero.model.StatsInfoI;
 import omero.model.WellI;
 import omero.model.WellSampleI;
 import omero.model.enums.UnitsLength;
+import omero.util.IceMapper;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -67,7 +65,7 @@ import static omero.rtypes.rlong;
 import static omero.rtypes.rstring;
 import static omero.rtypes.rtime;
 
-public class ImageDataRequestHandlerTest {
+public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     ImageI image;
     PixelsI pixels;
@@ -112,10 +110,10 @@ public class ImageDataRequestHandlerTest {
     public static double ZOOM_LVL_3 = 0.125;
     public static double ZOOM_LVL_4 = 0.0625;
 
-    public static Integer TILE_WIDTH = 256;
-    public static Integer TILE_HEIGHT = 512;
-    public static int PIXELS_SIZE_X = 512;
-    public static int PIXELS_SIZE_Y = 1024;
+    public static Integer TILE_WIDTH = 1024;
+    public static Integer TILE_HEIGHT = 1024;
+    public static int PIXELS_SIZE_X = 2048;
+    public static int PIXELS_SIZE_Y = 4096;
     public static int PIXELS_SIZE_Z = 1;
     public static int PIXELS_SIZE_C = 3;
     public static int PIXELS_SIZE_T = 1;
@@ -172,14 +170,14 @@ public class ImageDataRequestHandlerTest {
     public static int SPLIT_CH_C_BORDER = 2;
     public static int SPLIT_CH_C_GRIDX = 2;
     public static int SPLIT_CH_C_GRIDY = 2;
-    public static int SPLIT_CH_C_HEIGHT = 2054;
-    public static int SPLIT_CH_C_WIDTH = 1030;
+    public static int SPLIT_CH_C_HEIGHT = 8198;
+    public static int SPLIT_CH_C_WIDTH = 4102;
 
     public static int SPLIT_CH_G_BORDER = 2;
     public static int SPLIT_CH_G_GRIDX = 2;
     public static int SPLIT_CH_G_GRIDY = 2;
-    public static int SPLIT_CH_G_HEIGHT = 2054;
-    public static int SPLIT_CH_G_WIDTH = 1030;
+    public static int SPLIT_CH_G_HEIGHT = 8198;
+    public static int SPLIT_CH_G_WIDTH = 4102;
 
     public static int DEFAULT_T = 0;
     public static int DEFAULT_Z = 1;
@@ -188,6 +186,12 @@ public class ImageDataRequestHandlerTest {
     public static String PROJECTION = "normal";
 
     JsonObject imgData;
+
+    /**
+     * Mapper between <code>omero.model</code> client side Ice backed objects and
+     * <code>ome.model</code> server side Hibernate backed objects.
+     */
+    protected final IceMapper mapper = new IceMapper();
 
     public void setupStdJson() {
         imgData = new JsonObject();
@@ -380,27 +384,13 @@ public class ImageDataRequestHandlerTest {
         return rdef;
     }
 
-    private void setupPixelBuffer() {
-        pixelBuffer = mock(PixelBuffer.class);
-        when(pixelBuffer.getResolutionLevels()).thenReturn(RES_LVL_COUNT);
-        when(pixelBuffer.getTileSize())
-                .thenReturn(new Dimension(TILE_WIDTH, TILE_HEIGHT));
-
-        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
-        resLvlDescs.add(Arrays.asList(PIXELS_SIZE_X, PIXELS_SIZE_Y));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_1)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_1))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_2)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_2))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_3)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_3))));
-        resLvlDescs.add(Arrays.asList((int) Math.round(
-                Math.floor(PIXELS_SIZE_X * ZOOM_LVL_4)),
-                (int) Math.round(Math.floor(PIXELS_SIZE_Y * ZOOM_LVL_4))));
-        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+    private void createPixelBuffer() throws IOException {
+        Path output = writeTestZarr(
+                PIXELS_SIZE_T, PIXELS_SIZE_C, PIXELS_SIZE_Z,
+                PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
+        pixelBuffer = new ZarrPixelBuffer(
+                (ome.model.core.Pixels) mapper.reverse(pixels),
+                output.resolve("0"), 1024);
     }
 
     @Before
@@ -414,7 +404,7 @@ public class ImageDataRequestHandlerTest {
         owner.setLastName(rstring(OWNER_LAST_NAME));
         owner.setId(rlong(OWNER_ID));
 
-        image = spy(ImageI.class);
+        image = new ImageI();
         image.setId(rlong(IMAGE_ID));
         image.setName(rstring(IMAGE_NAME));
         image.setDescription(rstring(IMAGE_DESC));
@@ -480,7 +470,7 @@ public class ImageDataRequestHandlerTest {
 
         wellSample = Optional.empty();
 
-        setupPixelBuffer();
+        createPixelBuffer();
 
         ChannelBinding cb1 = new ChannelBinding();
         cb1.setFamily(new Family(Family.VALUE_LINEAR));
@@ -628,31 +618,8 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Test
-    public void testImageDataZoomLvl() throws ApiUsageException {
-        ImageDataCtx ctx = new ImageDataCtx();
-        ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
-        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
-        resLvlDescs.add(Arrays.asList(512, 1024));
-        resLvlDescs.add(Arrays.asList(128, 256));
-        resLvlDescs.add(Arrays.asList(32, 64));
-        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
-
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
-        JsonObject zoomLvlsCorrect = imgData.copy();
-        JsonObject zoomLvls = new JsonObject();
-        zoomLvls.put("0", 1.0);
-        zoomLvls.put("1", 0.25);
-        zoomLvls.put("2", 0.0625);
-        zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
-        Assert.assertEquals(basicObj, zoomLvlsCorrect);
-    }
-
-    @Test
-    public void testImageDataPixelRange() throws ApiUsageException {
+    public void testImageDataPixelRange()
+            throws ApiUsageException, IOException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
@@ -673,7 +640,7 @@ public class ImageDataRequestHandlerTest {
         reqHandler = new ImageDataRequestHandler(ctx,
                 null, null, 0, true);
         pixels.getPixelsType().setValue(rstring("int8"));
-        setupPixelBuffer();  // Resets pixel buffer with int8 pixels type
+        createPixelBuffer();  // Resets pixel buffer with int8 pixels type
         basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
                 rdef);
@@ -689,39 +656,6 @@ public class ImageDataRequestHandlerTest {
         window.put("max", 127);
         pixRangeCorrect.getJsonObject("meta").put("pixelsType", "int8");
         Assert.assertEquals(basicObj, pixRangeCorrect);
-    }
-
-    @Test
-    public void testImageDataSplitChannel() throws ApiUsageException {
-        ImageDataCtx ctx = new ImageDataCtx();
-        ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
-        pixels.removeChannel(pixels.getChannel(2));
-
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
-        JsonObject splitChannelCorrect = imgData.copy();
-        JsonObject g = new JsonObject();
-        g.put("width", 1030);
-        g.put("height", 1028);
-        g.put("border", 2);
-        g.put("gridx", 2);
-        g.put("gridy", 1);
-        JsonObject c = new JsonObject();
-        c.put("width", 1030);
-        c.put("height", 2054);
-        c.put("border", 2);
-        c.put("gridx", 2);
-        c.put("gridy", 2);
-        JsonObject splitChannel = new JsonObject();
-        splitChannel.put("g", g);
-        splitChannel.put("c", c);
-        splitChannelCorrect.put("split_channel", splitChannel);
-        splitChannelCorrect.getJsonArray("channels").remove(2);
-
-        Assert.assertEquals(basicObj, splitChannelCorrect);
     }
 
     @Test
@@ -839,7 +773,7 @@ public class ImageDataRequestHandlerTest {
         JsonObject channelsCorrect = imgData.copy();
         channelsCorrect.getJsonArray("channels").remove(0);
         channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("gridy", 1);
-        channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("height", 1028);
+        channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("height", 4100);
         Assert.assertEquals(basicObj, channelsCorrect);
     }
 
