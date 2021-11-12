@@ -50,7 +50,6 @@ import omero.model.LengthI;
 import omero.model.LogicalChannelI;
 import omero.model.ObjectiveI;
 import omero.model.ObjectiveSettingsI;
-import omero.model.Permissions;
 import omero.model.PermissionsI;
 import omero.model.PixelsI;
 import omero.model.ProjectI;
@@ -76,7 +75,7 @@ public class ImageDataRequestHandlerTest {
     EventI creationEvent;
     ExperimenterI owner;
     Optional<WellSampleI> wellSample;
-    Permissions permissions;
+    PermissionsI permissions;
     PixelBuffer pixelBuffer;
     RenderingDef rdef;
     ChannelBinding[] cbs;
