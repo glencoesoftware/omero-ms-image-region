@@ -92,8 +92,6 @@ public class ImageDataRequestHandler {
      * Constructor
      * @param imageDataCtx Image Data Context
      * @param pixelsService OMERO server pixels service.
-     * @param renderingModels Available rendering models
-     * @param lutProvider Lookup table provider
      * @param initZoom Initial Zoom level from server settings
      * @param interpolate Interpolation server setting
      */
