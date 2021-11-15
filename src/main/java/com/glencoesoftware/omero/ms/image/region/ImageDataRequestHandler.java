@@ -49,7 +49,6 @@ import ome.model.display.ChannelBinding;
 import ome.model.display.CodomainMapContext;
 import ome.model.display.RenderingDef;
 import ome.model.display.ReverseIntensityContext;
-import ome.model.enums.RenderingModel;
 import ome.model.units.BigResult;
 import omero.model.LengthI;
 import omero.model.StatsInfo;
@@ -80,9 +79,6 @@ public class ImageDataRequestHandler {
     /** OMERO server pixels service. */
     private PixelsService pixelsService;
 
-    /** Available rendering models */
-    List<RenderingModel> renderingModels;
-
     /** Initial Zoom level from server settings **/
     private int initZoom;
 
@@ -106,11 +102,9 @@ public class ImageDataRequestHandler {
      */
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
             PixelsService pixelsService,
-            List<RenderingModel> renderingModels,
             int initZoom, boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;
-        this.renderingModels = renderingModels;
         this.initZoom = initZoom;
         this.interpolate = interpolate;
     }

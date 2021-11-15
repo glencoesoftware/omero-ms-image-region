@@ -530,8 +530,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataStd() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
                 rdef);
@@ -542,8 +542,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataMultipleProjects() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         ProjectI project2 = new ProjectI();
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
@@ -565,8 +565,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
             throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         DatasetI ds2 = new DatasetI();
         ds2.setName(rstring("ds2 name"));
         ds2.setDescription(rstring("ds2 desc"));
@@ -587,8 +587,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
             throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         ProjectI project2 = new ProjectI(123, true);
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
@@ -622,8 +622,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
             throws ApiUsageException, IOException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -637,8 +637,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
         // Need new request handler because the Ice object mapper caches
         // object instances and we're only changing a single value
-        reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         pixels.getPixelsType().setValue(rstring("int8"));
         createPixelBuffer();  // Resets pixel buffer with int8 pixels type
         basicObj = reqHandler.populateImageData(image, pixels,
@@ -662,8 +662,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataInverted() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
         List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
         ctxList.add(reverseIntensityCtx);
@@ -684,8 +684,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataPixelSize() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
         pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
         pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
@@ -705,8 +705,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataTimestampOnImage() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
         image.setAcquisitionDate(rtime(22222222));
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
@@ -725,8 +725,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ChannelBinding cb = cbs[0];
         cb.setRed(0);
         cb.setGreen(17);
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -764,8 +764,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
         rdef.removeChannelBinding(rdef.getChannelBinding(0));
 
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,
@@ -784,8 +784,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         pixels.setPhysicalSizeX(null);
         pixels.setPhysicalSizeY(null);
 
-        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(ctx,
-                null, null, 0, true);
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
 
         JsonObject basicObj = reqHandler.populateImageData(image, pixels,
                 creationEvent, owner, permissions, pixelBuffer,

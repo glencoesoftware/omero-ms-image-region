@@ -385,7 +385,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 JsonObject imgData = request.execute(
                     new ImageDataRequestHandler(imgDataCtx,
                             pixelsService,
-                            renderingModels,
                             init_zoom,
                             interpolate)::getImageData);
                 if (imgData == null) {
