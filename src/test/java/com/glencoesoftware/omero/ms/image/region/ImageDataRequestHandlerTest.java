@@ -842,4 +842,16 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 image, pixelBuffer, rdefs, OWNER_ID + 1);
         Assert.assertEquals(basicObj, imgData);
     }
+
+    @Test
+    public void testImageDataNoRenderingDefs() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        rdefs.clear();
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        Assert.assertEquals(basicObj, imgData);
+    }
 }
