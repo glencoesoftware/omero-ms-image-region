@@ -699,7 +699,8 @@ public class ImageDataRequestHandler {
      * image owner corresponding to the specified pixels set.
      *
      * @param renderingDefs A list of rendering settings to select from.
-     * @param pixelsId      The identifier of the pixels.
+     * @param userId Current user ID making the request.
+     * @param pixelsId The identifier of the pixels.
      * @return See above.
      */
     protected RenderingDef selectRenderingDef(List<IObject> renderingDefs,
