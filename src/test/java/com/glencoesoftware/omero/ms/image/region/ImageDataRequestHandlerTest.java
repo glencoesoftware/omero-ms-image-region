@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.Test;
 
@@ -40,14 +39,18 @@ import ome.units.UNITS;
 import omero.ApiUsageException;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
+import omero.model.Event;
 import omero.model.EventI;
+import omero.model.Experimenter;
 import omero.model.ExperimenterI;
 import omero.model.ImageI;
 import omero.model.LengthI;
 import omero.model.LogicalChannelI;
 import omero.model.ObjectiveI;
 import omero.model.ObjectiveSettingsI;
+import omero.model.Permissions;
 import omero.model.PermissionsI;
+import omero.model.Pixels;
 import omero.model.PixelsI;
 import omero.model.ProjectI;
 import omero.model.StatsInfoI;
@@ -68,14 +71,8 @@ import static omero.rtypes.rtime;
 public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     ImageI image;
-    PixelsI pixels;
-    EventI creationEvent;
-    ExperimenterI owner;
-    Optional<WellSampleI> wellSample;
-    PermissionsI permissions;
     PixelBuffer pixelBuffer;
     RenderingDef rdef;
-    ChannelBinding[] cbs;
 
     public static String OWNER_FIRST_NAME = "firstname";
     public static String OWNER_LAST_NAME = "lastname";
@@ -384,22 +381,22 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         return rdef;
     }
 
-    private void createPixelBuffer() throws IOException {
+    private void createPixelBuffer() throws IOException, ApiUsageException {
         Path output = writeTestZarr(
                 PIXELS_SIZE_T, PIXELS_SIZE_C, PIXELS_SIZE_Z,
                 PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
         pixelBuffer = new ZarrPixelBuffer(
-                (ome.model.core.Pixels) mapper.reverse(pixels),
-                output.resolve("0"), 1024);
+            (ome.model.core.Pixels) mapper.reverse(image.getPrimaryPixels()),
+            output.resolve("0"), 1024);
     }
 
     @Before
-    public void setup() throws IOException {
+    public void setup() throws IOException, ApiUsageException {
         setupStdJson();
 
-        creationEvent = new EventI();
+        Event creationEvent = new EventI();
         creationEvent.setTime(rtime(IMAGE_TIMESTAMP*1000));
-        owner = new ExperimenterI();
+        Experimenter owner = new ExperimenterI();
         owner.setFirstName(rstring(OWNER_FIRST_NAME));
         owner.setLastName(rstring(OWNER_LAST_NAME));
         owner.setId(rlong(OWNER_ID));
@@ -408,6 +405,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         image.setId(rlong(IMAGE_ID));
         image.setName(rstring(IMAGE_NAME));
         image.setDescription(rstring(IMAGE_DESC));
+        image.getDetails().setOwner(owner);
+        image.getDetails().setCreationEvent(creationEvent);
         DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
         ds1.setName(rstring(DATASET_NAME_1));
         ds1.setDescription(rstring(DATASET_DESC_1));
@@ -417,7 +416,7 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         image.linkDataset(ds1);
         ds1.linkProject(proj_1);
 
-        pixels = new PixelsI(PIXELS_ID, true);
+        Pixels pixels = new PixelsI(PIXELS_ID, true);
         PixelsTypeI pixType = new PixelsTypeI();
         pixType.setValue(rstring(PIX_TYPE_STR));
         pixels.setPixelsType(pixType);
@@ -429,6 +428,7 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         pixels.setSizeZ(rint(PIXELS_SIZE_Z));
         pixels.setSizeC(rint(PIXELS_SIZE_C));
         pixels.setSizeT(rint(PIXELS_SIZE_T));
+        image.addPixels(pixels);
 
         ChannelI channel1 = new ChannelI();
         channel1.setRed(rint(255));
@@ -466,9 +466,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         pixels.addChannel(channel2);
         pixels.addChannel(channel3);
 
-        permissions = new PermissionsI("rwrwrw");
-
-        wellSample = Optional.empty();
+        Permissions permissions = new PermissionsI("rwrwrw");
+        image.getDetails().setPermissions(permissions);
 
         createPixelBuffer();
 
@@ -507,7 +506,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         rdef.addChannelBinding(cb1);
         rdef.addChannelBinding(cb2);
         rdef.addChannelBinding(cb3);
-        cbs = new ChannelBinding[] { cb1, cb2, cb3 };
 
         rdef.setDefaultT(DEFAULT_T);
         rdef.setDefaultZ(DEFAULT_Z);
@@ -532,9 +530,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         Assert.assertEquals(basicObj, imgData);
     }
 
@@ -549,9 +546,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         project2.setDescription(rstring("proj2 desc"));
         image.linkedDatasetList().get(0).linkProject(project2);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject multProjCorrect = imgData.copy();
         multProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
@@ -572,9 +568,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ds2.setDescription(rstring("ds2 desc"));
         image.linkDataset(ds2);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject multDsCorrect = imgData.copy();
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
         multDsCorrect.getJsonObject("meta").remove("datasetId");
@@ -599,9 +594,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ds2.linkProject(project2);
         image.linkDataset(ds2);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject multDsProjCorrect = imgData.copy();
         multDsProjCorrect.getJsonObject("meta").put("datasetName",
                 "Multiple");
@@ -625,9 +619,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject pixRangeCorrect = imgData.copy();
         JsonArray pixRange = new JsonArray();
         pixRange.add(0);
@@ -639,11 +632,10 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         // object instances and we're only changing a single value
         reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
-        pixels.getPixelsType().setValue(rstring("int8"));
+        image.getPrimaryPixels().getPixelsType().setValue(rstring("int8"));
         createPixelBuffer();  // Resets pixel buffer with int8 pixels type
-        basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
 
         pixRange = pixRangeCorrect.getJsonArray("pixel_range");
         pixRange.set(0, -128);
@@ -669,9 +661,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctxList.add(reverseIntensityCtx);
         rdef.getChannelBinding(0).addCodomainMapContext((CodomainMapContext) reverseIntensityCtx);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject invertedCorrect = imgData.copy();
         JsonObject channel = invertedCorrect.getJsonArray("channels")
                 .getJsonObject(0);
@@ -686,13 +677,13 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
+        Pixels pixels = image.getPrimaryPixels();
         pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
         pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
         pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject pixelSizeCorrect = imgData.copy();
         JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
         pixSize.put("x", 3000.0);
@@ -709,9 +700,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 ctx, null, 0, true);
         image.setAcquisitionDate(rtime(22222222));
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject timestampCorrect = imgData.copy();
         timestampCorrect.getJsonObject("meta").put("imageTimestamp",
                 22222);
@@ -722,15 +712,14 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataChannels() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
-        ChannelBinding cb = cbs[0];
+        ChannelBinding cb = rdef.getChannelBinding(0);
         cb.setRed(0);
         cb.setGreen(17);
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject channelsCorrect = imgData.copy();
         channelsCorrect.getJsonArray("channels").getJsonObject(0).put("color", "001100");
         Assert.assertEquals(basicObj, channelsCorrect);
@@ -740,6 +729,7 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageData2Channels() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
+        Pixels pixels = image.getPrimaryPixels();
         pixels.removeChannel(pixels.getChannel(0));
 
         ChannelBinding cb2 = new ChannelBinding();
@@ -767,9 +757,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
         JsonObject channelsCorrect = imgData.copy();
         channelsCorrect.getJsonArray("channels").remove(0);
         channelsCorrect.getJsonObject("split_channel").getJsonObject("g").put("gridy", 1);
@@ -781,15 +770,15 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public void testImageDataNullPixelSizes() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
+        Pixels pixels = image.getPrimaryPixels();
         pixels.setPhysicalSizeX(null);
         pixels.setPhysicalSizeY(null);
 
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
 
-        JsonObject basicObj = reqHandler.populateImageData(image, pixels,
-                creationEvent, owner, permissions, pixelBuffer,
-                rdef);
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdef);
 
         JsonObject nullPhysSizeCorrect = imgData.copy();
         JsonObject pixelSize = nullPhysSizeCorrect.getJsonObject("pixel_size");

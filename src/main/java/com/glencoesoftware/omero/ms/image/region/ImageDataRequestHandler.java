@@ -18,7 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,6 +44,7 @@ import omero.model.ImageI;
 import omero.model.Permissions;
 import omero.model.Pixels;
 import omero.model.PixelsI;
+import omero.model.PixelsType;
 import ome.model.display.ChannelBinding;
 import ome.model.display.CodomainMapContext;
 import ome.model.display.RenderingDef;
@@ -123,9 +123,7 @@ public class ImageDataRequestHandler {
             if (image == null) {
                 return null;
             }
-            Details details = image.getDetails();
-            Experimenter owner = details.getOwner();
-            PixelsI pixels = (PixelsI) image.getPrimaryPixels();
+            Pixels pixels = image.getPrimaryPixels();
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
             Long userId = sf.getAdminService().getEventContext().userId;
@@ -136,12 +134,9 @@ public class ImageDataRequestHandler {
                         pixIds);
                 RenderingDef rdef = selectRenderingDef(rdefs, userId,
                         pixels.getId().getValue());
-                Permissions permissions = details.getPermissions();
-                Event creationEvent = details.getCreationEvent();
                 Map<String, String> pixCtx = new HashMap<String, String>();
                 pixCtx.put("omero.group", "-1");
-                return populateImageData(image, pixels, creationEvent,
-                        owner, permissions, pixelBuffer, rdef);
+                return populateImageData(image, pixelBuffer, rdef);
             }
         } catch (Exception e) {
             log.error("Error getting image data", e);
@@ -163,14 +158,14 @@ public class ImageDataRequestHandler {
      * @return
      * @throws ApiUsageException 
      */
-    public JsonObject populateImageData(Image image, PixelsI pixels,
-            Event creationEvent, Experimenter owner, Permissions permissions,
-            PixelBuffer pixelBuffer, RenderingDef rdef)
+    public JsonObject populateImageData(
+            Image image, PixelBuffer pixelBuffer, RenderingDef rdef)
                     throws ApiUsageException {
+        Permissions permissions = image.getDetails().getPermissions();
+        Pixels pixels = image.getPrimaryPixels();
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
-        JsonObject meta = getImageDataMeta(image, pixels, creationEvent,
-                owner);
+        JsonObject meta = getImageDataMeta(image);
         imgData.put("meta", meta);
         if (image.getObjectiveSettings() != null) {
             imgData.put("nominalMagnification",
@@ -217,13 +212,12 @@ public class ImageDataRequestHandler {
     /**
      * Populates the "metadata" in the image data JsonObject
      * @param image
-     * @param pixels
-     * @param creationEvent
-     * @param owner
      * @return JsonObject with metadata
      */
-    private JsonObject getImageDataMeta(Image image, Pixels pixels,
-            Event creationEvent, Experimenter owner) {
+    private JsonObject getImageDataMeta(Image image) {
+        Event creationEvent = image.getDetails().getCreationEvent();
+        Experimenter owner = image.getDetails().getOwner();
+        PixelsType pixelsType = image.getPrimaryPixels().getPixelsType();
         JsonObject meta = new JsonObject();
         meta.put("imageName", unwrap(image.getName()));
         if (image.getDescription() == null) {
@@ -305,8 +299,7 @@ public class ImageDataRequestHandler {
             meta.put("wellId", "");
         }
         meta.put("imageId", image.getId().getValue());
-        meta.put("pixelsType",
-                unwrap(pixels.getPixelsType().getValue()));
+        meta.put("pixelsType", unwrap(pixelsType.getValue()));
         return meta;
     }
 
@@ -406,7 +399,7 @@ public class ImageDataRequestHandler {
      * @return See above.
      * @throws ApiUsageException
      */
-    private double[] getPixelsRange(PixelsI pixels) throws ApiUsageException {
+    private double[] getPixelsRange(Pixels pixels) throws ApiUsageException {
         StatsFactory statsFactory = new StatsFactory();
         return statsFactory.initPixelsRange(
                 (ome.model.core.Pixels) mapper.reverse(pixels));
@@ -419,7 +412,7 @@ public class ImageDataRequestHandler {
      * @return The pixel range JsonObject
      * @throws ApiUsageException 
      */
-    private JsonArray getImageDataPixelRange(PixelsI pixels)
+    private JsonArray getImageDataPixelRange(Pixels pixels)
             throws ApiUsageException {
         double[] minMax = getPixelsRange(pixels);
         JsonArray pixelRange = new JsonArray();
@@ -435,7 +428,7 @@ public class ImageDataRequestHandler {
      * @return JsonArray of channels image data
      * @throws ApiUsageException 
      */
-    private JsonArray getImageDataChannels(PixelsI pixels, RenderingDef rdef)
+    private JsonArray getImageDataChannels(Pixels pixels, RenderingDef rdef)
             throws ApiUsageException {
         JsonArray channels = new JsonArray();
         int channelCount = pixels.sizeOfChannels();
