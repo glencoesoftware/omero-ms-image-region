@@ -143,7 +143,7 @@ public class ImageDataRequestHandler {
                 return populateImageData(image, pixels, creationEvent,
                         owner, permissions, pixelBuffer, rdef);
             }
-        } catch (ServerError | IOException e) {
+        } catch (Exception e) {
             log.error("Error getting image data", e);
         }
         return null;
