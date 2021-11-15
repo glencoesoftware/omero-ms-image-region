@@ -31,7 +31,6 @@ import ome.io.nio.PixelBuffer;
 import omero.model.PixelsTypeI;
 import ome.units.UNITS;
 import omero.ApiUsageException;
-import omero.ServerError;
 import omero.model.ChannelBinding;
 import omero.model.ChannelBindingI;
 import omero.model.ChannelI;
