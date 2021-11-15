@@ -21,7 +21,6 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,26 +34,24 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.logic.PixelsImpl;
+import ome.model.units.BigResult;
 import omero.model.Channel;
+import omero.model.ChannelBinding;
+import omero.model.CodomainMapContext;
 import omero.model.LogicalChannel;
 import omero.model.Dataset;
 import omero.model.Project;
+import omero.model.RenderingDef;
+import omero.model.ReverseIntensityContext;
 import omero.model.Image;
-import omero.model.ImageI;
 import omero.model.Permissions;
 import omero.model.Pixels;
-import omero.model.PixelsI;
 import omero.model.PixelsType;
-import ome.model.display.ChannelBinding;
-import ome.model.display.CodomainMapContext;
-import ome.model.display.RenderingDef;
-import ome.model.display.ReverseIntensityContext;
-import ome.model.units.BigResult;
 import omero.model.LengthI;
 import omero.model.StatsInfo;
-import omero.model.Details;
 import omero.model.Event;
 import omero.model.Experimenter;
+import omero.model.IObject;
 import omero.ApiUsageException;
 import omero.ServerError;
 import omero.api.IQueryPrx;
@@ -119,7 +116,7 @@ public class ImageDataRequestHandler {
         try {
             Long imageId = imageDataCtx.imageId;
             IQueryPrx iQuery = sf.getQueryService();
-            ImageI image = queryImageData(iQuery, imageId);
+            Image image = queryImageData(iQuery, imageId);
             if (image == null) {
                 return null;
             }
@@ -130,7 +127,7 @@ public class ImageDataRequestHandler {
             try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
                 List<Long> pixIds = new ArrayList<Long>();
                 pixIds.add(pixels.getId().getValue());
-                List<RenderingDef> rdefs = retrieveRenderingDefs(client, userId,
+                List<IObject> rdefs = retrieveRenderingDefs(client, userId,
                         pixIds);
                 RenderingDef rdef = selectRenderingDef(rdefs, userId,
                         pixels.getId().getValue());
@@ -458,9 +455,9 @@ public class ImageDataRequestHandler {
             ch.put("reverseIntensity", isInverted(rdef, i));
             ChannelBinding cb = rdef.getChannelBinding(i);
             ch.put("color", getColorString(cb));
-            ch.put("family", cb.getFamily().getValue());
-            ch.put("coefficient", cb.getCoefficient());
-            ch.put("active", cb.getActive());
+            ch.put("family", cb.getFamily().getValue().getValue());
+            ch.put("coefficient", cb.getCoefficient().getValue());
+            ch.put("active", cb.getActive().getValue());
             StatsInfo statsInfo = channel.getStatsInfo();
             JsonObject window = new JsonObject();
             if (statsInfo != null) {
@@ -471,8 +468,8 @@ public class ImageDataRequestHandler {
                 window.put("min", minMax[0]);
                 window.put("max", minMax[1]);
             }
-            window.put("start", cb.getInputStart());
-            window.put("end", cb.getInputEnd());
+            window.put("start", cb.getInputStart().getValue());
+            window.put("end", cb.getInputEnd().getValue());
             ch.put("window", window);
 
             channels.add(ch);
@@ -528,7 +525,8 @@ public class ImageDataRequestHandler {
 
     private JsonObject getImageDataRdef(RenderingDef rdef) {
         JsonObject rdefObj = new JsonObject();
-        if (rdef.getModel().getValue().toLowerCase().equals("greyscale")) {
+        String model = (String) unwrap(rdef.getModel().getValue());
+        if (model.toLowerCase().equals("greyscale")) {
             rdefObj.put("model", "greyscale");
         } else {
             rdefObj.put("model", "color");
@@ -537,8 +535,8 @@ public class ImageDataRequestHandler {
         // "normal" and false in standard OMERO installs.
         rdefObj.put("projection", "normal");
         rdefObj.put("invertAxis", false);
-        rdefObj.put("defaultZ", rdef.getDefaultZ());
-        rdefObj.put("defaultT", rdef.getDefaultT());
+        rdefObj.put("defaultZ", rdef.getDefaultZ().getValue());
+        rdefObj.put("defaultT", rdef.getDefaultT().getValue());
         return rdefObj;
     }
 
@@ -550,9 +548,10 @@ public class ImageDataRequestHandler {
      */
     private boolean isInverted(RenderingDef rdef, int channel) {
         ChannelBinding cb = rdef.getChannelBinding(channel);
-        Iterator<CodomainMapContext> codomainItr = cb.iterateSpatialDomainEnhancement();
-        while(codomainItr.hasNext()) {
-            if (codomainItr.next() instanceof ReverseIntensityContext) {
+        List<CodomainMapContext> mapContexts =
+                cb.copySpatialDomainEnhancement();
+        for (CodomainMapContext mapContext : mapContexts) {
+            if (mapContext instanceof ReverseIntensityContext) {
                 return true;
             }
         }
@@ -570,20 +569,23 @@ public class ImageDataRequestHandler {
      */
     public static String getColorString(ChannelBinding cb) {
         StringBuilder colorBuilder = new StringBuilder();
-        if (cb.getRed() < 16) {
+        int red = cb.getRed().getValue();
+        int green = cb.getGreen().getValue();
+        int blue = cb.getBlue().getValue();
+        if (red < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(cb.getRed())
+        colorBuilder.append(Integer.toHexString(red)
                 .toUpperCase());
-        if (cb.getGreen() < 16) {
+        if (green < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(cb.getGreen())
+        colorBuilder.append(Integer.toHexString(green)
                 .toUpperCase());
-        if (cb.getBlue() < 16) {
+        if (blue < 16) {
             colorBuilder.append("0");
         }
-        colorBuilder.append(Integer.toHexString(cb.getBlue())
+        colorBuilder.append(Integer.toHexString(blue)
                 .toUpperCase());
         return colorBuilder.toString();
     }
@@ -596,7 +598,7 @@ public class ImageDataRequestHandler {
      * @throws ApiUsageException
      * @throws ServerError
      */
-    protected ImageI queryImageData(IQueryPrx iQuery, Long imageId)
+    protected Image queryImageData(IQueryPrx iQuery, Long imageId)
             throws ApiUsageException, ServerError {
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("query_image_data");
@@ -606,7 +608,7 @@ public class ImageDataRequestHandler {
             span.tag("omero.image_id", imageId.toString());
             ParametersI params = new ParametersI();
             params.addId(imageId);
-            ImageI image = (ImageI) iQuery
+            Image image = (Image) iQuery
                     .findByQuery("select i from Image as i "
                             + " join fetch i.pixels as p"
                             + " left outer JOIN FETCH i.datasetLinks as links "
@@ -668,7 +670,7 @@ public class ImageDataRequestHandler {
      * @param pixelsIds The pixels set identifiers.
      * @return See above.
      */
-    protected List<RenderingDef> retrieveRenderingDefs(omero.client client,
+    protected List<IObject> retrieveRenderingDefs(omero.client client,
             final long userId, final List<Long> pixelsIds) throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -685,8 +687,7 @@ public class ImageDataRequestHandler {
             ParametersI params = new ParametersI();
             params.addIds(pixelsIds);
             params.add("userId", rlong(userId));
-            return (List<RenderingDef>) mapper
-                    .reverse(iQuery.findAllByQuery(q, params, ctx));
+            return iQuery.findAllByQuery(q, params, ctx);
         } catch (Exception e) {
             span.error(e);
             return null;
@@ -703,18 +704,22 @@ public class ImageDataRequestHandler {
      * @param pixelsId      The identifier of the pixels.
      * @return See above.
      */
-    protected RenderingDef selectRenderingDef(List<RenderingDef> renderingDefs,
+    protected RenderingDef selectRenderingDef(List<IObject> renderingDefs,
             final long userId, final long pixelsId) throws ServerError {
         RenderingDef userRenderingDef = renderingDefs.stream()
-                .filter(v -> v.getPixels().getId() == pixelsId)
-                .filter(v -> v.getDetails().getOwner().getId() == userId)
-                .findFirst().orElse(null);
+            .map(RenderingDef.class::cast)
+            .filter(v -> v.getPixels().getId().getValue() == pixelsId)
+            .filter(v -> v.getDetails().getOwner().getId().getValue() == userId)
+            .findFirst()
+            .orElse(null);
         if (userRenderingDef != null) {
             return userRenderingDef;
         }
         // Otherwise pick the first (from the owner) if available
         return renderingDefs.stream()
-                .filter(v -> v.getPixels().getId() == pixelsId).findFirst()
+                .map(RenderingDef.class::cast)
+                .filter(v -> v.getPixels().getId().getValue() == pixelsId)
+                .findFirst()
                 .orElse(null);
     }
 }

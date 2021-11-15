@@ -28,21 +28,19 @@ import org.junit.Test;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
-import ome.model.display.ChannelBinding;
-import ome.model.display.CodomainMapContext;
-import ome.model.display.RenderingDef;
-import ome.model.display.ReverseIntensityContext;
-import ome.model.enums.Family;
 import omero.model.PixelsTypeI;
-import ome.model.enums.RenderingModel;
 import ome.units.UNITS;
 import omero.ApiUsageException;
+import omero.model.ChannelBinding;
+import omero.model.ChannelBindingI;
 import omero.model.ChannelI;
 import omero.model.DatasetI;
 import omero.model.Event;
 import omero.model.EventI;
 import omero.model.Experimenter;
 import omero.model.ExperimenterI;
+import omero.model.Family;
+import omero.model.FamilyI;
 import omero.model.ImageI;
 import omero.model.LengthI;
 import omero.model.LogicalChannelI;
@@ -53,6 +51,12 @@ import omero.model.PermissionsI;
 import omero.model.Pixels;
 import omero.model.PixelsI;
 import omero.model.ProjectI;
+import omero.model.RenderingDef;
+import omero.model.RenderingDefI;
+import omero.model.RenderingModel;
+import omero.model.RenderingModelI;
+import omero.model.ReverseIntensityContext;
+import omero.model.ReverseIntensityContextI;
 import omero.model.StatsInfoI;
 import omero.model.WellI;
 import omero.model.WellSampleI;
@@ -62,6 +66,7 @@ import omero.util.IceMapper;
 import org.junit.Assert;
 import org.junit.Before;
 
+import static omero.rtypes.rbool;
 import static omero.rtypes.rdouble;
 import static omero.rtypes.rint;
 import static omero.rtypes.rlong;
@@ -471,45 +476,48 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
         createPixelBuffer();
 
-        ChannelBinding cb1 = new ChannelBinding();
-        cb1.setFamily(new Family(Family.VALUE_LINEAR));
-        cb1.setCoefficient(CH1_COEFFICIENT);
-        cb1.setActive(CH1_ACTIVE);
-        cb1.setInputStart(CH1_WINDOW_START);
-        cb1.setInputEnd(CH1_WINDOW_END);
-        cb1.setRed(255);
-        cb1.setGreen(0);
-        cb1.setBlue(0);
+        ChannelBinding cb1 = new ChannelBindingI();
+        Family family = new FamilyI();
+        family.setValue(rstring("linear"));
+        cb1.setFamily(family);
+        cb1.setCoefficient(rdouble(CH1_COEFFICIENT));
+        cb1.setActive(rbool(CH1_ACTIVE));
+        cb1.setInputStart(rdouble(CH1_WINDOW_START));
+        cb1.setInputEnd(rdouble(CH1_WINDOW_END));
+        cb1.setRed(rint(255));
+        cb1.setGreen(rint(0));
+        cb1.setBlue(rint(0));
 
-        ChannelBinding cb2 = new ChannelBinding();
-        cb2.setFamily(new Family(Family.VALUE_LINEAR));
-        cb2.setCoefficient(CH2_COEFFICIENT);
-        cb2.setActive(CH2_ACTIVE);
-        cb2.setInputStart(CH2_WINDOW_START);
-        cb2.setInputEnd(CH2_WINDOW_END);
-        cb2.setRed(0);
-        cb2.setGreen(255);
-        cb2.setBlue(0);
+        ChannelBinding cb2 = new ChannelBindingI();
+        cb2.setFamily(family);
+        cb2.setCoefficient(rdouble(CH2_COEFFICIENT));
+        cb2.setActive(rbool(CH2_ACTIVE));
+        cb2.setInputStart(rdouble(CH2_WINDOW_START));
+        cb2.setInputEnd(rdouble(CH2_WINDOW_END));
+        cb2.setRed(rint(0));
+        cb2.setGreen(rint(255));
+        cb2.setBlue(rint(0));
 
-        ChannelBinding cb3 = new ChannelBinding();
-        cb3.setFamily(new Family(Family.VALUE_LINEAR));
-        cb3.setCoefficient(CH3_COEFFICIENT);
-        cb3.setActive(CH3_ACTIVE);
-        cb3.setInputStart(CH3_WINDOW_START);
-        cb3.setInputEnd(CH3_WINDOW_END);
-        cb3.setRed(0);
-        cb3.setGreen(0);
-        cb3.setBlue(255);
+        ChannelBinding cb3 = new ChannelBindingI();
+        cb3.setFamily(family);
+        cb3.setCoefficient(rdouble(CH3_COEFFICIENT));
+        cb3.setActive(rbool(CH3_ACTIVE));
+        cb3.setInputStart(rdouble(CH3_WINDOW_START));
+        cb3.setInputEnd(rdouble(CH3_WINDOW_END));
+        cb3.setRed(rint(0));
+        cb3.setGreen(rint(0));
+        cb3.setBlue(rint(255));
 
-        rdef = new RenderingDef();
+        rdef = new RenderingDefI();
 
         rdef.addChannelBinding(cb1);
         rdef.addChannelBinding(cb2);
         rdef.addChannelBinding(cb3);
 
-        rdef.setDefaultT(DEFAULT_T);
-        rdef.setDefaultZ(DEFAULT_Z);
-        RenderingModel model = new RenderingModel(RenderingModel.VALUE_RGB);
+        rdef.setDefaultT(rint(DEFAULT_T));
+        rdef.setDefaultZ(rint(DEFAULT_Z));
+        RenderingModel model = new RenderingModelI();
+        model.setValue(rstring("rgb"));
         rdef.setModel(model);
 
         WellSampleI ws = new WellSampleI(WELL_SAMPLE_ID, true);
@@ -656,10 +664,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
-        ReverseIntensityContext reverseIntensityCtx = new ReverseIntensityContext();
-        List<CodomainMapContext> ctxList = new ArrayList<CodomainMapContext>();
-        ctxList.add(reverseIntensityCtx);
-        rdef.getChannelBinding(0).addCodomainMapContext((CodomainMapContext) reverseIntensityCtx);
+        ReverseIntensityContext reverseIntensityCtx =
+                new ReverseIntensityContextI();
+        rdef.getChannelBinding(0).addCodomainMapContext(reverseIntensityCtx);
 
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdef);
@@ -713,8 +720,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ChannelBinding cb = rdef.getChannelBinding(0);
-        cb.setRed(0);
-        cb.setGreen(17);
+        cb.setRed(rint(0));
+        cb.setGreen(rint(17));
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
 
@@ -732,25 +739,27 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         Pixels pixels = image.getPrimaryPixels();
         pixels.removeChannel(pixels.getChannel(0));
 
-        ChannelBinding cb2 = new ChannelBinding();
-        cb2.setFamily(new Family(Family.VALUE_LINEAR));
-        cb2.setCoefficient(CH2_COEFFICIENT);
-        cb2.setActive(CH2_ACTIVE);
-        cb2.setInputStart(CH2_WINDOW_START);
-        cb2.setInputEnd(CH2_WINDOW_END);
-        cb2.setRed(0);
-        cb2.setGreen(255);
-        cb2.setBlue(0);
+        ChannelBinding cb2 = new ChannelBindingI();
+        Family family = new FamilyI();
+        family.setValue(rstring("linear"));
+        cb2.setFamily(family);
+        cb2.setCoefficient(rdouble(CH2_COEFFICIENT));
+        cb2.setActive(rbool(CH2_ACTIVE));
+        cb2.setInputStart(rdouble(CH2_WINDOW_START));
+        cb2.setInputEnd(rdouble(CH2_WINDOW_END));
+        cb2.setRed(rint(0));
+        cb2.setGreen(rint(255));
+        cb2.setBlue(rint(0));
 
-        ChannelBinding cb3 = new ChannelBinding();
-        cb3.setFamily(new Family(Family.VALUE_LINEAR));
-        cb3.setCoefficient(CH3_COEFFICIENT);
-        cb3.setActive(CH3_ACTIVE);
-        cb3.setInputStart(CH3_WINDOW_START);
-        cb3.setInputEnd(CH3_WINDOW_END);
-        cb3.setRed(0);
-        cb3.setGreen(0);
-        cb3.setBlue(255);
+        ChannelBinding cb3 = new ChannelBindingI();
+        cb3.setFamily(family);
+        cb3.setCoefficient(rdouble(CH3_COEFFICIENT));
+        cb3.setActive(rbool(CH3_ACTIVE));
+        cb3.setInputStart(rdouble(CH3_WINDOW_START));
+        cb3.setInputEnd(rdouble(CH3_WINDOW_END));
+        cb3.setRed(rint(0));
+        cb3.setGreen(rint(0));
+        cb3.setBlue(rint(255));
 
         rdef.removeChannelBinding(rdef.getChannelBinding(0));
 
