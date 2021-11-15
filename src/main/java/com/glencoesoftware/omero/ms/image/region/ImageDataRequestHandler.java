@@ -147,7 +147,7 @@ public class ImageDataRequestHandler {
      * @param rdefs
      * @param userId
      * @return
-     * @throws ApiUsageException 
+     * @throws ApiUsageException
      */
     public JsonObject populateImageData(
             Image image, PixelBuffer pixelBuffer, List<IObject> rdefs,
@@ -212,7 +212,7 @@ public class ImageDataRequestHandler {
             rdefsJson.put("defaultZ", 0);
             rdefsJson.put("defaultT", 0);
             rdefsJson.put("invertAxis", false);
-            imgData.put("rdefs", rdefs);
+            imgData.put("rdefs", rdefsJson);
         }
 
         return imgData;
@@ -419,7 +419,7 @@ public class ImageDataRequestHandler {
      * NOTE: Unlike omero-web, <b>DOES</b> handle floats correctly.
      * @param pixels
      * @return The pixel range JsonObject
-     * @throws ApiUsageException 
+     * @throws ApiUsageException
      */
     private JsonArray getImageDataPixelRange(Pixels pixels)
             throws ApiUsageException {
@@ -435,7 +435,7 @@ public class ImageDataRequestHandler {
      * @param pixels
      * @param rdef
      * @return JsonArray of channels image data
-     * @throws ApiUsageException 
+     * @throws ApiUsageException
      */
     private JsonArray getImageDataChannels(Pixels pixels, RenderingDef rdef)
             throws ApiUsageException {

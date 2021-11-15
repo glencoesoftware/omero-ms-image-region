@@ -852,6 +852,20 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         rdefs.clear();
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdefs, OWNER_ID);
-        Assert.assertEquals(basicObj, imgData);
+        JsonObject missingRdefCorrect = imgData.copy();
+        missingRdefCorrect.put("channels", new JsonArray());
+        missingRdefCorrect.put("split_channel", new JsonArray());
+        missingRdefCorrect.put("pixel_range", new JsonArray(Arrays.asList(0, 0)));
+        JsonObject rdefsJson = new JsonObject();
+        rdefsJson.put("model", "color");
+        rdefsJson.put("projection", "normal");
+        rdefsJson.put("defaultZ", 0);
+        rdefsJson.put("defaultT", 0);
+        rdefsJson.put("invertAxis", false);
+        missingRdefCorrect.put("rdefs", rdefsJson);
+
+        System.out.println(basicObj.toString());
+        System.out.println(missingRdefCorrect.toString());
+        Assert.assertEquals(basicObj, missingRdefCorrect);
     }
 }
