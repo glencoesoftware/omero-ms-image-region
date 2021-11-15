@@ -123,17 +123,16 @@ public class ImageDataRequestHandler {
             Pixels pixels = image.getPrimaryPixels();
             List<Long> imageIds = new ArrayList<Long>();
             imageIds.add(imageId);
-            Long userId = sf.getAdminService().getEventContext().userId;
+            long userId = sf.getAdminService().getEventContext().userId;
             try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
                 List<Long> pixIds = new ArrayList<Long>();
                 pixIds.add(pixels.getId().getValue());
                 List<IObject> rdefs = retrieveRenderingDefs(client, userId,
                         pixIds);
-                RenderingDef rdef = selectRenderingDef(rdefs, userId,
-                        pixels.getId().getValue());
+
                 Map<String, String> pixCtx = new HashMap<String, String>();
                 pixCtx.put("omero.group", "-1");
-                return populateImageData(image, pixelBuffer, rdef);
+                return populateImageData(image, pixelBuffer, rdefs, userId);
             }
         } catch (Exception e) {
             log.error("Error getting image data", e);
@@ -145,21 +144,20 @@ public class ImageDataRequestHandler {
      * Takes populated Omero model objects and populates the data into
      * a JsonObject
      * @param image
-     * @param pixels
-     * @param creationEvent
-     * @param owner
-     * @param permissions
      * @param pixelBuffer
-     * @param renderer
-     * @param rdef
+     * @param rdefs
+     * @param userId
      * @return
      * @throws ApiUsageException 
      */
     public JsonObject populateImageData(
-            Image image, PixelBuffer pixelBuffer, RenderingDef rdef)
-                    throws ApiUsageException {
+            Image image, PixelBuffer pixelBuffer, List<IObject> rdefs,
+            long userId) throws ApiUsageException {
         Permissions permissions = image.getDetails().getPermissions();
         Pixels pixels = image.getPrimaryPixels();
+        RenderingDef rdef = selectRenderingDef(
+                rdefs, userId, pixels.getId().getValue());
+
         JsonObject imgData = new JsonObject();
         imgData.put("id", image.getId().getValue());
         JsonObject meta = getImageDataMeta(image);
@@ -705,7 +703,7 @@ public class ImageDataRequestHandler {
      * @return See above.
      */
     protected RenderingDef selectRenderingDef(List<IObject> renderingDefs,
-            final long userId, final long pixelsId) throws ServerError {
+            final long userId, final long pixelsId) {
         RenderingDef userRenderingDef = renderingDefs.stream()
             .map(RenderingDef.class::cast)
             .filter(v -> v.getPixels().getId().getValue() == pixelsId)
