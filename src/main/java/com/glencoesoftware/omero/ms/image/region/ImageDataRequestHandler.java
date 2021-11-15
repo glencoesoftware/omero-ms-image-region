@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -191,13 +192,28 @@ public class ImageDataRequestHandler {
                     getImageDataZoomLevelScaling(pixelBuffer));
         }
 
-        imgData.put("pixel_range", getImageDataPixelRange(pixels));
+        try {
+            imgData.put("pixel_range", getImageDataPixelRange(pixels));
 
-        imgData.put("channels", getImageDataChannels(pixels, rdef));
+            imgData.put("channels", getImageDataChannels(pixels, rdef));
 
-        imgData.put("split_channel", getImageDataSplitChannel(pixels));
+            imgData.put("split_channel", getImageDataSplitChannel(pixels));
 
-        imgData.put("rdefs", getImageDataRdef(rdef));
+            imgData.put("rdefs", getImageDataRdef(rdef));
+        } catch (Exception e) {
+            log.error("Error handling pixel data or rendering definition", e);
+            // "Error" data in accordance with omeroweb.webgateway.marshal
+            imgData.put("pixel_range", new JsonArray(Arrays.asList(0, 0)));
+            imgData.put("channels", new JsonArray());
+            imgData.put("split_channel", new JsonArray());
+            JsonObject rdefsJson = new JsonObject();
+            rdefsJson.put("model", "color");
+            rdefsJson.put("projection", "normal");
+            rdefsJson.put("defaultZ", 0);
+            rdefsJson.put("defaultT", 0);
+            rdefsJson.put("invertAxis", false);
+            imgData.put("rdefs", rdefs);
+        }
 
         return imgData;
     }
