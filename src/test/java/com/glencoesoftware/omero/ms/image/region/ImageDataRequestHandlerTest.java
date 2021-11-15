@@ -863,9 +863,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         rdefsJson.put("defaultT", 0);
         rdefsJson.put("invertAxis", false);
         missingRdefCorrect.put("rdefs", rdefsJson);
-
-        System.out.println(basicObj.toString());
-        System.out.println(missingRdefCorrect.toString());
         Assert.assertEquals(basicObj, missingRdefCorrect);
     }
 }
