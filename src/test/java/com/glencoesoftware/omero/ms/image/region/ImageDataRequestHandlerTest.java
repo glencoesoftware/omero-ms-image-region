@@ -21,6 +21,7 @@ package com.glencoesoftware.omero.ms.image.region;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
@@ -73,6 +74,9 @@ import static omero.rtypes.rint;
 import static omero.rtypes.rlong;
 import static omero.rtypes.rstring;
 import static omero.rtypes.rtime;
+
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
@@ -622,6 +626,30 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         multDsProjCorrect.getJsonObject("meta")
                 .remove("projectDescription");
         Assert.assertEquals(basicObj, multDsProjCorrect);
+    }
+
+    @Test
+    public void testImageDataZoomLvl() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        List<List<Integer>> resLvlDescs = new ArrayList<List<Integer>>();
+        resLvlDescs.add(Arrays.asList(512, 1024));
+        resLvlDescs.add(Arrays.asList(128, 256));
+        resLvlDescs.add(Arrays.asList(32, 64));
+        PixelBuffer pixelBuffer = spy(this.pixelBuffer);
+        when(pixelBuffer.getResolutionDescriptions()).thenReturn(resLvlDescs);
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject zoomLvlsCorrect = imgData.copy();
+        JsonObject zoomLvls = new JsonObject();
+        zoomLvls.put("0", 1.0);
+        zoomLvls.put("1", 0.25);
+        zoomLvls.put("2", 0.0625);
+        zoomLvlsCorrect.put("zoomLevelScaling", zoomLvls);
+        Assert.assertEquals(basicObj, zoomLvlsCorrect);
     }
 
     @Test
