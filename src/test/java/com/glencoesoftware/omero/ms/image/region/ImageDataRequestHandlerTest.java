@@ -20,8 +20,6 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.Test;
 
