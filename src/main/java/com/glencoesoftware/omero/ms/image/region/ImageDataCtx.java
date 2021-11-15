@@ -32,9 +32,10 @@ public class ImageDataCtx extends OmeroRequestCtx {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageDataCtx.class);
 
-    /** Image IDs to get a thumbnail for */
+    /** Image ID to get image data for */
     public Long imageId;
 
+    /** Keys to use as a result filter */
     public List<String> keys;
 
     /**
