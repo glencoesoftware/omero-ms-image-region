@@ -501,7 +501,7 @@ public class ShapeMaskRequestHandler {
                     pixelBuffer.getRootGroupAttributes();
             List<Map<String, String>> datasets = pixelBuffer.getDatasets();
             int[][] chunks = pixelBuffer.getChunks();
-            int resolutionLevel = chunks.length - 1;
+            int resolutionLevel = 0;
             for (Map<String, String> dataset : datasets) {
                 JsonObject datasetAsJson = new JsonObject();
                 datasetAsJson.put("path", dataset.get("path"));
@@ -511,7 +511,7 @@ public class ShapeMaskRequestHandler {
                 }
                 datasetAsJson.put("chunksize", chunksize);
                 datasetsAsJson.add(datasetAsJson);
-                resolutionLevel--;
+                resolutionLevel++;
             }
             multiscalesAsJson.put("datasets", datasetsAsJson);
 

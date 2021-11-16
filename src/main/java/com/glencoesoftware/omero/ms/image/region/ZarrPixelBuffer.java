@@ -170,6 +170,12 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(String.format(
                     "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
         }
+        if (shape[4] < 0) {
+            throw new IllegalArgumentException("sizeX < 0");
+        }
+        if (shape[3] < 0) {
+            throw new IllegalArgumentException("sizeY < 0");
+        }
         ScopedSpan span = Tracing.currentTracer()
                 .startScopedSpan("get_bytes");
         try {
@@ -242,7 +248,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             ZarrArray resolutionArray = ZarrArray.open(
                     root.resolve(dataset.get("path")));
             int[] shape = resolutionArray.getChunks();
-            chunks.add(0, shape);
+            chunks.add(shape);
         }
         return chunks.toArray(new int[chunks.size()][]);
     }
@@ -685,7 +691,13 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public Dimension getTileSize() {
-        return new Dimension(getSizeX(), getSizeY());
+        try {
+            int[] chunks = getChunks()[resolutionLevel];
+            return new Dimension(chunks[4], chunks[3]);
+        } catch (Exception e) {
+            // FIXME: Throw the right exception
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -698,8 +710,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
             int sizeY = pixels.getSizeY();
             for (int i = 0; i < resolutionLevels; i++) {
                 double scale = Math.pow(2, i);
-                resolutionDescriptions.add(
-                        0, Arrays.asList(
+                resolutionDescriptions.add(Arrays.asList(
                                 (int) (sizeX / scale), (int) (sizeY / scale)));
             }
             return resolutionDescriptions;

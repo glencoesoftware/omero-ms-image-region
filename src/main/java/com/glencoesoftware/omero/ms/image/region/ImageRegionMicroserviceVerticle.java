@@ -52,6 +52,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.spi.json.JsonCodec;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -331,6 +332,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webclient/render_image/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
+
+        // ImageData request handlers
+        router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
+        router.get("/webgateway/imgData/:imageId*").handler(this::getImageData);
+        router.get("/pathviewer/imgData/:imageId/:keys*").handler(this::getImageData);
+        router.get("/pathviewer/imgData/:imageId*").handler(this::getImageData);
 
         // ShapeMask request handlers
         router.get(
@@ -650,6 +657,77 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         "Content-Length",
                         String.valueOf(metadataJson.encodePrettily().length()));
                 response.write(metadataJson.encodePrettily());
+            } finally {
+                if (!response.closed()) {
+                    response.end();
+                }
+                log.debug("Response ended");
+            }
+        });
+    }
+
+    /**
+     * Get image data event handler.
+     * Responds with JSON payload of image data on success based
+     * on the <code>imageId</code> encoded in the URL or HTTP 404 if the
+     * Image does not exist or the user does not have permissions to
+     * access it.
+     * @param event Current routing context.
+     */
+    private void getImageData(RoutingContext event) {
+        log.info("Getting image data");
+        HttpServerRequest request = event.request();
+        final HttpServerResponse response = event.response();
+        ImageDataCtx imageDataCtx = null;
+        try {
+            imageDataCtx = new ImageDataCtx(request.params(),
+                event.get("omero.session_key"));
+        }
+        catch (Exception e) {
+            log.error("Error creating ImageDataCtx", e);
+            response.setStatusCode(500);
+            response.end();
+        }
+        imageDataCtx.injectCurrentTraceContext();
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_IMAGE_DATA,
+                Json.encode(imageDataCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                JsonObject imgDataJson = result.result().body();
+                Object myObj = imgDataJson;
+                if (request.params().contains("keys")) {
+                    String[] keys = request.params().get("keys").split("\\.");
+                    for (int i = 0; i < keys.length - 1; i ++) {
+                        imgDataJson = imgDataJson.getJsonObject(keys[i]);
+                        if (imgDataJson == null) {
+                            break;
+                        }
+                    }
+                    if (imgDataJson == null) {
+                        myObj = null;
+                    } else {
+                        myObj = imgDataJson.getValue(keys[keys.length - 1]);
+                    }
+                }
+                String rv = JsonCodec.INSTANCE.toString(myObj, true);
+                if (request.params().contains("callback")) {
+                    String callback = request.params().get("callback");
+                    String resJavascript = String.format("%s(%s)", callback, rv);
+                    response.headers().set("Content-Type", "application/javascript");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(resJavascript.length()));
+                    response.write(resJavascript);
+                } else {
+                    response.headers().set("Content-Type", "application/json");
+                    response.headers().set(
+                            "Content-Length",
+                            String.valueOf(rv.length()));
+                    response.write(rv);
+                }
             } finally {
                 if (!response.closed()) {
                     response.end();
