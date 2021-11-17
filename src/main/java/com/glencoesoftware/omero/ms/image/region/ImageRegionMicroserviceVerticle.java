@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -716,16 +717,22 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 if (request.params().contains("callback")) {
                     String callback = request.params().get("callback");
                     String resJavascript = String.format("%s(%s)", callback, rv);
-                    response.headers().set("Content-Type", "application/javascript");
+                    response.headers().set("Content-Type",
+                            "application/javascript");
                     response.headers().set(
                             "Content-Length",
-                            String.valueOf(resJavascript.getBytes().length));
+                            String.valueOf(resJavascript.getBytes(
+                                StandardCharsets.UTF_8)
+                                .length));
                     response.write(resJavascript);
                 } else {
-                    response.headers().set("Content-Type", "application/json");
+                    response.headers().set("Content-Type",
+                            "application/json");
                     response.headers().set(
                             "Content-Length",
-                            String.valueOf(rv.getBytes().length));
+                            String.valueOf(rv.getBytes(
+                                StandardCharsets.UTF_8)
+                                .length));
                     response.write(rv);
                 }
             } finally {
