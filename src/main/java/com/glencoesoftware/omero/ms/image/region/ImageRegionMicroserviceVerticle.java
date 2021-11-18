@@ -693,53 +693,36 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA,
                 Json.encode(imageDataCtx), result -> {
-            try {
-                if (handleResultFailed(result, response)) {
-                    return;
-                }
-                JsonObject imgDataJson = result.result().body();
-                Object myObj = imgDataJson;
-                if (request.params().contains("keys")) {
-                    String[] keys = request.params().get("keys").split("\\.");
-                    for (int i = 0; i < keys.length - 1; i ++) {
-                        imgDataJson = imgDataJson.getJsonObject(keys[i]);
-                        if (imgDataJson == null) {
-                            break;
-                        }
-                    }
+            if (handleResultFailed(result, response)) {
+                return;
+            }
+            JsonObject imgDataJson = result.result().body();
+            Object myObj = imgDataJson;
+            if (request.params().contains("keys")) {
+                String[] keys = request.params().get("keys").split("\\.");
+                for (int i = 0; i < keys.length - 1; i ++) {
+                    imgDataJson = imgDataJson.getJsonObject(keys[i]);
                     if (imgDataJson == null) {
-                        myObj = null;
-                    } else {
-                        myObj = imgDataJson.getValue(keys[keys.length - 1]);
+                        break;
                     }
                 }
-                String rv = JsonCodec.INSTANCE.toString(myObj, true);
-                if (request.params().contains("callback")) {
-                    String callback = request.params().get("callback");
-                    String resJavascript = String.format("%s(%s)", callback, rv);
-                    response.headers().set("Content-Type",
-                            "application/javascript");
-                    response.headers().set(
-                            "Content-Length",
-                            String.valueOf(resJavascript.getBytes(
-                                StandardCharsets.UTF_8)
-                                .length));
-                    response.write(resJavascript);
+                if (imgDataJson == null) {
+                    myObj = null;
                 } else {
-                    response.headers().set("Content-Type",
-                            "application/json");
-                    response.headers().set(
-                            "Content-Length",
-                            String.valueOf(rv.getBytes(
-                                StandardCharsets.UTF_8)
-                                .length));
-                    response.write(rv);
+                    myObj = imgDataJson.getValue(keys[keys.length - 1]);
                 }
-            } finally {
-                if (!response.closed()) {
-                    response.end();
-                }
-                log.debug("Response ended");
+            }
+            String rv = JsonCodec.INSTANCE.toString(myObj, true);
+            if (request.params().contains("callback")) {
+                String callback = request.params().get("callback");
+                String resJavascript = String.format("%s(%s)", callback, rv);
+                response.headers().set("Content-Type",
+                        "application/javascript");
+                response.end(resJavascript);
+            } else {
+                response.headers().set("Content-Type",
+                        "application/json");
+                response.end(rv);
             }
         });
     }
