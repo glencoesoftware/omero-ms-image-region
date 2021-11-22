@@ -695,6 +695,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 ImageRegionVerticle.GET_IMAGE_DATA,
                 Json.encode(imageDataCtx), result -> {
             if (handleResultFailed(result, response)) {
+                response.end();
                 return;
             }
             JsonObject imgDataJson = result.result().body();
