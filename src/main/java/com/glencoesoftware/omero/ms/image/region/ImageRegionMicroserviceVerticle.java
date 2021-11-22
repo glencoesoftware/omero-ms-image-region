@@ -726,7 +726,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                             "application/json");
                 }
             } finally {
-                response.end(chunk);
+                if (!response.closed()) {
+                    response.end(chunk);
+                }
             }
         });
     }
