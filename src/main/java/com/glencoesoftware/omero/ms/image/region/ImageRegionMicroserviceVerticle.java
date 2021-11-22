@@ -683,11 +683,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         try {
             imageDataCtx = new ImageDataCtx(request.params(),
                 event.get("omero.session_key"));
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Error creating ImageDataCtx", e);
-            response.setStatusCode(500);
-            response.end();
+            if (!response.closed()) {
+                response.setStatusCode(400).end();
+            }
+            return;
         }
         imageDataCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
