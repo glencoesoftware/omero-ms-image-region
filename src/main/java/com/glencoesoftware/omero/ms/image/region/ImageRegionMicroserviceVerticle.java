@@ -694,12 +694,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA,
                 Json.encode(imageDataCtx), result -> {
-            if (handleResultFailed(result, response)) {
-                response.end();
-                return;
-            }
             String chunk = "";
             try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
                 JsonObject imgDataJson = result.result().body();
                 Object toReturn = imgDataJson;
                 if (request.params().contains("keys")) {
