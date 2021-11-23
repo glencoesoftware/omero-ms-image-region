@@ -682,57 +682,52 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         try {
             imageDataCtx = new ImageDataCtx(request.params(),
                 event.get("omero.session_key"));
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Error creating ImageDataCtx", e);
-            response.setStatusCode(500);
-            response.end();
+            if (!response.closed()) {
+                response.setStatusCode(400).end();
+            }
+            return;
         }
         imageDataCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA,
                 Json.encode(imageDataCtx), result -> {
+            String chunk = "";
             try {
                 if (handleResultFailed(result, response)) {
                     return;
                 }
                 JsonObject imgDataJson = result.result().body();
-                Object myObj = imgDataJson;
+                Object toReturn = imgDataJson;
                 if (request.params().contains("keys")) {
                     String[] keys = request.params().get("keys").split("\\.");
-                    for (int i = 0; i < keys.length - 1; i ++) {
+                    for (int i = 0; i < keys.length - 1; i++) {
                         imgDataJson = imgDataJson.getJsonObject(keys[i]);
                         if (imgDataJson == null) {
                             break;
                         }
                     }
                     if (imgDataJson == null) {
-                        myObj = null;
+                        toReturn = null;
                     } else {
-                        myObj = imgDataJson.getValue(keys[keys.length - 1]);
+                        toReturn = imgDataJson.getValue(keys[keys.length - 1]);
                     }
                 }
-                String rv = JsonCodec.INSTANCE.toString(myObj, true);
+                chunk = JsonCodec.INSTANCE.toString(toReturn, true);
                 if (request.params().contains("callback")) {
                     String callback = request.params().get("callback");
-                    String resJavascript = String.format("%s(%s)", callback, rv);
-                    response.headers().set("Content-Type", "application/javascript");
-                    response.headers().set(
-                            "Content-Length",
-                            String.valueOf(resJavascript.length()));
-                    response.write(resJavascript);
+                    chunk = String.format("%s(%s)", callback, chunk);
+                    response.headers().set("Content-Type",
+                            "application/javascript");
                 } else {
-                    response.headers().set("Content-Type", "application/json");
-                    response.headers().set(
-                            "Content-Length",
-                            String.valueOf(rv.length()));
-                    response.write(rv);
+                    response.headers().set("Content-Type",
+                            "application/json");
                 }
             } finally {
                 if (!response.closed()) {
-                    response.end();
+                    response.end(chunk);
                 }
-                log.debug("Response ended");
             }
         });
     }
