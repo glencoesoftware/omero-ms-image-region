@@ -18,7 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
