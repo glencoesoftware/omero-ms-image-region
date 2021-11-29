@@ -49,7 +49,7 @@ import ucar.ma2.InvalidRangeException;
 public class ZarrPixelBuffer implements PixelBuffer {
 
     private static final org.slf4j.Logger log =
-            LoggerFactory.getLogger(PixelBuffer.class);
+            LoggerFactory.getLogger(ZarrPixelBuffer.class);
 
     /** Reference to the pixels. */
     private final Pixels pixels;
