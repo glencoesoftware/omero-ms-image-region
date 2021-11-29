@@ -560,71 +560,73 @@ public class ZarrPixelBuffer implements PixelBuffer {
     }
 
     @Override
-    public void setTile(byte[] buffer, Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
+    public void setTile(
+            byte[] buffer, Integer z, Integer c, Integer t,
+            Integer x, Integer y, Integer w, Integer h)
+                    throws IOException, BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
+    }
+
+    @Override
+    public void setRegion(Integer size, Long offset, byte[] buffer)
             throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
-    public void setRegion(Integer size, Long offset, byte[] buffer) throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+    public void setRegion(Integer size, Long offset, ByteBuffer buffer)
+            throws IOException, BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
-    public void setRegion(Integer size, Long offset, ByteBuffer buffer) throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void setRow(ByteBuffer buffer, Integer y, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+    public void setRow(
+            ByteBuffer buffer, Integer y, Integer z, Integer c, Integer t)
+                    throws IOException, DimensionsOutOfBoundsException,
+                            BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setPlane(ByteBuffer buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setPlane(byte[] buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setStack(ByteBuffer buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setStack(byte[] buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setTimepoint(ByteBuffer buffer, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setTimepoint(byte[] buffer, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
