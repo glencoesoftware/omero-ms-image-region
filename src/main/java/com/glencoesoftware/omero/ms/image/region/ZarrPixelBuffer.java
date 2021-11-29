@@ -36,8 +36,6 @@ import com.bc.zarr.DataType;
 import com.bc.zarr.ZarrArray;
 import com.bc.zarr.ZarrGroup;
 
-import brave.ScopedSpan;
-import brave.Tracing;
 import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
@@ -157,13 +155,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
         if (shape[3] < 0) {
             throw new IllegalArgumentException("height < 0");
         }
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_bytes");
         try {
-            span.tag("omero.zarr.shape", Arrays.toString(shape));
-            span.tag("omero.zarr.offset", Arrays.toString(offset));
-            span.tag("omero.zarr.array", array.toString());
-
             ByteBuffer asByteBuffer = ByteBuffer.wrap(buffer);
             DataType dataType = array.getDataType();
             switch (dataType) {
@@ -209,14 +201,10 @@ public class ZarrPixelBuffer implements PixelBuffer {
             }
         } catch (InvalidRangeException e) {
             log.error("Error reading Zarr data", e);
-            span.error(e);
             throw new IOException(e);
         } catch (Exception e) {
             log.error("Error reading Zarr data", e);
-            span.error(e);
             throw e;
-        } finally {
-            span.finish();
         }
     }
 
@@ -430,8 +418,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
     public byte[] getTileDirect(
             Integer z, Integer c, Integer t, Integer x, Integer y,
             Integer w, Integer h, byte[] buffer) throws IOException {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_tile_direct");
         try {
             //Check origin indices > 0
             checkBounds(x, y, z, c, t);
@@ -441,16 +427,9 @@ public class ZarrPixelBuffer implements PixelBuffer {
             int[] offset = new int[] { t, c, z, y, x };
             read(buffer, shape, offset);
             return buffer;
-        } catch (DimensionsOutOfBoundsException e) {
-            log.error("Tile dimension error while retrieving pixel data", e);
-            span.error(e);
-            throw(e);
         } catch (Exception e) {
             log.error("Error while retrieving pixel data", e);
-            span.error(e);
             return null;
-        } finally {
-            span.finish();
         }
     }
 
@@ -541,24 +520,14 @@ public class ZarrPixelBuffer implements PixelBuffer {
         int w = getSizeX();
         int h = getSizeY();
 
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_stack_direct");
-        try {
-            //Check origin indices > 0
-            checkBounds(x, y, z, c, t);
-            //Check check bottom-right of tile in bounds
-            checkBounds(x + w - 1, y + h - 1, z, c, t);
-            int[] shape = new int[] { 1, 1, getSizeZ(), h, w };
-            int[] offset = new int[] { t, c, z, y, x };
-            read(buffer, shape, offset);
-            return buffer;
-        } catch (Exception e) {
-            log.error("Error while retrieving pixel data", e);
-            span.error(e);
-            return null;
-        } finally {
-            span.finish();
-        }
+        //Check origin indices > 0
+        checkBounds(x, y, z, c, t);
+        //Check check bottom-right of tile in bounds
+        checkBounds(x + w - 1, y + h - 1, z, c, t);
+        int[] shape = new int[] { 1, 1, getSizeZ(), h, w };
+        int[] offset = new int[] { t, c, z, y, x };
+        read(buffer, shape, offset);
+        return buffer;
     }
 
     @Override
@@ -580,24 +549,14 @@ public class ZarrPixelBuffer implements PixelBuffer {
         int w = getSizeX();
         int h = getSizeY();
 
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_timepoint_direct");
-        try {
-            //Check origin indices > 0
-            checkBounds(x, y, z, c, t);
-            //Check check bottom-right of tile in bounds
-            checkBounds(x + w - 1, y + h - 1, z, c, t);
-            int[] shape = new int[] { 1, getSizeC(), getSizeZ(), h, w };
-            int[] offset = new int[] { t, c, z, y, x };
-            read(buffer, shape, offset);
-            return buffer;
-        } catch (Exception e) {
-            log.error("Error while retrieving pixel data", e);
-            span.error(e);
-            throw e;
-        } finally {
-            span.finish();
-        }
+        //Check origin indices > 0
+        checkBounds(x, y, z, c, t);
+        //Check check bottom-right of tile in bounds
+        checkBounds(x + w - 1, y + h - 1, z, c, t);
+        int[] shape = new int[] { 1, getSizeC(), getSizeZ(), h, w };
+        int[] offset = new int[] { t, c, z, y, x };
+        read(buffer, shape, offset);
+        return buffer;
     }
 
     @Override
