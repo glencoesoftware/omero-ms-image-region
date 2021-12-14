@@ -533,9 +533,9 @@ public class ImageRegionRequestHandler {
 
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
-            imageRegionCtx.setResolutionLevel(renderer, pixelBuffer);
-            Integer sizeX = pixels.getSizeX();
-            Integer sizeY = pixels.getSizeY();
+            imageRegionCtx.setResolutionLevel(pixelBuffer);
+            Integer sizeX = pixelBuffer.getSizeX();
+            Integer sizeY = pixelBuffer.getSizeY();
             RegionDef regionDef = getRegionDef(sizeX, sizeY, pixelBuffer);
             planeDef.setRegion(regionDef);
             checkPlaneDef(sizeX, sizeY, planeDef);
@@ -587,7 +587,8 @@ public class ImageRegionRequestHandler {
         if (regionDef.getX() > sizeX ||
                 regionDef.getY() > sizeY) {
             throw new IllegalArgumentException(String.format(
-                    "Start position (%d,%d) exceeds image size (%d, %d)",
+                    "Start position (%d,%d) out of bounds. Image size for"
+                    + " requested resolution level is (%d, %d)",
                     regionDef.getX(), regionDef.getY(), sizeX, sizeY));
         }
         regionDef.setWidth(Math.min(

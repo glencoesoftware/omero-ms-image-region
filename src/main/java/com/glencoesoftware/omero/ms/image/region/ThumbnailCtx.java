@@ -86,8 +86,7 @@ public class ThumbnailCtx extends ImageRegionCtx {
      * @param pixelBuffer pixel buffer providing data for the image
      */
     @Override
-    public void setResolutionLevel(
-            Renderer renderer, PixelBuffer pixelBuffer) {
+    public void setResolutionLevel(PixelBuffer pixelBuffer) {
         List<List<Integer>> rds = pixelBuffer.getResolutionDescriptions();
 
         int resolutionLevel = 0;
@@ -103,7 +102,7 @@ public class ThumbnailCtx extends ImageRegionCtx {
                     "longestSide exceeds image size");
         }
         log.debug("Selected resolution level: {}", resolutionLevel);
-        renderer.setResolutionLevel(rds.size() - 1 - resolutionLevel);
+        pixelBuffer.setResolutionLevel(rds.size() - 1 - resolutionLevel);
     }
 
     @Override

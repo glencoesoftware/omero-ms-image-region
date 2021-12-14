@@ -520,7 +520,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      * @param renderer fully initialized renderer
      * @param pixelBuffer pixel buffer providing data for the image
      */
-    public void setResolutionLevel(Renderer renderer, PixelBuffer pixelBuffer) {
+    public void setResolutionLevel(PixelBuffer pixelBuffer) {
         int resolutionLevelCount = pixelBuffer.getResolutionLevels();
         log.debug("Number of available resolution levels: {}",
                 resolutionLevelCount);
@@ -531,7 +531,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             Integer level =
                     resolutionLevelCount - resolution - 1;
             log.debug("Setting resolution level to: {}", level);
-            renderer.setResolutionLevel(level);
+            pixelBuffer.setResolutionLevel(level);
         }
     }
 }
