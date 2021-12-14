@@ -526,4 +526,22 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
                     zpbuf.getRowSize().longValue());
         }
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetResolutionLevelOutOfBounds() throws IOException {
+        int sizeT = 1;
+        int sizeC = 1;
+        int sizeZ = 1;
+        int sizeY = 2048;
+        int sizeX = 2048;
+        int resolutions = 3;
+        Pixels pixels = new Pixels(
+                null, null, sizeX, sizeY, sizeZ, sizeC, sizeT, "", null);
+        Path output = writeTestZarr(
+                sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
+        try (ZarrPixelBuffer zpbuf =
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+            zpbuf.setResolutionLevel(3);
+        }
+    }
 }
