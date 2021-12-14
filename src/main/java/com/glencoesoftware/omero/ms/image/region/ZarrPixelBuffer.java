@@ -693,18 +693,20 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getResolutionLevel() {
+        // The pixel buffer API reverses the resolution level (0 is smallest)
         return Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
     }
 
     @Override
     public void setResolutionLevel(int resolutionLevel) {
+        if (resolutionLevel >= resolutionLevels) {
+            throw new IllegalArgumentException(
+                    "Resolution level out of bounds!");
+        }
+        // The pixel buffer API reverses the resolution level (0 is smallest)
         this.resolutionLevel = Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
-        if (this.resolutionLevel < 0) {
-            throw new IllegalArgumentException(
-                    "This Zarr file has no pixel data");
-        }
         try {
             array = ZarrArray.open(
                     root.resolve(Integer.toString(this.resolutionLevel)));
