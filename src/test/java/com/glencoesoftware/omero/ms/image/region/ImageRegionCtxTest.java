@@ -860,6 +860,36 @@ public class ImageRegionCtxTest {
                 rdef.getHeight(), 1024 - rdef.getY());
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testOutOfBoundsX() {
+        int x = 2;
+        int y = 0;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 512;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 2048);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testOutOfBoundsY() {
+        int x = 0;
+        int y = 2;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 512;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 2048);
+    }
+
 //Test Flipping
     @Test
     public void testFlipRegionDefFlipH() {

@@ -600,8 +600,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     private void truncateRegionDef(
             int sizeX, int sizeY, RegionDef regionDef) {
         log.debug("Truncating RegionDef if required");
-        if (regionDef.getX() > sizeX ||
-                regionDef.getY() > sizeY) {
+        if (regionDef.getX() >= sizeX ||
+                regionDef.getY() >= sizeY) {
             throw new IllegalArgumentException(String.format(
                     "Start position (%d,%d) out of bounds. Image size for"
                     + " requested resolution level is (%d, %d)",
