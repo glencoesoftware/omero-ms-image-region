@@ -21,8 +21,10 @@ package com.glencoesoftware.omero.ms.image.region;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.awt.Dimension;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +49,9 @@ import ome.model.enums.PixelsType;
 import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
+import omeis.providers.re.data.RegionDef;
 import omeis.providers.re.quantum.QuantumFactory;
+import omero.ServerError;
 import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtxTest {
@@ -656,5 +660,386 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testGetRegionDefCtxTile()
+            throws IllegalArgumentException {
+        int x = 1;
+        int y = 2;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 256;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 256);
+        Assert.assertEquals(rdef.getX(), x * tileSize);
+        Assert.assertEquals(rdef.getY(), y * tileSize);
+        Assert.assertEquals(rdef.getWidth(), tileSize);
+        Assert.assertEquals(rdef.getHeight(), tileSize);
+    }
+
+    @Test
+    public void testGetRegionDefCtxTileWithWidthAndHeight()
+            throws IllegalArgumentException {
+        int x = 2;
+        int y = 2;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 64, 128);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(64, 128));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), x * 64);
+        Assert.assertEquals(rdef.getY(), y * 128);
+        Assert.assertEquals(rdef.getWidth(), 64);
+        Assert.assertEquals(rdef.getHeight(), 128);
+    }
+
+    @Test
+    public void testGetRegionDefCtxRegion()
+            throws IllegalArgumentException {
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(512, 512, 256, 256);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(64, 128));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), ctx.region.getX());
+        Assert.assertEquals(rdef.getY(), ctx.region.getY());
+        Assert.assertEquals(
+                rdef.getWidth(), ctx.region.getWidth());
+        Assert.assertEquals(
+                rdef.getHeight(), ctx.region.getHeight());
+    }
+
+    @Test
+    public void testGetRegionDefCtxNoTileOrRegion()
+    throws IllegalArgumentException {
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = null;
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(64, 128));
+        when(pixelBuffer.getSizeX()).thenReturn(512);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(rdef.getX(), 0);
+        Assert.assertEquals(rdef.getY(), 0);
+        Assert.assertEquals(rdef.getWidth(), 512);
+        Assert.assertEquals(rdef.getHeight(), 1024);
+    }
+
+//Test Truncating logic
+    @Test
+    public void testGetRegionDefCtxTileTruncX()
+            throws IllegalArgumentException {
+        int x = 1;
+        int y = 0;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 800;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), x * tileSize);
+        Assert.assertEquals(rdef.getY(), y * tileSize);
+        Assert.assertEquals(rdef.getWidth(), 1024 - rdef.getX());
+        Assert.assertEquals(rdef.getHeight(), tileSize);
+    }
+
+    @Test
+    public void testGetRegionDefCtxTileTruncY()
+            throws IllegalArgumentException, ServerError {
+        int x = 0;
+        int y = 1;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 800;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), x * tileSize);
+        Assert.assertEquals(rdef.getY(), y * tileSize);
+        Assert.assertEquals(rdef.getWidth(), tileSize);
+        Assert.assertEquals(rdef.getHeight(), 1024 - rdef.getY());
+    }
+
+    @Test
+    public void testGetRegionDefCtxTileTruncXY()
+            throws IllegalArgumentException, ServerError {
+        int x = 1;
+        int y = 1;
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = new RegionDef(x, y, 0, 0);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        int tileSize = 800;
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(tileSize, tileSize));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), x * tileSize);
+        Assert.assertEquals(rdef.getY(), y * tileSize);
+        Assert.assertEquals(rdef.getWidth(), 1024 - rdef.getX());
+        Assert.assertEquals(rdef.getHeight(), 1024 - rdef.getY());
+    }
+
+    @Test
+    public void testGetRegionDefCtxRegionTruncX()
+            throws IllegalArgumentException {
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(800, 100, 300, 400);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(1024, 1024));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), ctx.region.getX());
+        Assert.assertEquals(rdef.getY(), ctx.region.getY());
+        Assert.assertEquals(
+                rdef.getWidth(), 1024 - rdef.getX());
+        Assert.assertEquals(
+                rdef.getHeight(), ctx.region.getHeight());
+    }
+
+    @Test
+    public void testGetRegionDefCtxRegionTruncY()
+            throws IllegalArgumentException {
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(100, 800, 300, 400);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(1024, 1024));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), ctx.region.getX());
+        Assert.assertEquals(rdef.getY(), ctx.region.getY());
+        Assert.assertEquals(
+                rdef.getWidth(), ctx.region.getWidth());
+        Assert.assertEquals(
+                rdef.getHeight(), 1024 - rdef.getY());
+    }
+
+    @Test
+    public void testGetRegionDefCtxRegionTruncXY()
+            throws IllegalArgumentException, ServerError {
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(800, 800, 300, 400);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize())
+            .thenReturn(new Dimension(1024, 1024));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(rdef.getX(), ctx.region.getX());
+        Assert.assertEquals(rdef.getY(), ctx.region.getY());
+        Assert.assertEquals(
+                rdef.getWidth(), 1024 - rdef.getX());
+        Assert.assertEquals(
+                rdef.getHeight(), 1024 - rdef.getY());
+    }
+
+//Test Flipping
+    @Test
+    public void testFlipRegionDefFlipH() {
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(100, 200, 300, 400);
+        ctx.flipHorizontal = true;
+        ctx.flipVertical = false;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(regionDef.getX(), 624);
+        Assert.assertEquals(regionDef.getY(), 200);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
+    }
+
+    @Test
+    public void testFlipRegionDefFlipV() {
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(100, 200, 300, 400);
+        ctx.flipHorizontal = false;
+        ctx.flipVertical = true;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(regionDef.getX(), 100);
+        Assert.assertEquals(regionDef.getY(), 424);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
+    }
+
+    @Test
+    public void testFlipRegionDefFlipHV() {
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(256, 256));
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        ctx.region = new RegionDef(100, 200, 300, 400);
+        ctx.flipHorizontal = true;
+        ctx.flipVertical = true;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 1024);
+        Assert.assertEquals(regionDef.getX(), 624);
+        Assert.assertEquals(regionDef.getY(), 424);
+        Assert.assertEquals(regionDef.getWidth(), 300);
+        Assert.assertEquals(regionDef.getHeight(), 400);
+    }
+
+    @Test
+    public void testFlipRegionDefMirorXEdge() throws ServerError{
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        // Tile 0, 0
+        ctx.tile = null;
+        ctx.region = new RegionDef(0, 0, 1024, 1024);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        ctx.flipHorizontal = true;
+        ctx.flipVertical = false;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 768);
+        Assert.assertEquals(regionDef.getHeight(), 768);
+
+        // Tile 1, 0
+        ctx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 512);
+
+        // Tile 0, 1
+        ctx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 256);
+        Assert.assertEquals(regionDef.getY(), 512);
+        Assert.assertEquals(regionDef.getWidth(), 512);
+        Assert.assertEquals(regionDef.getHeight(), 256);
+
+        // Tile 1, 1
+        ctx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 512);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 256);
+    }
+
+    @Test
+    public void testFlipRegionDefMirorYEdge() throws ServerError{
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        // Tile 0, 0
+        ctx.tile = null;
+        ctx.region = new RegionDef(0, 0, 512, 512);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        ctx.flipVertical = true;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 256);
+        Assert.assertEquals(regionDef.getWidth(), 512);
+        Assert.assertEquals(regionDef.getHeight(), 512);
+
+        // Tile 1, 0
+        ctx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 512);
+        Assert.assertEquals(regionDef.getY(), 256);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 512);
+
+        // Tile 0, 1
+        ctx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 512);
+        Assert.assertEquals(regionDef.getHeight(), 256);
+
+        // Tile 1, 1
+        ctx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 512);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 256);
+    }
+
+    @Test
+    public void testFlipRegionDefMirorXYEdge() throws ServerError{
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        ctx.tile = null;
+        // Tile 0, 0
+        ctx.region = new RegionDef(0, 0, 512, 512);
+        PixelBuffer pixelBuffer = mock(PixelBuffer.class);
+        when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        ctx.flipHorizontal = true;
+        ctx.flipVertical = true;
+        RegionDef regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 256);
+        Assert.assertEquals(regionDef.getY(), 256);
+        Assert.assertEquals(regionDef.getWidth(), 512);
+        Assert.assertEquals(regionDef.getHeight(), 512);
+
+        // Tile 1, 0
+        ctx.region = new RegionDef(512, 0, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 256);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 512);
+
+        // Tile 0, 1
+        ctx.region = new RegionDef(0, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 256);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 512);
+        Assert.assertEquals(regionDef.getHeight(), 256);
+
+        // Tile 1, 1
+        ctx.region = new RegionDef(512, 512, 512, 512);
+        regionDef = ctx.getRegionDef(pixelBuffer, 2048);
+        Assert.assertEquals(regionDef.getX(), 0);
+        Assert.assertEquals(regionDef.getY(), 0);
+        Assert.assertEquals(regionDef.getWidth(), 256);
+        Assert.assertEquals(regionDef.getHeight(), 256);
     }
 }

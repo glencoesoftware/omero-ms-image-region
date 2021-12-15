@@ -536,7 +536,7 @@ public class ImageRegionRequestHandler {
             imageRegionCtx.setResolutionLevel(pixelBuffer);
             Integer sizeX = pixelBuffer.getSizeX();
             Integer sizeY = pixelBuffer.getSizeY();
-            RegionDef regionDef = getRegionDef(sizeX, sizeY, pixelBuffer);
+            RegionDef regionDef = imageRegionCtx.getRegionDef(pixelBuffer, maxTileLength);
             planeDef.setRegion(regionDef);
             checkPlaneDef(sizeX, sizeY, planeDef);
 
@@ -571,103 +571,6 @@ public class ImageRegionRequestHandler {
                 span.finish();
             }
         }
-    }
-
-    /**
-     * Update RegionDef to fit within the image boundaries.
-     * @param sizeX width of the image at the current resolution
-     * @param sizeY height of the image at the current resolution
-     * @param regionDef region definition to truncate if required
-     * @throws IllegalArgumentException
-     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
-     */
-    private void truncateRegionDef(
-            int sizeX, int sizeY, RegionDef regionDef) {
-        log.debug("Truncating RegionDef if required");
-        if (regionDef.getX() > sizeX ||
-                regionDef.getY() > sizeY) {
-            throw new IllegalArgumentException(String.format(
-                    "Start position (%d,%d) out of bounds. Image size for"
-                    + " requested resolution level is (%d, %d)",
-                    regionDef.getX(), regionDef.getY(), sizeX, sizeY));
-        }
-        regionDef.setWidth(Math.min(
-                regionDef.getWidth(), sizeX - regionDef.getX()));
-        regionDef.setHeight(Math.min(
-                regionDef.getHeight(), sizeY - regionDef.getY()));
-    }
-
-    /**
-     * Update RegionDef to be flipped if required.
-     * @param sizeX width of the image at the current resolution
-     * @param sizeY height of the image at the current resolution
-     * @param tileSize XY tile sizes of the underlying pixels
-     * @param regionDef region definition to flip if required
-     * @throws IllegalArgumentException
-     * @throws ServerError
-     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
-     */
-    private void flipRegionDef(int sizeX, int sizeY, RegionDef regionDef) {
-        log.debug("Flipping tile RegionDef if required");
-        if (imageRegionCtx.flipHorizontal) {
-            regionDef.setX(
-                    sizeX - regionDef.getWidth() - regionDef.getX());
-        }
-        if (imageRegionCtx.flipVertical) {
-            regionDef.setY(
-                    sizeY - regionDef.getHeight() - regionDef.getY());
-        }
-    }
-
-    /**
-     * Returns RegionDef to read based on tile / region provided in
-     * ImageRegionCtx.
-     * @param resolutionLevels complete definition of all resolution levels
-     * @param pixelBuffer raw pixel data access buffer
-     * @return RegionDef {@link RegionDef} describing image region to read
-     * @throws IllegalArgumentException
-     * @throws ServerError
-     */
-    protected RegionDef getRegionDef(
-            Integer sizeX, Integer sizeY, PixelBuffer pixelBuffer)
-                    throws IllegalArgumentException, ServerError {
-        log.debug("Setting region to read");
-        RegionDef regionDef = new RegionDef();
-        Dimension imageTileSize = pixelBuffer.getTileSize();
-        if (imageRegionCtx.tile != null) {
-            int tileSizeX = imageRegionCtx.tile.getWidth();
-            int tileSizeY = imageRegionCtx.tile.getHeight();
-            if (tileSizeX == 0) {
-                tileSizeX = (int) imageTileSize.getWidth();
-            }
-            if (tileSizeX > maxTileLength) {
-                tileSizeX = maxTileLength;
-            }
-            if (tileSizeY == 0) {
-                tileSizeY = (int) imageTileSize.getHeight();
-            }
-            if (tileSizeY > maxTileLength) {
-                tileSizeY = maxTileLength;
-            }
-            regionDef.setWidth(tileSizeX);
-            regionDef.setHeight(tileSizeY);
-            regionDef.setX(imageRegionCtx.tile.getX() * tileSizeX);
-            regionDef.setY(imageRegionCtx.tile.getY() * tileSizeY);
-        } else if (imageRegionCtx.region != null) {
-            regionDef.setX(imageRegionCtx.region.getX());
-            regionDef.setY(imageRegionCtx.region.getY());
-            regionDef.setWidth(imageRegionCtx.region.getWidth());
-            regionDef.setHeight(imageRegionCtx.region.getHeight());
-        } else {
-            regionDef.setX(0);
-            regionDef.setY(0);
-            regionDef.setWidth(sizeX);
-            regionDef.setHeight(sizeY);
-            return regionDef;
-        }
-        truncateRegionDef(sizeX, sizeY, regionDef);
-        flipRegionDef(sizeX, sizeY, regionDef);
-        return regionDef;
     }
 
     /**

@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,6 +32,7 @@ import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import ome.io.nio.PixelBuffer;
+import ome.model.core.Pixels;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.xml.model.primitives.Color;
@@ -532,6 +534,104 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                     resolutionLevelCount - resolution - 1;
             log.debug("Setting resolution level to: {}", level);
             pixelBuffer.setResolutionLevel(level);
+        }
+    }
+
+    /**
+     * Returns RegionDef to read based on tile / region provided in
+     * ImageRegionCtx.
+     * @param resolutionLevels complete definition of all resolution levels
+     * @param pixelBuffer raw pixel data access buffer
+     * @return RegionDef {@link RegionDef} describing image region to read
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     */
+    public RegionDef getRegionDef(PixelBuffer pixelBuffer, int maxTileLength)
+                    throws IllegalArgumentException {
+        log.debug("Setting region to read");
+        RegionDef regionDef = new RegionDef();
+        Dimension imageTileSize = pixelBuffer.getTileSize();
+        int sizeX = pixelBuffer.getSizeX();
+        int sizeY = pixelBuffer.getSizeY();
+        if (tile != null) {
+            int tileSizeX = tile.getWidth();
+            int tileSizeY = tile.getHeight();
+            if (tileSizeX == 0) {
+                tileSizeX = (int) imageTileSize.getWidth();
+            }
+            if (tileSizeX > maxTileLength) {
+                tileSizeX = maxTileLength;
+            }
+            if (tileSizeY == 0) {
+                tileSizeY = (int) imageTileSize.getHeight();
+            }
+            if (tileSizeY > maxTileLength) {
+                tileSizeY = maxTileLength;
+            }
+            regionDef.setWidth(tileSizeX);
+            regionDef.setHeight(tileSizeY);
+            regionDef.setX(tile.getX() * tileSizeX);
+            regionDef.setY(tile.getY() * tileSizeY);
+        } else if (region != null) {
+            regionDef.setX(region.getX());
+            regionDef.setY(region.getY());
+            regionDef.setWidth(region.getWidth());
+            regionDef.setHeight(region.getHeight());
+        } else {
+            regionDef.setX(0);
+            regionDef.setY(0);
+            regionDef.setWidth(sizeX);
+            regionDef.setHeight(sizeY);
+            return regionDef;
+        }
+        truncateRegionDef(sizeX, sizeY, regionDef);
+        flipRegionDef(sizeX, sizeY, regionDef);
+        return regionDef;
+    }
+
+    /**
+     * Update RegionDef to fit within the image boundaries.
+     * @param sizeX width of the image at the current resolution
+     * @param sizeY height of the image at the current resolution
+     * @param regionDef region definition to truncate if required
+     * @throws IllegalArgumentException
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    private void truncateRegionDef(
+            int sizeX, int sizeY, RegionDef regionDef) {
+        log.debug("Truncating RegionDef if required");
+        if (regionDef.getX() > sizeX ||
+                regionDef.getY() > sizeY) {
+            throw new IllegalArgumentException(String.format(
+                    "Start position (%d,%d) out of bounds. Image size for"
+                    + " requested resolution level is (%d, %d)",
+                    regionDef.getX(), regionDef.getY(), sizeX, sizeY));
+        }
+        regionDef.setWidth(Math.min(
+                regionDef.getWidth(), sizeX - regionDef.getX()));
+        regionDef.setHeight(Math.min(
+                regionDef.getHeight(), sizeY - regionDef.getY()));
+    }
+
+    /**
+     * Update RegionDef to be flipped if required.
+     * @param sizeX width of the image at the current resolution
+     * @param sizeY height of the image at the current resolution
+     * @param tileSize XY tile sizes of the underlying pixels
+     * @param regionDef region definition to flip if required
+     * @throws IllegalArgumentException
+     * @throws ServerError
+     * @see ImageRegionRequestHandler#getRegionDef(Pixels, PixelBuffer)
+     */
+    private void flipRegionDef(int sizeX, int sizeY, RegionDef regionDef) {
+        log.debug("Flipping tile RegionDef if required");
+        if (flipHorizontal) {
+            regionDef.setX(
+                    sizeX - regionDef.getWidth() - regionDef.getX());
+        }
+        if (flipVertical) {
+            regionDef.setY(
+                    sizeY - regionDef.getHeight() - regionDef.getY());
         }
     }
 }
