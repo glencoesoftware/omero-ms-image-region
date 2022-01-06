@@ -460,7 +460,14 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     }
 
     public void setColor(Renderer renderer, int idx, int c) {
-        Color color = splitHTMLColor(colors.get(idx));
+        // Special case for lookup table handling
+        String colorString = colors.get(idx);
+        if (colorString.endsWith(".lut")) {
+            renderer.setChannelLookupTable(c, colorString);
+            return;
+        }
+
+        Color color = splitHTMLColor(colorString);
         log.debug(
                 "\tColor: [{}, {}, {}, {}]",
                 color.getRed(), color.getGreen(), color.getBlue(),
