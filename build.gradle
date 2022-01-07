@@ -31,7 +31,7 @@ repositories {
         url 'https://repo.glencoesoftware.com/repository/jzarr-snapshots'
     }
     maven {
-        url 'https://maven.scijava.org/content/groups/public'
+        url 'http://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
     }
     maven {
         name 'Brockmann-Consult Public Maven Repository'
