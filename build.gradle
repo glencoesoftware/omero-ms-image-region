@@ -22,6 +22,9 @@ repositories {
         url 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
     }
     maven {
+        url 'https://artifacts.glencoesoftware.com/artifactory/ome.external'
+    }
+    maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
@@ -31,7 +34,7 @@ repositories {
         url 'https://repo.glencoesoftware.com/repository/jzarr-snapshots'
     }
     maven {
-        url 'https://maven.scijava.org/content/groups/public'
+        url 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
     }
     maven {
         name 'Brockmann-Consult Public Maven Repository'
