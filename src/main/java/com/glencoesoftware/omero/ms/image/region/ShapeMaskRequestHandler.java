@@ -42,6 +42,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import loci.formats.FormatTools;
 import ome.io.nio.PixelBuffer;
 import ome.util.PixelData;
 import ome.xml.model.primitives.Color;
@@ -532,7 +533,8 @@ public class ShapeMaskRequestHandler {
 
             metadata.put("uuid", uuid);
 
-            metadata.put("type", pixelBuffer.getPixelsType());
+            metadata.put("type", FormatTools.getPixelTypeString(
+                    pixelBuffer.getPixelsType()));
 
             return metadata;
         } catch (Exception e) {

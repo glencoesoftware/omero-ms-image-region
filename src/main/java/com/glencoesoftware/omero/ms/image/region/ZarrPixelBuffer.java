@@ -36,11 +36,10 @@ import com.bc.zarr.DataType;
 import com.bc.zarr.ZarrArray;
 import com.bc.zarr.ZarrGroup;
 
-import brave.ScopedSpan;
-import brave.Tracing;
 import loci.formats.FormatTools;
 import ome.io.nio.DimensionsOutOfBoundsException;
 import ome.io.nio.PixelBuffer;
+import ome.io.nio.RomioPixelBuffer;
 import ome.model.core.Pixels;
 import ome.util.PixelData;
 import ucar.ma2.InvalidRangeException;
@@ -48,7 +47,7 @@ import ucar.ma2.InvalidRangeException;
 public class ZarrPixelBuffer implements PixelBuffer {
 
     private static final org.slf4j.Logger log =
-            LoggerFactory.getLogger(PixelBuffer.class);
+            LoggerFactory.getLogger(ZarrPixelBuffer.class);
 
     /** Reference to the pixels. */
     private final Pixels pixels;
@@ -100,28 +99,28 @@ public class ZarrPixelBuffer implements PixelBuffer {
     }
 
     /**
-     * Get Bio-Formats/OMERO pixels type string for buffer.
+     * Get Bio-Formats/OMERO pixels type for buffer.
      * @return See above.
      */
-    public String getPixelsType() {
+    public int getPixelsType() {
         DataType dataType = array.getDataType();
         switch (dataType) {
             case u1:
-                return FormatTools.getPixelTypeString(FormatTools.UINT8);
+                return FormatTools.UINT8;
             case i1:
-                return FormatTools.getPixelTypeString(FormatTools.INT8);
+                return FormatTools.INT8;
             case u2:
-                return FormatTools.getPixelTypeString(FormatTools.UINT16);
+                return FormatTools.UINT16;
             case i2:
-                return FormatTools.getPixelTypeString(FormatTools.INT16);
+                return FormatTools.INT16;
             case u4:
-                return FormatTools.getPixelTypeString(FormatTools.UINT32);
+                return FormatTools.UINT32;
             case i4:
-                return FormatTools.getPixelTypeString(FormatTools.INT32);
+                return FormatTools.INT32;
             case f4:
-                return FormatTools.getPixelTypeString(FormatTools.FLOAT);
+                return FormatTools.FLOAT;
             case f8:
-                return FormatTools.getPixelTypeString(FormatTools.DOUBLE);
+                return FormatTools.DOUBLE;
             default:
                 throw new IllegalArgumentException(
                         "Data type " + dataType + " not supported");
@@ -129,110 +128,95 @@ public class ZarrPixelBuffer implements PixelBuffer {
     }
 
     /**
-     * Get bytes per pixel for the current buffer data type
-     * @return See above.
+     * Calculates the pixel length of a given NumPy like "shape".
+     * @param shape the NumPy like "shape" to calculate the length of
+     * @return See above
+     * @see <a href=
+     * "https://numpy.org/doc/stable/reference/generated/numpy.shape.html">
+     * numpy.shape</a> documentation
      */
-    private int getBytesPerPixel() {
-        DataType dataType = array.getDataType();
-        switch (dataType) {
-            case u1:
-            case i1:
-                return 1;
-            case u2:
-            case i2:
-                return 2;
-            case u4:
-            case i4:
-            case f4:
-                return 4;
-            case i8:
-            case f8:
-                return 8;
-            default:
-                throw new IllegalArgumentException(
-                        "Data type " + dataType + " not supported");
-        }
+    private int length(int[] shape) {
+        return IntStream.of(shape).reduce(1, Math::multiplyExact);
     }
 
-    /**
-     * Get byte array from ZarrArray
-     * @param zarray The ZarrArray to get data from
-     * @param shape The shape of the region to retrieve
-     * @param offset The offset of the region
-     * @return byte array of data from the ZarrArray
-     */
-    private ByteBuffer getBytes(int[] shape, int[] offset) {
+    private void read(byte[] buffer, int[] shape, int[] offset)
+            throws IOException {
         if (shape[4] > maxTileLength) {
             throw new IllegalArgumentException(String.format(
-                    "sizeX %d > maxTileLength %d", shape[4], maxTileLength));
+                    "width %d > maxTileLength %d", shape[4], maxTileLength));
         }
         if (shape[3] > maxTileLength) {
             throw new IllegalArgumentException(String.format(
-                    "sizeY %d > maxTileLength %d", shape[3], maxTileLength));
+                    "height %d > maxTileLength %d", shape[3], maxTileLength));
         }
         if (shape[4] < 0) {
-            throw new IllegalArgumentException("sizeX < 0");
+            throw new IllegalArgumentException("width < 0");
         }
         if (shape[3] < 0) {
-            throw new IllegalArgumentException("sizeY < 0");
+            throw new IllegalArgumentException("height < 0");
         }
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_bytes");
         try {
-            span.tag("omero.zarr.shape", Arrays.toString(shape));
-            span.tag("omero.zarr.offset", Arrays.toString(offset));
-            span.tag("omero.zarr.array", array.toString());
-            int length = IntStream.of(shape).reduce(1, Math::multiplyExact);
-            int bytesPerPixel = getBytesPerPixel();
-            ByteBuffer asByteBuffer = ByteBuffer.allocate(
-                    length * bytesPerPixel);
+            ByteBuffer asByteBuffer = ByteBuffer.wrap(buffer);
             DataType dataType = array.getDataType();
             switch (dataType) {
                 case u1:
                 case i1:
-                    return ByteBuffer.wrap((byte[]) array.read(shape, offset));
+                    array.read(buffer, shape, offset);
+                    break;
                 case u2:
                 case i2:
                 {
                     short[] data = (short[]) array.read(shape, offset);
                     asByteBuffer.asShortBuffer().put(data);
-                    return asByteBuffer;
+                    break;
                 }
                 case u4:
                 case i4:
                 {
                     int[] data = (int[]) array.read(shape, offset);
                     asByteBuffer.asIntBuffer().put(data);
-                    return asByteBuffer;
+                    break;
                 }
                 case i8:
                 {
                     long[] data = (long[]) array.read(shape, offset);
                     asByteBuffer.asLongBuffer().put(data);
-                    return asByteBuffer;
+                    break;
                 }
                 case f4:
                 {
                     float[] data = (float[]) array.read(shape, offset);
                     asByteBuffer.asFloatBuffer().put(data);
-                    return asByteBuffer;
+                    break;
                 }
                 case f8:
                 {
                     double[] data = (double[]) array.read(shape, offset);
                     asByteBuffer.asDoubleBuffer().put(data);
-                    return asByteBuffer;
+                    break;
                 }
                 default:
-                    log.error("Unsupported data type" + dataType);
-                    return null;
+                    throw new IllegalArgumentException(
+                            "Data type " + dataType + " not supported");
             }
-        } catch (InvalidRangeException|IOException e) {
-            log.error("Error getting zarr PixelData", e);
-            return null;
-        } finally {
-            span.finish();
+        } catch (InvalidRangeException e) {
+            log.error("Error reading Zarr data", e);
+            throw new IOException(e);
+        } catch (Exception e) {
+            log.error("Error reading Zarr data", e);
+            throw e;
         }
+    }
+
+    private PixelData toPixelData(byte[] buffer) {
+        if (buffer == null) {
+            return null;
+        }
+        PixelData d = new PixelData(
+                FormatTools.getPixelTypeString(getPixelsType()),
+                ByteBuffer.wrap(buffer));
+        d.setOrder(ByteOrder.BIG_ENDIAN);
+        return d;
     }
 
     /**
@@ -286,10 +270,11 @@ public class ZarrPixelBuffer implements PixelBuffer {
         return rootGroupAttributes;
     }
 
+    /**
+     * No-op.
+     */
     @Override
     public void close() throws IOException {
-        // TODO Auto-generated method stub
-
     }
 
     /**
@@ -326,97 +311,113 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public Long getPlaneSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return ((long) getRowSize()) * ((long) getSizeY());
     }
 
     @Override
     public Integer getRowSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return getSizeX() * getByteWidth();
     }
 
     @Override
     public Integer getColSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return getSizeY() * getByteWidth();
     }
 
     @Override
     public Long getStackSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return getPlaneSize() * ((long) getSizeZ());
     }
 
     @Override
     public Long getTimepointSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return getStackSize() * ((long) getSizeC());
     }
 
     @Override
     public Long getTotalSize() {
-        // TODO Auto-generated method stub
-        return null;
+        return getTimepointSize() * ((long) getSizeT());
     }
 
     @Override
     public Long getHypercubeSize(List<Integer> offset, List<Integer> size, List<Integer> step)
             throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support Hypercube access");
     }
 
     @Override
-    public Long getRowOffset(Integer y, Integer z, Integer c, Integer t) throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public Long getRowOffset(Integer y, Integer z, Integer c, Integer t)
+            throws DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not provide row offsets");
     }
 
     @Override
-    public Long getPlaneOffset(Integer z, Integer c, Integer t) throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public Long getPlaneOffset(Integer z, Integer c, Integer t)
+            throws DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not provide plane offsets");
     }
 
     @Override
-    public Long getStackOffset(Integer c, Integer t) throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public Long getStackOffset(Integer c, Integer t)
+            throws DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not provide stack offsets");
     }
 
     @Override
-    public Long getTimepointOffset(Integer t) throws DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public Long getTimepointOffset(Integer t)
+            throws DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not provide timepoint offsets");
     }
 
     @Override
-    public PixelData getHypercube(List<Integer> offset, List<Integer> size, List<Integer> step)
-            throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public PixelData getHypercube(
+            List<Integer> offset, List<Integer> size, List<Integer> step)
+                    throws IOException, DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support Hypercube access");
     }
 
     @Override
-    public byte[] getHypercubeDirect(List<Integer> offset, List<Integer> size, List<Integer> step, byte[] buffer)
-            throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public byte[] getHypercubeDirect(
+            List<Integer> offset, List<Integer> size, List<Integer> step,
+            byte[] buffer)
+                    throws IOException, DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support Hypercube access");
     }
 
     @Override
-    public byte[] getPlaneRegionDirect(Integer z, Integer c, Integer t, Integer count, Integer offset, byte[] buffer)
-            throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public byte[] getPlaneRegionDirect(
+            Integer z, Integer c, Integer t, Integer count, Integer offset,
+            byte[] buffer)
+                    throws IOException, DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support plane region access");
     }
 
     @Override
-    public PixelData getTile(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
-            throws IOException {
-        ScopedSpan span = Tracing.currentTracer()
-                .startScopedSpan("get_pixel_data_from_zarr");
+    public PixelData getTile(
+            Integer z, Integer c, Integer t, Integer x, Integer y,
+            Integer w, Integer h)
+                    throws IOException {
+        //Check origin indices > 0
+        checkBounds(x, y, z, c, t);
+        //Check check bottom-right of tile in bounds
+        checkBounds(x + w - 1, y + h - 1, z, c, t);
+        int[] shape = new int[] { 1, 1, 1, h, w };
+        byte[] buffer = new byte[length(shape) * getByteWidth()];
+        return toPixelData(getTileDirect(z, c, t, x, y, w, h, buffer));
+    }
+
+    @Override
+    public byte[] getTileDirect(
+            Integer z, Integer c, Integer t, Integer x, Integer y,
+            Integer w, Integer h, byte[] buffer) throws IOException {
         try {
             //Check origin indices > 0
             checkBounds(x, y, z, c, t);
@@ -424,205 +425,230 @@ public class ZarrPixelBuffer implements PixelBuffer {
             checkBounds(x + w - 1, y + h - 1, z, c, t);
             int[] shape = new int[] { 1, 1, 1, h, w };
             int[] offset = new int[] { t, c, z, y, x };
-            PixelData d = new PixelData(
-                    getPixelsType(), getBytes(shape, offset));
-            d.setOrder(ByteOrder.BIG_ENDIAN);
-            return d;
-        } catch (DimensionsOutOfBoundsException e) {
-            log.error("Tile dimension error while retrieving pixel data", e);
-            span.error(e);
-            throw(e);
+            read(buffer, shape, offset);
+            return buffer;
         } catch (Exception e) {
             log.error("Error while retrieving pixel data", e);
-            span.error(e);
             return null;
-        } finally {
-            span.finish();
         }
     }
 
     @Override
-    public byte[] getTileDirect(Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h,
-            byte[] buffer) throws IOException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
     public PixelData getRegion(Integer size, Long offset) throws IOException {
-        // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support region access");
     }
 
     @Override
-    public byte[] getRegionDirect(Integer size, Long offset, byte[] buffer) throws IOException {
-        // TODO Auto-generated method stub
-        return null;
+    public byte[] getRegionDirect(Integer size, Long offset, byte[] buffer)
+            throws IOException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support region access");
     }
 
     @Override
     public PixelData getRow(Integer y, Integer z, Integer c, Integer t)
             throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        return toPixelData(getRowDirect(y, z, c, t, new byte[getRowSize()]));
     }
 
     @Override
     public PixelData getCol(Integer x, Integer z, Integer c, Integer t)
             throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        return toPixelData(getColDirect(x, z, c, t, new byte[getColSize()]));
     }
 
     @Override
-    public byte[] getRowDirect(Integer y, Integer z, Integer c, Integer t, byte[] buffer)
+    public byte[] getRowDirect(
+            Integer y, Integer z, Integer c, Integer t, byte[] buffer)
+                    throws IOException, DimensionsOutOfBoundsException {
+        int x = 0;
+        int w = getSizeX();
+        int h = 1;
+        return getTileDirect(z, c, t, x, y, w, h, buffer);
+    }
+
+    @Override
+    public byte[] getColDirect(
+            Integer x, Integer z, Integer c, Integer t, byte[] buffer)
+                    throws IOException, DimensionsOutOfBoundsException {
+        int y = 0;
+        int w = 1;
+        int h = getSizeY();
+        return getTileDirect(z, c, t, x, y, w, h, buffer);
+    }
+
+    @Override
+    public PixelData getPlane(Integer z, Integer c, Integer t)
             throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        int planeSize = RomioPixelBuffer.safeLongToInteger(getPlaneSize());
+        return toPixelData(getPlaneDirect(z, c, t, new byte[planeSize]));
     }
 
     @Override
-    public byte[] getColDirect(Integer x, Integer z, Integer c, Integer t, byte[] buffer)
-            throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public PixelData getPlane(Integer z, Integer c, Integer t) throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public PixelData getPlaneRegion(Integer x, Integer y, Integer width, Integer height, Integer z, Integer c,
-            Integer t, Integer stride) throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public PixelData getPlaneRegion(Integer x, Integer y, Integer width,
+            Integer height, Integer z, Integer c, Integer t, Integer stride)
+                    throws IOException, DimensionsOutOfBoundsException {
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support plane region access");
     }
 
     @Override
     public byte[] getPlaneDirect(Integer z, Integer c, Integer t, byte[] buffer)
             throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        int y = 0;
+        int x = 0;
+        int w = getSizeX();
+        int h = getSizeY();
+        return getTileDirect(z, c, t, x, y, w, h, buffer);
     }
 
     @Override
-    public PixelData getStack(Integer c, Integer t) throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public PixelData getStack(Integer c, Integer t)
+            throws IOException, DimensionsOutOfBoundsException {
+        int stackSize = RomioPixelBuffer.safeLongToInteger(getStackSize());
+        byte[] buffer = new byte[stackSize];
+        return toPixelData(getStackDirect(c, t, buffer));
     }
 
     @Override
     public byte[] getStackDirect(Integer c, Integer t, byte[] buffer)
             throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        int w = getSizeX();
+        int h = getSizeY();
+
+        //Check origin indices > 0
+        checkBounds(x, y, z, c, t);
+        //Check check bottom-right of tile in bounds
+        checkBounds(x + w - 1, y + h - 1, z, c, t);
+        int[] shape = new int[] { 1, 1, getSizeZ(), h, w };
+        int[] offset = new int[] { t, c, z, y, x };
+        read(buffer, shape, offset);
+        return buffer;
     }
 
     @Override
-    public PixelData getTimepoint(Integer t) throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public PixelData getTimepoint(Integer t)
+            throws IOException, DimensionsOutOfBoundsException {
+        int timepointSize =
+                RomioPixelBuffer.safeLongToInteger(getTimepointSize());
+        byte[] buffer = new byte[timepointSize];
+        return toPixelData(getTimepointDirect(t, buffer));
     }
 
     @Override
-    public byte[] getTimepointDirect(Integer t, byte[] buffer) throws IOException, DimensionsOutOfBoundsException {
-        // TODO Auto-generated method stub
-        return null;
+    public byte[] getTimepointDirect(Integer t, byte[] buffer)
+            throws IOException, DimensionsOutOfBoundsException {
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        int c = 0;
+        int w = getSizeX();
+        int h = getSizeY();
+
+        //Check origin indices > 0
+        checkBounds(x, y, z, c, t);
+        //Check check bottom-right of tile in bounds
+        checkBounds(x + w - 1, y + h - 1, z, c, t);
+        int[] shape = new int[] { 1, getSizeC(), getSizeZ(), h, w };
+        int[] offset = new int[] { t, c, z, y, x };
+        read(buffer, shape, offset);
+        return buffer;
     }
 
     @Override
-    public void setTile(byte[] buffer, Integer z, Integer c, Integer t, Integer x, Integer y, Integer w, Integer h)
+    public void setTile(
+            byte[] buffer, Integer z, Integer c, Integer t,
+            Integer x, Integer y, Integer w, Integer h)
+                    throws IOException, BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
+    }
+
+    @Override
+    public void setRegion(Integer size, Long offset, byte[] buffer)
             throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
-    public void setRegion(Integer size, Long offset, byte[] buffer) throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+    public void setRegion(Integer size, Long offset, ByteBuffer buffer)
+            throws IOException, BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
-    public void setRegion(Integer size, Long offset, ByteBuffer buffer) throws IOException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void setRow(ByteBuffer buffer, Integer y, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+    public void setRow(
+            ByteBuffer buffer, Integer y, Integer z, Integer c, Integer t)
+                    throws IOException, DimensionsOutOfBoundsException,
+                            BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setPlane(ByteBuffer buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setPlane(byte[] buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setStack(ByteBuffer buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setStack(byte[] buffer, Integer z, Integer c, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setTimepoint(ByteBuffer buffer, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public void setTimepoint(byte[] buffer, Integer t)
-            throws IOException, DimensionsOutOfBoundsException, BufferOverflowException {
-        // TODO Auto-generated method stub
-
+            throws IOException, DimensionsOutOfBoundsException,
+                    BufferOverflowException {
+        throw new UnsupportedOperationException("Cannot write to Zarr");
     }
 
     @Override
     public byte[] calculateMessageDigest() throws IOException {
-        // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException(
+                "Zarr pixel buffer does not support message digest " +
+                "calculation");
     }
 
     @Override
     public int getByteWidth() {
-        // TODO Auto-generated method stub
-        return 0;
+        return FormatTools.getBytesPerPixel(getPixelsType());
     }
 
     @Override
     public boolean isSigned() {
-        // TODO Auto-generated method stub
-        return false;
+        return FormatTools.isSigned(getPixelsType());
     }
 
     @Override
     public boolean isFloat() {
-        // TODO Auto-generated method stub
-        return false;
+        return FormatTools.isFloatingPoint(getPixelsType());
     }
 
     @Override
@@ -632,7 +658,6 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public long getId() {
-        // TODO Auto-generated method stub
         return 0;
     }
 
@@ -668,18 +693,20 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     @Override
     public int getResolutionLevel() {
+        // The pixel buffer API reverses the resolution level (0 is smallest)
         return Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
     }
 
     @Override
     public void setResolutionLevel(int resolutionLevel) {
+        if (resolutionLevel >= resolutionLevels) {
+            throw new IllegalArgumentException(
+                    "Resolution level out of bounds!");
+        }
+        // The pixel buffer API reverses the resolution level (0 is smallest)
         this.resolutionLevel = Math.abs(
                 resolutionLevel - (resolutionLevels - 1));
-        if (this.resolutionLevel < 0) {
-            throw new IllegalArgumentException(
-                    "This Zarr file has no pixel data");
-        }
         try {
             array = ZarrArray.open(
                     root.resolve(Integer.toString(this.resolutionLevel)));
