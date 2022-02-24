@@ -334,6 +334,9 @@ public class ShapeMaskRequestHandler {
                 "SELECT s FROM Shape s " +
                 "JOIN FETCH s.roi AS roi " +
                 "JOIN FETCH roi.image AS image " +
+                "LEFT OUTER JOIN FETCH image.wellSamples as ws " +
+                "LEFT OUTER JOIN FETCH ws.well as w " +
+                "LEFT OUTER JOIN FETCH w.wellSamples " +
                 "JOIN FETCH image.pixels AS pixels " +
                 "LEFT OUTER JOIN FETCH s.details.externalInfo " +
                 "WHERE s.id = :id", params, ctx
