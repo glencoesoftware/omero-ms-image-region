@@ -141,7 +141,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     public static double NOMINAL_MAGNIFICATION = 123.456;
 
-
     public static boolean CH1_ACTIVE = true;
     public static double CH1_COEFFICIENT = 1.1;
     public static String CH1_COLOR = "FF0000";
@@ -163,7 +162,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public static double CH2_WINDOW_END = 31;
     public static double CH2_WINDOW_MIN = -20;
     public static double CH2_WINDOW_MAX = 20;
-
 
     public static boolean CH3_ACTIVE = true;
     public static double CH3_COEFFICIENT = 1.3;
