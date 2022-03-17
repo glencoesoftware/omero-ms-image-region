@@ -45,6 +45,7 @@ import omero.model.Project;
 import omero.model.RenderingDef;
 import omero.model.ReverseIntensityContext;
 import omero.model.Image;
+import omero.model.Length;
 import omero.model.Permissions;
 import omero.model.Pixels;
 import omero.model.PixelsType;
@@ -58,9 +59,9 @@ import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.model.WellSampleI;
+import omero.model.enums.UnitsLength;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
-import ome.units.UNITS;
 import omeis.providers.re.metadata.StatsFactory;
 
 import static omero.rtypes.unwrap;
@@ -354,34 +355,43 @@ public class ImageDataRequestHandler {
     }
 
     /**
+     * Converts length to microns or <code>null</code> if the length is null
+     * or the source unit cannot be converted.
+     * @param length
+     * @return See above.
+     */
+    private Double asMicrons(Length length) {
+        if (length == null) {
+            return null;
+        }
+
+        UnitsLength unit = length.getUnit();
+        if (unit.equals(UnitsLength.PIXEL)
+                || unit.equals(UnitsLength.REFERENCEFRAME)) {
+            log.warn("Cannot convert {} to microns", length);
+            return null;
+        }
+        try {
+            return new LengthI(length, UnitsLength.MICROMETER).getValue();
+        } catch (BigResult e) {
+            log.error("Error while converting pixel size to microns", e);
+            return null;
+        }
+    }
+
+    /**
      * Populate the pixel size image data
      * @param pixels
      * @return The pixel size JsonObject
      */
     private JsonObject getImageDataPixelSize(Pixels pixels) {
         JsonObject pixelSize = new JsonObject();
-        try {
-            if (pixels.getPhysicalSizeX() != null) {
-                pixelSize.put("x", new LengthI(pixels.getPhysicalSizeX(),
-                        UNITS.MICROMETER).getValue());
-            } else {
-                pixelSize.putNull("x");
-            }
-            if (pixels.getPhysicalSizeY() != null) {
-                pixelSize.put("y", new LengthI(pixels.getPhysicalSizeY(),
-                        UNITS.MICROMETER).getValue());
-            } else {
-                pixelSize.putNull("y");
-            }
-            if (pixels.getPhysicalSizeZ() != null) {
-                pixelSize.put("z", new LengthI(pixels.getPhysicalSizeZ(),
-                        UNITS.MICROMETER).getValue());
-            } else {
-                pixelSize.putNull("z");
-            }
-        } catch (BigResult e) {
-            log.error("BigResult error when converting pixel size", e);
-        }
+        Double physicalSizeX = asMicrons(pixels.getPhysicalSizeX());
+        pixelSize.put("x", physicalSizeX);
+        Double physicalSizeY = asMicrons(pixels.getPhysicalSizeY());
+        pixelSize.put("y", physicalSizeY);
+        Double physicalSizeZ = asMicrons(pixels.getPhysicalSizeZ());
+        pixelSize.put("z", physicalSizeZ);
         return pixelSize;
     }
 

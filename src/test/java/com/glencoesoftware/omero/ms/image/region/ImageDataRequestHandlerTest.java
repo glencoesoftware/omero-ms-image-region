@@ -30,7 +30,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import omero.model.PixelsTypeI;
-import ome.units.UNITS;
 import omero.ApiUsageException;
 import omero.model.ChannelBinding;
 import omero.model.ChannelBindingI;
@@ -717,9 +716,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
         Pixels pixels = image.getPrimaryPixels();
-        pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
-        pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
-        pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
+        pixels.setPhysicalSizeX(new LengthI(3.0, UnitsLength.MILLIMETER));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UnitsLength.CENTIMETER));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UnitsLength.NANOMETER));
 
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdefs, OWNER_ID);
@@ -732,23 +731,23 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     }
 
     @Test
-    public void testImageDataPixelSizePixels() throws ApiUsageException {
+    public void testImageDataPixelSizeAsPixels() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
         Pixels pixels = image.getPrimaryPixels();
-        pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.PIXEL));
-        pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.PIXEL));
-        pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.PIXEL));
+        pixels.setPhysicalSizeX(new LengthI(3.0, UnitsLength.PIXEL));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UnitsLength.PIXEL));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UnitsLength.PIXEL));
 
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdefs, OWNER_ID);
         JsonObject pixelSizeCorrect = imgData.copy();
         JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
-        pixSize.put("x", 3.0);
-        pixSize.put("y", 4.0);
-        pixSize.put("z", 5.0);
+        pixSize.putNull("x");
+        pixSize.putNull("y");
+        pixSize.putNull("z");
         Assert.assertEquals(basicObj, pixelSizeCorrect);
     }
 
