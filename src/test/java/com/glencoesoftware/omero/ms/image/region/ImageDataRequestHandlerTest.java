@@ -734,6 +734,27 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     }
 
     @Test
+    public void testImageDataPixelSizePixels() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        Pixels pixels = image.getPrimaryPixels();
+        pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.PIXEL));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.PIXEL));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.PIXEL));
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject pixelSizeCorrect = imgData.copy();
+        JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
+        pixSize.put("x", 3.0);
+        pixSize.put("y", 4.0);
+        pixSize.put("z", 5.0);
+        Assert.assertEquals(basicObj, pixelSizeCorrect);
+    }
+
+    @Test
     public void testImageDataTimestampOnImage() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
