@@ -30,7 +30,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import omero.model.PixelsTypeI;
-import ome.units.UNITS;
 import omero.ApiUsageException;
 import omero.model.ChannelBinding;
 import omero.model.ChannelBindingI;
@@ -141,7 +140,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     public static double NOMINAL_MAGNIFICATION = 123.456;
 
-
     public static boolean CH1_ACTIVE = true;
     public static double CH1_COEFFICIENT = 1.1;
     public static String CH1_COLOR = "FF0000";
@@ -163,7 +161,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
     public static double CH2_WINDOW_END = 31;
     public static double CH2_WINDOW_MIN = -20;
     public static double CH2_WINDOW_MAX = 20;
-
 
     public static boolean CH3_ACTIVE = true;
     public static double CH3_COEFFICIENT = 1.3;
@@ -719,9 +716,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
         Pixels pixels = image.getPrimaryPixels();
-        pixels.setPhysicalSizeX(new LengthI(3.0, UNITS.MILLIMETER));
-        pixels.setPhysicalSizeY(new LengthI(4.0, UNITS.CENTIMETER));
-        pixels.setPhysicalSizeZ(new LengthI(5.0, UNITS.NANOMETER));
+        pixels.setPhysicalSizeX(new LengthI(3.0, UnitsLength.MILLIMETER));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UnitsLength.CENTIMETER));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UnitsLength.NANOMETER));
 
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdefs, OWNER_ID);
@@ -730,6 +727,27 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         pixSize.put("x", 3000.0);
         pixSize.put("y", 40000.0);
         pixSize.put("z", 0.005);
+        Assert.assertEquals(basicObj, pixelSizeCorrect);
+    }
+
+    @Test
+    public void testImageDataPixelSizeAsPixels() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        Pixels pixels = image.getPrimaryPixels();
+        pixels.setPhysicalSizeX(new LengthI(3.0, UnitsLength.PIXEL));
+        pixels.setPhysicalSizeY(new LengthI(4.0, UnitsLength.PIXEL));
+        pixels.setPhysicalSizeZ(new LengthI(5.0, UnitsLength.PIXEL));
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject pixelSizeCorrect = imgData.copy();
+        JsonObject pixSize = pixelSizeCorrect.getJsonObject("pixel_size");
+        pixSize.putNull("x");
+        pixSize.putNull("y");
+        pixSize.putNull("z");
         Assert.assertEquals(basicObj, pixelSizeCorrect);
     }
 
