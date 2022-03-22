@@ -88,12 +88,6 @@ public class ImageRegionRequestHandler {
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
     /** Image Region Context */
     private final ImageRegionCtx imageRegionCtx;
 
@@ -205,7 +199,7 @@ public class ImageRegionRequestHandler {
             IPixelsPrx iPixels, final long pixelsId) throws ServerError {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
-        return (RenderingDef) mapper.reverse(
+        return (RenderingDef) new IceMapper().reverse(
                 iPixels.retrieveRndSettings(pixelsId, ctx));
     }
 
@@ -244,7 +238,7 @@ public class ImageRegionRequestHandler {
             long pixelsId =
                     ((omero.RLong) pixelsIdAndSeries.get(0)).getValue();
             span.tag("omero.pixels_id", Long.toString(pixelsId));
-            pixels = (Pixels) mapper.reverse(
+            pixels = (Pixels) new IceMapper().reverse(
                     iPixels.retrievePixDescription(pixelsId, ctx));
             // The series will be used by our version of PixelsService which
             // avoids attempting to retrieve the series from the database
