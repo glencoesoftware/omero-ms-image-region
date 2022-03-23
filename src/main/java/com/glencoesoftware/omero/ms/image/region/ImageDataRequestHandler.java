@@ -85,12 +85,6 @@ public class ImageDataRequestHandler {
     private boolean interpolate;
 
     /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects and
-     * <code>ome.model</code> server side Hibernate backed objects.
-     */
-    protected final IceMapper mapper = new IceMapper();
-
-    /**
      * Constructor
      * @param imageDataCtx Image Data Context
      * @param pixelsService OMERO server pixels service.
@@ -421,7 +415,7 @@ public class ImageDataRequestHandler {
     private double[] getPixelsRange(Pixels pixels) throws ApiUsageException {
         StatsFactory statsFactory = new StatsFactory();
         return statsFactory.initPixelsRange(
-                (ome.model.core.Pixels) mapper.reverse(pixels));
+                (ome.model.core.Pixels) new IceMapper().reverse(pixels));
     }
 
     /**
@@ -673,8 +667,8 @@ public class ImageDataRequestHandler {
         try {
             span.tag("omero.pixels_id",
                     Long.toString(pixels.getId().getValue()));
-            return pixelsService.getPixelBuffer(
-                    (ome.model.core.Pixels) mapper.reverse(pixels), false);
+            return pixelsService.getPixelBuffer((ome.model.core.Pixels)
+                     new IceMapper().reverse(pixels), false);
         } catch (ApiUsageException e) {
             span.error(e);
             throw e;

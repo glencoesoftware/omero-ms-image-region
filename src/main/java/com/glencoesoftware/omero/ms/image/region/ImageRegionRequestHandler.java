@@ -102,12 +102,6 @@ public class ImageRegionRequestHandler {
     private final int maxTileLength;
 
     /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    protected final IceMapper mapper = new IceMapper();
-
-    /**
      * Default constructor.
      * @param imageRegionCtx {@link ImageRegionCtx} object
      */
@@ -152,7 +146,7 @@ public class ImageRegionRequestHandler {
             // resolve our field index.
             ParametersI params = new ParametersI();
             params.addIds(imageIds);
-            List<Pixels> pixelsList = (List<Pixels>) mapper.reverse(
+            List<Pixels> pixelsList = (List<Pixels>) new IceMapper().reverse(
                     iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
@@ -261,7 +255,7 @@ public class ImageRegionRequestHandler {
             ParametersI params = new ParametersI();
             params.addIds(pixelsIds);
             params.add("userId", rlong(userId));
-            return (List<RenderingDef>) mapper.reverse(
+            return (List<RenderingDef>) new IceMapper().reverse(
                             iQuery.findAllByQuery(q, params, ctx));
         } catch (Exception e) {
             span.error(e);

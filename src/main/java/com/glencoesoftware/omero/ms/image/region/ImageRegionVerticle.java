@@ -76,12 +76,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Lookup table provider. */
     private final LutProvider lutProvider;
 
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    private final IceMapper mapper = new IceMapper();
-
     /** Available families */
     private List<Family> families;
 
@@ -445,7 +439,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     .stream()
                     .map(x -> {
                         try {
-                            return (T) mapper.reverse(x);
+                            return (T) new IceMapper().reverse(x);
                         } catch (ApiUsageException e) {
                             // *Should* never happen
                             throw new RuntimeException(e);
