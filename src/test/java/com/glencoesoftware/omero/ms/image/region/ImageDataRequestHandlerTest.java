@@ -191,12 +191,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     JsonObject imgData;
 
-    /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects and
-     * <code>ome.model</code> server side Hibernate backed objects.
-     */
-    protected final IceMapper mapper = new IceMapper();
-
     public void setupStdJson() {
         imgData = new JsonObject();
         imgData.put("id", IMAGE_ID);
@@ -392,9 +386,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 PIXELS_SIZE_T, PIXELS_SIZE_C, PIXELS_SIZE_Z,
                 PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
-        pixelBuffer = new ZarrPixelBuffer(
-            (ome.model.core.Pixels) mapper.reverse(image.getPrimaryPixels()),
-            output.resolve("0"), 1024);
+        pixelBuffer = new ZarrPixelBuffer((ome.model.core.Pixels)
+                new IceMapper().reverse(image.getPrimaryPixels()),
+                output.resolve("0"), 1024);
     }
 
     @Before

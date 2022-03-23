@@ -71,12 +71,6 @@ public class ShapeMaskRequestHandler {
     private final PixelsService pixelsService;
 
     /**
-     * Mapper between <code>omero.model</code> client side Ice backed objects
-     * and <code>ome.model</code> server side Hibernate backed objects.
-     */
-    protected final IceMapper mapper = new IceMapper();
-
-    /**
      * Default constructor.
      * @param shapeMaskCtx {@link ShapeMaskCtx} object
      * @param pixelsService configured pixels service
@@ -380,7 +374,7 @@ public class ShapeMaskRequestHandler {
             return mask.getBytes();
         }
         PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                (ome.model.core.Pixels) mapper.reverse(
+                (ome.model.core.Pixels) new IceMapper().reverse(
                         mask.getRoi().getImage().getPrimaryPixels()),
                 uuid);
         int resolutionLevel =
@@ -493,8 +487,8 @@ public class ShapeMaskRequestHandler {
             }
             Pixels pixels = mask.getRoi().getImage().getPrimaryPixels();
             ZarrPixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                            (ome.model.core.Pixels) mapper.reverse(pixels),
-                            uuid);
+                    (ome.model.core.Pixels) new IceMapper().reverse(pixels),
+                    uuid);
 
             JsonObject metadata = new JsonObject();
             JsonObject multiscalesAsJson = new JsonObject();
