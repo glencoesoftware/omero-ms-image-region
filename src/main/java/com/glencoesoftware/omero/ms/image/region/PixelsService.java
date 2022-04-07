@@ -194,8 +194,8 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 }
                 field++;
             }
-            int rowIndex = well.getRow();
-            int columnIndex = well.getColumn();
+            Integer rowIndex = well.getRow();
+            Integer columnIndex = well.getColumn();
             ZarrGroup z = ZarrGroup.open(root);
             Map<String, Object> attributes = z.getAttributes();
             Map<String, Object> plateAttributes =
@@ -204,9 +204,10 @@ public class PixelsService extends ome.io.nio.PixelsService {
                     (List<Map<String, Object>>) plateAttributes.get("wells");
             String prefix = null;
             for (Map<String, Object> wellAttributes : wellsAttributes) {
-                if (((Integer) wellAttributes.get("rowIndex")) == rowIndex
-                        && ((Integer) wellAttributes.get("columnIndex"))
-                                == columnIndex) {
+                if ((rowIndex.equals(wellAttributes.get("rowIndex"))
+                        || rowIndex.equals(wellAttributes.get("row_index")))
+                           && (columnIndex.equals(wellAttributes.get("columnIndex"))
+                               || columnIndex.equals(wellAttributes.get("column_index")))) {
                     prefix = (String) wellAttributes.get("path");
                 }
             }
