@@ -23,12 +23,17 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.slf4j.LoggerFactory;
+
+import com.upplication.s3fs.S3FileSystemProvider;
 
 import ome.api.IQuery;
 import ome.io.nio.BackOff;
@@ -95,7 +100,16 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 // FIXME: We might want to support additional S3FS settings in
                 // the future.  See:
                 //   * https://github.com/lasersonlab/Amazon-S3-FileSystem-NIO
-                FileSystem fs = FileSystems.newFileSystem(endpoint, null);
+                FileSystem fs = null;
+                try {
+                    fs = FileSystems.getFileSystem(endpoint);
+                } catch (FileSystemNotFoundException e) {
+                    Map<String, String> env = new HashMap<String, String>();
+                    env.put(
+                            S3FileSystemProvider.AMAZON_S3_FACTORY_CLASS,
+                            OmeroAmazonS3ClientFactory.class.getName());
+                    fs = FileSystems.newFileSystem(endpoint, env);
+                }
                 return fs.getPath(bucket, rest);
             }
         } catch (URISyntaxException e) {
