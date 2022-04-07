@@ -25,14 +25,19 @@ import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.slf4j.LoggerFactory;
 
+import com.bc.zarr.ZarrGroup;
 import com.upplication.s3fs.S3FileSystemProvider;
 
 import ome.api.IQuery;
@@ -56,20 +61,16 @@ public class PixelsService extends ome.io.nio.PixelsService {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionRequestHandler.class);
 
-    /** NGFF directory root */
-    private final Path ngffDir;
-
     /** Max Tile Length */
     private final Integer maxTileLength;
 
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
-            BackOff backOff, TileSizes sizes, IQuery iQuery, String ngffDir,
+            BackOff backOff, TileSizes sizes, IQuery iQuery,
             Integer maxTileLength) throws IOException {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
-        this.ngffDir = asPath(ngffDir);
         this.maxTileLength = maxTileLength;
     }
 
@@ -161,9 +162,20 @@ public class PixelsService extends ome.io.nio.PixelsService {
         return shapeAndStart;
     }
 
-    private String getImageSubPath(Pixels pixels) {
+    private Path getFilesetPath(Pixels pixels) throws IOException {
+        Properties properties = new Properties();
+        Path originalFilePath = Paths.get(
+                resolver.getOriginalFilePath(this, pixels));
+        properties.load(Files.newInputStream(
+                originalFilePath.getParent().resolve("ome_ngff.properties"),
+                StandardOpenOption.READ
+        ));
+        return asPath(properties.getProperty("uri"));
+    }
+
+    private String getImageSubPath(Path root, Pixels pixels)
+            throws IOException {
         Image image = pixels.getImage();
-        Long filesetId = image.getFileset().getId();
         int wellSampleCount = image.sizeOfWellSamples();
         if (wellSampleCount > 0) {
             if (wellSampleCount != 1) {
@@ -182,17 +194,35 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 }
                 field++;
             }
-            return String.format(
-                    "%d.zarr/%d/%d/%d",
-                    filesetId, well.getRow(), well.getColumn(), field);
+            int rowIndex = well.getRow();
+            int columnIndex = well.getColumn();
+            ZarrGroup z = ZarrGroup.open(root);
+            Map<String, Object> attributes = z.getAttributes();
+            Map<String, Object> plateAttributes =
+                    (Map<String, Object>) attributes.get("plate");
+            List<Map<String, Object>> wellsAttributes =
+                    (List<Map<String, Object>>) plateAttributes.get("wells");
+            String prefix = null;
+            for (Map<String, Object> wellAttributes : wellsAttributes) {
+                if (((Integer) wellAttributes.get("rowIndex")) == rowIndex
+                        && ((Integer) wellAttributes.get("columnIndex"))
+                                == columnIndex) {
+                    prefix = (String) wellAttributes.get("path");
+                }
+            }
+            if (prefix == null) {
+                throw new IOException(
+                        "Unable to locate path for Pixels:" + pixels.getId());
+            }
+            return String.format("%s/%d", prefix, field);
         }
-        return String.format(
-                "%d.zarr/%d", filesetId, image.getSeries());
+        return String.format("%d", getSeries(pixels));
     }
 
-    private String getLabelImageSubPath(Pixels pixels, String uuid) {
+    private String getLabelImageSubPath(Path root, Pixels pixels, String uuid)
+            throws IOException {
         return String.format(
-                "%s/labels/%s", getImageSubPath(pixels), uuid);
+                "%s/labels/%s", getImageSubPath(root, pixels), uuid);
     }
 
     /**
@@ -206,10 +236,8 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     public ZarrPixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
             throws IOException {
-        if (ngffDir == null) {
-            throw new IllegalArgumentException("NGFF dir not configured");
-        }
-        Path root = ngffDir.resolve(getLabelImageSubPath(pixels, uuid));
+        Path root = getFilesetPath(pixels);
+        root = root.resolve(getLabelImageSubPath(root, pixels, uuid));
         return new ZarrPixelBuffer(pixels, root, maxTileLength);
     }
 
@@ -225,18 +253,24 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     @Override
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
-        if (ngffDir != null) {
+        try {
+            Path root = getFilesetPath(pixels);
+            root = root.resolve(getImageSubPath(root, pixels));
+            log.info("OME-NGFF root is: " + root);
             try {
-                Path root = ngffDir.resolve(getImageSubPath(pixels));
                 PixelBuffer v =
                         new ZarrPixelBuffer(pixels, root, maxTileLength);
-                log.info("Using NGFF Pixel Buffer");
+                log.info("Using OME-NGFF pixel buffer");
                 return v;
             } catch (Exception e) {
-                log.info(
-                    "Getting NGFF Pixel Buffer failed - " +
+                log.warn(
+                    "Getting OME-NGFF pixel buffer failed - " +
                     "attempting to get local data", e);
             }
+        } catch (IOException e1) {
+            log.debug(
+                "Failed to find OME-NGFF metadata for Pixels:{}",
+                pixels.getId());
         }
         return _getPixelBuffer(pixels, write);
     }
