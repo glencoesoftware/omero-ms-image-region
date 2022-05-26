@@ -25,15 +25,8 @@ omero.server:
     # OMERO_HOME/lib/scripts
     omero.script_repo_root: "/opt/omero/lib/scripts"
     omero.pixeldata.max_tile_length: "2048"
-    # Use absolute path for filesystem and URL style for S3 with the following
-    # template:
-    #   s3://<access_key>:<secret_key>@<regional_endpoint>/<bucket_name>/path/
-    #
-    # Where regional endpoint uses the URL style detailed here:
-    #  * https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
-    #
-    # NOTE: The access and secret key MUST be URL encoded where required.
-    omero.ngff.dir: "/opt/omero/data/labelimages/"
+    # Whether or not to enable OME-NGFF support
+    omero.pixeldata.ome_ngff_enabled: false
     # The following should be set to match your OMERO.web settings
     # See https://docs.openmicroscopy.org/omero/5.6.3/sysadmins/config.html#omero-client-viewer-interpolate-pixels
     # and https://docs.openmicroscopy.org/omero/5.6.3/sysadmins/config.html#omero-client-viewer-initial-zoom-level

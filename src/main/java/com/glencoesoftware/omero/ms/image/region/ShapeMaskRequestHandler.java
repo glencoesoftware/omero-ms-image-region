@@ -361,6 +361,44 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
+     * Get the region shape and the start (offset) from the string
+     * @param domainStr The string which describes the domain
+     * @return 2D int array [[shape_dim1,...],[start_dim1,...]]
+     */
+    public int[][] getShapeAndStartFromString(String domainStr) {
+        //String like [0,1,0,100:150,200:250]
+        if (domainStr.length() == 0) {
+            return null;
+        }
+        if (domainStr.startsWith("[")) {
+            domainStr = domainStr.substring(1);
+        }
+        if (domainStr.endsWith("]")) {
+            domainStr = domainStr.substring(0, domainStr.length() - 1);
+        }
+        String[] dimStrs = domainStr.split(",");
+        if (dimStrs.length != 5) {
+            throw new IllegalArgumentException(
+                    "Invalid number of dimensions in domain string");
+        }
+        int[][] shapeAndStart = new int[][] {new int[5], new int[5]};
+        for (int i = 0; i < 5; i++) {
+            String s = dimStrs[i];
+            if(s.contains(":")) {
+                String[] startEnd = s.split(":");
+                shapeAndStart[0][i] =
+                        Integer.valueOf(startEnd[1]) -
+                        Integer.valueOf(startEnd[0]); //shape
+                shapeAndStart[1][i] = Integer.valueOf(startEnd[0]); //start
+            } else {
+                shapeAndStart[0][i] = 1; //shape - size 1 in this dim
+                shapeAndStart[1][i] = Integer.valueOf(s); //start
+            }
+        }
+        return shapeAndStart;
+    }
+
+    /**
      * Get shape mask bytes request handler.
      * @param mask loaded {@link Mask} to retrieve the mask bytes for.
      * @return Mask bytes either from the database or NGFF.
@@ -399,8 +437,7 @@ public class ShapeMaskRequestHandler {
                     "[%d:%d,%d:%d,%d:%d,%d:%d,%d:%d]",
                     t, t, c, c, z, z, y0, y1, x0, x1);
         }
-        int[][] shapesAndOffsets =
-                pixelsService.getShapeAndStartFromString(domain);
+        int[][] shapesAndOffsets = getShapeAndStartFromString(domain);
         clampShapes(shapesAndOffsets, pixelBuffer);
         int sizeT = shapesAndOffsets[0][0];
         int sizeC = shapesAndOffsets[0][1];
