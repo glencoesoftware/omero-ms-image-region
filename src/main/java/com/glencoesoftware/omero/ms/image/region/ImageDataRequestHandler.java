@@ -473,9 +473,11 @@ public class ImageDataRequestHandler {
             StatsInfo statsInfo = channel.getStatsInfo();
             JsonObject window = new JsonObject();
             if (statsInfo != null) {
+                window.put("statsInfoMissing", false);
                 window.put("min", statsInfo.getGlobalMin().getValue());
                 window.put("max", statsInfo.getGlobalMax().getValue());
             } else {
+                window.put("statsInfoMissing", true);
                 double[] minMax = getPixelsRange(pixels);
                 window.put("min", minMax[0]);
                 window.put("max", minMax[1]);
