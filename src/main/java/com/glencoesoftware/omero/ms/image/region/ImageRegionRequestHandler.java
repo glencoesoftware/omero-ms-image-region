@@ -528,8 +528,8 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             imageRegionCtx.setResolutionLevel(renderer, pixelBuffer);
-            Integer sizeX = pixels.getSizeX();
-            Integer sizeY = pixels.getSizeY();
+            Integer sizeX = pixelBuffer.getSizeX();
+            Integer sizeY = pixelBuffer.getSizeY();
             RegionDef regionDef = getRegionDef(sizeX, sizeY, pixelBuffer);
             planeDef.setRegion(regionDef);
             checkPlaneDef(sizeX, sizeY, planeDef);
