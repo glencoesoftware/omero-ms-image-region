@@ -334,7 +334,6 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
      * @param renderingDef rendering settings to use
      * @return Image region as a byte array.
@@ -494,7 +493,6 @@ public class ImageRegionRequestHandler {
 
     /**
      * Performs conditional rendering.
-     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
      * @param renderingDef rendering settings to use
      * @return Image region as packed integer array of shape [Y, X] ready for
