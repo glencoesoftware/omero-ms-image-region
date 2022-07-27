@@ -319,7 +319,7 @@ public class ImageRegionRequestHandler {
             if (pixels != null) {
                 RenderingDef renderingDef =
                         getRenderingDef(client, pixels.getId());
-                return getRegion(client, pixels, renderingDef);
+                return getRegion(pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -340,11 +340,10 @@ public class ImageRegionRequestHandler {
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(
-            omero.client client, Pixels pixels, RenderingDef renderingDef)
+    private byte[] getRegion(Pixels pixels, RenderingDef renderingDef)
                     throws IllegalArgumentException, ServerError, IOException,
                         QuantizationException {
-        return compress(getBufferedImage(render(client, pixels, renderingDef)));
+        return compress(getBufferedImage(render(pixels, renderingDef)));
     }
 
     /**
@@ -504,8 +503,7 @@ public class ImageRegionRequestHandler {
      * @throws IOException
      * @throws QuantizationException
      */
-    protected Array render(
-            omero.client client, Pixels pixels, RenderingDef renderingDef)
+    protected Array render(Pixels pixels, RenderingDef renderingDef)
                     throws ServerError, IOException, QuantizationException {
         QuantumFactory quantumFactory = new QuantumFactory(families);
 
