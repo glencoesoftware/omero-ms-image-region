@@ -319,7 +319,7 @@ public class ImageRegionRequestHandler {
             if (pixels != null) {
                 RenderingDef renderingDef =
                         getRenderingDef(client, pixels.getId());
-                return getRegion(client, pixels, renderingDef);
+                return getRegion(pixels, renderingDef);
             }
             log.debug("Cannot find Image:{}", imageRegionCtx.imageId);
         } catch (Exception e) {
@@ -334,17 +334,15 @@ public class ImageRegionRequestHandler {
     /**
      * Retrieves a single region from the server in the requested format as
      * defined by <code>imageRegionCtx.format</code>.
-     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
      * @param renderingDef rendering settings to use
      * @return Image region as a byte array.
      * @throws QuantizationException
      */
-    private byte[] getRegion(
-            omero.client client, Pixels pixels, RenderingDef renderingDef)
+    private byte[] getRegion(Pixels pixels, RenderingDef renderingDef)
                     throws IllegalArgumentException, ServerError, IOException,
                         QuantizationException {
-        return compress(getBufferedImage(render(client, pixels, renderingDef)));
+        return compress(getBufferedImage(render(pixels, renderingDef)));
     }
 
     /**
@@ -495,7 +493,6 @@ public class ImageRegionRequestHandler {
 
     /**
      * Performs conditional rendering.
-     * @param client OMERO client to use for querying.
      * @param pixels pixels metadata
      * @param renderingDef rendering settings to use
      * @return Image region as packed integer array of shape [Y, X] ready for
@@ -504,8 +501,7 @@ public class ImageRegionRequestHandler {
      * @throws IOException
      * @throws QuantizationException
      */
-    protected Array render(
-            omero.client client, Pixels pixels, RenderingDef renderingDef)
+    protected Array render(Pixels pixels, RenderingDef renderingDef)
                     throws ServerError, IOException, QuantizationException {
         QuantumFactory quantumFactory = new QuantumFactory(families);
 
