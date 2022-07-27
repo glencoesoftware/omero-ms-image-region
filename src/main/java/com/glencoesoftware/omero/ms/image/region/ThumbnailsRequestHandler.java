@@ -173,7 +173,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             span.tag("omero.image_id", pixels.getImage().getId().toString());
             span.tag("omero.pixels_id", pixels.getId().toString());
             thumbnailCtx.format = "jpeg";
-            Array array = render(client, pixels, renderingDef);
+            Array array = render(pixels, renderingDef);
             int[] shape = array.getShape();
             BufferedImage image = getBufferedImage(array);
             int longestSide = Arrays.stream(shape).max().getAsInt();
