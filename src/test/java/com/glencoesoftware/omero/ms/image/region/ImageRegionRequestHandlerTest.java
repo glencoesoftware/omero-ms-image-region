@@ -75,7 +75,9 @@ public class ImageRegionRequestHandlerTest {
         int tileSize = 256;
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(tileSize, tileSize));
-        RegionDef rdef = reqHandler.getRegionDef(1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * tileSize);
         Assert.assertEquals(rdef.getY(), y * tileSize);
         Assert.assertEquals(rdef.getWidth(), tileSize);
@@ -91,7 +93,9 @@ public class ImageRegionRequestHandlerTest {
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(64, 128));
-        RegionDef rdef = reqHandler.getRegionDef(1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * 64);
         Assert.assertEquals(rdef.getY(), y * 128);
         Assert.assertEquals(rdef.getWidth(), 64);
@@ -104,7 +108,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(512, 512, 256, 256);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        RegionDef rdef = reqHandler.getRegionDef(1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
         Assert.assertEquals(rdef.getY(), imageRegionCtx.region.getY());
         Assert.assertEquals(
@@ -119,8 +125,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = null;
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), 0);
         Assert.assertEquals(rdef.getY(), 0);
         Assert.assertEquals(rdef.getWidth(), 1024);
@@ -138,8 +145,9 @@ public class ImageRegionRequestHandlerTest {
         int tileSize = 800;
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(tileSize, tileSize));
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * tileSize);
         Assert.assertEquals(rdef.getY(), y * tileSize);
         Assert.assertEquals(rdef.getWidth(), 1024 - rdef.getX());
@@ -156,8 +164,9 @@ public class ImageRegionRequestHandlerTest {
         int tileSize = 800;
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(tileSize, tileSize));
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * tileSize);
         Assert.assertEquals(rdef.getY(), y * tileSize);
         Assert.assertEquals(rdef.getWidth(), tileSize);
@@ -174,8 +183,9 @@ public class ImageRegionRequestHandlerTest {
         int tileSize = 800;
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(tileSize, tileSize));
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x * tileSize);
         Assert.assertEquals(rdef.getY(), y * tileSize);
         Assert.assertEquals(rdef.getWidth(), 1024 - rdef.getX());
@@ -188,8 +198,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(800, 100, 300, 400);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
         Assert.assertEquals(rdef.getY(), imageRegionCtx.region.getY());
         Assert.assertEquals(
@@ -204,8 +215,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(100, 800, 300, 400);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
         Assert.assertEquals(rdef.getY(), imageRegionCtx.region.getY());
         Assert.assertEquals(
@@ -220,8 +232,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.tile = null;
         imageRegionCtx.region = new RegionDef(800, 800, 300, 400);
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
-        RegionDef rdef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), imageRegionCtx.region.getX());
         Assert.assertEquals(rdef.getY(), imageRegionCtx.region.getY());
         Assert.assertEquals(
@@ -238,8 +251,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
         imageRegionCtx.flipHorizontal = true;
         imageRegionCtx.flipVertical = false;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 624);
         Assert.assertEquals(regionDef.getY(), 200);
         Assert.assertEquals(regionDef.getWidth(), 300);
@@ -253,8 +267,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
         imageRegionCtx.flipHorizontal = false;
         imageRegionCtx.flipVertical = true;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 100);
         Assert.assertEquals(regionDef.getY(), 424);
         Assert.assertEquals(regionDef.getWidth(), 300);
@@ -268,8 +283,9 @@ public class ImageRegionRequestHandlerTest {
         imageRegionCtx.region = new RegionDef(100, 200, 300, 400);
         imageRegionCtx.flipHorizontal = true;
         imageRegionCtx.flipVertical = true;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                1024, 1024, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(1024);
+        when(pixelBuffer.getSizeY()).thenReturn(1024);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 624);
         Assert.assertEquals(regionDef.getY(), 424);
         Assert.assertEquals(regionDef.getWidth(), 300);
@@ -284,8 +300,9 @@ public class ImageRegionRequestHandlerTest {
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
         imageRegionCtx.flipHorizontal = true;
         imageRegionCtx.flipVertical = false;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                768, 768, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 768);
@@ -293,7 +310,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 0
         imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -301,7 +318,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 0, 1
         imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 512);
         Assert.assertEquals(regionDef.getWidth(), 512);
@@ -309,7 +326,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 1
         imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 512);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -323,8 +340,9 @@ public class ImageRegionRequestHandlerTest {
         PixelBuffer pixelBuffer = mock(PixelBuffer.class);
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
         imageRegionCtx.flipVertical = true;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                768, 768, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 512);
@@ -332,7 +350,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 0
         imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 512);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -340,7 +358,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 0, 1
         imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 512);
@@ -348,7 +366,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 1
         imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 512);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -363,8 +381,9 @@ public class ImageRegionRequestHandlerTest {
         when(pixelBuffer.getTileSize()).thenReturn(new Dimension(512, 512));
         imageRegionCtx.flipHorizontal = true;
         imageRegionCtx.flipVertical = true;
-        RegionDef regionDef = reqHandler.getRegionDef(
-                768, 768, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(768);
+        when(pixelBuffer.getSizeY()).thenReturn(768);
+        RegionDef regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 512);
@@ -372,7 +391,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 0
         imageRegionCtx.region = new RegionDef(512, 0, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 256);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -380,7 +399,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 0, 1
         imageRegionCtx.region = new RegionDef(0, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 256);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 512);
@@ -388,7 +407,7 @@ public class ImageRegionRequestHandlerTest {
 
         // Tile 1, 1
         imageRegionCtx.region = new RegionDef(512, 512, 512, 512);
-        regionDef = reqHandler.getRegionDef(768, 768, pixelBuffer);
+        regionDef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(regionDef.getX(), 0);
         Assert.assertEquals(regionDef.getY(), 0);
         Assert.assertEquals(regionDef.getWidth(), 256);
@@ -414,8 +433,9 @@ public class ImageRegionRequestHandlerTest {
         int tileSize = 800;
         when(pixelBuffer.getTileSize())
             .thenReturn(new Dimension(tileSize, tileSize));
-        RegionDef rdef = reqHandler.getRegionDef(
-                256, 512, pixelBuffer);
+        when(pixelBuffer.getSizeX()).thenReturn(256);
+        when(pixelBuffer.getSizeY()).thenReturn(512);
+        RegionDef rdef = reqHandler.getRegionDef(pixelBuffer);
         Assert.assertEquals(rdef.getX(), x);
         Assert.assertEquals(rdef.getY(), y);
         Assert.assertEquals(rdef.getWidth(), 256 - rdef.getX());

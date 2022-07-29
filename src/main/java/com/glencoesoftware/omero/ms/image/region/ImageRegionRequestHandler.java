@@ -524,11 +524,9 @@ public class ImageRegionRequestHandler {
             // Avoid asking for resolution descriptions if there is no image
             // pyramid.  This can be *very* expensive.
             imageRegionCtx.setResolutionLevel(renderer, pixelBuffer);
-            Integer sizeX = pixels.getSizeX();
-            Integer sizeY = pixels.getSizeY();
-            RegionDef regionDef = getRegionDef(sizeX, sizeY, pixelBuffer);
+            RegionDef regionDef = getRegionDef(pixelBuffer);
             planeDef.setRegion(regionDef);
-            checkPlaneDef(sizeX, sizeY, planeDef);
+            checkPlaneDef(pixelBuffer.getSizeX(), pixelBuffer.getSizeY(), planeDef);
 
             if (imageRegionCtx.compressionQuality != null) {
                 compressionSrv.setCompressionLevel(
@@ -617,12 +615,13 @@ public class ImageRegionRequestHandler {
      * @throws IllegalArgumentException
      * @throws ServerError
      */
-    protected RegionDef getRegionDef(
-            Integer sizeX, Integer sizeY, PixelBuffer pixelBuffer)
+    protected RegionDef getRegionDef(PixelBuffer pixelBuffer)
                     throws IllegalArgumentException, ServerError {
         log.debug("Setting region to read");
         RegionDef regionDef = new RegionDef();
         Dimension imageTileSize = pixelBuffer.getTileSize();
+        Integer sizeX = pixelBuffer.getSizeX();
+        Integer sizeY = pixelBuffer.getSizeY();
         if (imageRegionCtx.tile != null) {
             int tileSizeX = imageRegionCtx.tile.getWidth();
             int tileSizeY = imageRegionCtx.tile.getHeight();
