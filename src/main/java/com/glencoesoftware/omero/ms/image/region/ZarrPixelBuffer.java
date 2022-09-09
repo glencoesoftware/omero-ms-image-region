@@ -61,8 +61,11 @@ public class ZarrPixelBuffer implements PixelBuffer {
     /** Total number of resolution levels */
     private final int resolutionLevels;
 
-    /** Max tile length */
-    private final Integer maxTileLength;
+    /** Max Plane Width */
+    private final Integer maxPlaneWidth;
+
+    /** Max Plane Height */
+    private final Integer maxPlaneHeight;
 
     /** Root group of the OME-NGFF multiscale we are operating on */
     private final ZarrGroup rootGroup;
@@ -80,7 +83,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
      * read operations
      * @throws IOException
      */
-    public ZarrPixelBuffer(Pixels pixels, Path root, Integer maxTileLength)
+    public ZarrPixelBuffer(Pixels pixels, Path root, Integer maxPlaneWidth,
+            Integer maxPlaneHeight)
             throws IOException {
         this.pixels = pixels;
         this.root = root;
@@ -95,7 +99,8 @@ public class ZarrPixelBuffer implements PixelBuffer {
             throw new IllegalArgumentException(
                     "This Zarr file has no pixel data");
         }
-        this.maxTileLength = maxTileLength;
+        this.maxPlaneWidth = maxPlaneWidth;
+        this.maxPlaneHeight = maxPlaneHeight;
     }
 
     /**
@@ -141,18 +146,17 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     private void read(byte[] buffer, int[] shape, int[] offset)
             throws IOException {
-        if (shape[4] > maxTileLength) {
+        Integer sizeX = shape[4];
+        Integer sizeY = shape[3];
+        if((sizeX * sizeY) > (maxPlaneWidth*maxPlaneHeight)) {
             throw new IllegalArgumentException(String.format(
-                    "width %d > maxTileLength %d", shape[4], maxTileLength));
+                "Requested Region Size %d * %d > max plane size %d * %d", sizeX,
+                sizeY, maxPlaneWidth, maxPlaneHeight));
         }
-        if (shape[3] > maxTileLength) {
-            throw new IllegalArgumentException(String.format(
-                    "height %d > maxTileLength %d", shape[3], maxTileLength));
-        }
-        if (shape[4] < 0) {
+        if (sizeX < 0) {
             throw new IllegalArgumentException("width < 0");
         }
-        if (shape[3] < 0) {
+        if (sizeY < 0) {
             throw new IllegalArgumentException("height < 0");
         }
         try {

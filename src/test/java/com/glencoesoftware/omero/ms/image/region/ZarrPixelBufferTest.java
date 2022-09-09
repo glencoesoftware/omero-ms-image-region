@@ -62,7 +62,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             int[][] chunks = zpbuf.getChunks();
             int[][] expectedChunks = new int[][] {
                 new int[] {1, 1, 1, 512, 1024},
@@ -90,7 +90,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16",
                 resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             List<Map<String,String>> datasets = zpbuf.getDatasets();
             List<Map<String,String>> expectedDatasets = getDatasets(3);
             for (int i = 0; i < datasets.size(); i++) {
@@ -112,7 +112,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             List<List<Integer>> expected = new ArrayList<List<Integer>>();
             expected.add(Arrays.asList(new Integer[] {2048, 512}));
             expected.add(Arrays.asList(new Integer[] {1024, 256}));
@@ -161,7 +161,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Tracing.newBuilder().spanReporter(Reporter.NOOP).build();
         test.write(data, new int[] {2,3,4,5,6}, new int[] {0,0,0,0,0});
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             PixelData pixelData = zpbuf.getTile(0, 0, 0, 0, 0, 2, 2);
             ByteBuffer bb = pixelData.getData();
             bb.order(ByteOrder.BIG_ENDIAN);
@@ -246,7 +246,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "int32", resolutions);
         Tracing.newBuilder().spanReporter(Reporter.NOOP).build();
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 2048)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 2048, 2048)) {
             for (int t = 0; t < sizeT; t++) {
                 // Assert timepoint
                 byte[] timepoint = zpbuf.getTimepoint(t).getData().array();
@@ -314,7 +314,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Tracing.newBuilder().spanReporter(Reporter.NOOP).build();
         test.write(data, new int[] {2,3,4,5,6}, new int[] {0,0,0,0,0});
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.setResolutionLevel(0);
             PixelData pixelData = zpbuf.getTile(0, 0, 0, 0, 0, 10, 10);
             ByteBuffer bb = pixelData.getData();
@@ -343,8 +343,8 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
 
         Tracing.newBuilder().spanReporter(Reporter.NOOP).build();
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 32)) {
-            PixelData pixelData = zpbuf.getTile(0, 0, 0, 0, 0, 1, 33);
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 32, 32)) {
+            PixelData pixelData = zpbuf.getTile(0, 0, 0, 0, 0, 32, 33);
             Assert.assertNull(pixelData);
         }
     }
@@ -362,7 +362,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.checkBounds(0, 0, 0, 0, 0);
         }
     }
@@ -380,7 +380,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.checkBounds(2047, 511, 2, 1, 0);
         }
     }
@@ -398,7 +398,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.checkBounds(2048, 511, 2, 1, 0);
         }
     }
@@ -416,7 +416,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.checkBounds(-1, 0, 0, 0, 0);
         }
     }
@@ -434,7 +434,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             Dimension tileSize = zpbuf.getTileSize();
             Assert.assertEquals(1024, tileSize.getWidth(), 0.1);
             Assert.assertEquals(1024, tileSize.getHeight(), 0.1);
@@ -455,7 +455,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             Assert.assertEquals(FormatTools.UINT16, zpbuf.getPixelsType());
             Assert.assertEquals(false, zpbuf.isSigned());
             Assert.assertEquals(false, zpbuf.isFloat());
@@ -477,7 +477,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "float", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             Assert.assertEquals(FormatTools.FLOAT, zpbuf.getPixelsType());
             Assert.assertEquals(true, zpbuf.isSigned());
             Assert.assertEquals(true, zpbuf.isFloat());
@@ -499,7 +499,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             // Plane size
             Assert.assertEquals(
                     sizeX * sizeY * bytesPerPixel,
@@ -540,7 +540,7 @@ public class ZarrPixelBufferTest extends AbstractZarrPixelBufferTest {
         Path output = writeTestZarr(
                 sizeT, sizeC, sizeZ, sizeY, sizeX, "uint16", resolutions);
         try (ZarrPixelBuffer zpbuf =
-                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024)) {
+                new ZarrPixelBuffer(pixels, output.resolve("0"), 1024, 1024)) {
             zpbuf.setResolutionLevel(3);
         }
     }
