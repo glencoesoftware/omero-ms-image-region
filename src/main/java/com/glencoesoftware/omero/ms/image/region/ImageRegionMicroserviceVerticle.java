@@ -457,17 +457,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         int maxTileLength = Integer.parseInt(
                 Optional.ofNullable(
                     preferences.getProperty("omero.pixeldata.max_tile_length")
-                ).orElse("1024").toLowerCase()
+                ).orElse("2048").toLowerCase()
             );
         int maxPlaneWidth = Integer.parseInt(
                 Optional.ofNullable(
                     preferences.getProperty("omero.pixeldata.max_plane_width")
-                ).orElse("1024").toLowerCase()
+                ).orElse("3192").toLowerCase()
             );
         int maxPlaneHeight = Integer.parseInt(
                 Optional.ofNullable(
                     preferences.getProperty("omero.pixeldata.max_plane_height")
-                ).orElse("1024").toLowerCase()
+                ).orElse("3192").toLowerCase()
             );
         JsonObject resData = new JsonObject()
                 .put("provider", "ImageRegionMicroservice")
