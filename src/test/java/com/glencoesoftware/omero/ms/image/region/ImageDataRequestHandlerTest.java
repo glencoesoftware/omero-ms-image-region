@@ -388,7 +388,7 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
         pixelBuffer = new ZarrPixelBuffer((ome.model.core.Pixels)
                 new IceMapper().reverse(image.getPrimaryPixels()),
-                output.resolve("0"), 1024);
+                output.resolve("0"), 1024, 1024);
     }
 
     @Before
