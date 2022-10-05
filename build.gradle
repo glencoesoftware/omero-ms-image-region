@@ -87,7 +87,7 @@ dependencies {
 
     testImplementation("junit:junit:4.12")
     testImplementation 'org.mockito:mockito-core:2.28.2'
-    testImplementation 'com.glencoesoftware:bioformats2raw:0.3.0-SNAPSHOT'
+    testImplementation 'com.glencoesoftware:bioformats2raw:0.5.0'
 
 }
 
