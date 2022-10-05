@@ -1,6 +1,7 @@
 build: off
 
 build_script:
+  - curl -J -O -k -L https://github.com/glencoesoftware/c-blosc-windows-x86_64/releases/download/20220919/blosc.dll
   - gradlew build
 
 test_script:
