@@ -21,10 +21,14 @@ import java.util.Properties;
 
 import org.slf4j.LoggerFactory;
 
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
+import com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper;
+import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
+import com.amazonaws.auth.SystemPropertiesCredentialsProvider;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.upplication.s3fs.AmazonS3ClientFactory;
 
 public class OmeroAmazonS3ClientFactory extends AmazonS3ClientFactory {
@@ -34,16 +38,23 @@ public class OmeroAmazonS3ClientFactory extends AmazonS3ClientFactory {
 
     @Override
     protected AWSCredentialsProvider getCredentialsProvider(Properties props) {
-        AWSCredentials credentials;
-        if (props.getProperty(ACCESS_KEY) == null
-                && props.getProperty(SECRET_KEY) == null) {
+        boolean anonymous = Boolean.parseBoolean(
+                (String) props.get("s3fs_anonymous"));
+        if (anonymous) {
             log.debug("Using anonymous credentials");
-            credentials = new AnonymousAWSCredentials();
+            return new AWSStaticCredentialsProvider(
+                    new AnonymousAWSCredentials());
         } else {
-            log.debug("Using provided credentials");
-            credentials = getAWSCredentials(props);
+            String profileName =
+                    (String) props.get("s3fs_credential_profile_name");
+            // Same instances and order from DefaultAWSCredentialsProviderChain
+            return new AWSCredentialsProviderChain(
+                    new EnvironmentVariableCredentialsProvider(),
+                    new SystemPropertiesCredentialsProvider(),
+                    new ProfileCredentialsProvider(profileName),
+                    new EC2ContainerCredentialsProviderWrapper()
+            );
         }
-        return new AWSStaticCredentialsProvider(credentials);
     }
 
 }
