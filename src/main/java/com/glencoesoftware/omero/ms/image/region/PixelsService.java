@@ -25,20 +25,15 @@ import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import org.slf4j.LoggerFactory;
 
-import com.bc.zarr.ZarrGroup;
 import com.google.common.base.Splitter;
 import com.upplication.s3fs.S3FileSystemProvider;
 
@@ -47,11 +42,13 @@ import ome.io.nio.BackOff;
 import ome.io.nio.FilePathResolver;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.TileSizes;
+import ome.model.IObject;
 import ome.model.core.Image;
 import ome.model.core.Pixels;
+import ome.model.meta.ExternalInfo;
+import ome.model.roi.Mask;
 import ome.model.screen.Well;
 import ome.model.screen.WellSample;
-import ome.parameters.Parameters;
 
 /**
  * Subclass which overrides series retrieval to avoid the need for
@@ -180,68 +177,49 @@ public class PixelsService extends ome.io.nio.PixelsService {
         return pixels.getImage().getSeries();
     }
 
-    private Path getFilesetPath(Pixels pixels) throws IOException {
-        Properties properties = new Properties();
-        Path originalFilePath = Paths.get(
-                resolver.getOriginalFilePath(this, pixels));
-        properties.load(Files.newInputStream(
-                originalFilePath.getParent().resolve("ome_ngff.properties"),
-                StandardOpenOption.READ
-        ));
-        return asPath(properties.getProperty("uri"));
-    }
-
-    private String getLabelImageSubPath(Path root, Pixels pixels, String uuid)
-            throws IOException {
-        return String.format(
-                "%s/labels/%s", getImageSubPath(root, pixels), uuid);
+    /**
+     * Retrieve {@link Mask} or {@link Image} URI.
+     * @param object loaded {@link Mask} or {@link Image} to check for a URI
+     * @return URI or <code>null</code> if the object does not contain a URI
+     * in its {@link ExternalInfo}.
+     */
+    private String getUri(IObject object) {
+        ExternalInfo externalInfo = object.getDetails().getExternalInfo();
+        if (externalInfo == null) {
+            log.debug("{}:{} missing ExternalInfo",
+                    object.getClass().getName(), object.getId());
+            return null;
+        }
+        String uri = externalInfo.getLsid();
+        if (uri == null) {
+            log.debug("{}:{} missing LSID",
+                    object.getClass().getName(), object.getId());
+            return null;
+        }
+        return uri;
     }
 
     /**
      * Returns a label image NGFF pixel buffer if it exists.
-     * @param pixels Pixels set to retrieve a pixel buffer for.
-     * @param write Whether or not to open the pixel buffer as read-write.
-     * <code>true</code> opens as read-write, <code>false</code> opens as
-     * read-only.
+     * @param mask Mask to retrieve a pixel buffer for.
      * @return A pixel buffer instance.
      * @throws IOException
      */
-    public ZarrPixelBuffer getLabelImagePixelBuffer(Pixels pixels, String uuid)
+    public ZarrPixelBuffer getLabelImagePixelBuffer(Mask mask)
             throws IOException {
-        Path root = getFilesetPath(pixels);
-        root = root.resolve(getLabelImageSubPath(root, pixels, uuid));
-        return new ZarrPixelBuffer(pixels, root, maxPlaneWidth, maxPlaneHeight);
-    }
-
-    private String getImageSubPath(Path root, Pixels pixels)
-            throws IOException {
-        int[] rowColumnField = getRowColumnField(pixels);
-        if (rowColumnField != null) {
-            Integer rowIndex = rowColumnField[0];
-            Integer columnIndex = rowColumnField[1];
-            Integer field = rowColumnField[2];
-            ZarrGroup z = ZarrGroup.open(root);
-            Map<String, Object> attributes = z.getAttributes();
-            Map<String, Object> plateAttributes =
-                    (Map<String, Object>) attributes.get("plate");
-            List<Map<String, Object>> wellAttributes =
-                    (List<Map<String, Object>>) plateAttributes.get("wells");
-            String prefix = null;
-            for (Map<String, Object> well : wellAttributes) {
-                if ((rowIndex.equals(well.get("rowIndex"))
-                     || rowIndex.equals(well.get("row_index")))
-                        && (columnIndex.equals(well.get("columnIndex"))
-                            || columnIndex.equals(well.get("column_index")))) {
-                    prefix = (String) well.get("path");
-                }
-            }
-            if (prefix == null) {
-                throw new IOException(
-                        "Unable to locate path for Pixels:" + pixels.getId());
-            }
-            return String.format("%s/%d", prefix, field);
+        Pixels pixels = new ome.model.core.Pixels();
+        pixels.setSizeX(mask.getWidth().intValue());
+        pixels.setSizeY(mask.getHeight().intValue());
+        pixels.setSizeC(1);
+        pixels.setSizeT(1);
+        pixels.setSizeZ(1);
+        String root = getUri(mask);
+        if (root == null) {
+            throw new IllegalArgumentException(
+                    "No root for Mask:" + mask.getId());
         }
-        return String.format("%d", getSeries(pixels));
+        return new ZarrPixelBuffer(
+                pixels, asPath(root), maxPlaneWidth, maxPlaneHeight);
     }
 
     /**
@@ -255,12 +233,16 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     private PixelBuffer getOmeNgffPixelBuffer(Pixels pixels, boolean write) {
         try {
-            Path root = getFilesetPath(pixels);
-            root = root.resolve(getImageSubPath(root, pixels));
+            String uri = getUri(pixels.getImage());
+            if (uri == null) {
+                log.debug("No OME-NGFF root");
+                return null;
+            }
+            Path root = asPath(uri);
             log.info("OME-NGFF root is: " + root);
             try {
-                PixelBuffer v =
-                        new ZarrPixelBuffer(pixels, root, maxPlaneWidth, maxPlaneHeight);
+                PixelBuffer v = new ZarrPixelBuffer(
+                        pixels, root, maxPlaneWidth, maxPlaneHeight);
                 log.info("Using OME-NGFF pixel buffer");
                 return v;
             } catch (Exception e) {

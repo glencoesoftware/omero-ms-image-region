@@ -53,7 +53,6 @@ import omero.api.IQueryPrx;
 import omero.model.ExternalInfo;
 import omero.model.Mask;
 import omero.model.MaskI;
-import omero.model.Pixels;
 import omero.sys.ParametersI;
 import omero.util.IceMapper;
 
@@ -326,12 +325,6 @@ public class ShapeMaskRequestHandler {
             log.info("Getting mask for shape id {}", Long.toString(shapeId));
             return (Mask) iQuery.findByQuery(
                 "SELECT s FROM Shape s " +
-                "JOIN FETCH s.roi AS roi " +
-                "JOIN FETCH roi.image AS image " +
-                "LEFT OUTER JOIN FETCH image.wellSamples as ws " +
-                "LEFT OUTER JOIN FETCH ws.well as w " +
-                "LEFT OUTER JOIN FETCH w.wellSamples " +
-                "JOIN FETCH image.pixels AS pixels " +
                 "LEFT OUTER JOIN FETCH s.details.externalInfo " +
                 "WHERE s.id = :id", params, ctx
             );
@@ -412,9 +405,7 @@ public class ShapeMaskRequestHandler {
             return mask.getBytes();
         }
         PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                (ome.model.core.Pixels) new IceMapper().reverse(
-                        mask.getRoi().getImage().getPrimaryPixels()),
-                uuid);
+                (ome.model.roi.Mask) new IceMapper().reverse(mask));
         int resolutionLevel =
                 shapeMaskCtx.resolution == null ? 0
                         : shapeMaskCtx.resolution;
@@ -520,12 +511,11 @@ public class ShapeMaskRequestHandler {
             String uuid = getUuid(mask);
             if (uuid == null) {
                 throw new IllegalArgumentException(
-                        "No UUID for shape " + shapeMaskCtx.shapeId);
+                        "No UUID for Shape:" + shapeMaskCtx.shapeId);
             }
-            Pixels pixels = mask.getRoi().getImage().getPrimaryPixels();
-            ZarrPixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                    (ome.model.core.Pixels) new IceMapper().reverse(pixels),
-                    uuid);
+            ZarrPixelBuffer pixelBuffer =
+                    pixelsService.getLabelImagePixelBuffer(
+                        (ome.model.roi.Mask) new IceMapper().reverse(mask));
 
             JsonObject metadata = new JsonObject();
             JsonObject multiscalesAsJson = new JsonObject();
