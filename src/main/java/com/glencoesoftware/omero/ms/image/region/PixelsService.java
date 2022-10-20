@@ -117,7 +117,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 String rest = uriPath.substring(first + 1);
                 // FIXME: We might want to support additional S3FS settings in
                 // the future.  See:
-                //   * https://github.com/lasersonlab/Amazon-S3-FileSystem-NIO
+                //   * https://github.com/lasersonlab/Amazon-S3-FileSystem-NIO2
                 FileSystem fs = null;
                 try {
                     fs = FileSystems.getFileSystem(endpoint);
