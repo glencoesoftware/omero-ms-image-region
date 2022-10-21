@@ -99,11 +99,13 @@ public class PixelsService extends ome.io.nio.PixelsService {
 
         try {
             URI uri = new URI(ngffDir);
-            Map<String, String> params = Splitter.on('&')
-                    .trimResults()
-                    .withKeyValueSeparator('=')
-                    .split(uri.getQuery());
             if ("s3".equals(uri.getScheme())) {
+                String query = Optional.ofNullable(uri.getQuery()).orElse("");
+                Map<String, String> params = Splitter.on('&')
+                        .trimResults()
+                        .omitEmptyStrings()
+                        .withKeyValueSeparator('=')
+                        .split(query);
                 URI endpoint = new URI(
                         uri.getScheme(), uri.getUserInfo(), uri.getHost(),
                         uri.getPort(), "", "", "");
