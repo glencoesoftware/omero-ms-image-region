@@ -78,6 +78,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
 
     /**
      * Default constructor
+     * @param pixels Pixels metadata for the pixel buffer
      * @param root The root of this buffer
      * @param maxTileLength Maximum tile length that can be used during
      * read operations
@@ -85,7 +86,7 @@ public class ZarrPixelBuffer implements PixelBuffer {
      */
     public ZarrPixelBuffer(Pixels pixels, Path root, Integer maxPlaneWidth,
             Integer maxPlaneHeight)
-            throws IOException {
+                    throws IOException {
         this.pixels = pixels;
         this.root = root;
         rootGroup = ZarrGroup.open(this.root);

@@ -625,7 +625,8 @@ public class ImageDataRequestHandler {
             ParametersI params = new ParametersI();
             params.addId(imageId);
             Image image = (Image) iQuery
-                    .findByQuery("select i from Image as i "
+                    .findByQuery("select i from Image as i"
+                            + " left outer join fetch i.details.externalInfo "
                             + " join fetch i.pixels as p"
                             + " left outer JOIN FETCH i.datasetLinks as links "
                             + " left outer join fetch links.parent as dataset "
