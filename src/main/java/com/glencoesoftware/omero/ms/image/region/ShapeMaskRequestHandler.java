@@ -166,6 +166,40 @@ public class ShapeMaskRequestHandler {
         return dest;
     }
 
+    /**
+     * Retrieve {@link Mask} URI.
+     * @param object loaded {@link Mask} to check for a URI
+     * @return URI or <code>null</code> if the mask does not contain a URI
+     * in its {@link ExternalInfo}.
+     */
+    private String getUri(Mask object) {
+        ExternalInfo externalInfo = object.getDetails().getExternalInfo();
+        if (externalInfo == null) {
+            log.debug("Mask:{} missing ExternalInfo", unwrap(object.getId()));
+            return null;
+        }
+
+        String entityType = (String) unwrap(externalInfo.getEntityType());
+        if (entityType == null && entityType != pixelsService.NGFF_ENTITY_TYPE) {
+            log.debug("Mask:{} unsupported ExternalInfo entityType {}",
+                    unwrap(object.getId()), entityType);
+            return null;
+        }
+
+        Long entityId =  (Long) unwrap(externalInfo.getEntityId());
+        if (entityId == null && entityId != pixelsService.NGFF_ENTITY_ID) {
+            log.debug("Mask:{} unsupported ExternalInfo entityId {}",
+                    unwrap(object.getId()), entityId);
+            return null;
+        }
+
+        String uri = (String) unwrap(externalInfo.getLsid());
+        if (uri == null) {
+            log.debug("Mask:{} missing LSID", unwrap(object.getId()));
+            return null;
+        }
+        return uri;
+    }
 
     /**
      * Render shape mask.
@@ -188,11 +222,11 @@ public class ShapeMaskRequestHandler {
             // width of the data type.  If it is not so aligned or is coming
             // from an NGFF source and will not be packed bits we will need
             // to convert it to a byte mask for rendering.
-            String uuid = getUuid(mask);
+            String uri = getUri(mask);
             int bitsPerPixel = 1;
             int width = (int) mask.getWidth().getValue();
             int height = (int) mask.getHeight().getValue();
-            if (width % 8 != 0 || uuid != null) {
+            if (width % 8 != 0 || uri != null) {
                 bytes = convertToBytes(bytes, width * height);
                 bitsPerPixel = 8;
             }
@@ -400,12 +434,13 @@ public class ShapeMaskRequestHandler {
      */
     private byte[] getShapeMaskBytes(Mask mask)
             throws ApiUsageException, IOException {
-        String uuid = getUuid(mask);
-        if (uuid == null) {
+        PixelBuffer pixelBuffer;
+        try {
+            pixelBuffer = pixelsService.getLabelImagePixelBuffer(
+                  (ome.model.roi.Mask) new IceMapper().reverse(mask));
+        } catch (IllegalArgumentException e) {
             return mask.getBytes();
         }
-        PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                (ome.model.roi.Mask) new IceMapper().reverse(mask));
         int resolutionLevel =
                 shapeMaskCtx.resolution == null ? 0
                         : shapeMaskCtx.resolution;
@@ -508,11 +543,6 @@ public class ShapeMaskRequestHandler {
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
             Mask mask = getMask(client, shapeMaskCtx.shapeId);
-            String uuid = getUuid(mask);
-            if (uuid == null) {
-                throw new IllegalArgumentException(
-                        "No UUID for Shape:" + shapeMaskCtx.shapeId);
-            }
             ZarrPixelBuffer pixelBuffer =
                     pixelsService.getLabelImagePixelBuffer(
                         (ome.model.roi.Mask) new IceMapper().reverse(mask));
@@ -555,7 +585,7 @@ public class ShapeMaskRequestHandler {
             size.put("width", pixelBuffer.getSizeX());
             metadata.put("size", size);
 
-            metadata.put("uuid", uuid);
+            metadata.put("uuid", getUuid(mask));
 
             metadata.put("type", FormatTools.getPixelTypeString(
                     pixelBuffer.getPixelsType()));
