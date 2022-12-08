@@ -27,8 +27,6 @@ omero.server:
     omero.pixeldata.max_tile_length: "2048"
     omero.pixeldata.max_plane_width: "3192"
     omero.pixeldata.max_plane_height: "3192"
-    # Whether or not to enable OME-NGFF support
-    omero.pixeldata.ome_ngff_enabled: "false"
     # The following should be set to match your OMERO.web settings
     # See https://docs.openmicroscopy.org/omero/5.6.3/sysadmins/config.html#omero-client-viewer-interpolate-pixels
     # and https://docs.openmicroscopy.org/omero/5.6.3/sysadmins/config.html#omero-client-viewer-initial-zoom-level

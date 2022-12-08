@@ -60,7 +60,6 @@
     <constructor-arg ref="backOff"/>
     <constructor-arg ref="tileSizes"/>
     <constructor-arg><null /></constructor-arg>
-    <constructor-arg type="boolean" value="${omero.pixeldata.ome_ngff_enabled:false}"/>
     <constructor-arg value="${omero.pixeldata.max_plane_width:3192}" />
     <constructor-arg value="${omero.pixeldata.max_plane_height:3192}" />
     <property name="metrics" ref="metrics"/>
