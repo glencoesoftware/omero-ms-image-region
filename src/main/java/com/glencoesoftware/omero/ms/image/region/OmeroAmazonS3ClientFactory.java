@@ -26,8 +26,6 @@ import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper;
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.auth.SystemPropertiesCredentialsProvider;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.upplication.s3fs.AmazonS3ClientFactory;
 
@@ -49,8 +47,6 @@ public class OmeroAmazonS3ClientFactory extends AmazonS3ClientFactory {
                     (String) props.get("s3fs_credential_profile_name");
             // Same instances and order from DefaultAWSCredentialsProviderChain
             return new AWSCredentialsProviderChain(
-                    new EnvironmentVariableCredentialsProvider(),
-                    new SystemPropertiesCredentialsProvider(),
                     new ProfileCredentialsProvider(profileName),
                     new EC2ContainerCredentialsProviderWrapper()
             );
