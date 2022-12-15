@@ -36,6 +36,18 @@ public class OmeroAmazonS3ClientFactory extends AmazonS3ClientFactory {
 
     @Override
     protected AWSCredentialsProvider getCredentialsProvider(Properties props) {
+        // If AWS Environment or System Properties are set, throw an exception
+        // so users will know they are not supported
+        if (System.getenv("AWS_ACCESS_KEY_ID") != null ||
+                System.getenv("AWS_SECRET_ACCESS_KEY") != null ||
+                System.getenv("AWS_SESSION_TOKEN") != null ||
+                System.getProperty("aws.accessKeyId") != null ||
+                System.getProperty("aws.secretAccessKey") != null) {
+            throw new RuntimeException("AWS credentials supplied by environment variables"
+                    + " or Java system properties are not supported."
+                    + " Please use either named profiles or instance"
+                    + " profile credentials.");
+        }
         boolean anonymous = Boolean.parseBoolean(
                 (String) props.get("s3fs_anonymous"));
         if (anonymous) {
