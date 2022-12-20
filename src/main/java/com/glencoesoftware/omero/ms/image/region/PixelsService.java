@@ -183,7 +183,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
      * @return URI or <code>null</code> if the object does not contain a URI
      * in its {@link ExternalInfo}.
      */
-    private String getUri(IObject object) {
+    public String getUri(IObject object) {
         ExternalInfo externalInfo = object.getDetails().getExternalInfo();
         if (externalInfo == null) {
             log.debug(

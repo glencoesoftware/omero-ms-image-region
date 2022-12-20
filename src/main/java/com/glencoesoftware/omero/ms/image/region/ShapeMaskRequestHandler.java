@@ -173,32 +173,15 @@ public class ShapeMaskRequestHandler {
      * in its {@link ExternalInfo}.
      */
     private String getUri(Mask object) {
-        ExternalInfo externalInfo = object.getDetails().getExternalInfo();
-        if (externalInfo == null) {
-            log.debug("Mask:{} missing ExternalInfo", unwrap(object.getId()));
+        if (pixelsService == null) {
             return null;
         }
-
-        String entityType = (String) unwrap(externalInfo.getEntityType());
-        if (entityType == null && entityType != pixelsService.NGFF_ENTITY_TYPE) {
-            log.debug("Mask:{} unsupported ExternalInfo entityType {}",
-                    unwrap(object.getId()), entityType);
+        try {
+            return pixelsService.getUri(
+                  (ome.model.roi.Mask) new IceMapper().reverse(object));
+        } catch (ApiUsageException e) {
             return null;
         }
-
-        Long entityId =  (Long) unwrap(externalInfo.getEntityId());
-        if (entityId == null && entityId != pixelsService.NGFF_ENTITY_ID) {
-            log.debug("Mask:{} unsupported ExternalInfo entityId {}",
-                    unwrap(object.getId()), entityId);
-            return null;
-        }
-
-        String uri = (String) unwrap(externalInfo.getLsid());
-        if (uri == null) {
-            log.debug("Mask:{} missing LSID", unwrap(object.getId()));
-            return null;
-        }
-        return uri;
     }
 
     /**
