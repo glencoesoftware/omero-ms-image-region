@@ -71,19 +71,13 @@ public class PixelsService extends ome.io.nio.PixelsService {
     /** Max Plane Height */
     private final Integer maxPlaneHeight;
 
-    /** Whether or not OME NGFF is enabled */
-    private final boolean isOmeNgffEnabled;
-
     public PixelsService(
             String path, long memoizerWait, FilePathResolver resolver,
             BackOff backOff, TileSizes sizes, IQuery iQuery,
-            boolean isOmeNgffEnabled,
             int maxPlaneWidth, int maxPlaneHeight) throws IOException {
         super(
             path, true, new File(new File(path), "BioFormatsCache"),
             memoizerWait, resolver, backOff, sizes, iQuery);
-        this.isOmeNgffEnabled = isOmeNgffEnabled;
-        log.info("Is OME NGFF enabled? {}", isOmeNgffEnabled);
         this.maxPlaneWidth = maxPlaneWidth;
         this.maxPlaneHeight = maxPlaneHeight;
     }
@@ -291,11 +285,9 @@ public class PixelsService extends ome.io.nio.PixelsService {
      */
     @Override
     public PixelBuffer getPixelBuffer(Pixels pixels, boolean write) {
-        if (isOmeNgffEnabled) {
-            PixelBuffer pixelBuffer = getOmeNgffPixelBuffer(pixels, write);
-            if (pixelBuffer != null) {
-                return pixelBuffer;
-            }
+        PixelBuffer pixelBuffer = getOmeNgffPixelBuffer(pixels, write);
+        if (pixelBuffer != null) {
+            return pixelBuffer;
         }
         return _getPixelBuffer(pixels, write);
     }
