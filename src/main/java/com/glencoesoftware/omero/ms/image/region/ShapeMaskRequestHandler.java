@@ -417,13 +417,12 @@ public class ShapeMaskRequestHandler {
      */
     private byte[] getShapeMaskBytes(Mask mask)
             throws ApiUsageException, IOException {
-        PixelBuffer pixelBuffer;
-        try {
-            pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                  (ome.model.roi.Mask) new IceMapper().reverse(mask));
-        } catch (IllegalArgumentException e) {
+        String uri = getUri(mask);
+        if (uri == null) {
             return mask.getBytes();
         }
+        PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
+            (ome.model.roi.Mask) new IceMapper().reverse(mask));
         int resolutionLevel =
                 shapeMaskCtx.resolution == null ? 0
                         : shapeMaskCtx.resolution;
@@ -526,6 +525,11 @@ public class ShapeMaskRequestHandler {
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
             Mask mask = getMask(client, shapeMaskCtx.shapeId);
+            String uri = getUri(mask);
+            if (uri == null) {
+                throw new IllegalArgumentException(
+                    "No NGFF metadata for Shape:" + shapeMaskCtx.shapeId);
+            }
             ZarrPixelBuffer pixelBuffer =
                     pixelsService.getLabelImagePixelBuffer(
                         (ome.model.roi.Mask) new IceMapper().reverse(mask));
