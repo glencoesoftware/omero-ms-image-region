@@ -186,29 +186,45 @@ public class PixelsService extends ome.io.nio.PixelsService {
     private String getUri(IObject object) {
         ExternalInfo externalInfo = object.getDetails().getExternalInfo();
         if (externalInfo == null) {
-            log.debug("{}:{} missing ExternalInfo",
-                    object.getClass().getName(), object.getId());
+            log.debug(
+                "{}:{} missing ExternalInfo",
+                object.getClass().getSimpleName(), object.getId());
             return null;
         }
 
         String entityType = externalInfo.getEntityType();
-        if (entityType == null && entityType != NGFF_ENTITY_TYPE) {
-            log.debug("{}:{} unsupported ExternalInfo entityType {}",
-                    object.getClass().getName(), object.getId(), entityType);
+        if (entityType == null) {
+            log.debug(
+                "{}:{} missing ExternalInfo entityType",
+                object.getClass().getSimpleName(), object.getId());
+            return null;
+        }
+        if (!entityType.equals(NGFF_ENTITY_TYPE)) {
+            log.debug(
+                "{}:{} unsupported ExternalInfo entityType {}",
+                object.getClass().getSimpleName(), object.getId(), entityType);
             return null;
         }
 
         Long entityId = externalInfo.getEntityId();
-        if (entityId == null && entityId != NGFF_ENTITY_ID) {
-            log.debug("{}:{} unsupported ExternalInfo entityId {}",
-                    object.getClass().getName(), object.getId(), entityId);
+        if (entityType == null) {
+            log.debug(
+                "{}:{} missing ExternalInfo entityId",
+                object.getClass().getSimpleName(), object.getId());
+            return null;
+        }
+        if (!entityId.equals(NGFF_ENTITY_ID)) {
+            log.debug(
+                "{}:{} unsupported ExternalInfo entityId {}",
+                object.getClass().getSimpleName(), object.getId(), entityId);
             return null;
         }
 
         String uri = externalInfo.getLsid();
         if (uri == null) {
-            log.debug("{}:{} missing LSID",
-                    object.getClass().getName(), object.getId());
+            log.debug(
+                "{}:{} missing LSID",
+                object.getClass().getSimpleName(), object.getId());
             return null;
         }
         return uri;
