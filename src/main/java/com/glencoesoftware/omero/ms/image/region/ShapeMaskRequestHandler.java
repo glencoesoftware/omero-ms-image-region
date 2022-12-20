@@ -167,12 +167,12 @@ public class ShapeMaskRequestHandler {
     }
 
     /**
-     * Retrieve {@link Mask} URI.
+     * Retrieve URI or the NGFF label image.
      * @param object loaded {@link Mask} to check for a URI
-     * @return URI or <code>null</code> if the mask does not contain a URI
-     * in its {@link ExternalInfo}.
+     * @return URI or <code>null</code> if the mask does not contain a valid
+     * NGFF URI in its {@link ExternalInfo}.
      */
-    private String getUri(Mask object) {
+    private String getLabelUri(Mask object) {
         if (pixelsService == null) {
             return null;
         }
@@ -205,7 +205,7 @@ public class ShapeMaskRequestHandler {
             // width of the data type.  If it is not so aligned or is coming
             // from an NGFF source and will not be packed bits we will need
             // to convert it to a byte mask for rendering.
-            String uri = getUri(mask);
+            String uri = getLabelUri(mask);
             int bitsPerPixel = 1;
             int width = (int) mask.getWidth().getValue();
             int height = (int) mask.getHeight().getValue();
@@ -417,7 +417,7 @@ public class ShapeMaskRequestHandler {
      */
     private byte[] getShapeMaskBytes(Mask mask)
             throws ApiUsageException, IOException {
-        String uri = getUri(mask);
+        String uri = getLabelUri(mask);
         if (uri == null) {
             return mask.getBytes();
         }
@@ -525,7 +525,7 @@ public class ShapeMaskRequestHandler {
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
             Mask mask = getMask(client, shapeMaskCtx.shapeId);
-            String uri = getUri(mask);
+            String uri = getLabelUri(mask);
             if (uri == null) {
                 throw new IllegalArgumentException(
                     "No NGFF metadata for Shape:" + shapeMaskCtx.shapeId);
