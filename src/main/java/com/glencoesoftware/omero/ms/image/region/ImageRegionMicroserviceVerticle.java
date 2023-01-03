@@ -481,7 +481,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                .put("maxTileLength", maxTileLength)
                                .put("maxPlaneWidth", maxPlaneWidth)
                                .put("maxPlaneHeight", maxPlaneHeight)
-                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
+                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS))
+                .put("supportMissingChannels", true);
         if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
