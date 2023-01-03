@@ -112,20 +112,20 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(imageCtx.colors.size(), 3);
         Assert.assertEquals(imageCtx.windows.size(), 3);
         Assert.assertEquals(imageCtx.channels.size(), 3);
-        Assert.assertEquals(imageCtx.colors.get(0), color0);
-        Assert.assertEquals(imageCtx.colors.get(1), color1);
-        Assert.assertEquals(imageCtx.colors.get(2), color2);
+        Assert.assertEquals(imageCtx.colors.get(channel0), color0);
+        Assert.assertEquals(imageCtx.colors.get(channel1), color1);
+        Assert.assertEquals(imageCtx.colors.get(channel2), color2);
 
         Assert.assertEquals((int) imageCtx.channels.get(0), channel0);
         Assert.assertEquals((int) imageCtx.channels.get(1), channel1);
         Assert.assertEquals((int) imageCtx.channels.get(2), channel2);
 
-        Assert.assertEquals(imageCtx.windows.get(0)[0], window0[0], 0);
-        Assert.assertEquals(imageCtx.windows.get(0)[1], window0[1], 0);
-        Assert.assertEquals(imageCtx.windows.get(1)[0], window1[0], 0);
-        Assert.assertEquals(imageCtx.windows.get(1)[1], window1[1], 0);
-        Assert.assertEquals(imageCtx.windows.get(2)[0], window2[0], 0);
-        Assert.assertEquals(imageCtx.windows.get(2)[1], window2[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel0)[0], window0[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel0)[1], window0[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel1)[0], window1[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel1)[1], window1[1], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel2)[0], window2[0], 0);
+        Assert.assertEquals(imageCtx.windows.get(channel2)[1], window2[1], 0);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -491,8 +491,9 @@ public class ImageRegionCtxTest {
     public void testWindow() {
         Renderer renderer = getRenderer();
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
-        for(int i = 0; i < ctx.windows.size(); i++) {
-            ctx.setWindow(renderer, i, i);
+        for(Integer channelId : ctx.windows.keySet()) {
+            int idx = Math.abs(channelId) - 1;
+            ctx.setWindow(renderer, channelId, idx);
         }
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getInputStart(), window0[0], 0);
