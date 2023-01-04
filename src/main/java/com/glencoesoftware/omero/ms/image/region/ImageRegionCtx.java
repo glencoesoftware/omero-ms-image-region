@@ -438,11 +438,16 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     }
 
     public void setMapProperties(
-            Renderer renderer, List<Family> families, int channel) {
+            Renderer renderer, List<Family> families, int channelId) {
+        if (channelId < 0) {
+            return;
+        }
+        int channel = channelId - 1;
         if (maps != null) {
-            if (channel < maps.size()) {
+            Integer mapIdx = channels.indexOf(channelId);
+            if (mapIdx < maps.size()) {
                 Map<String, Map<String, Object>> map =
-                        maps.get(channel);
+                        maps.get(mapIdx);
                 if (map != null) {
                     if (map.containsKey("quantization")) {
                         updateQuantization(renderer, families, channel, map);
@@ -510,7 +515,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 if (colors != null) {
                     setColor(renderer, urlChannelId, c);
                 }
-                setMapProperties(renderer, families, c);
+                setMapProperties(renderer, families, urlChannelId);
             }
         }
         for (RenderingModel renderingModel : renderingModels) {
