@@ -476,13 +476,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("flip")
                                  .add("mask-color")
                                  .add("png-tiles")
-                                 .add("quantization"))
+                                 .add("quantization")
+                                 .add("support-missing-channels"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength)
                                .put("maxPlaneWidth", maxPlaneWidth)
                                .put("maxPlaneHeight", maxPlaneHeight)
-                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS))
-                .put("supportMissingChannels", true);
+                               .put("maxActiveChannels", MAX_ACTIVE_CHANNELS));
         if (!cacheControlHeader.equals("")) {
             resData.getJsonObject("options").put("cacheControl", cacheControlHeader);
          }
