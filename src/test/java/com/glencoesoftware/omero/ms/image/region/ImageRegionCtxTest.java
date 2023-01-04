@@ -766,4 +766,40 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(0));
     }
+
+    @Test
+    public void testMissingAndDisabledChannel() {
+        String channelsWithFirstMissing = String.format(
+                "%d|%f:%f$%s,%d|%f:%f$%s",
+                -1, window0[0], window0[1], "FF0000",
+                2, window1[0], window1[1], "00FF00");
+        params.remove("c");
+        params.add("c", channelsWithFirstMissing);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
+        Assert.assertEquals(3, renderer.getChannelBindings().length);
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertFalse(cb.getActive());
+        Assert.assertEquals(cb.getRed(), new Integer(0));
+        Assert.assertEquals(cb.getGreen(), new Integer(0));
+        Assert.assertEquals(cb.getBlue(), new Integer(0));
+        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+
+        cb = renderer.getChannelBindings()[1];
+        Assert.assertTrue(cb.getActive());
+        Assert.assertEquals(cb.getRed(), new Integer(0));
+        Assert.assertEquals(cb.getGreen(), new Integer(255));
+        Assert.assertEquals(cb.getBlue(), new Integer(0));
+        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+
+        cb = renderer.getChannelBindings()[2];
+        Assert.assertFalse(cb.getActive());
+        Assert.assertEquals(cb.getRed(), new Integer(0));
+        Assert.assertEquals(cb.getGreen(), new Integer(0));
+        Assert.assertEquals(cb.getBlue(), new Integer(0));
+        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+    }
 }
