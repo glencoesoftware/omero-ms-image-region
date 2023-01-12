@@ -104,7 +104,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private int DEFAULT_WORKER_POOL_SIZE;
 
     /** Default max number of channels to allow per request */
-    private int MAX_ACTIVE_CHANNELS = 10;
+    private int MAX_ACTIVE_CHANNELS;
 
     /** Zipkin HTTP Tracing*/
     private HttpTracing httpTracing;
@@ -388,7 +388,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webclient/get_thumbnails_ngff*")
             .handler(this::getThumbnails);
 
-        MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 6);
+        MAX_ACTIVE_CHANNELS = config.getInteger("max-active-channels", 10);
 
         int port = config.getInteger("port");
         log.info("Starting HTTP server *:{}", port);
