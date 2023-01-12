@@ -317,7 +317,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         } else if ("c".equals(colorModel)) {
             m = "rgb";
         } else {
-            m = null;
+            throw new IllegalArgumentException(
+                    "Must provide rendering model parameter 'm' "
+                    + "with value either 'g' or 'c'");
         }
     }
 
