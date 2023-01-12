@@ -278,21 +278,27 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 }
                 Integer channelIdx = Integer.parseInt(active);
                 channels.add(channelIdx);
-                if (temp.length > 1) {
-                    if (temp[1].indexOf("$") >= 0) {
-                        window = temp[1].split("\\$")[0];
-                        color = temp[1].split("\\$")[1];
-                    }
+                //Must have a window and a color
+                if (temp.length > 1
+                        && temp[1].indexOf(":") >= 0
+                        && temp[1].indexOf("$") >= 0) {
+                    window = temp[1].split("\\$")[0];
+                    color = temp[1].split("\\$")[1];
                     String[] rangeStr = window.split(":");
-                    if (rangeStr.length > 1) {
-                        range[0] = Double.parseDouble(rangeStr[0]);
-                        range[1] = Double.parseDouble(rangeStr[1]);
-                    }
+                    range[0] = Double.parseDouble(rangeStr[0]);
+                    range[1] = Double.parseDouble(rangeStr[1]);
+                } else {
+                    throw new IllegalArgumentException(
+                            "Must include window and color in each channel. "
+                            + "Missing in channel "
+                            + Integer.toString(channelIdx));
                 }
                 colors.put(channelIdx, color);
                 windows.put(channelIdx, range);
                 log.debug("Adding channel: {}, color: {}, window: {}",
                         active, color, window);
+            } catch (IllegalArgumentException e) {
+                throw e;
             } catch (Exception e)  {
                 throw new IllegalArgumentException("Failed to parse channel '"
                     + channel + "'");
