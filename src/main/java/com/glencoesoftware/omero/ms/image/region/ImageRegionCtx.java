@@ -20,6 +20,7 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,8 +74,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
 
     /** Channel settings - handled at the Verticle level*/
     public List<Integer> channels;
-    public List<Double[]> windows;
-    public List<String> colors;
+    public Map<Integer, Double[]> windows;
+    public Map<Integer, String> colors;
 
     /** Color mode (g == grey scale; c == rgb) */
     public String m;
@@ -257,8 +258,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
         String[] channelArray = channelInfo.split(",", -1);
         channels = new ArrayList<Integer>();
-        windows = new ArrayList<Double[]>();
-        colors = new ArrayList<String>();
+        windows = new HashMap<Integer, Double[]>();
+        colors = new HashMap<Integer, String>();
         for (String channel : channelArray) {
             try {
                 // chan  1|12:1386r$0000FF
@@ -275,7 +276,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                     active = split[0];
                     color = split[1];
                 }
-                channels.add(Integer.parseInt(active));
+                Integer channelIdx = Integer.parseInt(active);
+                channels.add(channelIdx);
                 if (temp.length > 1) {
                     if (temp[1].indexOf("$") >= 0) {
                         window = temp[1].split("\\$")[0];
@@ -287,8 +289,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                         range[1] = Double.parseDouble(rangeStr[1]);
                     }
                 }
-                colors.add(color);
-                windows.add(range);
+                colors.put(channelIdx, color);
+                windows.put(channelIdx, range);
                 log.debug("Adding channel: {}, color: {}, window: {}",
                         active, color, window);
             } catch (Exception e)  {
@@ -487,32 +489,29 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /**
      * Update settings on the rendering engine based on the current context.
      * @param renderer fully initialized renderer
-     * @param sizeC number of channels
-     * @param ctx OMERO context (group)
-     * @throws ServerError
+     * @param families available families
+     * @param renderingModels available rendering models
      */
     public void updateSettings(Renderer renderer,
             List<Family> families,
             List<RenderingModel> renderingModels) {
         log.debug("Setting active channels");
-        int idx = 0; // index of windows/colors args
         for (int c = 0; c < renderer.getMetadata().getSizeC(); c++) {
             log.debug("Setting for channel {}", c);
-            boolean isActive = channels.contains(c + 1);
+            int urlChannelId = c + 1;
+            boolean isActive = channels.contains(urlChannelId);
             log.debug("\tChannel active {}", isActive);
             renderer.setActive(c, isActive);
 
             if (isActive) {
                 if (windows != null) {
-                    setWindow(renderer, idx, c);
+                    setWindow(renderer, urlChannelId, c);
                 }
                 if (colors != null) {
-                    setColor(renderer, idx, c);
+                    setColor(renderer, urlChannelId, c);
                 }
                 setMapProperties(renderer, families, c);
             }
-
-            idx += 1;
         }
         for (RenderingModel renderingModel : renderingModels) {
             if (m.equals(renderingModel.getValue())) {
