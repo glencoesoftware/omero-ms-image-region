@@ -222,14 +222,14 @@ public class ImageRegionCtxTest {
     @Test(expected = IllegalArgumentException.class)
     public void testMissingWindow()
             throws JsonParseException, JsonMappingException, IOException {
-        params.set("c", "-1|$0000FF,1|0:51199$00FF00,3|3218:26623$FF0000");
+        params.set("c", "-1|$0000FF,2|0:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testMissingColor()
             throws JsonParseException, JsonMappingException, IOException {
-        params.set("c", "-1|0:65535,1|0:51199$00FF00,3|3218:26623$FF0000");
+        params.set("c", "-1|0:65535,2|0:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
