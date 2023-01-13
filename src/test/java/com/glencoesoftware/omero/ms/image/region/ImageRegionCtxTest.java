@@ -233,6 +233,13 @@ public class ImageRegionCtxTest {
         new ImageRegionCtx(params, "");
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingChannels()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("c");
+        new ImageRegionCtx(params, "");
+    }
+
     @Test
     public void testTileShortParameters()
             throws JsonParseException, JsonMappingException, IOException {

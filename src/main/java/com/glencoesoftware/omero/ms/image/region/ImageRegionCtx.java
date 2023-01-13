@@ -254,7 +254,8 @@ public class ImageRegionCtx extends OmeroRequestCtx {
      */
     private void getChannelInfoFromString(String channelInfo) {
         if (channelInfo == null) {
-            return;
+            throw new IllegalArgumentException("Must provide channels"
+                    + " in parameter 'c'");
         }
         String[] channelArray = channelInfo.split(",", -1);
         channels = new ArrayList<Integer>();
