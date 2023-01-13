@@ -102,7 +102,7 @@ public class ImageRegionCtxTest {
         params.add("c", c);
 
         params.add("region", region);
-        params.add("c", c);
+        params.add("m", "c");
         params.add("maps", maps);
     }
 
@@ -202,6 +202,34 @@ public class ImageRegionCtxTest {
     public void testQualityFormat()
             throws JsonParseException, JsonMappingException, IOException {
         params.set("q", "abc");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingRenderingModel()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("m");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedRenderingModel()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("m", "a");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingWindow()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("c", "-1|$0000FF,1|0:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingColor()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("c", "-1|0:65535,1|0:51199$00FF00,3|3218:26623$FF0000");
         new ImageRegionCtx(params, "");
     }
 
