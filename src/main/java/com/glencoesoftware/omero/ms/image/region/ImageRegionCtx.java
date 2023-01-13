@@ -151,7 +151,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
             this.maps = Json.decodeValue(maps, List.class);
         }
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
-
+        if (!format.equals("jpeg")
+            && !format.equals("png")
+            && !format.equals("tif")) {
+            throw new IllegalArgumentException("Unsupported format request."
+            + "Supported formats are jpeg, png, and tif");
+        }
         log.debug(
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}", imageId, z, t, tile, channels, windows, colors,

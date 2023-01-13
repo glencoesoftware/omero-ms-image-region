@@ -247,6 +247,13 @@ public class ImageRegionCtxTest {
         new ImageRegionCtx(params, "");
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedFormat()
+        throws JsonParseException, JsonMappingException, IOException {
+        params.set("format", "abc");
+        new ImageRegionCtx(params, "");
+    }
+
     @Test
     public void testTileShortParameters()
             throws JsonParseException, JsonMappingException, IOException {
