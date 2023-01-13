@@ -207,15 +207,22 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         if (tileString == null) {
             return;
         }
-        String[] tileArray = tileString.split(",", -1);
-        tile = new RegionDef();
-        tile.setX(Integer.parseInt(tileArray[1]));
-        tile.setY(Integer.parseInt(tileArray[2]));
-        if (tileArray.length == 5) {
-            tile.setWidth(Integer.parseInt(tileArray[3]));
-            tile.setHeight(Integer.parseInt(tileArray[4]));
+        try {
+            String[] tileArray = tileString.split(",", -1);
+            tile = new RegionDef();
+            tile.setX(Integer.parseInt(tileArray[1]));
+            tile.setY(Integer.parseInt(tileArray[2]));
+            if (tileArray.length == 5) {
+                tile.setWidth(Integer.parseInt(tileArray[3]));
+                tile.setHeight(Integer.parseInt(tileArray[4]));
+            }
+            resolution = Integer.parseInt(tileArray[0]);
+        } catch (Exception e) {
+            log.error("Error parsing tile", e);
+            throw new IllegalArgumentException("Failed to parse 'tile' "
+                    + "parameter. Format is resolution,x,y or "
+                    + "resolution,x,y,w,h");
         }
-        resolution = Integer.parseInt(tileArray[0]);
     }
 
     /**

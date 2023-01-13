@@ -240,6 +240,13 @@ public class ImageRegionCtxTest {
         new ImageRegionCtx(params, "");
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testMalformedTile()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("tile", "0,0");
+        new ImageRegionCtx(params, "");
+    }
+
     @Test
     public void testTileShortParameters()
             throws JsonParseException, JsonMappingException, IOException {
