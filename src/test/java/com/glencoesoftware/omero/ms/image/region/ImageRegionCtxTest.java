@@ -298,6 +298,16 @@ public class ImageRegionCtxTest {
         assertChannelInfo(imageCtxDecoded);
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testTile4Vals()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("region");
+        params.set("tile", "0,0,1,512");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
+    }
+
     @Test
     public void testRegionParameters()
             throws JsonParseException, JsonMappingException, IOException {

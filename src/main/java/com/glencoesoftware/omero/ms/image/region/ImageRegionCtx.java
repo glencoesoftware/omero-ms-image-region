@@ -214,6 +214,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         }
         try {
             String[] tileArray = tileString.split(",", -1);
+            if (tileArray.length != 3 && tileArray.length != 5) {
+                throw new IllegalArgumentException();
+            }
             tile = new RegionDef();
             tile.setX(Integer.parseInt(tileArray[1]));
             tile.setY(Integer.parseInt(tileArray[2]));
