@@ -677,6 +677,36 @@ public class ImageRegionCtxTest {
     }
 
     @Test
+    public void testEmptyMaps() {
+        String maps = "[{},"
+            + "{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+            + "{}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals("linear", cb.getFamily().getValue());
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+
+        cb = renderer.getChannelBindings()[1];
+        Assert.assertEquals("exponential", cb.getFamily().getValue());
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+
+        cb = renderer.getChannelBindings()[2];
+        Assert.assertEquals("linear", cb.getFamily().getValue());
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
     public void testMissingFirstChannel() {
         String channelsWithFirstMissing = String.format(
                 "%d|%f:%f$%s,%d|%f:%f$%s",
