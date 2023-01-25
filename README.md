@@ -130,7 +130,7 @@ What follows is a snippet which can be placed in your nginx configuration,
 image region microservice server endpoint::
 
     upstream image_region_backend {
-        server 127.0.0.1:8080 fail_timeout=0 max_fails=0;
+        server 127.0.0.1:8081 fail_timeout=0 max_fails=0;
     }
 
     ...
@@ -199,10 +199,10 @@ value. This is the OMERO.web session key.
 1. Run single or multiple image region tests using `curl`::
 
         curl -H 'Cookie: sessionid=<omero_web_session_key>' \
-            http://localhost:8080/webgateway/render_image/<image_id>/<z>/<t>/
+            http://localhost:8081/webgateway/render_image/<image_id>/<z>/<t>/
 
         curl -H 'Cookie: sessionid=<omero_web_session_key>' \
-            http://localhost:8080/webgateway/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
+            http://localhost:8081/webgateway/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
 
 Eclipse Configuration
 =====================
