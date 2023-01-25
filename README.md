@@ -159,7 +159,7 @@ image region microservice server endpoint::
         gzip on;
         gzip_min_length 0;
         gzip_proxied any;
-        gzip_types application/octet-stream text/html;
+        gzip_types application/octet-stream;
         proxy_pass http://image_region_backend;
     }
 
