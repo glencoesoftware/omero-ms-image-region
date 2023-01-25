@@ -135,24 +135,8 @@ image region microservice server endpoint::
 
     ...
 
-    location /webgateway/render_image_region/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/render_image/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image_region/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/render_shape_mask/ {
-        proxy_pass http://image_region_backend;
+    location ~ ^/(webclient|webgateway)/(render_(thumbnail_ngff|image|image_region|shape_mask)|get_thumbnails_ngff)/ {
+      proxy_pass http://image_region_backend;
     }
 
     location /omero_ms_image_region/ {
@@ -163,21 +147,6 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
-    location /webgateway/render_thumbnail_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_thumbnail_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/get_thumbnails_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/get_thumbnails_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
 
 Development Installation
 ========================
