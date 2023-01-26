@@ -23,7 +23,7 @@ omero.server:
     omero.db.user: "omero"
     omero.db.pass: "omero"
     # OMERO_HOME/lib/scripts
-    omero.script_repo_root: "/opt/omero/lib/scripts"
+    omero.script_repo_root: "/opt/omero/OMERO.current/lib/scripts"
     omero.pixeldata.max_tile_length: "2048"
     omero.pixeldata.max_plane_width: "3192"
     omero.pixeldata.max_plane_height: "3192"
