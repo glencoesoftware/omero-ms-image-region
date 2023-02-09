@@ -12,7 +12,6 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
-    jcenter()
     mavenCentral()
     maven {
         name 'Unidata'
@@ -38,7 +37,7 @@ repositories {
     }
     maven {
         name 'Brockmann-Consult Public Maven Repository'
-        url 'http://nexus.senbox.net/nexus/content/groups/public/'
+        url 'https://nexus.senbox.net/nexus/content/groups/public/'
     }
 }
 
@@ -116,7 +115,7 @@ distributions {
 }
 
 task memoRegenStartScript(type: CreateStartScripts) {
-    mainClassName = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
+    mainClass = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
     applicationName = "memoregenerator"
