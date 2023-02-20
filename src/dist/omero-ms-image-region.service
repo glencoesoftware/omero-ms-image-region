@@ -5,9 +5,9 @@ After=network.service
 
 [Service]
 Type=simple
-#Environment="JAVA_OPTS=-Dlogback.configurationFile=/path/to/omero-ms-image-region/logback.xml"
-WorkingDirectory=/path/to/omero-ms-image-region
-ExecStart=/path/to/omero-ms-image-region/bin/omero-ms-image-region
+Environment="JAVA_OPTS=-Dlogback.configurationFile=/opt/omero/OMERO.ms/omero-ms-image-region/current/conf/logback.xml"
+WorkingDirectory=/opt/omero/OMERO.ms/omero-ms-image-region/current
+ExecStart=/opt/omero/OMERO.ms/omero-ms-image-region/current/bin/omero-ms-image-region
 User=omero
 Group=omero
 Restart=no
