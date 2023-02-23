@@ -333,6 +333,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webclient/render_image/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
 
+     // New handlers to match omero-web
+     // (see https://github.com/ome/omero-web/pull/443)
+        router.get(
+                "/webgateway/render_image_region_rdef/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
+        router.get(
+                "/webgateway/render_image_rdef/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
+        router.get(
+                "/webclient/render_image_region_rdef/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
+        router.get(
+                "/webclient/render_image_rdef/:imageId/:theZ/:theT*")
+            .handler(this::renderImageRegion);
+
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/webgateway/imgData/:imageId*").handler(this::getImageData);
