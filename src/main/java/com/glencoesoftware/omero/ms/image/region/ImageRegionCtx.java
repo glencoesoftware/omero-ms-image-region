@@ -80,8 +80,9 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     /** Color mode (g == grey scale; c == rgb) */
     public String m;
 
-    /** Codomain maps */
-    public List<Map<String, Map<String, Object>>> maps;
+    /** Codomain maps - Keyed on Channel */
+    public Map<Integer, Map<String, Map<String, Object>>> maps =
+            new HashMap<Integer, Map<String, Map<String, Object>>>();
 
     /** Compression quality */
     public Float compressionQuality;
@@ -142,13 +143,22 @@ public class ImageRegionCtx extends OmeroRequestCtx {
         getCompressionQualityFromString(params.get("q"));
         getInvertedAxisFromString(params.get("ia"));
         getProjectionFromString(params.get("p"));
-        String maps = params.get("maps");
+        String mapsString = params.get("maps");
         String flip = Optional.ofNullable(params.get("flip"))
                 .orElse("").toLowerCase();
         flipHorizontal = flip.contains("h");
         flipVertical = flip.contains("v");
-        if (maps != null) {
-            this.maps = Json.decodeValue(maps, List.class);
+        if (mapsString != null) {
+            List<Map<String, Map<String, Object>>> mapsList =
+                    Json.decodeValue(mapsString, List.class);
+            if (mapsList.size() != channels.size()) {
+                throw new IllegalArgumentException("Must provide codomain map"
+                        + " for all provided channels or none");
+            }
+            for (int i = 0; i < channels.size(); i++) {
+                Integer c = channels.get(i);
+                maps.put(c, mapsList.get(i));
+            }
         }
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
 
@@ -438,11 +448,12 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     }
 
     public void setMapProperties(
-            Renderer renderer, List<Family> families, int channel) {
+            Renderer renderer, List<Family> families, int channelId) {
+        int channel = Math.abs(channelId) - 1;
         if (maps != null) {
-            if (channel < maps.size()) {
+            if (maps.containsKey(channelId)) {
                 Map<String, Map<String, Object>> map =
-                        maps.get(channel);
+                        maps.get(channelId);
                 if (map != null) {
                     if (map.containsKey("quantization")) {
                         updateQuantization(renderer, families, channel, map);
@@ -510,7 +521,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 if (colors != null) {
                     setColor(renderer, urlChannelId, c);
                 }
-                setMapProperties(renderer, families, c);
+                setMapProperties(renderer, families, urlChannelId);
             }
         }
         for (RenderingModel renderingModel : renderingModels) {
