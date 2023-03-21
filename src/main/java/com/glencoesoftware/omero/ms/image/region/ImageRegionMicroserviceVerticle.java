@@ -339,6 +339,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get("/pathviewer/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/pathviewer/imgData/:imageId*").handler(this::getImageData);
 
+        //histogram_json/(?P<iid>[0-9]+)/channel/(?P<theC>[0-9]+)/
+        // Histogram request handlers
+        router.get("/webgateway/histogram_json/:imageId/channel/:theC*")
+            .handler(this::getHistogramJson);
+        router.get("/pathviewer/histogram_json/:imageId/channel/:theC*")
+            .handler(this::getHistogramJson);
+
         // ShapeMask request handlers
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
@@ -740,6 +747,62 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 if (!response.closed()) {
                     response.end(chunk);
+                }
+            }
+        });
+    }
+
+
+    /******* HISTOGRAM HANDLER **********/
+
+    /**
+     * Get histogram event handler.
+     * @param event Current routing context.
+     */
+    private void getHistogramJson(RoutingContext event) {
+        log.info("Getting histogram");
+        int maxPlaneWidth = Integer.parseInt(
+                Optional.ofNullable(
+                    preferences.getProperty("omero.pixeldata.max_plane_width")
+                ).orElse("3192").toLowerCase()
+            );
+        int maxPlaneHeight = Integer.parseInt(
+                Optional.ofNullable(
+                    preferences.getProperty("omero.pixeldata.max_plane_height")
+                ).orElse("3192").toLowerCase()
+            );
+        HttpServerRequest request = event.request();
+        final HttpServerResponse response = event.response();
+        HistogramCtx histogramCtx = null;
+        request.params().add("maxPlaneWidth", Integer.toString(maxPlaneWidth));
+        request.params().add("maxPlaneHeight", Integer.toString(maxPlaneHeight));
+        try {
+            histogramCtx = new HistogramCtx(request.params(),
+                event.get("omero.session_key"));
+        } catch (Exception e) {
+            log.error("Error creating ImageDataCtx", e);
+            if (!response.closed()) {
+                response.setStatusCode(400).end();
+            }
+            return;
+        }
+        histogramCtx.injectCurrentTraceContext();
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_HISTOGRAM_JSON,
+                Json.encode(histogramCtx), result -> {
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                JsonObject histogramData = result.result().body();
+                response.headers().set("Content-Type", "application/json");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(histogramData.encodePrettily().length()));
+                response.write(histogramData.encodePrettily());
+            } finally {
+                if (!response.closed()) {
+                    response.end();
                 }
             }
         });
