@@ -133,7 +133,7 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
     }
 
     public void assignParams(MultiMap params) throws IllegalArgumentException {
-        getImageIdFromString(getCheckedParam(params, "imageId"));
+        imageId = getImageIdFromString(getCheckedParam(params, "imageId"));
         z = getIntegerFromString(getCheckedParam(params, "theZ"));
         t = getIntegerFromString(getCheckedParam(params, "theT"));
         getTileFromString(params.get("tile"));
