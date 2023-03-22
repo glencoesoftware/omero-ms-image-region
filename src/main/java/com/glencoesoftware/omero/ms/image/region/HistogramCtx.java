@@ -32,7 +32,7 @@ public class HistogramCtx extends MicroserviceRequestCtx {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(HistogramCtx.class);
 
-    /** Image ID to get image data for */
+    /** Image ID */
     public Long imageId;
 
     /** c - channel index */
@@ -67,11 +67,12 @@ public class HistogramCtx extends MicroserviceRequestCtx {
      */
     HistogramCtx(MultiMap params, String omeroSessionKey) {
         this.omeroSessionKey = omeroSessionKey;
-        getImageIdFromString(getCheckedParam(params, "imageId"));
+        imageId = getImageIdFromString(getCheckedParam(params, "imageId"));
         c = getIntegerFromString(getCheckedParam(params, "theC"));
         z = getIntegerFromString(getCheckedParam(params, "z"));
         t = getIntegerFromString(getCheckedParam(params, "t"));
         maxPlaneWidth = getIntegerFromString(getCheckedParam(params, "maxPlaneWidth"));
         maxPlaneHeight = getIntegerFromString(getCheckedParam(params, "maxPlaneHeight"));
+        bins = params.get("bins") == null ? 256 : getIntegerFromString(params.get("bins"));
     }
 }

@@ -12,8 +12,6 @@ import io.vertx.core.MultiMap;
  */
 abstract class MicroserviceRequestCtx extends OmeroRequestCtx {
 
-    Long imageId;
-
     protected String getCheckedParam(MultiMap params, String key)
         throws IllegalArgumentException {
         String value = params.get(key);
@@ -28,10 +26,10 @@ abstract class MicroserviceRequestCtx extends OmeroRequestCtx {
      * Parse a string to Long and set ast the image ID.
      * @param imageIdString string
      */
-    protected void getImageIdFromString(String imageIdString)
+    protected Long getImageIdFromString(String imageIdString)
         throws IllegalArgumentException{
         try {
-            imageId = Long.parseLong(imageIdString);
+            return Long.parseLong(imageIdString);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Incorrect format for "
                 + "imageid parameter '" + imageIdString + "'");
