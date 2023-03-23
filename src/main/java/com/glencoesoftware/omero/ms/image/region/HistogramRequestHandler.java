@@ -58,12 +58,6 @@ public class HistogramRequestHandler {
         this.pixelsService = pixelsService;
     }
 
-    public JsonObject getHistogramJson2(omero.client client) {
-        JsonObject retObj = new JsonObject();
-        retObj.put("TestKey", "TestVal");
-        return retObj;
-    }
-
     public JsonObject getHistogramJson(omero.client client) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_histogram");
