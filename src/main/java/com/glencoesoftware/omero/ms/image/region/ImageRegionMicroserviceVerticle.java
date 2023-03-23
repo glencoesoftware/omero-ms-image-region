@@ -772,15 +772,21 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 ).orElse("3192").toLowerCase()
             );
         HttpServerRequest request = event.request();
-        final HttpServerResponse response = event.response();
         HistogramCtx histogramCtx = null;
         request.params().add("maxPlaneWidth", Integer.toString(maxPlaneWidth));
         request.params().add("maxPlaneHeight", Integer.toString(maxPlaneHeight));
         try {
             histogramCtx = new HistogramCtx(request.params(),
                 event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            final HttpServerResponse response = event.response();
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
         } catch (Exception e) {
-            log.error("Error creating ImageDataCtx", e);
+            log.error("Error creating HistogramCtx", e);
+            final HttpServerResponse response = event.response();
             if (!response.closed()) {
                 response.setStatusCode(400).end();
             }
@@ -790,6 +796,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_HISTOGRAM_JSON,
                 Json.encode(histogramCtx), result -> {
+            final HttpServerResponse response = event.response();
             try {
                 if (handleResultFailed(result, response)) {
                     return;
