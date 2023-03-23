@@ -46,51 +46,6 @@ public class HistogramRequestHandler {
         return retObj;
     }
 
-
-    /*
-     * @login_required()
-def histogram_json(request, iid, theC, conn=None, **kwargs):
-    """
-    Returns a histogram for a single channel as a list of
-    256 values as json
-    """
-    image = conn.getObject("Image", iid)
-    if image is None:
-        raise Http404
-    maxW, maxH = conn.getMaxPlaneSize()
-    sizeX = image.getSizeX()
-    sizeY = image.getSizeY()
-    if (sizeX * sizeY) > (maxW * maxH):
-        msg = "Histogram not supported for 'big' images (over %s * %s pixels)" % (
-            maxW,
-            maxH,
-        )
-        return JsonResponse({"error": msg})
-
-    theZ = int(request.GET.get("theZ", 0))
-    theT = int(request.GET.get("theT", 0))
-    theC = int(theC)
-    binCount = int(request.GET.get("bins", 256))
-
-    # TODO: handle projection when supported by OMERO
-    data = image.getHistogram([theC], binCount, theZ=theZ, theT=theT)
-    histogram = data[theC]
-
-    return JsonResponse({"data": histogram})
-
-
-    histogram_json = url(
-    r"^histogram_json/(?P<iid>[0-9]+)/channel/(?P<theC>[0-9]+)/",
-    views.histogram_json,
-    name="histogram_json",
-)
-"""
-Gets a histogram of 256 columns (grey levels) for the chosen
-channel of an image. A single plane is specified by ?theT=1&theZ=2.
-"""
-     */
-
-
     public JsonObject getHistogramJson(omero.client client) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_histogram");

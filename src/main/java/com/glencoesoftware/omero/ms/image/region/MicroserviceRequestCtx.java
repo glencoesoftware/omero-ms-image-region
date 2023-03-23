@@ -23,7 +23,7 @@ abstract class MicroserviceRequestCtx extends OmeroRequestCtx {
     }
 
     /**
-     * Parse a string to Long and set ast the image ID.
+     * Parse a string to Long and return.
      * @param imageIdString string
      */
     protected Long getImageIdFromString(String imageIdString)
@@ -32,7 +32,7 @@ abstract class MicroserviceRequestCtx extends OmeroRequestCtx {
             return Long.parseLong(imageIdString);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Incorrect format for "
-                + "imageid parameter '" + imageIdString + "'");
+                + "imageId parameter '" + imageIdString + "'");
         }
     }
 

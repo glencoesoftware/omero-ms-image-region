@@ -27,8 +27,6 @@ import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
-import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
-
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import ome.io.nio.PixelBuffer;
@@ -38,7 +36,6 @@ import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.RegionDef;
-import omero.ServerError;
 import omero.constants.projection.ProjectionType;
 
 public class ImageRegionCtx extends MicroserviceRequestCtx {

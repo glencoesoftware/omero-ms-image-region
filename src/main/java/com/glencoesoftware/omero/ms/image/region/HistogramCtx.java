@@ -18,12 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import java.util.Arrays;
-import java.util.List;
 
 import org.slf4j.LoggerFactory;
-
-import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
 
 import io.vertx.core.MultiMap;
 
