@@ -49,6 +49,11 @@ public class HistogramCtx extends MicroserviceRequestCtx {
     /** Max Plane Height */
     public Integer maxPlaneHeight;
 
+    /** Set histogram min and max to the channel min and max rather than
+     * the min and max values for the datatype
+     */
+    public boolean useChannelRange = false;
+
 
     /**
      * Constructor for jackson to decode the object from string
@@ -70,5 +75,12 @@ public class HistogramCtx extends MicroserviceRequestCtx {
         maxPlaneWidth = getIntegerFromString(getCheckedParam(params, "maxPlaneWidth"));
         maxPlaneHeight = getIntegerFromString(getCheckedParam(params, "maxPlaneHeight"));
         bins = params.get("bins") == null ? 256 : getIntegerFromString(params.get("bins"));
+        if (params.get("useChannelRange") != null) {
+            String useChannelRangeString = params.get("useChannelRange").toLowerCase();
+            if (useChannelRangeString.equals("true")) {
+                useChannelRange = true;
+            }
+        }
+
     }
 }

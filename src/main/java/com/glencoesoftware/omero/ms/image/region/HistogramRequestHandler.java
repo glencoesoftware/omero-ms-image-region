@@ -32,8 +32,10 @@ import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
+import ome.model.core.Channel;
 import ome.model.core.Pixels;
 import ome.util.PixelData;
+import omeis.providers.re.metadata.StatsFactory;
 import omero.ApiUsageException;
 import omero.ServerError;
 import omero.api.IQueryPrx;
@@ -58,6 +60,97 @@ public class HistogramRequestHandler {
         this.pixelsService = pixelsService;
     }
 
+    private JsonArray getHistogramDataFullRange(PixelData pd) {
+
+        //Calculate bin ranges
+        int[] counts = new int[histogramCtx.bins];
+        double binFactor = (double) histogramCtx.bins / Math.pow(256, pd.bytesPerPixel());
+        for (int i = 0; i < pd.size(); i++) {
+            double val = pd.getPixelValue(i);
+            int binVal = (int) Math.floor(val * binFactor);
+            counts[binVal] += 1;
+        }
+        JsonArray histogramArray = new JsonArray();
+        for (int i : counts) {
+            histogramArray.add(i);
+        }
+        return histogramArray;
+    }
+
+    /**
+     * Get the minimum and maximum value to use for the histogram. If useGlobal
+     * is <code>true</code> and the channel has stats calculated the global
+     * minimum and maximum will be used, otherwise the minimum and maximum value
+     * of the plane will be used.
+     *
+     * @param pd
+     *            The {@link PixelData}
+     * @param channel
+     *            The {@link Channel}
+     * @param useGlobal
+     *            Try to use the global minimum/maximum
+     * @return See above
+     */
+    private double[] determineHistogramMinMax(PixelData pd, Channel channel,
+            boolean useGlobal) {
+        double min, max;
+
+        if (useGlobal && channel.getStatsInfo() != null) {
+            min = channel.getStatsInfo().getGlobalMin();
+            max = channel.getStatsInfo().getGlobalMax();
+            // if max == 1.0 the global min/max probably has not been
+            // calculated; fall back to plane min/max
+            if (max != 1.0)
+                return new double[] { min, max };
+        }
+
+        StatsFactory sf = new StatsFactory();
+        double[] pixelMinMax = sf.initPixelsRange(channel.getPixels());
+
+        min = pixelMinMax[1];
+        max = pixelMinMax[0];
+
+        for (int i = 0; i < pd.size(); i++) {
+            min = Math.min(min, pd.getPixelValue(i));
+            max = Math.max(max, pd.getPixelValue(i));
+        }
+
+        return new double[] { min, max };
+    }
+
+    private JsonArray getHistogramDataMinMaxRange(PixelData pd, Channel channel,
+            int imgWidth, int imgHeight) {
+        int[] counts = new int[histogramCtx.bins];
+
+        //TODO: Support useGlobal?
+        double[] minmax = determineHistogramMinMax(pd, channel, false);
+        double min = minmax[0];
+        double max = minmax[1];
+
+        double range = max - min + 1;
+        double binRange = range / histogramCtx.bins;
+        for (int i = 0; i < pd.size(); i++) {
+            int pdx = i % imgWidth;
+            int pdy = i / imgWidth;
+            if (pdx >= 0 && pdx < (0 + imgWidth) && pdy >= 0 && pdy < (0 + imgHeight)) {
+                int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
+                // if there are more bins than values (binRange < 1) the bin will be offset by -1.
+                // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
+                // into bin 254 (expected: 255). Therefore increment by one for these cases.
+                if (bin > 0 && binRange < 1)
+                    bin++;
+
+                if (bin >= 0 && bin < histogramCtx.bins)
+                    counts[bin]++;
+            }
+        }
+        JsonArray histogramArray = new JsonArray();
+        for (int i : counts) {
+            histogramArray.add(i);
+        }
+        return histogramArray;
+    }
+
     public JsonObject getHistogramJson(omero.client client) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_histogram");
@@ -68,6 +161,7 @@ public class HistogramRequestHandler {
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(histogramCtx.imageId));
             Pixels pixels = imagePixels.get(histogramCtx.imageId);
+            Channel channel = pixels.getChannel(histogramCtx.c);
             try(PixelBuffer pb = getPixelBuffer(pixels)) {
                 //Find resolution level closest to max plane size without
                 //exceeding it
@@ -81,19 +175,15 @@ public class HistogramRequestHandler {
                     resolutionLevel = i;
                 }
                 pb.setResolutionLevel(resolutionLevel);
-                PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c, histogramCtx.t);
-
-                //Calculate bin ranges
-                int[] counts = new int[histogramCtx.bins];
-                double binFactor = (double) histogramCtx.bins / Math.pow(256, pd.bytesPerPixel());
-                for (int i = 0; i < pd.size(); i++) {
-                    double val = pd.getPixelValue(i);
-                    int binVal = (int) Math.floor(val * binFactor);
-                    counts[binVal] += 1;
-                }
+                PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c,
+                                           histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
-                for (int i : counts) {
-                    histogramArray.add(i);
+                if (histogramCtx.useChannelRange) {
+                    histogramArray = getHistogramDataMinMaxRange(pd, channel,
+                                                                 pb.getSizeX(),
+                                                                 pb.getSizeY());
+                } else {
+                    histogramArray = getHistogramDataFullRange(pd);
                 }
                 retVal.put("data", histogramArray);
             }
