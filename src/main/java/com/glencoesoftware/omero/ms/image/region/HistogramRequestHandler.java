@@ -34,6 +34,7 @@ import io.vertx.core.json.JsonObject;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Channel;
 import ome.model.core.Pixels;
+import ome.model.enums.PixelsType;
 import ome.util.PixelData;
 import omeis.providers.re.metadata.StatsFactory;
 import omero.ApiUsageException;
@@ -60,21 +61,28 @@ public class HistogramRequestHandler {
         this.pixelsService = pixelsService;
     }
 
-    private JsonArray getHistogramDataFullRange(PixelData pd) {
-
-        //Calculate bin ranges
-        int[] counts = new int[histogramCtx.bins];
-        double binFactor = (double) histogramCtx.bins / Math.pow(256, pd.bytesPerPixel());
-        for (int i = 0; i < pd.size(); i++) {
-            double val = pd.getPixelValue(i);
-            int binVal = (int) Math.floor(val * binFactor);
-            counts[binVal] += 1;
+    private double[] getMaxValueForPixelsType(PixelsType pt) {
+        if (pt.getValue().equals(PixelsType.VALUE_BIT)) {
+            return new double[] {0, 1};
+        } else if (pt.getValue().equals(PixelsType.VALUE_UINT8)) {
+            return new double[] {0, 255};
+        } else if (pt.getValue().equals(PixelsType.VALUE_INT8)) {
+            return new double[] {-128, 127};
+        } else if (pt.getValue().equals(PixelsType.VALUE_UINT16)) {
+            return new double[] {0, 256*256 - 1};
+        } else if (pt.getValue().equals(PixelsType.VALUE_INT16)) {
+            return new double[] {-256*128, 256*128 - 1};
+        } else if (pt.getValue().equals(PixelsType.VALUE_UINT32)) {
+            return new double[] {0, 256*256*256*256 - 1};
+        } else if (pt.getValue().equals(PixelsType.VALUE_INT32)) {
+            return new double[] {-256*256*256*128, 256*256*256*128 - 1};
+        } else if (pt.getValue().equals(PixelsType.VALUE_FLOAT)) {
+            return new double[] {-Float.MAX_VALUE, Float.MAX_VALUE};
+        } else if (pt.getValue().equals(PixelsType.VALUE_DOUBLE)) {
+            return new double[] {-Double.MAX_VALUE, Double.MAX_VALUE};
         }
-        JsonArray histogramArray = new JsonArray();
-        for (int i : counts) {
-            histogramArray.add(i);
-        }
-        return histogramArray;
+        throw new IllegalArgumentException("Unsupported PixelsType: "
+                                           + pt.getValue());
     }
 
     /**
@@ -118,14 +126,12 @@ public class HistogramRequestHandler {
         return new double[] { min, max };
     }
 
-    private JsonArray getHistogramDataMinMaxRange(PixelData pd, Channel channel,
-            int imgWidth, int imgHeight) {
+    private JsonArray getHistogramData(PixelData pd, Channel channel,
+            double[] minMax, int imgWidth, int imgHeight) {
         int[] counts = new int[histogramCtx.bins];
 
-        //TODO: Support useGlobal?
-        double[] minmax = determineHistogramMinMax(pd, channel, false);
-        double min = minmax[0];
-        double max = minmax[1];
+        double min = minMax[0];
+        double max = minMax[1];
 
         double range = max - min + 1;
         double binRange = range / histogramCtx.bins;
@@ -133,6 +139,7 @@ public class HistogramRequestHandler {
             int pdx = i % imgWidth;
             int pdy = i / imgWidth;
             if (pdx >= 0 && pdx < (0 + imgWidth) && pdy >= 0 && pdy < (0 + imgHeight)) {
+                double scaledValue = (pd.getPixelValue(i) - min);
                 int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
                 // if there are more bins than values (binRange < 1) the bin will be offset by -1.
                 // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
@@ -178,13 +185,16 @@ public class HistogramRequestHandler {
                 PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c,
                                            histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
+                double[] minMax = null;
                 if (histogramCtx.useChannelRange) {
-                    histogramArray = getHistogramDataMinMaxRange(pd, channel,
-                                                                 pb.getSizeX(),
-                                                                 pb.getSizeY());
+                    //TODO: Support useGlobal?
+                    minMax = determineHistogramMinMax(pd, channel, false);
                 } else {
-                    histogramArray = getHistogramDataFullRange(pd);
+                    minMax = getMaxValueForPixelsType(pixels.getPixelsType());
                 }
+                histogramArray = getHistogramData(pd, channel, minMax,
+                        pb.getSizeX(),
+                        pb.getSizeY());
                 retVal.put("data", histogramArray);
             }
         } catch (Exception e) {
