@@ -186,11 +186,11 @@ public class HistogramRequestHandler {
                                            histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
                 double[] minMax = null;
-                if (histogramCtx.useChannelRange) {
+                if (histogramCtx.usePixelsTypeRange) {
+                    minMax = getMaxValueForPixelsType(pixels.getPixelsType());
+                } else {
                     //TODO: Support useGlobal?
                     minMax = determineHistogramMinMax(pd, channel, false);
-                } else {
-                    minMax = getMaxValueForPixelsType(pixels.getPixelsType());
                 }
                 histogramArray = getHistogramData(pd, channel, minMax,
                         pb.getSizeX(),
