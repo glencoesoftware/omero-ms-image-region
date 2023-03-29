@@ -61,7 +61,7 @@ public class HistogramRequestHandler {
         this.pixelsService = pixelsService;
     }
 
-    private double[] getMaxValueForPixelsType(PixelsType pt) {
+    private double[] getMinMaxFromPixelsType(PixelsType pt) {
         if (pt.getValue().equals(PixelsType.VALUE_BIT)) {
             return new double[] {0, 1};
         } else if (pt.getValue().equals(PixelsType.VALUE_UINT8)) {
@@ -85,25 +85,9 @@ public class HistogramRequestHandler {
                                            + pt.getValue());
     }
 
-    /**
-     * Get the minimum and maximum value to use for the histogram. If useGlobal
-     * is <code>true</code> and the channel has stats calculated the global
-     * minimum and maximum will be used, otherwise the minimum and maximum value
-     * of the plane will be used.
-     *
-     * @param pd
-     *            The {@link PixelData}
-     * @param channel
-     *            The {@link Channel}
-     * @param useGlobal
-     *            Try to use the global minimum/maximum
-     * @return See above
-     */
-    private double[] determineHistogramMinMax(PixelData pd, Channel channel,
-            boolean useGlobal) {
+    private double[] getMinMaxFromStatsinfo(Channel channel) {
         double min, max;
-
-        if (useGlobal && channel.getStatsInfo() != null) {
+        if (channel.getStatsInfo() != null) {
             min = channel.getStatsInfo().getGlobalMin();
             max = channel.getStatsInfo().getGlobalMax();
             // if max == 1.0 the global min/max probably has not been
@@ -111,6 +95,20 @@ public class HistogramRequestHandler {
             if (max != 1.0)
                 return new double[] { min, max };
         }
+        return null;
+    }
+
+    /**
+     * Get the minimum and maximum value of the pixel data
+     *
+     * @param pd
+     *            The {@link PixelData}
+     * @param channel
+     *            The {@link Channel}
+     * @return See above
+     */
+    private double[] getMinMaxFromPixelData(PixelData pd, Channel channel) {
+        double min, max;
 
         StatsFactory sf = new StatsFactory();
         double[] pixelMinMax = sf.initPixelsRange(channel.getPixels());
@@ -186,15 +184,23 @@ public class HistogramRequestHandler {
                                            histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
                 double[] minMax = null;
+                boolean fromStatsInfo = false;
                 if (histogramCtx.usePixelsTypeRange) {
-                    minMax = getMaxValueForPixelsType(pixels.getPixelsType());
+                    minMax = getMinMaxFromPixelsType(pixels.getPixelsType());
                 } else {
-                    //TODO: Support useGlobal?
-                    minMax = determineHistogramMinMax(pd, channel, false);
+                    minMax = getMinMaxFromStatsinfo(channel);
+                    if (minMax == null) {
+                        minMax = getMinMaxFromPixelData(pd, channel);
+                    } else {
+                        fromStatsInfo = true;
+                    }
                 }
                 histogramArray = getHistogramData(pd, channel, minMax,
                         pb.getSizeX(),
                         pb.getSizeY());
+                retVal.put("min", minMax[0]);
+                retVal.put("max", minMax[1]);
+                retVal.put("fromStatsInfo", fromStatsInfo);
                 retVal.put("data", histogramArray);
             }
         } catch (Exception e) {
