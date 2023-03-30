@@ -121,9 +121,9 @@ public class HistogramRequestHandler {
      * (not necessarily full resolution)
      * @param imgHeight The sizeY of the pixel data
      * (not necessarily full resolution)
-     * @return
+     * @return {@link JsonArray} containing histogram data
      */
-    private JsonArray getHistogramData(PixelData pd, Channel channel,
+    public JsonArray getHistogramData(PixelData pd,
             double[] minMax, int imgWidth, int imgHeight) {
         int[] counts = new int[histogramCtx.bins];
 
@@ -148,7 +148,9 @@ public class HistogramRequestHandler {
                 } else {
                     //Pixel Value outside of min/max range
                     throw new IllegalArgumentException(String.format(
-                            "Image %s has pixel values %.2f outside of [%.2f, %.2f]"));
+                            "Image %d has pixel values %.2f outside of [%.2f, %.2f]",
+                            histogramCtx.imageId, pd.getPixelValue(i),
+                            minMax[0], minMax[1]));
                 }
             }
         }
@@ -208,7 +210,7 @@ public class HistogramRequestHandler {
                         fromStatsInfo = true;
                     }
                 }
-                histogramArray = getHistogramData(pd, channel, minMax,
+                histogramArray = getHistogramData(pd, minMax,
                         pb.getSizeX(),
                         pb.getSizeY());
                 retVal.put("min", minMax[0]);
