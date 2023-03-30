@@ -63,7 +63,7 @@ public class HistogramCtx extends MicroserviceRequestCtx {
     /**
      * Default constructor.
      * @param params {@link io.vertx.core.http.HttpServerRequest} parameters
-     * required for rendering an image region.
+     * required for retrieving the histogram.
      * @param omeroSessionKey OMERO session key.
      */
     HistogramCtx(MultiMap params, String omeroSessionKey) {

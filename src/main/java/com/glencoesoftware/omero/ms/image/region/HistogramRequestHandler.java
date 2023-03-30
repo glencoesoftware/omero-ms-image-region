@@ -55,12 +55,22 @@ public class HistogramRequestHandler {
     /** OMERO server pixels service. */
     private PixelsService pixelsService;
 
+    /**
+     * Constructor. Populates histogramCtx and pixelsService
+     * @param histogramCtx
+     * @param pixelsService
+     */
     public HistogramRequestHandler(HistogramCtx histogramCtx,
             PixelsService pixelsService) {
         this.histogramCtx = histogramCtx;
         this.pixelsService = pixelsService;
     }
 
+    /**
+     * Gets the min and max values for the given pixel type
+     * @param pt The PixelsType to get the min and max for
+     * @return Size 2 double array [min, max] for the given pixel type
+     */
     private double[] getMinMaxFromPixelsType(PixelsType pt) {
         if (pt.getValue().equals(PixelsType.VALUE_BIT)) {
             return new double[] {0, 1};
@@ -85,6 +95,11 @@ public class HistogramRequestHandler {
                                            + pt.getValue());
     }
 
+    /**
+     * Get the min and max for the channel from the StatsInfo
+     * @param channel The channel to get the StatsInfo min and max for
+     * @return double array [min, max] if the StatsInfo is present, else null
+     */
     private double[] getMinMaxFromStatsinfo(Channel channel) {
         double min, max;
         if (channel.getStatsInfo() != null) {
@@ -124,6 +139,18 @@ public class HistogramRequestHandler {
         return new double[] { min, max };
     }
 
+    /**
+     * Read through the pixel data and produce histogram data reflecting
+     * the occurrance of pixel values within each bin
+     * @param pd The {@link PixelData} to get the pixel values from
+     * @param channel The {@link Channel} to get the pixel values from
+     * @param minMax The min and max to values to divide into bins
+     * @param imgWidth The sizeX of the pixel data
+     * (not necessarily full resolution)
+     * @param imgHeight The sizeY of the pixel data
+     * (not necessarily full resolution)
+     * @return
+     */
     private JsonArray getHistogramData(PixelData pd, Channel channel,
             double[] minMax, int imgWidth, int imgHeight) {
         int[] counts = new int[histogramCtx.bins];
@@ -156,6 +183,13 @@ public class HistogramRequestHandler {
         return histogramArray;
     }
 
+    /**
+     * Retrieves JSON data representing the histogram for the parameters
+     * specified in the histogramCtx
+     * @param client
+     * @return VertX {@link JsonObject} with the histogram data,
+     * the min and max, and whether it was retrieved from StatsInfo
+     */
     public JsonObject getHistogramJson(omero.client client) {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_histogram");
