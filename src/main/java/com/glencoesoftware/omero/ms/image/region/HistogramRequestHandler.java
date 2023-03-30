@@ -31,6 +31,7 @@ import brave.Tracer;
 import brave.Tracing;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import loci.formats.FormatTools;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Channel;
 import ome.model.core.Pixels;
@@ -64,35 +65,6 @@ public class HistogramRequestHandler {
             PixelsService pixelsService) {
         this.histogramCtx = histogramCtx;
         this.pixelsService = pixelsService;
-    }
-
-    /**
-     * Gets the min and max values for the given pixel type
-     * @param pt The PixelsType to get the min and max for
-     * @return Size 2 double array [min, max] for the given pixel type
-     */
-    private double[] getMinMaxFromPixelsType(PixelsType pt) {
-        if (pt.getValue().equals(PixelsType.VALUE_BIT)) {
-            return new double[] {0, 1};
-        } else if (pt.getValue().equals(PixelsType.VALUE_UINT8)) {
-            return new double[] {0, 255};
-        } else if (pt.getValue().equals(PixelsType.VALUE_INT8)) {
-            return new double[] {-128, 127};
-        } else if (pt.getValue().equals(PixelsType.VALUE_UINT16)) {
-            return new double[] {0, 256*256 - 1};
-        } else if (pt.getValue().equals(PixelsType.VALUE_INT16)) {
-            return new double[] {-256*128, 256*128 - 1};
-        } else if (pt.getValue().equals(PixelsType.VALUE_UINT32)) {
-            return new double[] {0, 256*256*256*256 - 1};
-        } else if (pt.getValue().equals(PixelsType.VALUE_INT32)) {
-            return new double[] {-256*256*256*128, 256*256*256*128 - 1};
-        } else if (pt.getValue().equals(PixelsType.VALUE_FLOAT)) {
-            return new double[] {-Float.MAX_VALUE, Float.MAX_VALUE};
-        } else if (pt.getValue().equals(PixelsType.VALUE_DOUBLE)) {
-            return new double[] {-Double.MAX_VALUE, Double.MAX_VALUE};
-        }
-        throw new IllegalArgumentException("Unsupported PixelsType: "
-                                           + pt.getValue());
     }
 
     /**
@@ -164,7 +136,6 @@ public class HistogramRequestHandler {
             int pdx = i % imgWidth;
             int pdy = i / imgWidth;
             if (pdx >= 0 && pdx < (0 + imgWidth) && pdy >= 0 && pdy < (0 + imgHeight)) {
-                double scaledValue = (pd.getPixelValue(i) - min);
                 int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
                 // if there are more bins than values (binRange < 1) the bin will be offset by -1.
                 // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
@@ -172,8 +143,13 @@ public class HistogramRequestHandler {
                 if (bin > 0 && binRange < 1)
                     bin++;
 
-                if (bin >= 0 && bin < histogramCtx.bins)
+                if (bin >= 0 && bin < histogramCtx.bins) {
                     counts[bin]++;
+                } else {
+                    //Pixel Value outside of min/max range
+                    throw new IllegalArgumentException(String.format(
+                            "Image %s has pixel values %.2f outside of [%.2f, %.2f]"));
+                }
             }
         }
         JsonArray histogramArray = new JsonArray();
@@ -220,7 +196,10 @@ public class HistogramRequestHandler {
                 double[] minMax = null;
                 boolean fromStatsInfo = false;
                 if (histogramCtx.usePixelsTypeRange) {
-                    minMax = getMinMaxFromPixelsType(pixels.getPixelsType());
+                    int bfPixelsType = FormatTools.pixelTypeFromString(
+                            pixels.getPixelsType().getValue());
+                    long[] minMaxLong = FormatTools.defaultMinMax(bfPixelsType);
+                    minMax = new double[] {minMaxLong[0], minMaxLong[1]};
                 } else {
                     minMax = getMinMaxFromStatsinfo(channel);
                     if (minMax == null) {
