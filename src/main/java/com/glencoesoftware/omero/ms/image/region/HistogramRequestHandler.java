@@ -132,25 +132,21 @@ public class HistogramRequestHandler {
         double range = max - min + 1;
         double binRange = range / histogramCtx.bins;
         for (int i = 0; i < pd.size(); i++) {
-            int pdx = i % imgWidth;
-            int pdy = i / imgWidth;
-            if (pdx >= 0 && pdx < (0 + imgWidth) && pdy >= 0 && pdy < (0 + imgHeight)) {
-                int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
-                // if there are more bins than values (binRange < 1) the bin will be offset by -1.
-                // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
-                // into bin 254 (expected: 255). Therefore increment by one for these cases.
-                if (bin > 0 && binRange < 1)
-                    bin++;
+            int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
+            // if there are more bins than values (binRange < 1) the bin will be offset by -1.
+            // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
+            // into bin 254 (expected: 255). Therefore increment by one for these cases.
+            if (bin > 0 && binRange < 1)
+                bin++;
 
-                if (bin >= 0 && bin < histogramCtx.bins) {
-                    counts[bin]++;
-                } else {
-                    //Pixel Value outside of min/max range
-                    throw new IllegalArgumentException(String.format(
-                            "Image %d has pixel values %.2f outside of [%.2f, %.2f]",
-                            histogramCtx.imageId, pd.getPixelValue(i),
-                            minMax[0], minMax[1]));
-                }
+            if (bin >= 0 && bin < histogramCtx.bins) {
+                counts[bin]++;
+            } else {
+                //Pixel Value outside of min/max range
+                throw new IllegalArgumentException(String.format(
+                        "Image %d has pixel values %.2f outside of [%.2f, %.2f]",
+                        histogramCtx.imageId, pd.getPixelValue(i),
+                        minMax[0], minMax[1]));
             }
         }
         JsonArray histogramArray = new JsonArray();

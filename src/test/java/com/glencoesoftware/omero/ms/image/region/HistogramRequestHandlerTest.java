@@ -97,4 +97,41 @@ public class HistogramRequestHandlerTest {
         Assert.assertEquals(1, (int) testData.getInteger(4));
     }
 
+    @Test
+    public void testRangeLargerThanData() {
+        ByteBuffer bb = ByteBuffer.allocate(3);
+        bb.put(new byte[] {3,4,5});
+        PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
+        int imgWidth = 256;
+        int imgHeight = 512;
+        double[] minMax = new double[] {0, 9};
+        histogramCtx.bins = 5;
+        JsonArray testData = requestHandler.getHistogramData(pd,
+                minMax, imgWidth, imgHeight);
+        Assert.assertEquals(5, testData.size());
+        Assert.assertEquals(0, (int) testData.getInteger(0));
+        Assert.assertEquals(1, (int) testData.getInteger(1)); //3
+        Assert.assertEquals(2, (int) testData.getInteger(2)); //4, 5
+        Assert.assertEquals(0, (int) testData.getInteger(3));
+        Assert.assertEquals(0, (int) testData.getInteger(4));
+    }
+
+    @Test
+    public void testPixelDataLargerThanMaxPlaneSize() {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.put(new byte[] {0,1,2,3});
+        PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
+        int imgWidth = 1;
+        int imgHeight = 1;
+        double[] minMax = new double[] {0, 3};
+        histogramCtx.bins = 2;
+        JsonArray testData = requestHandler.getHistogramData(pd,
+                minMax, imgWidth, imgHeight);
+        Assert.assertEquals(2, testData.size());
+        //0 is the only value that fits in the 1x1 region
+        //specified by
+        Assert.assertEquals(2, (int) testData.getInteger(0)); //0,1
+        Assert.assertEquals(2, (int) testData.getInteger(1)); //2.3
+    }
+
 }
