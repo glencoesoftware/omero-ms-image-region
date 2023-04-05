@@ -116,14 +116,10 @@ public class HistogramRequestHandler {
      * @param pd The {@link PixelData} to get the pixel values from
      * @param channel The {@link Channel} to get the pixel values from
      * @param minMax The min and max to values to divide into bins
-     * @param imgWidth The sizeX of the pixel data
-     * (not necessarily full resolution)
-     * @param imgHeight The sizeY of the pixel data
-     * (not necessarily full resolution)
      * @return {@link JsonArray} containing histogram data
      */
     public JsonArray getHistogramData(PixelData pd,
-            double[] minMax, int imgWidth, int imgHeight) {
+            double[] minMax) {
         int[] counts = new int[histogramCtx.bins];
 
         double min = minMax[0];
@@ -205,9 +201,7 @@ public class HistogramRequestHandler {
                         fromStatsInfo = true;
                     }
                 }
-                histogramArray = getHistogramData(pd, minMax,
-                        pb.getSizeX(),
-                        pb.getSizeY());
+                histogramArray = getHistogramData(pd, minMax);
                 retVal.put("min", minMax[0]);
                 retVal.put("max", minMax[1]);
                 retVal.put("fromStatsInfo", fromStatsInfo);

@@ -44,7 +44,7 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {0, 4};
         histogramCtx.bins = 4;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
         Assert.assertEquals(testData.size(), 4);
         Assert.assertEquals(testData.getValue(0), 1);
         Assert.assertEquals(testData.getValue(1), 1);
@@ -62,7 +62,7 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 4;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -75,7 +75,7 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {2, 4};
         histogramCtx.bins = 4;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
     }
 
     @Test
@@ -88,7 +88,7 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 5;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(1, (int) testData.getInteger(0));
         Assert.assertEquals(0, (int) testData.getInteger(1));
@@ -107,7 +107,7 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {0, 9};
         histogramCtx.bins = 5;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(0, (int) testData.getInteger(0));
         Assert.assertEquals(1, (int) testData.getInteger(1)); //3
@@ -126,10 +126,8 @@ public class HistogramRequestHandlerTest {
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 2;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax, imgWidth, imgHeight);
+                minMax);
         Assert.assertEquals(2, testData.size());
-        //0 is the only value that fits in the 1x1 region
-        //specified by
         Assert.assertEquals(2, (int) testData.getInteger(0)); //0,1
         Assert.assertEquals(2, (int) testData.getInteger(1)); //2.3
     }
