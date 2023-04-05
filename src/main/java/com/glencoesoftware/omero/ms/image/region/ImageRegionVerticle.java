@@ -423,12 +423,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         try (OmeroRequest request = new OmeroRequest(
                 host, port, histogramCtx.omeroSessionKey))
        {
-           if (families == null) {
-               request.execute(this::updateFamilies);
-           }
-           if (renderingModels == null) {
-               request.execute(this::updateRenderingModels);
-           }
            JsonObject histogramData = request.execute(
                    new HistogramRequestHandler(histogramCtx,
                            pixelsService)::getHistogramJson);
