@@ -35,7 +35,6 @@ import loci.formats.FormatTools;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Channel;
 import ome.model.core.Pixels;
-import ome.model.enums.PixelsType;
 import ome.util.PixelData;
 import omeis.providers.re.metadata.StatsFactory;
 import omero.ApiUsageException;
