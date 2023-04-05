@@ -75,12 +75,6 @@ public class HistogramCtx extends MicroserviceRequestCtx {
         maxPlaneWidth = getIntegerFromString(getCheckedParam(params, "maxPlaneWidth"));
         maxPlaneHeight = getIntegerFromString(getCheckedParam(params, "maxPlaneHeight"));
         bins = params.get("bins") == null ? 256 : getIntegerFromString(params.get("bins"));
-        if (params.get("usePixelsTypeRange") != null) {
-            String usePixelsTypeRangeString = params.get("usePixelsTypeRange").toLowerCase();
-            if (usePixelsTypeRangeString.equals("true")) {
-                usePixelsTypeRange = true;
-            }
-        }
-
+        usePixelsTypeRange = getBooleanParameter(params, "usePixelsTypeRange");
     }
 }

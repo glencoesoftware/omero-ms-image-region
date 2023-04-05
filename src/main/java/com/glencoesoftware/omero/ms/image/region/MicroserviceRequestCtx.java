@@ -41,6 +41,16 @@ abstract class MicroserviceRequestCtx extends OmeroRequestCtx {
         return value;
     }
 
+    protected Boolean getBooleanParameter(MultiMap params, String key) {
+        if (params.get(key) != null) {
+            String booleanString = params.get(key).toLowerCase();
+            if (booleanString.equals("true")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Parse a string to Long and return.
      * @param imageIdString string
