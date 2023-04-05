@@ -254,17 +254,10 @@ public class HistogramRequestHandler {
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
                         + "left outer join fetch i.details.externalInfo "
-                        + "left outer join fetch i.wellSamples as ws "
-                        + "left outer join fetch ws.well as w "
-                        + "left outer join fetch w.wellSamples "
                         + "join fetch p.pixelsType "
                         + "join fetch p.channels as c "
                         + "join fetch c.logicalChannel as lc "
                         + "left outer join fetch c.statsInfo "
-                        + "left outer join fetch lc.photometricInterpretation "
-                        + "left outer join fetch lc.illumination "
-                        + "left outer join fetch lc.mode "
-                        + "left outer join fetch lc.contrastMethod "
                         + "where i.id in (:ids)", params, ctx));
             Map<Long, Pixels> toReturn = new HashMap<Long, Pixels>();
             for (Pixels pixels : pixelsList) {
