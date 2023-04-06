@@ -169,6 +169,11 @@ public class HistogramRequestHandler {
             Map<Long, Pixels> imagePixels = retrievePixDescription(
                     iQuery, Arrays.asList(histogramCtx.imageId));
             Pixels pixels = imagePixels.get(histogramCtx.imageId);
+            if (pixels == null ||
+                   histogramCtx.z >= pixels.getSizeZ() ||
+                   histogramCtx.t >= pixels.getSizeT()) {
+                return null;
+            }
             Channel channel = pixels.getChannel(histogramCtx.c);
             try(PixelBuffer pb = getPixelBuffer(pixels)) {
                 //Find resolution level closest to max plane size without

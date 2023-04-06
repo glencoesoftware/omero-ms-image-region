@@ -37,6 +37,22 @@ public class HistogramCtxTest {
         Assert.assertEquals(Integer.valueOf(4000), ctx.maxPlaneHeight);
     }
 
+    @Test
+    public void testHistogramCorrecttheZtheT() {
+        params.remove("z");
+        params.remove("t");
+        params.add("theZ", "2");
+        params.add("theT", "3");
+        HistogramCtx ctx = new HistogramCtx(params, "abc123");
+        Assert.assertEquals(Long.valueOf(123), ctx.imageId);
+        Assert.assertEquals(Integer.valueOf(1), ctx.c);
+        Assert.assertEquals(Integer.valueOf(2), ctx.z);
+        Assert.assertEquals(Integer.valueOf(3), ctx.t);
+        Assert.assertEquals(Integer.valueOf(10), ctx.bins);
+        Assert.assertEquals(Integer.valueOf(3000), ctx.maxPlaneWidth);
+        Assert.assertEquals(Integer.valueOf(4000), ctx.maxPlaneHeight);
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testMissingImageId() {
         params.remove("imageId");

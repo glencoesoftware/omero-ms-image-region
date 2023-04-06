@@ -70,8 +70,18 @@ public class HistogramCtx extends MicroserviceRequestCtx {
         this.omeroSessionKey = omeroSessionKey;
         imageId = getImageIdFromString(getCheckedParam(params, "imageId"));
         c = getIntegerFromString(getCheckedParam(params, "theC"));
-        z = getIntegerFromString(getCheckedParam(params, "z"));
-        t = getIntegerFromString(getCheckedParam(params, "t"));
+        String zStr = params.get("z") == null ? params.get("theZ") : params.get("z");
+        if (zStr == null) {
+            throw new IllegalArgumentException("Must provide either 'theZ' or "
+                    + "'z' parameter");
+        }
+        z = getIntegerFromString(zStr);
+        String tStr = params.get("t") == null ? params.get("theT") : params.get("t");
+        if (tStr == null) {
+            throw new IllegalArgumentException("Must provide either 'theT' or "
+                    + "'t' parameter");
+        }
+        t = getIntegerFromString(tStr);
         maxPlaneWidth = getIntegerFromString(getCheckedParam(params, "maxPlaneWidth"));
         maxPlaneHeight = getIntegerFromString(getCheckedParam(params, "maxPlaneHeight"));
         bins = params.get("bins") == null ? 256 : getIntegerFromString(params.get("bins"));
