@@ -38,6 +38,7 @@ import ome.model.core.Pixels;
 import ome.util.PixelData;
 import omeis.providers.re.metadata.StatsFactory;
 import omero.ApiUsageException;
+import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.api.ServiceFactoryPrx;
@@ -282,6 +283,37 @@ public class HistogramRequestHandler {
         } finally {
             span.finish();
         }
+    }
+
+    /**
+     * Whether or not a single {@link MaskI} can be read from the server.
+     * @param client OMERO client to use for querying.
+     * @return <code>true</code> if the {@link Mask} can be loaded or
+     * <code>false</code> otherwise.
+     * @throws ServerError If there was any sort of error retrieving the image.
+     */
+    public boolean canRead(omero.client client) {
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(histogramCtx.imageId);
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("can_read");
+        try {
+            List<List<RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT i.id FROM Image as i " +
+                            "WHERE i.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            span.error(e);
+            log.error("Exception while checking histogram readability", e);
+        } finally {
+            span.finish();
+        }
+        return false;
     }
 
 }

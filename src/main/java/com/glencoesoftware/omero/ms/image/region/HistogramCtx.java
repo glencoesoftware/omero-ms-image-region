@@ -28,6 +28,9 @@ public class HistogramCtx extends MicroserviceRequestCtx {
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(HistogramCtx.class);
 
+    public static final String CACHE_KEY_FORMAT =
+            "%d:%d:%d:%d:%d";  // ImageId, c, z, t, bins
+
     /** Image ID */
     public Long imageId;
 
@@ -86,5 +89,14 @@ public class HistogramCtx extends MicroserviceRequestCtx {
         maxPlaneHeight = getIntegerFromString(getCheckedParam(params, "maxPlaneHeight"));
         bins = params.get("bins") == null ? 256 : getIntegerFromString(params.get("bins"));
         usePixelsTypeRange = getBooleanParameter(params, "usePixelsTypeRange");
+    }
+
+    /**
+     * Creates a cache key for the context.
+     * @return See above.
+     */
+    public String cacheKey() {
+        return String.format(
+                CACHE_KEY_FORMAT, imageId, c, z, t, bins);
     }
 }

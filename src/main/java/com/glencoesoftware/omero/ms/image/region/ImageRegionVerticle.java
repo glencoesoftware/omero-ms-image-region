@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -419,35 +420,66 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 "get_histogram",
                 extractor().extract(histogramCtx.traceContext).context());
         String omeroSessionKey = histogramCtx.omeroSessionKey;
-        log.debug("Get image data request: {}", histogramCtx.toString());
-        try (OmeroRequest request = new OmeroRequest(
-                host, port, histogramCtx.omeroSessionKey))
-       {
-           JsonObject histogramData = request.execute(
-                   new HistogramRequestHandler(histogramCtx,
-                           pixelsService)::getHistogramJson);
-           span.finish();
-           if (histogramData == null) {
-               message.fail(404, "Cannot find the Image");
-           }
-           message.reply(histogramData);
-       } catch (PermissionDeniedException
-               | CannotCreateSessionException e) {
-           String v = "Permission denied";
-           log.debug(v);
-           span.error(e);
-           message.fail(403, v);
-       } catch (IllegalArgumentException e) {
-           log.debug(
-               "Illegal argument received while retrieving image region", e);
-           span.error(e);
-           message.fail(400, e.getMessage());
-       } catch (Exception e) {
-           String v = "Exception while retrieving image region";
-           log.error(v, e);
-           span.error(e);
-           message.fail(500, v);
-       }
+        log.debug("Get histogram request: {}", histogramCtx.toString());
+        String cacheKey = histogramCtx.cacheKey();
+        vertx.eventBus().<byte[]>request(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, cacheKey, result -> {
+                    try (OmeroRequest request = new OmeroRequest(host, port,
+                            histogramCtx.omeroSessionKey)) {
+                        byte[] histogramDataBytes = result.succeeded() ?
+                                result.result().body() : null;
+                        String histogramDataStr = null;
+                        if (histogramDataBytes != null) {
+                            log.info("Histogram in cache!");
+                            histogramDataStr = new String(histogramDataBytes);
+                        }
+                        HistogramRequestHandler requestHandler =
+                                new HistogramRequestHandler(histogramCtx,
+                                        pixelsService);
+
+                        // If the histogram is in the cache, check we have permissions
+                        // to access it and assign and return
+                        if (histogramDataStr != null
+                                && request.execute(requestHandler::canRead)) {
+                            span.finish();
+                            message.reply(new JsonObject(histogramDataStr));
+                            log.info("Got histogram from cache!");
+                            return;
+                        }
+
+                        JsonObject histogramData = request.execute(
+                                requestHandler::getHistogramJson);
+                        span.finish();
+                        if (histogramData == null) {
+                            message.fail(404, "Cannot find the Image");
+                        }
+                        message.reply(histogramData);
+
+                        JsonObject setMessage = new JsonObject();
+                        setMessage.put("key", cacheKey);
+                        setMessage.put("value", histogramData.toString().getBytes());
+                        vertx.eventBus().send(
+                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                setMessage);
+                    } catch (PermissionDeniedException
+                            | CannotCreateSessionException e) {
+                        String v = "Permission denied";
+                        log.debug(v);
+                        span.error(e);
+                        message.fail(403, v);
+                    } catch (IllegalArgumentException e) {
+                        log.debug(
+                                "Illegal argument received while retrieving image region",
+                                e);
+                        span.error(e);
+                        message.fail(400, e.getMessage());
+                    } catch (Exception e) {
+                        String v = "Exception while retrieving image region";
+                        log.error(v, e);
+                        span.error(e);
+                        message.fail(500, v);
+                    }
+                });
     }
 
     /**
