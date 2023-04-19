@@ -175,7 +175,6 @@ public class HistogramRequestHandler {
                                            histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
                 double[] minMax = null;
-                boolean fromStatsInfo = false;
                 if (histogramCtx.usePixelsTypeRange) {
                     int bfPixelsType = FormatTools.pixelTypeFromString(
                             pixels.getPixelsType().getValue());
@@ -187,7 +186,6 @@ public class HistogramRequestHandler {
                 histogramArray = getHistogramData(pd, minMax);
                 retVal.put("min", minMax[0]);
                 retVal.put("max", minMax[1]);
-                retVal.put("fromStatsInfo", fromStatsInfo);
                 retVal.put("data", histogramArray);
             }
         } catch (Exception e) {
