@@ -68,24 +68,6 @@ public class HistogramRequestHandler {
     }
 
     /**
-     * Get the min and max for the channel from the StatsInfo
-     * @param channel The channel to get the StatsInfo min and max for
-     * @return double array [min, max] if the StatsInfo is present, else null
-     */
-    private double[] getMinMaxFromStatsinfo(Channel channel) {
-        double min, max;
-        if (channel.getStatsInfo() != null) {
-            min = channel.getStatsInfo().getGlobalMin();
-            max = channel.getStatsInfo().getGlobalMax();
-            // if max == 1.0 the global min/max probably has not been
-            // calculated; fall back to plane min/max
-            if (max != 1.0)
-                return new double[] { min, max };
-        }
-        return null;
-    }
-
-    /**
      * Get the minimum and maximum value of the pixel data
      *
      * @param pd
@@ -200,12 +182,7 @@ public class HistogramRequestHandler {
                     long[] minMaxLong = FormatTools.defaultMinMax(bfPixelsType);
                     minMax = new double[] {minMaxLong[0], minMaxLong[1]};
                 } else {
-                    minMax = getMinMaxFromStatsinfo(channel);
-                    if (minMax == null) {
-                        minMax = getMinMaxFromPixelData(pd, channel);
-                    } else {
-                        fromStatsInfo = true;
-                    }
+                    minMax = getMinMaxFromPixelData(pd, channel);
                 }
                 histogramArray = getHistogramData(pd, minMax);
                 retVal.put("min", minMax[0]);
