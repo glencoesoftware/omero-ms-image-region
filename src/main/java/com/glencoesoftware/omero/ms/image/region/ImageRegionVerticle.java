@@ -468,13 +468,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         span.error(e);
                         message.fail(403, v);
                     } catch (IllegalArgumentException e) {
-                        log.debug(
-                                "Illegal argument received while retrieving image region",
+                        log.error(
+                                "Illegal argument received while retrieving histogram",
                                 e);
                         span.error(e);
                         message.fail(400, e.getMessage());
                     } catch (Exception e) {
-                        String v = "Exception while retrieving image region";
+                        String v = "Exception while retrieving histogram";
                         log.error(v, e);
                         span.error(e);
                         message.fail(500, v);

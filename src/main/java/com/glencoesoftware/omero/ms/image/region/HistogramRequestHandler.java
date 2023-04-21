@@ -161,14 +161,19 @@ public class HistogramRequestHandler {
             try(PixelBuffer pb = getPixelBuffer(pixels)) {
                 //Find resolution level closest to max plane size without
                 //exceeding it
-                int resolutionLevel = 0;
-                for (int i = 1; i < pb.getResolutionLevels(); i++) {
+                int resolutionLevel = -1;
+                for (int i = 0; i < pb.getResolutionLevels(); i++) {
                     pb.setResolutionLevel(i);
                     if (pb.getSizeX() > histogramCtx.maxPlaneWidth ||
                             pb.getSizeY() > histogramCtx.maxPlaneHeight) {
                         break;
                     }
                     resolutionLevel = i;
+                }
+                if (resolutionLevel < 0) {
+                    //No resolution levels exist smaller than max plane size
+                    throw new IllegalArgumentException("All resolution levels larger "
+                            + "than max plane size");
                 }
                 pb.setResolutionLevel(resolutionLevel);
                 PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c,
@@ -188,6 +193,9 @@ public class HistogramRequestHandler {
                 retVal.put("max", minMax[1]);
                 retVal.put("data", histogramArray);
             }
+        } catch (IllegalArgumentException e) {
+            span.error(e);
+            throw e;
         } catch (Exception e) {
             span.error(e);
             log.error("Exception while retrieving histogram", e);
