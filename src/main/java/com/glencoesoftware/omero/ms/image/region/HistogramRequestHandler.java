@@ -163,7 +163,13 @@ public class HistogramRequestHandler {
                 //exceeding it
                 int resolutionLevel = -1;
                 for (int i = 0; i < pb.getResolutionLevels(); i++) {
-                    pb.setResolutionLevel(i);
+                    //If there's only 1 resolution level, we may have a
+                    //RomioPixelBuffer, which doesn't support setResolutionLevel,
+                    //so just check the size of the buffer
+                    //and use it if it's small enough
+                    if (pb.getResolutionLevels() > 1) {
+                        pb.setResolutionLevel(i);
+                    }
                     if (pb.getSizeX() > histogramCtx.maxPlaneWidth ||
                             pb.getSizeY() > histogramCtx.maxPlaneHeight) {
                         break;
@@ -175,7 +181,9 @@ public class HistogramRequestHandler {
                     throw new IllegalArgumentException("All resolution levels larger "
                             + "than max plane size");
                 }
-                pb.setResolutionLevel(resolutionLevel);
+                if (pb.getResolutionLevels() > 1) {
+                    pb.setResolutionLevel(resolutionLevel);
+                }
                 PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c,
                                            histogramCtx.t);
                 JsonArray histogramArray = new JsonArray();
