@@ -143,11 +143,27 @@ image region microservice server endpoint::
         proxy_pass http://image_region_backend;
     }
 
+    location /webgateway/render_image_region_rdef/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webgateway/render_image_rdef/ {
+        proxy_pass http://image_region_backend;
+    }
+
     location /webclient/render_image_region/ {
         proxy_pass http://image_region_backend;
     }
 
     location /webclient/render_image/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webclient/render_image_region_rdef/ {
+        proxy_pass http://image_region_backend;
+    }
+
+    location /webclient/render_image_rdef/ {
         proxy_pass http://image_region_backend;
     }
 
