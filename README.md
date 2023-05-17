@@ -130,70 +130,24 @@ What follows is a snippet which can be placed in your nginx configuration,
 image region microservice server endpoint::
 
     upstream image_region_backend {
-        server 127.0.0.1:8080 fail_timeout=0 max_fails=0;
+        server 127.0.0.1:8081 fail_timeout=0 max_fails=0;
     }
 
     ...
 
-    location /webgateway/render_image_region/ {
-        proxy_pass http://image_region_backend;
-    }
 
-    location /webgateway/render_image/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/render_image_region_rdef/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/render_image_rdef/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image_region/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image_region_rdef/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_image_rdef/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/render_shape_mask/ {
-        proxy_pass http://image_region_backend;
+    location ~ ^/(webclient|webgateway)/(render_(thumbnail_ngff|image|image_region|image_region_rdef|image_rdef|shape_mask)|get_thumbnails_ngff)/ {
+      proxy_pass http://image_region_backend;
     }
 
     location /omero_ms_image_region/ {
         gzip on;
         gzip_min_length 0;
         gzip_proxied any;
-        gzip_types application/octet-stream text/html;
+        gzip_types application/octet-stream;
         proxy_pass http://image_region_backend;
     }
 
-    location /webgateway/render_thumbnail_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/render_thumbnail_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webgateway/get_thumbnails_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
-
-    location /webclient/get_thumbnails_ngff/ {
-        proxy_pass http://image_region_backend;
-    }
 
 Development Installation
 ========================
@@ -215,10 +169,10 @@ value. This is the OMERO.web session key.
 1. Run single or multiple image region tests using `curl`::
 
         curl -H 'Cookie: sessionid=<omero_web_session_key>' \
-            http://localhost:8080/webgateway/render_image/<image_id>/<z>/<t>/
+            http://localhost:8081/webgateway/render_image/<image_id>/<z>/<t>/
 
         curl -H 'Cookie: sessionid=<omero_web_session_key>' \
-            http://localhost:8080/webgateway/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
+            http://localhost:8081/webgateway/render_image_region/<image_id>/<z>/<t>/?tile=0,0,0,1024,1024
 
 Eclipse Configuration
 =====================

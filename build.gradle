@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.7.1-SNAPSHOT'
+version = '0.7.3'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
@@ -12,7 +12,6 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
-    jcenter()
     mavenCentral()
     maven {
         name 'Unidata'
@@ -38,7 +37,7 @@ repositories {
     }
     maven {
         name 'Brockmann-Consult Public Maven Repository'
-        url 'http://nexus.senbox.net/nexus/content/groups/public/'
+        url 'https://nexus.senbox.net/nexus/content/groups/public/'
     }
 }
 
@@ -69,7 +68,7 @@ dependencies {
     implementation 'io.zipkin.reporter2:zipkin-sender-okhttp3:2.10.0'
     implementation 'ch.qos.logback:logback-classic:1.2.11'
     implementation 'org.slf4j:log4j-over-slf4j:1.7.32'
-    implementation 'com.glencoesoftware.omero:omero-ms-core:0.6.0'
+    implementation 'com.glencoesoftware.omero:omero-ms-core:0.6.1'
     implementation 'io.vertx:vertx-web:3.8.1'
     implementation 'io.vertx:vertx-config:3.8.1'
     implementation 'io.vertx:vertx-config-yaml:3.8.1'
@@ -116,7 +115,7 @@ distributions {
 }
 
 task memoRegenStartScript(type: CreateStartScripts) {
-    mainClassName = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
+    mainClass = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
     applicationName = "memoregenerator"

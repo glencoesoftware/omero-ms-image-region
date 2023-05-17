@@ -186,7 +186,7 @@ if [ -s "${FULL_CSV}" ]; then
     sleep 5s
   fi
   mkdir -p rslt.${DATESTR}
-  mv -v ${FULL_CSV} rslt.${DATESTR}/
+  mv -v ${FULL_CSV} rslt.${DATESTR}/image-list-${DATESTR}.csv
   run_split_parallel_os_dep
 else
   echo "No images to process"

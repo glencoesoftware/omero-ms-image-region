@@ -340,7 +340,8 @@ public class ImageRegionCtxTest {
                 data, ImageRegionCtx.class);
         Assert.assertNotNull(imageCtxDecoded.maps);
         Assert.assertEquals(3, imageCtxDecoded.maps.size());
-        for (Map<String, Map<String, Object>> map : imageCtxDecoded.maps) {
+        for (Integer i : imageCtxDecoded.maps.keySet()) {
+            Map<String, Map<String, Object>> map = imageCtxDecoded.maps.get(i);
             Map<String, Object> reverse = map.get("reverse");
             Boolean enabled = (Boolean) reverse.get("enabled");
             Assert.assertFalse(enabled);
@@ -569,7 +570,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsLinear() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"linear\",\"coefficient\":1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"linear\",\"coefficient\":1.8}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -579,7 +582,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
@@ -588,7 +591,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsPolynomial() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.8}},"
+                + "{\"reverse\": {\"enabled\": false}},"
+                + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -598,7 +603,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
@@ -607,7 +612,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsPolynomialIntegerCoefficient() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -617,7 +624,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
@@ -626,7 +633,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsLogarithmic() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\",\"coefficient\":1.8}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -636,7 +645,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
@@ -645,7 +654,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsLogarithmicNoCoefficient() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\"}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"logarithmic\"}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -655,7 +666,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
@@ -664,7 +675,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsExponential() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -674,7 +687,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
@@ -683,7 +696,9 @@ public class ImageRegionCtxTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testMapsExponentialNegativeCoefficient() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":-1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":-1.8}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -693,7 +708,7 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
         families.add(new Family(Family.VALUE_EXPONENTIAL));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
@@ -702,7 +717,9 @@ public class ImageRegionCtxTest {
 
     @Test
     public void testMapsMissingFamily() {
-        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}}]";
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+            + "{\"reverse\": {\"enabled\": false}},"
+            + "{\"reverse\": {\"enabled\": false}}]";
         params.remove("maps");
         params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
@@ -711,9 +728,39 @@ public class ImageRegionCtxTest {
         families.add(new Family(Family.VALUE_LINEAR));
         families.add(new Family(Family.VALUE_POLYNOMIAL));
         families.add(new Family(Family.VALUE_LOGARITHMIC));
-        ctx.setMapProperties(renderer, families, 0);
+        ctx.setMapProperties(renderer, families, -1);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+    }
+
+    @Test
+    public void testEmptyMaps() {
+        String maps = "[{},"
+            + "{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+            + "{}]";
+        params.remove("maps");
+        params.add("maps", maps);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
+        Renderer renderer = getRenderer();
+        List<Family> families = new ArrayList<Family>();
+        families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
+        ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
+        ChannelBinding cb = renderer.getChannelBindings()[0];
+        Assert.assertEquals("linear", cb.getFamily().getValue());
+        Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+
+        cb = renderer.getChannelBindings()[1];
+        Assert.assertEquals("exponential", cb.getFamily().getValue());
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
+        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+
+        cb = renderer.getChannelBindings()[2];
+        Assert.assertEquals("linear", cb.getFamily().getValue());
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
         Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
     }
@@ -726,10 +773,16 @@ public class ImageRegionCtxTest {
                 3, window2[0], window2[1], "0000FF");
         params.remove("c");
         params.add("c", channelsWithFirstMissing);
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+                + "{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.2}}]";
+        params.remove("maps");
+        params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
         Renderer renderer = getRenderer();
         List<Family> families = new ArrayList<Family>();
         families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
         ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
@@ -745,6 +798,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(255));
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "exponential");
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertTrue(cb.getActive());
@@ -752,6 +807,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(0));
         Assert.assertEquals(cb.getBlue(), new Integer(255));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
     }
 
     @Test
@@ -762,10 +819,16 @@ public class ImageRegionCtxTest {
                 3, window2[0], window2[1], "0000FF");
         params.remove("c");
         params.add("c", channelsWithFirstMissing);
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+                + "{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.2}}]";
+        params.remove("maps");
+        params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
         Renderer renderer = getRenderer();
         List<Family> families = new ArrayList<Family>();
         families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
         ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
@@ -774,6 +837,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(0));
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "exponential");
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertFalse(cb.getActive());
@@ -788,6 +853,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(0));
         Assert.assertEquals(cb.getBlue(), new Integer(255));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
     }
 
     @Test
@@ -798,10 +865,16 @@ public class ImageRegionCtxTest {
                 2, window1[0], window1[1], "00FF00");
         params.remove("c");
         params.add("c", channelsWithFirstMissing);
+        String maps = "[{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"exponential\",\"coefficient\":1.8}},"
+                + "{\"reverse\": {\"enabled\": false}, \"quantization\" :{\"family\":\"polynomial\",\"coefficient\":1.2}}]";
+        params.remove("maps");
+        params.add("maps", maps);
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
         Renderer renderer = getRenderer();
         List<Family> families = new ArrayList<Family>();
         families.add(new Family(Family.VALUE_LINEAR));
+        families.add(new Family(Family.VALUE_POLYNOMIAL));
+        families.add(new Family(Family.VALUE_EXPONENTIAL));
         ctx.updateSettings(renderer, families, new ArrayList<RenderingModel>());
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
@@ -810,6 +883,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(0));
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "exponential");
+        Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertTrue(cb.getActive());
@@ -817,6 +892,8 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(255));
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
+        Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertFalse(cb.getActive());
@@ -834,6 +911,7 @@ public class ImageRegionCtxTest {
                 2, window1[0], window1[1], "00FF00");
         params.remove("c");
         params.add("c", channelsWithFirstMissing);
+        params.remove("maps");
         ImageRegionCtx ctx = new ImageRegionCtx(params, "");
         Renderer renderer = getRenderer();
         List<Family> families = new ArrayList<Family>();
@@ -860,5 +938,16 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(cb.getGreen(), new Integer(0));
         Assert.assertEquals(cb.getBlue(), new Integer(0));
         Assert.assertEquals(cb.getAlpha(), new Integer(0));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMismatchedMapAndChannelNumbers() {
+        String channelsWithFirstMissing = String.format(
+                "%d|%f:%f$%s,%d|%f:%f$%s",
+                -1, window0[0], window0[1], "FF0000",
+                2, window1[0], window1[1], "00FF00");
+        params.remove("c");
+        params.add("c", channelsWithFirstMissing);
+        ImageRegionCtx ctx = new ImageRegionCtx(params, "");
     }
 }
