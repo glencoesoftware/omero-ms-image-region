@@ -102,7 +102,7 @@ public class ImageRegionCtxTest {
         params.add("c", c);
 
         params.add("region", region);
-        params.add("c", c);
+        params.add("m", "c");
         params.add("maps", maps);
     }
 
@@ -205,6 +205,55 @@ public class ImageRegionCtxTest {
         new ImageRegionCtx(params, "");
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingRenderingModel()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("m");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedRenderingModel()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("m", "a");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingWindow()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("c", "-1|$0000FF,2|0:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingColor()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("c", "-1|0:65535,2|0:51199$00FF00,3|3218:26623$FF0000");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMissingChannels()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("c");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMalformedTile()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.set("tile", "0,0");
+        new ImageRegionCtx(params, "");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedFormat()
+        throws JsonParseException, JsonMappingException, IOException {
+        params.set("format", "abc");
+        new ImageRegionCtx(params, "");
+    }
+
     @Test
     public void testTileShortParameters()
             throws JsonParseException, JsonMappingException, IOException {
@@ -247,6 +296,16 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(imageCtxDecoded.tile.getHeight(), 2048);
         Assert.assertEquals((int) imageCtxDecoded.resolution, resolution);
         assertChannelInfo(imageCtxDecoded);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testTile4Vals()
+            throws JsonParseException, JsonMappingException, IOException {
+        params.remove("region");
+        params.set("tile", "0,0,1,512");
+
+        ImageRegionCtx imageCtx = new ImageRegionCtx(params, "");
+        String data = Json.encode(imageCtx);
     }
 
     @Test
