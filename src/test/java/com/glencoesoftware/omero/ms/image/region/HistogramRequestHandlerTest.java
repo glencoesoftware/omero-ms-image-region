@@ -9,6 +9,8 @@ import java.nio.ByteBuffer;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+
 import org.junit.Assert;
 import ome.model.enums.PixelsType;
 import ome.util.PixelData;
@@ -39,12 +41,10 @@ public class HistogramRequestHandlerTest {
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.put(new byte[] {1,2,3,4});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 256;
-        int imgHeight = 512;
         double[] minMax = new double[] {0, 4};
         histogramCtx.bins = 4;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax);
+                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 4);
         Assert.assertEquals(testData.getValue(0), 1);
         Assert.assertEquals(testData.getValue(1), 1);
@@ -52,30 +52,34 @@ public class HistogramRequestHandlerTest {
         Assert.assertEquals(testData.getValue(3), 1);
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test
     public void testValGreaterThanMax() {
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.put(new byte[] {1,2,3,4});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 256;
-        int imgHeight = 512;
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 4;
-        JsonArray testData = requestHandler.getHistogramData(pd,
+        JsonObject testData = requestHandler.getHistogramData(pd,
                 minMax);
-    }
+        Assert.assertEquals(testData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
+        Assert.assertEquals(testData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 1);
+        }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test
     public void testValLessThanMin() {
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.put(new byte[] {1,2,3,4});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 256;
-        int imgHeight = 512;
         double[] minMax = new double[] {2, 4};
         histogramCtx.bins = 4;
-        JsonArray testData = requestHandler.getHistogramData(pd,
+        JsonObject testData = requestHandler.getHistogramData(pd,
                 minMax);
+        Assert.assertEquals(testData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 1);
+        Assert.assertEquals(testData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
 
     @Test
@@ -83,12 +87,10 @@ public class HistogramRequestHandlerTest {
         ByteBuffer bb = ByteBuffer.allocate(3);
         bb.put(new byte[] {0,1,3});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 256;
-        int imgHeight = 512;
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 5;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax);
+                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(1, (int) testData.getInteger(0));
         Assert.assertEquals(0, (int) testData.getInteger(1));
@@ -102,12 +104,10 @@ public class HistogramRequestHandlerTest {
         ByteBuffer bb = ByteBuffer.allocate(3);
         bb.put(new byte[] {3,4,5});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 256;
-        int imgHeight = 512;
         double[] minMax = new double[] {0, 9};
         histogramCtx.bins = 5;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax);
+                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(0, (int) testData.getInteger(0));
         Assert.assertEquals(1, (int) testData.getInteger(1)); //3
@@ -121,12 +121,10 @@ public class HistogramRequestHandlerTest {
         ByteBuffer bb = ByteBuffer.allocate(4);
         bb.put(new byte[] {0,1,2,3});
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
-        int imgWidth = 1;
-        int imgHeight = 1;
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 2;
         JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax);
+                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(2, testData.size());
         Assert.assertEquals(2, (int) testData.getInteger(0)); //0,1
         Assert.assertEquals(2, (int) testData.getInteger(1)); //2.3

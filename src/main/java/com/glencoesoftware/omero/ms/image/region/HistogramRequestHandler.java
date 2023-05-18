@@ -50,6 +50,12 @@ public class HistogramRequestHandler {
     private static final org.slf4j.Logger log = LoggerFactory
             .getLogger(HistogramRequestHandler.class);
 
+    public static final String HISTOGRAM_DATA_KEY = "histogramData";
+
+    public static final String LEFT_OUTLIER_COUNT_KEY = "leftOutlierCount";
+
+    public static final String RIGHT_OUTLIER_COUNT_KEY = "rightOutlierCount";
+
     /** Histogram Request Context */
     HistogramCtx histogramCtx;
 
@@ -68,16 +74,28 @@ public class HistogramRequestHandler {
     }
 
     /**
-     * Get the minimum and maximum value of the pixel data
+     * Get the minimum and maximum value to use for the histogram.
+     * If the channel has stats calculated the global minimum and maximum
+     * will be used, otherwise the minimum and maximum value
+     * of the plane will be used.
      *
-     * @param pd
+     * @param px
      *            The {@link PixelData}
      * @param channel
      *            The {@link Channel}
      * @return See above
      */
-    private double[] getMinMaxFromPixelData(PixelData pd, Channel channel) {
+    private double[] determineHistogramMinMax(PixelData px, Channel channel) {
         double min, max;
+
+        if (channel != null && channel.getStatsInfo() != null) {
+            min = channel.getStatsInfo().getGlobalMin();
+            max = channel.getStatsInfo().getGlobalMax();
+            // if max == 1.0 the global min/max probably has not been
+            // calculated; fall back to plane min/max
+            if (max != 1.0)
+                return new double[] { min, max };
+        }
 
         StatsFactory sf = new StatsFactory();
         double[] pixelMinMax = sf.initPixelsRange(channel.getPixels());
@@ -85,9 +103,9 @@ public class HistogramRequestHandler {
         min = pixelMinMax[1];
         max = pixelMinMax[0];
 
-        for (int i = 0; i < pd.size(); i++) {
-            min = Math.min(min, pd.getPixelValue(i));
-            max = Math.max(max, pd.getPixelValue(i));
+        for (int i = 0; i < px.size(); i++) {
+            min = Math.min(min, px.getPixelValue(i));
+            max = Math.max(max, px.getPixelValue(i));
         }
 
         return new double[] { min, max };
@@ -101,7 +119,7 @@ public class HistogramRequestHandler {
      * @param minMax The min and max to values to divide into bins
      * @return {@link JsonArray} containing histogram data
      */
-    public JsonArray getHistogramData(PixelData pd,
+    public JsonObject getHistogramData(PixelData pd,
             double[] minMax) {
         int[] counts = new int[histogramCtx.bins];
 
@@ -110,6 +128,8 @@ public class HistogramRequestHandler {
 
         double range = max - min + 1;
         double binRange = range / histogramCtx.bins;
+        int leftOutlierCount = 0;
+        int rightOutlierCount = 0;
         for (int i = 0; i < pd.size(); i++) {
             int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
             // if there are more bins than values (binRange < 1) the bin will be offset by -1.
@@ -120,19 +140,21 @@ public class HistogramRequestHandler {
 
             if (bin >= 0 && bin < histogramCtx.bins) {
                 counts[bin]++;
-            } else {
-                //Pixel Value outside of min/max range
-                throw new IllegalArgumentException(String.format(
-                        "Image %d has pixel values %.2f outside of [%.2f, %.2f]",
-                        histogramCtx.imageId, pd.getPixelValue(i),
-                        minMax[0], minMax[1]));
+            } else if (pd.getPixelValue(i) < min) {
+                leftOutlierCount++;
+            } else if (pd.getPixelValue(i) > max) {
+                rightOutlierCount++;
             }
         }
         JsonArray histogramArray = new JsonArray();
         for (int i : counts) {
             histogramArray.add(i);
         }
-        return histogramArray;
+        JsonObject retObj = new JsonObject();
+        retObj.put(HISTOGRAM_DATA_KEY, histogramArray);
+        retObj.put(LEFT_OUTLIER_COUNT_KEY, leftOutlierCount);
+        retObj.put(RIGHT_OUTLIER_COUNT_KEY, rightOutlierCount);
+        return retObj;
     }
 
     /**
@@ -186,7 +208,6 @@ public class HistogramRequestHandler {
                 }
                 PixelData pd = pb.getPlane(histogramCtx.z, histogramCtx.c,
                                            histogramCtx.t);
-                JsonArray histogramArray = new JsonArray();
                 double[] minMax = null;
                 if (histogramCtx.usePixelsTypeRange) {
                     int bfPixelsType = FormatTools.pixelTypeFromString(
@@ -194,12 +215,18 @@ public class HistogramRequestHandler {
                     long[] minMaxLong = FormatTools.defaultMinMax(bfPixelsType);
                     minMax = new double[] {minMaxLong[0], minMaxLong[1]};
                 } else {
-                    minMax = getMinMaxFromPixelData(pd, channel);
+                    minMax = determineHistogramMinMax(pd, channel);
                 }
-                histogramArray = getHistogramData(pd, minMax);
+                Boolean fromStatsInfo = channel != null &&
+                        channel.getStatsInfo() != null &&
+                        channel.getStatsInfo().getGlobalMax() != 1;
+                JsonObject histogramInfo = getHistogramData(pd, minMax);
+                retVal.put("statsInfoMinMax", fromStatsInfo);
                 retVal.put("min", minMax[0]);
                 retVal.put("max", minMax[1]);
-                retVal.put("data", histogramArray);
+                retVal.put(LEFT_OUTLIER_COUNT_KEY, histogramInfo.getInteger(LEFT_OUTLIER_COUNT_KEY));
+                retVal.put(RIGHT_OUTLIER_COUNT_KEY, histogramInfo.getInteger(RIGHT_OUTLIER_COUNT_KEY));
+                retVal.put("data", histogramInfo.getJsonArray(HISTOGRAM_DATA_KEY));
             }
         } catch (IllegalArgumentException e) {
             span.error(e);

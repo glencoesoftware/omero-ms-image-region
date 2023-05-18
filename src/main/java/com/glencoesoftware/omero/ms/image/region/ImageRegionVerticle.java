@@ -430,7 +430,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                                 result.result().body() : null;
                         String histogramDataStr = null;
                         if (histogramDataBytes != null) {
-                            log.info("Histogram in cache!");
+                            log.info("Histogram in cache");
                             histogramDataStr = new String(histogramDataBytes);
                         }
                         HistogramRequestHandler requestHandler =
