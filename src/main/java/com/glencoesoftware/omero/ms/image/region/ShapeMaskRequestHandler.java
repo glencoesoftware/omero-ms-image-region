@@ -166,6 +166,23 @@ public class ShapeMaskRequestHandler {
         return dest;
     }
 
+    /**
+     * Retrieve URI or the NGFF label image.
+     * @param object loaded {@link Mask} to check for a URI
+     * @return URI or <code>null</code> if the mask does not contain a valid
+     * NGFF URI in its {@link ExternalInfo}.
+     */
+    private String getLabelUri(Mask object) {
+        if (pixelsService == null) {
+            return null;
+        }
+        try {
+            return pixelsService.getUri(
+                  (ome.model.roi.Mask) new IceMapper().reverse(object));
+        } catch (ApiUsageException e) {
+            return null;
+        }
+    }
 
     /**
      * Render shape mask.
@@ -188,11 +205,11 @@ public class ShapeMaskRequestHandler {
             // width of the data type.  If it is not so aligned or is coming
             // from an NGFF source and will not be packed bits we will need
             // to convert it to a byte mask for rendering.
-            String uuid = getUuid(mask);
+            String uri = getLabelUri(mask);
             int bitsPerPixel = 1;
             int width = (int) mask.getWidth().getValue();
             int height = (int) mask.getHeight().getValue();
-            if (width % 8 != 0 || uuid != null) {
+            if (width % 8 != 0 || uri != null) {
                 bytes = convertToBytes(bytes, width * height);
                 bitsPerPixel = 8;
             }
@@ -400,12 +417,12 @@ public class ShapeMaskRequestHandler {
      */
     private byte[] getShapeMaskBytes(Mask mask)
             throws ApiUsageException, IOException {
-        String uuid = getUuid(mask);
-        if (uuid == null) {
+        String uri = getLabelUri(mask);
+        if (uri == null) {
             return mask.getBytes();
         }
         PixelBuffer pixelBuffer = pixelsService.getLabelImagePixelBuffer(
-                (ome.model.roi.Mask) new IceMapper().reverse(mask));
+            (ome.model.roi.Mask) new IceMapper().reverse(mask));
         int resolutionLevel =
                 shapeMaskCtx.resolution == null ? 0
                         : shapeMaskCtx.resolution;
@@ -508,10 +525,10 @@ public class ShapeMaskRequestHandler {
                 .startScopedSpan("get_label_image_metadata_handler");
         try {
             Mask mask = getMask(client, shapeMaskCtx.shapeId);
-            String uuid = getUuid(mask);
-            if (uuid == null) {
+            String uri = getLabelUri(mask);
+            if (uri == null) {
                 throw new IllegalArgumentException(
-                        "No UUID for Shape:" + shapeMaskCtx.shapeId);
+                    "No NGFF metadata for Shape:" + shapeMaskCtx.shapeId);
             }
             ZarrPixelBuffer pixelBuffer =
                     pixelsService.getLabelImagePixelBuffer(
@@ -555,7 +572,7 @@ public class ShapeMaskRequestHandler {
             size.put("width", pixelBuffer.getSizeX());
             metadata.put("size", size);
 
-            metadata.put("uuid", uuid);
+            metadata.put("uuid", getUuid(mask));
 
             metadata.put("type", FormatTools.getPixelTypeString(
                     pixelBuffer.getPixelsType()));
