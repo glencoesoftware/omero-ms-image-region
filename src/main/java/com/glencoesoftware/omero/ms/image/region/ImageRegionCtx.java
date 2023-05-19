@@ -158,7 +158,12 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
             }
         }
         format = Optional.ofNullable(params.get("format")).orElse("jpeg");
-
+        if (!format.equals("jpeg")
+            && !format.equals("png")
+            && !format.equals("tif")) {
+            throw new IllegalArgumentException("Unsupported format request."
+            + "Supported formats are jpeg, png, and tif");
+        }
         log.debug(
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}", imageId, z, t, tile, channels, windows, colors,
@@ -174,15 +179,25 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
         if (tileString == null) {
             return;
         }
-        String[] tileArray = tileString.split(",", -1);
-        tile = new RegionDef();
-        tile.setX(Integer.parseInt(tileArray[1]));
-        tile.setY(Integer.parseInt(tileArray[2]));
-        if (tileArray.length == 5) {
-            tile.setWidth(Integer.parseInt(tileArray[3]));
-            tile.setHeight(Integer.parseInt(tileArray[4]));
+        try {
+            String[] tileArray = tileString.split(",", -1);
+            if (tileArray.length != 3 && tileArray.length != 5) {
+                throw new IllegalArgumentException();
+            }
+            tile = new RegionDef();
+            tile.setX(Integer.parseInt(tileArray[1]));
+            tile.setY(Integer.parseInt(tileArray[2]));
+            if (tileArray.length == 5) {
+                tile.setWidth(Integer.parseInt(tileArray[3]));
+                tile.setHeight(Integer.parseInt(tileArray[4]));
+            }
+            resolution = Integer.parseInt(tileArray[0]);
+        } catch (Exception e) {
+            log.error("Error parsing tile", e);
+            throw new IllegalArgumentException("Failed to parse 'tile' "
+                    + "parameter. Format is resolution,x,y or "
+                    + "resolution,x,y,w,h");
         }
-        resolution = Integer.parseInt(tileArray[0]);
     }
 
     /**
@@ -221,7 +236,8 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
      */
     private void getChannelInfoFromString(String channelInfo) {
         if (channelInfo == null) {
-            return;
+            throw new IllegalArgumentException("Must provide channels"
+                    + " in parameter 'c'");
         }
         String[] channelArray = channelInfo.split(",", -1);
         channels = new ArrayList<Integer>();
@@ -245,21 +261,27 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
                 }
                 Integer channelIdx = Integer.parseInt(active);
                 channels.add(channelIdx);
-                if (temp.length > 1) {
-                    if (temp[1].indexOf("$") >= 0) {
-                        window = temp[1].split("\\$")[0];
-                        color = temp[1].split("\\$")[1];
-                    }
+                //Must have a window and a color
+                if (temp.length > 1
+                        && temp[1].indexOf(":") >= 0
+                        && temp[1].indexOf("$") >= 0) {
+                    window = temp[1].split("\\$")[0];
+                    color = temp[1].split("\\$")[1];
                     String[] rangeStr = window.split(":");
-                    if (rangeStr.length > 1) {
-                        range[0] = Double.parseDouble(rangeStr[0]);
-                        range[1] = Double.parseDouble(rangeStr[1]);
-                    }
+                    range[0] = Double.parseDouble(rangeStr[0]);
+                    range[1] = Double.parseDouble(rangeStr[1]);
+                } else {
+                    throw new IllegalArgumentException(
+                            "Must include window and color in each channel. "
+                            + "Missing in channel "
+                            + Integer.toString(channelIdx));
                 }
                 colors.put(channelIdx, color);
                 windows.put(channelIdx, range);
                 log.debug("Adding channel: {}, color: {}, window: {}",
                         active, color, window);
+            } catch (IllegalArgumentException e) {
+                throw e;
             } catch (Exception e)  {
                 throw new IllegalArgumentException("Failed to parse channel '"
                     + channel + "'");
@@ -278,7 +300,9 @@ public class ImageRegionCtx extends MicroserviceRequestCtx {
         } else if ("c".equals(colorModel)) {
             m = "rgb";
         } else {
-            m = null;
+            throw new IllegalArgumentException(
+                    "Must provide rendering model parameter 'm' "
+                    + "with value either 'g' or 'c'");
         }
     }
 

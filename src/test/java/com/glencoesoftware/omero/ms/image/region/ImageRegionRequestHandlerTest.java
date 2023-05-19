@@ -51,7 +51,8 @@ public class ImageRegionRequestHandlerTest {
         params.add("imageId", "1");
         params.add("theZ", "0");
         params.add("theT", "0");
-        params.add("m", "rgb");
+        params.add("m", "c");
+        params.add("c", "1|0:255$FF0000,2|0:255$00FF00,3|0:255$FF0000");
 
         imageRegionCtx = new ImageRegionCtx(params, "");
         reqHandler = new ImageRegionRequestHandler(imageRegionCtx,

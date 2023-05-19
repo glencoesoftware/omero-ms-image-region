@@ -135,7 +135,8 @@ image region microservice server endpoint::
 
     ...
 
-    location ~ ^/(webclient|webgateway)/(render_(thumbnail_ngff|image|image_region|shape_mask)|get_thumbnails_ngff)/ {
+
+    location ~ ^/(webclient|webgateway)/(render_(thumbnail_ngff|image|image_region|image_region_rdef|image_rdef|shape_mask)|get_thumbnails_ngff)/ {
       proxy_pass http://image_region_backend;
     }
 
