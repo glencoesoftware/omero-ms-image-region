@@ -354,6 +354,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get("/pathviewer/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/pathviewer/imgData/:imageId*").handler(this::getImageData);
 
+        //histogram_json/(?P<iid>[0-9]+)/channel/(?P<theC>[0-9]+)/
+        // Histogram request handlers
+        router.get("/webgateway/histogram_json/:imageId/channel/:theC*")
+            .handler(this::getHistogramJson);
+        router.get("/pathviewer/histogram_json/:imageId/channel/:theC*")
+            .handler(this::getHistogramJson);
+
         // ShapeMask request handlers
         router.get(
                 "/webgateway/render_shape_mask/:shapeId*")
@@ -447,6 +454,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             int statusCode = 404;
             if (t instanceof ReplyException) {
                 statusCode = ((ReplyException) t).failureCode();
+                response.setStatusMessage(t.getMessage());
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(t.getMessage().length()));
+                response.write(t.getMessage());
             }
             if (statusCode < 200 || statusCode > 599) {
                 log.error(
@@ -755,6 +767,69 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             } finally {
                 if (!response.closed()) {
                     response.end(chunk);
+                }
+            }
+        });
+    }
+
+
+    /******* HISTOGRAM HANDLER **********/
+
+    /**
+     * Get histogram event handler.
+     * @param event Current routing context.
+     */
+    private void getHistogramJson(RoutingContext event) {
+        log.info("Getting histogram");
+        int maxPlaneWidth = Integer.parseInt(
+                Optional.ofNullable(
+                    preferences.getProperty("omero.pixeldata.max_plane_width")
+                ).orElse("3192").toLowerCase()
+            );
+        int maxPlaneHeight = Integer.parseInt(
+                Optional.ofNullable(
+                    preferences.getProperty("omero.pixeldata.max_plane_height")
+                ).orElse("3192").toLowerCase()
+            );
+        HttpServerRequest request = event.request();
+        HistogramCtx histogramCtx = null;
+        request.params().add("maxPlaneWidth", Integer.toString(maxPlaneWidth));
+        request.params().add("maxPlaneHeight", Integer.toString(maxPlaneHeight));
+        try {
+            histogramCtx = new HistogramCtx(request.params(),
+                event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            final HttpServerResponse response = event.response();
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        } catch (Exception e) {
+            log.error("Error creating HistogramCtx", e);
+            final HttpServerResponse response = event.response();
+            if (!response.closed()) {
+                response.setStatusCode(400).end();
+            }
+            return;
+        }
+        histogramCtx.injectCurrentTraceContext();
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_HISTOGRAM_JSON,
+                Json.encode(histogramCtx), result -> {
+            final HttpServerResponse response = event.response();
+            try {
+                if (handleResultFailed(result, response)) {
+                    return;
+                }
+                JsonObject histogramData = result.result().body();
+                response.headers().set("Content-Type", "application/json");
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(histogramData.encodePrettily().length()));
+                response.write(histogramData.encodePrettily());
+            } finally {
+                if (!response.closed()) {
+                    response.end();
                 }
             }
         });

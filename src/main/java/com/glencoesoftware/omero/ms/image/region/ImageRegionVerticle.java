@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
+import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -66,6 +67,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     public static final String GET_IMAGE_DATA =
             "omero.get_image_data";
+
+    public static final String GET_HISTOGRAM_JSON =
+            "omero.get_histogram_json";
 
     /** OMERO server host */
     private String host;
@@ -133,6 +137,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     GET_THUMBNAILS_EVENT, this::getThumbnails);
             vertx.eventBus().<String>consumer(
                     GET_IMAGE_DATA, this::getImageData);
+            vertx.eventBus().<String>consumer(
+                    GET_HISTOGRAM_JSON, this::getHistogramJson);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -399,6 +405,83 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         }
     }
 
+    private void getHistogramJson(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        HistogramCtx histogramCtx;
+        try {
+            histogramCtx = mapper.readValue(message.body(), HistogramCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal image region context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_histogram",
+                extractor().extract(histogramCtx.traceContext).context());
+        String omeroSessionKey = histogramCtx.omeroSessionKey;
+        log.debug("Get histogram request: {}", histogramCtx.toString());
+        String cacheKey = histogramCtx.cacheKey();
+        vertx.eventBus().<byte[]>request(
+                RedisCacheVerticle.REDIS_CACHE_GET_EVENT, cacheKey, result -> {
+                    try (OmeroRequest request = new OmeroRequest(host, port,
+                            histogramCtx.omeroSessionKey)) {
+                        byte[] histogramDataBytes = result.succeeded() ?
+                                result.result().body() : null;
+                        String histogramDataStr = null;
+                        if (histogramDataBytes != null) {
+                            log.info("Histogram in cache");
+                            histogramDataStr = new String(histogramDataBytes);
+                        }
+                        HistogramRequestHandler requestHandler =
+                                new HistogramRequestHandler(histogramCtx,
+                                        pixelsService);
+
+                        // If the histogram is in the cache, check we have permissions
+                        // to access it and assign and return
+                        if (histogramDataStr != null
+                                && request.execute(requestHandler::canRead)) {
+                            span.finish();
+                            message.reply(new JsonObject(histogramDataStr));
+                            log.info("Got histogram from cache!");
+                            return;
+                        }
+
+                        JsonObject histogramData = request.execute(
+                                requestHandler::getHistogramJson);
+                        span.finish();
+                        if (histogramData == null) {
+                            message.fail(404, "Cannot find the Image");
+                        }
+                        message.reply(histogramData);
+
+                        JsonObject setMessage = new JsonObject();
+                        setMessage.put("key", cacheKey);
+                        setMessage.put("value", histogramData.toString().getBytes());
+                        vertx.eventBus().send(
+                                RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
+                                setMessage);
+                    } catch (PermissionDeniedException
+                            | CannotCreateSessionException e) {
+                        String v = "Permission denied";
+                        log.debug(v);
+                        span.error(e);
+                        message.fail(403, v);
+                    } catch (IllegalArgumentException e) {
+                        log.error(
+                                "Illegal argument received while retrieving histogram",
+                                e);
+                        span.error(e);
+                        message.fail(400, e.getMessage());
+                    } catch (Exception e) {
+                        String v = "Exception while retrieving histogram";
+                        log.error(v, e);
+                        span.error(e);
+                        message.fail(500, v);
+                    }
+                });
+    }
+
     /**
      * Updates the available enumerations from the server.
      * @param client valid client to use to perform actions
@@ -432,7 +515,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 Tracing.currentTracer().startScopedSpan("get_all_enumerations");
         span.tag("omero.enumeration_class", klass.getName());
         try {
-            return (List<T>) client
+            return client
                     .getSession()
                     .getPixelsService()
                     .getAllEnumerations(klass.getName(), ctx)

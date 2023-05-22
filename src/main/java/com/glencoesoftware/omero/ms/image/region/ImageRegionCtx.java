@@ -27,8 +27,6 @@ import java.util.Optional;
 
 import org.slf4j.LoggerFactory;
 
-import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
-
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.Json;
 import ome.io.nio.PixelBuffer;
@@ -38,10 +36,9 @@ import ome.xml.model.primitives.Color;
 import omeis.providers.re.Renderer;
 import omeis.providers.re.codomain.ReverseIntensityContext;
 import omeis.providers.re.data.RegionDef;
-import omero.ServerError;
 import omero.constants.projection.ProjectionType;
 
-public class ImageRegionCtx extends OmeroRequestCtx {
+public class ImageRegionCtx extends MicroserviceRequestCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(ImageRegionCtx.class);
@@ -133,7 +130,7 @@ public class ImageRegionCtx extends OmeroRequestCtx {
     }
 
     public void assignParams(MultiMap params) throws IllegalArgumentException {
-        getImageIdFromString(getCheckedParam(params, "imageId"));
+        imageId = getImageIdFromString(getCheckedParam(params, "imageId"));
         z = getIntegerFromString(getCheckedParam(params, "theZ"));
         t = getIntegerFromString(getCheckedParam(params, "theT"));
         getTileFromString(params.get("tile"));
@@ -171,46 +168,6 @@ public class ImageRegionCtx extends OmeroRequestCtx {
                 "{}, z: {}, t: {}, tile: {}, c: [{}, {}, {}], m: {}, " +
                 "format: {}", imageId, z, t, tile, channels, windows, colors,
                 m, format);
-    }
-
-    private String getCheckedParam(MultiMap params, String key)
-        throws IllegalArgumentException {
-        String value = params.get(key);
-        if (null == value) {
-            throw new IllegalArgumentException("Missing parameter '"
-                + key + "'");
-        }
-        return value;
-    }
-
-    /**
-     * Parse a string to Long and set ast the image ID.
-     * @param imageIdString string
-     */
-    private void getImageIdFromString(String imageIdString)
-        throws IllegalArgumentException{
-        try {
-            imageId = Long.parseLong(imageIdString);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Incorrect format for "
-                + "imageid parameter '" + imageIdString + "'");
-        }
-    }
-
-    /**
-     * Parse a string to Integer and return it
-     * @param imageIdString string
-     */
-    private Integer getIntegerFromString(String intString)
-        throws IllegalArgumentException{
-        Integer i = null;
-        try {
-            i = Integer.parseInt(intString);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Incorrect format for "
-                + "parameter value '" + intString + "'");
-        }
-        return i;
     }
 
     /**
