@@ -43,13 +43,18 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {0, 4};
         histogramCtx.bins = 4;
-        JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 4);
         Assert.assertEquals(testData.getValue(0), 1);
         Assert.assertEquals(testData.getValue(1), 1);
         Assert.assertEquals(testData.getValue(2), 1);
         Assert.assertEquals(testData.getValue(3), 1);
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
 
     @Test
@@ -59,11 +64,17 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 4;
-        JsonObject testData = requestHandler.getHistogramData(pd,
-                minMax);
-        Assert.assertEquals(testData.getInteger(
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        Assert.assertEquals(testData.size(), 4);
+        Assert.assertEquals(testData.getValue(0), 0);
+        Assert.assertEquals(testData.getValue(1), 1);
+        Assert.assertEquals(testData.getValue(2), 1);
+        Assert.assertEquals(testData.getValue(3), 1);
+        Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
-        Assert.assertEquals(testData.getInteger(
+        Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 1);
         }
 
@@ -74,11 +85,17 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {2, 4};
         histogramCtx.bins = 4;
-        JsonObject testData = requestHandler.getHistogramData(pd,
-                minMax);
-        Assert.assertEquals(testData.getInteger(
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        Assert.assertEquals(testData.size(), 4);
+        Assert.assertEquals(testData.getValue(0), 1);
+        Assert.assertEquals(testData.getValue(1), 0);
+        Assert.assertEquals(testData.getValue(2), 1);
+        Assert.assertEquals(testData.getValue(3), 1);
+        Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 1);
-        Assert.assertEquals(testData.getInteger(
+        Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
 
@@ -89,14 +106,19 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 5;
-        JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(1, (int) testData.getInteger(0));
         Assert.assertEquals(0, (int) testData.getInteger(1));
         Assert.assertEquals(1, (int) testData.getInteger(2));
         Assert.assertEquals(0, (int) testData.getInteger(3));
         Assert.assertEquals(1, (int) testData.getInteger(4));
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
 
     @Test
@@ -106,14 +128,19 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {0, 9};
         histogramCtx.bins = 5;
-        JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(0, (int) testData.getInteger(0));
         Assert.assertEquals(1, (int) testData.getInteger(1)); //3
         Assert.assertEquals(2, (int) testData.getInteger(2)); //4, 5
         Assert.assertEquals(0, (int) testData.getInteger(3));
         Assert.assertEquals(0, (int) testData.getInteger(4));
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
 
     @Test
@@ -123,11 +150,15 @@ public class HistogramRequestHandlerTest {
         PixelData pd = new PixelData(PixelsType.VALUE_UINT8, bb);
         double[] minMax = new double[] {0, 3};
         histogramCtx.bins = 2;
-        JsonArray testData = requestHandler.getHistogramData(pd,
-                minMax).getJsonArray(HistogramRequestHandler.HISTOGRAM_DATA_KEY);
+        JsonObject histogramData = requestHandler.getHistogramData(pd, minMax);
+        JsonArray testData = histogramData.getJsonArray(
+            HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(2, testData.size());
         Assert.assertEquals(2, (int) testData.getInteger(0)); //0,1
         Assert.assertEquals(2, (int) testData.getInteger(1)); //2.3
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
+        Assert.assertEquals(histogramData.getInteger(
+                HistogramRequestHandler.RIGHT_OUTLIER_COUNT_KEY).intValue(), 0);
     }
-
 }
