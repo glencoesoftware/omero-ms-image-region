@@ -126,24 +126,22 @@ public class HistogramRequestHandler {
         double min = minMax[0];
         double max = minMax[1];
 
-        double range = max - min + 1;
+        double range = max - min;
         double binRange = range / histogramCtx.bins;
         int leftOutlierCount = 0;
         int rightOutlierCount = 0;
         for (int i = 0; i < pd.size(); i++) {
-            int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
-            // if there are more bins than values (binRange < 1) the bin will be offset by -1.
-            // e.g. min=0.0, max=127.0, binCount=256: a pixel with max value 127.0 would go
-            // into bin 254 (expected: 255). Therefore increment by one for these cases.
-            if (bin > 0 && binRange < 1)
-                bin++;
-
-            if (bin >= 0 && bin < histogramCtx.bins) {
-                counts[bin]++;
-            } else if (pd.getPixelValue(i) < min) {
+            if (pd.getPixelValue(i) < min) {
                 leftOutlierCount++;
             } else if (pd.getPixelValue(i) > max) {
                 rightOutlierCount++;
+            } else {
+                int bin = (int) ((pd.getPixelValue(i) - min) / binRange);
+                // Handle values exactly at the last edge
+                if (bin == histogramCtx.bins) {
+                    bin--;
+                }
+                counts[bin]++;
             }
         }
         JsonArray histogramArray = new JsonArray();
