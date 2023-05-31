@@ -47,10 +47,10 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 4);
-        Assert.assertEquals(testData.getValue(0), 1);
+        Assert.assertEquals(testData.getValue(0), 0);
         Assert.assertEquals(testData.getValue(1), 1);
         Assert.assertEquals(testData.getValue(2), 1);
-        Assert.assertEquals(testData.getValue(3), 1);
+        Assert.assertEquals(testData.getValue(3), 2);
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -111,8 +111,8 @@ public class HistogramRequestHandlerTest {
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(5, testData.size());
         Assert.assertEquals(1, (int) testData.getInteger(0));
-        Assert.assertEquals(0, (int) testData.getInteger(1));
-        Assert.assertEquals(1, (int) testData.getInteger(2));
+        Assert.assertEquals(1, (int) testData.getInteger(1));
+        Assert.assertEquals(0, (int) testData.getInteger(2));
         Assert.assertEquals(0, (int) testData.getInteger(3));
         Assert.assertEquals(1, (int) testData.getInteger(4));
         Assert.assertEquals(histogramData.getInteger(
@@ -184,8 +184,8 @@ public class HistogramRequestHandlerTest {
         Assert.assertEquals(testData.size(), 5);
         Assert.assertEquals(testData.getValue(0), 2);
         Assert.assertEquals(testData.getValue(1), 1);
-        Assert.assertEquals(testData.getValue(2), 4);
-        Assert.assertEquals(testData.getValue(3), 2);
+        Assert.assertEquals(testData.getValue(2), 3);
+        Assert.assertEquals(testData.getValue(3), 3);
         Assert.assertEquals(testData.getValue(4), 1);
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
