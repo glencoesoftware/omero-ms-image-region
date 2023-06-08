@@ -182,11 +182,11 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 2);
-        Assert.assertEquals(testData.getValue(1), 1);
-        Assert.assertEquals(testData.getValue(2), 3);
-        Assert.assertEquals(testData.getValue(3), 3);
-        Assert.assertEquals(testData.getValue(4), 1);
+        Assert.assertEquals(testData.getValue(0), 2); // 39, 3
+        Assert.assertEquals(testData.getValue(1), 1); // 63
+        Assert.assertEquals(testData.getValue(2), 3); // 143, 145, 138
+        Assert.assertEquals(testData.getValue(3), 3); // 175, 153, 173
+        Assert.assertEquals(testData.getValue(4), 1); // 218
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -213,11 +213,11 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 3);
-        Assert.assertEquals(testData.getValue(1), 2);
-        Assert.assertEquals(testData.getValue(2), 1);
-        Assert.assertEquals(testData.getValue(3), 2);
-        Assert.assertEquals(testData.getValue(4), 2);
+        Assert.assertEquals(testData.getValue(0), 3); //-92, -95, -78
+        Assert.assertEquals(testData.getValue(1), 2); //-50, -68
+        Assert.assertEquals(testData.getValue(2), 1); //-18
+        Assert.assertEquals(testData.getValue(3), 2); //40, 48
+        Assert.assertEquals(testData.getValue(4), 2); //101, 82
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -244,10 +244,10 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 4);
-        Assert.assertEquals(testData.getValue(1), 2);
-        Assert.assertEquals(testData.getValue(2), 3);
-        Assert.assertEquals(testData.getValue(3), 1);
+        Assert.assertEquals(testData.getValue(0), 4); // 2760, 1425, 11986, 11077
+        Assert.assertEquals(testData.getValue(1), 2); // 21533, 14880
+        Assert.assertEquals(testData.getValue(2), 3); // 38752, 36269, 34827
+        Assert.assertEquals(testData.getValue(3), 1); // 46156
         Assert.assertEquals(testData.getValue(4), 0);
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
@@ -275,11 +275,11 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 2);
-        Assert.assertEquals(testData.getValue(1), 4);
-        Assert.assertEquals(testData.getValue(2), 1);
-        Assert.assertEquals(testData.getValue(3), 1);
-        Assert.assertEquals(testData.getValue(4), 2);
+        Assert.assertEquals(testData.getValue(0), 2); // -31711, -21571
+        Assert.assertEquals(testData.getValue(1), 4); // -19497, -11285, -17219, -12075
+        Assert.assertEquals(testData.getValue(2), 1); // 1187
+        Assert.assertEquals(testData.getValue(3), 1); // 6841
+        Assert.assertEquals(testData.getValue(4), 2); // 26833, 28521
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -306,11 +306,11 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 2);
-        Assert.assertEquals(testData.getValue(1), 2);
-        Assert.assertEquals(testData.getValue(2), 2);
-        Assert.assertEquals(testData.getValue(3), 1);
-        Assert.assertEquals(testData.getValue(4), 3);
+        Assert.assertEquals(testData.getValue(0), 2); // 642532262L, 433606742L
+        Assert.assertEquals(testData.getValue(1), 2); // 1039053181L, 1356288417L
+        Assert.assertEquals(testData.getValue(2), 2); // 1966804319L, 2289077882L
+        Assert.assertEquals(testData.getValue(3), 1); // 3411013609L
+        Assert.assertEquals(testData.getValue(4), 3); // 3513814796L, 4100655705L, 3585211196L
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -337,11 +337,11 @@ public class HistogramRequestHandlerTest {
         JsonArray testData = histogramData.getJsonArray(
             HistogramRequestHandler.HISTOGRAM_DATA_KEY);
         Assert.assertEquals(testData.size(), 5);
-        Assert.assertEquals(testData.getValue(0), 3);
-        Assert.assertEquals(testData.getValue(1), 2);
-        Assert.assertEquals(testData.getValue(2), 4);
+        Assert.assertEquals(testData.getValue(0), 3); // -2068008231, -1400983178, -1762565678
+        Assert.assertEquals(testData.getValue(1), 2); // -936228904, -841111877
+        Assert.assertEquals(testData.getValue(2), 4); // 314025421, 122426751, 308854092, 131007035
         Assert.assertEquals(testData.getValue(3), 0);
-        Assert.assertEquals(testData.getValue(4), 1);
+        Assert.assertEquals(testData.getValue(4), 1); //1524117449
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -370,9 +370,9 @@ public class HistogramRequestHandlerTest {
         Assert.assertEquals(testData.size(), 5);
         Assert.assertEquals(testData.getValue(0), 0);
         Assert.assertEquals(testData.getValue(1), 0);
-        Assert.assertEquals(testData.getValue(2), 1);
-        Assert.assertEquals(testData.getValue(3), 5);
-        Assert.assertEquals(testData.getValue(4), 4);
+        Assert.assertEquals(testData.getValue(2), 1); // 0.0665013
+        Assert.assertEquals(testData.getValue(3), 5); // 0.3194745, 0.4041198, 0.5212703, 0.58057505, 0.25559694
+        Assert.assertEquals(testData.getValue(4), 4); // 0.8714385, 0.7913712, 0.6242399, 0.7946202
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
@@ -401,9 +401,9 @@ public class HistogramRequestHandlerTest {
         Assert.assertEquals(testData.size(), 5);
         Assert.assertEquals(testData.getValue(0), 0);
         Assert.assertEquals(testData.getValue(1), 0);
-        Assert.assertEquals(testData.getValue(2), 1);
-        Assert.assertEquals(testData.getValue(3), 5);
-        Assert.assertEquals(testData.getValue(4), 4);
+        Assert.assertEquals(testData.getValue(2), 1); // 0.0665013
+        Assert.assertEquals(testData.getValue(3), 5); // 0.3194745, 0.4041198, 0.5212703, 0.58057505, 0.25559694
+        Assert.assertEquals(testData.getValue(4), 4); // 0.8714385, 0.7913712, 0.6242399, 0.7946202
         Assert.assertEquals(histogramData.getInteger(
                 HistogramRequestHandler.LEFT_OUTLIER_COUNT_KEY).intValue(), 0);
         Assert.assertEquals(histogramData.getInteger(
