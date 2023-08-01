@@ -17,8 +17,6 @@ import loci.formats.IFormatReader;
 import loci.formats.ImageReader;
 import ome.conditions.ResourceError;
 import ome.io.bioformats.BfPixelBuffer;
-import ome.io.bioformats.BfPixelBufferPlus;
-import ome.io.bioformats.RGBInterleavedReader;
 import ome.io.nio.PixelBuffer;
 import ome.model.core.Channel;
 import ome.model.core.Pixels;
@@ -48,7 +46,7 @@ public class CliHelper {
     }
 
     public void testRender(String filePath, String outputPath, String tileString) throws IOException {
-        BfPixelBufferPlus pixelBuffer = createBfPixelBufferPlus(filePath, 0);
+        BfPixelBuffer pixelBuffer = createBfPixelBuffer(filePath, 0);
         RenderingDef renderingDef = getRenderingDef();
         try {
             BufferedImage image = getBufferedImage(render(pixelBuffer, renderingDef, tileString));
@@ -74,30 +72,6 @@ public class CliHelper {
         testRender(filePath, outputPath, tileString);
     }
 
-    /**
-     * Helper method to properly log any exceptions raised by Bio-Formats.
-     * @param filePath Non-null.
-     * @param series series to use
-     * @return the initialized {@link BfPixelBuffer}
-     */
-    private BfPixelBufferPlus createBfPixelBufferPlus(final String filePath,
-                                              final int series) {
-        try
-        {
-            RGBInterleavedReader reader = createBfPlusReader();
-            BfPixelBufferPlus pixelBuffer = new BfPixelBufferPlus(filePath, reader);
-            pixelBuffer.setSeries(series);
-            System.out.println(String.format("Creating BfPixelBuffer: %s Series: %d",
-                    filePath, series));
-            return pixelBuffer;
-        } catch (Exception e)
-        {
-            String msg = "Error instantiating pixel buffer: " + filePath;
-            e.printStackTrace();
-            throw new ResourceError(msg);
-        }
-    }
-
     private BfPixelBuffer createBfPixelBuffer(final String filePath,
             final int series) {
         try
@@ -114,7 +88,7 @@ public class CliHelper {
             e.printStackTrace();
             throw new ResourceError(msg);
         }
-        }
+    }
 
     private RenderingDef getRenderingDef() {
         RenderingDef rdef = new RenderingDef();
@@ -124,7 +98,7 @@ public class CliHelper {
         qdef.setCdEnd(255);
         rdef.setQuantization(qdef);
         //rdef.setModel(new RenderingModel(RenderingModel.VALUE_RGB));
-        rdef.setModel(new RenderingModel("rgb-interleaved"));
+        rdef.setModel(new RenderingModel("rgb"));
         ChannelBinding cb1 = new ChannelBinding();
         cb1.setFamily(new Family(Family.VALUE_LINEAR));
         cb1.setCoefficient(1.0);
@@ -175,18 +149,6 @@ public class CliHelper {
         reader.setFlattenedResolutions(false);
         reader.setMetadataFiltered(true);
         return reader;
-    }
-
-    private RGBInterleavedReader createBfPlusReader() {
-        IFormatReader reader = new ImageReader();
-        /*
-        reader = new ChannelFiller(reader);
-        reader = new ChannelSeparator(reader);
-        */
-        RGBInterleavedReader rgbiReader = new RGBInterleavedReader(reader);
-        rgbiReader.setFlattenedResolutions(false);
-        rgbiReader.setMetadataFiltered(true);
-        return rgbiReader;
     }
 
     final private long imageId = 123;
@@ -242,14 +204,14 @@ public class CliHelper {
         params.add("region", region);
         params.add("c", c);
         params.add("maps", maps);
-        params.add("m", "i");
+        params.add("m", "c");
 
         return new ImageRegionCtx(params, "");
     }
 
     private LutProvider getLutProvider() {
         ScriptFileType stype = new ScriptFileType("*.lut", "text/x-lut");
-        return new LutProviderImpl(new File("/home/kevin/omerongff/OMERO.server/lib/scripts/"), stype);
+        return new LutProviderImpl(new File("/home/kevin/omero/OMERO.server/lib/scripts/"), stype);
     }
 
 
