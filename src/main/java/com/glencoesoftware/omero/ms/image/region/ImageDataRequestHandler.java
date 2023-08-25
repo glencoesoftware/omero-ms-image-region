@@ -249,23 +249,27 @@ public class ImageDataRequestHandler {
                 List<Project> projects = ds.linkedProjectList();
                 if (projects.size() > 1) {
                     meta.put("projectName", "Multiple");
+                    meta.remove("projectId");
+                    meta.remove("projectDescription");
                     break;
                 } else if (projects.size() == 1) {
                     if (!projectIds.isEmpty() && !projectIds
                             .contains(projects.get(0).getId().getValue())) {
                         meta.put("projectName", "Multiple");
+                        meta.remove("projectId");
+                        meta.remove("projectDescription");
                         break;
                     } else {
-                        projectIds.add(projects.get(0).getId().getValue());
+                        Project project = projects.get(0);
+                        projectIds.add(project.getId().getValue());
+                        // In case this is the only dataset with a project,
+                        // set the properties here
+                        meta.put("projectName", unwrap(project.getName()));
+                        meta.put("projectId", project.getId().getValue());
+                        meta.put("projectDescription",
+                                unwrap(project.getDescription()));
                     }
                 }
-            }
-            if (!meta.containsKey("projectName")) {
-                Project project = datasets.get(0).linkedProjectList().get(0);
-                meta.put("projectName", unwrap(project.getName()));
-                meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription",
-                        unwrap(project.getDescription()));
             }
         } else if (datasets.size() == 1) {
             Dataset ds = datasets.get(0);
