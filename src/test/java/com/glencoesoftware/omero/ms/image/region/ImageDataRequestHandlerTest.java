@@ -225,9 +225,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
     public JsonObject getImageDataMetaTest() {
         JsonObject meta = new JsonObject();
-        meta.put("datasetDescription", DATASET_DESC_1);
-        meta.put("datasetId", DATASET_ID_1);
-        meta.put("datasetName", DATASET_NAME_1);
+        meta.put("datasetDescription", "");
+        meta.put("datasetId", (Long) null);
+        meta.put("datasetName", "Multiple");
         meta.put("imageAuthor", OWNER_FIRST_NAME + " " + OWNER_LAST_NAME);
         meta.put("imageAuthorId", OWNER_ID);
         meta.put("imageDescription", IMAGE_DESC);
@@ -235,9 +235,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         meta.put("imageName", IMAGE_NAME);
         meta.put("imageTimestamp", IMAGE_TIMESTAMP);
         meta.put("pixelsType", PIX_TYPE_STR);
-        meta.put("projectDescription", PROJECT_DESC_1);
-        meta.put("projectId", PROJECT_ID_1);
-        meta.put("projectName", PROJECT_NAME_1);
+        meta.put("projectDescription", "");
+        meta.put("projectId", (Long)  null);
+        meta.put("projectName", "Multiple");
         meta.put("wellId", WELL_ID);
         meta.put("wellSampleId", WELL_SAMPLE_ID);
         return meta;
@@ -408,14 +408,6 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         image.setDescription(rstring(IMAGE_DESC));
         image.getDetails().setOwner(owner);
         image.getDetails().setCreationEvent(creationEvent);
-        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
-        ds1.setName(rstring(DATASET_NAME_1));
-        ds1.setDescription(rstring(DATASET_DESC_1));
-        ProjectI proj_1 = new ProjectI(PROJECT_ID_1, true);
-        proj_1.setName(rstring(PROJECT_NAME_1));
-        proj_1.setDescription(rstring(PROJECT_DESC_1));
-        image.linkDataset(ds1);
-        ds1.linkProject(proj_1);
 
         Pixels pixels = new PixelsI(PIXELS_ID, true);
         PixelsTypeI pixType = new PixelsTypeI();
@@ -542,6 +534,56 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 image, pixelBuffer, rdefs, OWNER_ID);
         Assert.assertEquals(basicObj, imgData);
     }
+    
+    @Test
+    public void testImageDataSingleDataset() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        image.linkDataset(ds1);
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject singleDsCorrect = imgData.copy();
+        singleDsCorrect.getJsonObject("meta").put("datasetName", DATASET_NAME_1);
+        singleDsCorrect.getJsonObject("meta").put("datasetId", DATASET_ID_1);
+        singleDsCorrect.getJsonObject("meta").put("datasetDescription", DATASET_DESC_1);
+        singleDsCorrect.getJsonObject("meta").remove("projectName");
+        singleDsCorrect.getJsonObject("meta").remove("projectId");
+        singleDsCorrect.getJsonObject("meta").remove("projectDescription");
+        Assert.assertEquals(basicObj, singleDsCorrect);
+    }
+
+    @Test
+    public void testImageDataSingleDatasetAndProject() throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        ProjectI project1 = new ProjectI(PROJECT_ID_1, true);
+        project1.setName(rstring(PROJECT_NAME_1));
+        project1.setDescription(rstring(PROJECT_DESC_1));
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        ds1.linkProject(project1);
+        image.linkDataset(ds1);
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject singleDsProjCorrect = imgData.copy();
+        singleDsProjCorrect.getJsonObject("meta").put("datasetName", DATASET_NAME_1);
+        singleDsProjCorrect.getJsonObject("meta").put("datasetId", DATASET_ID_1);
+        singleDsProjCorrect.getJsonObject("meta").put("datasetDescription", DATASET_DESC_1);
+        singleDsProjCorrect.getJsonObject("meta").put("projectName", PROJECT_NAME_1);
+        singleDsProjCorrect.getJsonObject("meta").put("projectId", PROJECT_ID_1);
+        singleDsProjCorrect.getJsonObject("meta").put("projectDescription", PROJECT_DESC_1);
+        Assert.assertEquals(basicObj, singleDsProjCorrect);
+    }
 
     @Test
     public void testImageDataMultipleProjects() throws ApiUsageException {
@@ -549,14 +591,25 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        image.linkDataset(ds1);
+        ProjectI project1 = new ProjectI(PROJECT_ID_1, true);
+        project1.setName(rstring(PROJECT_NAME_1));
+        project1.setDescription(rstring(PROJECT_DESC_1));
+        ds1.linkProject(project1);
         ProjectI project2 = new ProjectI();
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
-        image.linkedDatasetList().get(0).linkProject(project2);
+        ds1.linkProject(project2);
 
         JsonObject basicObj = reqHandler.populateImageData(
                 image, pixelBuffer, rdefs, OWNER_ID);
         JsonObject multProjCorrect = imgData.copy();
+        multProjCorrect.getJsonObject("meta").put("datasetName", DATASET_NAME_1);
+        multProjCorrect.getJsonObject("meta").put("datasetId", DATASET_ID_1);
+        multProjCorrect.getJsonObject("meta").put("datasetDescription", DATASET_DESC_1);
         multProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
         multProjCorrect.getJsonObject("meta").remove("projectId");
@@ -571,6 +624,10 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        image.linkDataset(ds1);
         DatasetI ds2 = new DatasetI();
         ds2.setName(rstring("ds2 name"));
         ds2.setDescription(rstring("ds2 desc"));
@@ -582,7 +639,42 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
         multDsCorrect.getJsonObject("meta").remove("datasetId");
         multDsCorrect.getJsonObject("meta").remove("datasetDescription");
+        multDsCorrect.getJsonObject("meta").remove("projectName");
+        multDsCorrect.getJsonObject("meta").remove("projectId");
+        multDsCorrect.getJsonObject("meta").remove("projectDescription");
         Assert.assertEquals(basicObj, multDsCorrect);
+    }
+
+    @Test
+    public void testImageDataMultipleDatasetsOneProject()
+            throws ApiUsageException {
+        ImageDataCtx ctx = new ImageDataCtx();
+        ctx.imageId = IMAGE_ID;
+        ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
+                ctx, null, 0, true);
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        image.linkDataset(ds1);
+        ProjectI project1 = new ProjectI(PROJECT_ID_1, true);
+        project1.setName(rstring(PROJECT_NAME_1));
+        project1.setDescription(rstring(PROJECT_DESC_1));
+        DatasetI ds2 = new DatasetI();
+        ds2.setName(rstring("ds2 name"));
+        ds2.setDescription(rstring("ds2 desc"));
+        project1.linkDataset(ds2);
+        image.linkDataset(ds2);
+
+        JsonObject basicObj = reqHandler.populateImageData(
+                image, pixelBuffer, rdefs, OWNER_ID);
+        JsonObject multDs1ProjCorrect = imgData.copy();
+        multDs1ProjCorrect.getJsonObject("meta").put("datasetName", "Multiple");
+        multDs1ProjCorrect.getJsonObject("meta").remove("datasetId");
+        multDs1ProjCorrect.getJsonObject("meta").remove("datasetDescription");
+        multDs1ProjCorrect.getJsonObject("meta").put("projectName", PROJECT_NAME_1);
+        multDs1ProjCorrect.getJsonObject("meta").put("projectId", PROJECT_ID_1);
+        multDs1ProjCorrect.getJsonObject("meta").put("projectDescription", PROJECT_DESC_1);
+        Assert.assertEquals(basicObj, multDs1ProjCorrect);
     }
 
     @Test
@@ -592,10 +684,17 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
                 ctx, null, 0, true);
+        ProjectI project1 = new ProjectI(PROJECT_ID_1, true);
+        project1.setName(rstring(PROJECT_NAME_1));
+        project1.setDescription(rstring(PROJECT_DESC_1));
+        DatasetI ds1 = new DatasetI(DATASET_ID_1, true);
+        ds1.setName(rstring(DATASET_NAME_1));
+        ds1.setDescription(rstring(DATASET_DESC_1));
+        ds1.linkProject(project1);
+        image.linkDataset(ds1);
         ProjectI project2 = new ProjectI(123, true);
         project2.setName(rstring("proj2 name"));
         project2.setDescription(rstring("proj2 desc"));
-
         DatasetI ds2 = new DatasetI(123, true);
         ds2.setName(rstring("ds2 name"));
         ds2.setDescription(rstring("ds2 desc"));
