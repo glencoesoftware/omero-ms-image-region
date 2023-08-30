@@ -534,7 +534,7 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 image, pixelBuffer, rdefs, OWNER_ID);
         Assert.assertEquals(basicObj, imgData);
     }
-    
+
     @Test
     public void testImageDataSingleDataset() throws ApiUsageException {
         ImageDataCtx ctx = new ImageDataCtx();
@@ -552,9 +552,9 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         singleDsCorrect.getJsonObject("meta").put("datasetName", DATASET_NAME_1);
         singleDsCorrect.getJsonObject("meta").put("datasetId", DATASET_ID_1);
         singleDsCorrect.getJsonObject("meta").put("datasetDescription", DATASET_DESC_1);
-        singleDsCorrect.getJsonObject("meta").remove("projectName");
-        singleDsCorrect.getJsonObject("meta").remove("projectId");
-        singleDsCorrect.getJsonObject("meta").remove("projectDescription");
+        singleDsCorrect.getJsonObject("meta").put("projectName", "Multiple");
+        singleDsCorrect.getJsonObject("meta").putNull("projectId");
+        singleDsCorrect.getJsonObject("meta").put("projectDescription", "");
         Assert.assertEquals(basicObj, singleDsCorrect);
     }
 
@@ -612,8 +612,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         multProjCorrect.getJsonObject("meta").put("datasetDescription", DATASET_DESC_1);
         multProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
-        multProjCorrect.getJsonObject("meta").remove("projectId");
-        multProjCorrect.getJsonObject("meta").remove("projectDescription");
+        multProjCorrect.getJsonObject("meta").putNull("projectId");
+        multProjCorrect.getJsonObject("meta").put("projectDescription", "");
         Assert.assertEquals(basicObj, multProjCorrect);
     }
 
@@ -637,11 +637,11 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 image, pixelBuffer, rdefs, OWNER_ID);
         JsonObject multDsCorrect = imgData.copy();
         multDsCorrect.getJsonObject("meta").put("datasetName", "Multiple");
-        multDsCorrect.getJsonObject("meta").remove("datasetId");
-        multDsCorrect.getJsonObject("meta").remove("datasetDescription");
-        multDsCorrect.getJsonObject("meta").remove("projectName");
-        multDsCorrect.getJsonObject("meta").remove("projectId");
-        multDsCorrect.getJsonObject("meta").remove("projectDescription");
+        multDsCorrect.getJsonObject("meta").putNull("datasetId");
+        multDsCorrect.getJsonObject("meta").put("datasetDescription", "");
+        multDsCorrect.getJsonObject("meta").put("projectName", "Multiple");
+        multDsCorrect.getJsonObject("meta").putNull("projectId");
+        multDsCorrect.getJsonObject("meta").put("projectDescription", "");
         Assert.assertEquals(basicObj, multDsCorrect);
     }
 
@@ -669,8 +669,8 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
                 image, pixelBuffer, rdefs, OWNER_ID);
         JsonObject multDs1ProjCorrect = imgData.copy();
         multDs1ProjCorrect.getJsonObject("meta").put("datasetName", "Multiple");
-        multDs1ProjCorrect.getJsonObject("meta").remove("datasetId");
-        multDs1ProjCorrect.getJsonObject("meta").remove("datasetDescription");
+        multDs1ProjCorrect.getJsonObject("meta").putNull("datasetId");
+        multDs1ProjCorrect.getJsonObject("meta").put("datasetDescription", "");
         multDs1ProjCorrect.getJsonObject("meta").put("projectName", PROJECT_NAME_1);
         multDs1ProjCorrect.getJsonObject("meta").put("projectId", PROJECT_ID_1);
         multDs1ProjCorrect.getJsonObject("meta").put("projectDescription", PROJECT_DESC_1);
@@ -706,15 +706,14 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         JsonObject multDsProjCorrect = imgData.copy();
         multDsProjCorrect.getJsonObject("meta").put("datasetName",
                 "Multiple");
-        multDsProjCorrect.getJsonObject("meta").remove("datasetId");
-        multDsProjCorrect.getJsonObject("meta")
-                .remove("datasetDescription");
+        multDsProjCorrect.getJsonObject("meta").putNull("datasetId");
+        multDsProjCorrect.getJsonObject("meta").put("datasetDescription", "");
 
         multDsProjCorrect.getJsonObject("meta").put("projectName",
                 "Multiple");
-        multDsProjCorrect.getJsonObject("meta").remove("projectId");
+        multDsProjCorrect.getJsonObject("meta").putNull("projectId");
         multDsProjCorrect.getJsonObject("meta")
-                .remove("projectDescription");
+                .put("projectDescription", "");
         Assert.assertEquals(basicObj, multDsProjCorrect);
     }
 
