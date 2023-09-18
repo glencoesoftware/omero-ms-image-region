@@ -252,7 +252,7 @@ public class ImageDataRequestHandler {
         meta.putNull("projectId");
         meta.put("projectDescription", "");
         List<Dataset> datasets = image.linkedDatasetList();
-        if (datasets != null && datasets.size() > 1) {
+        if (datasets.size() > 1) {
             Set<Long> projectIds = new HashSet<Long>();
             for (Dataset ds : datasets) {
                 List<Project> projects = ds.linkedProjectList();
