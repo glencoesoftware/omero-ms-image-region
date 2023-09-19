@@ -241,55 +241,54 @@ public class ImageDataRequestHandler {
                     + String.valueOf(unwrap(owner.getLastName()))));
         }
         meta.put("imageAuthorId", owner.getId().getValue());
+        // Unless there is exactly 1 project or dataset associated
+        // with the given image, the name will be "Multiple",
+        // the id will be null and the description will be ""
+        // to match OMERO.web behavior
+        meta.put("datasetName", "Multiple");
+        meta.putNull("datasetId");
+        meta.put("datasetDescription", "");
+        meta.put("projectName", "Multiple");
+        meta.putNull("projectId");
+        meta.put("projectDescription", "");
         List<Dataset> datasets = image.linkedDatasetList();
-        if (datasets != null && datasets.size() > 1) {
-            meta.put("datasetName", "Multiple");
+        if (datasets.size() > 1) {
             Set<Long> projectIds = new HashSet<Long>();
             for (Dataset ds : datasets) {
                 List<Project> projects = ds.linkedProjectList();
-                if (projects.size() > 1) {
-                    meta.put("projectName", "Multiple");
-                    break;
-                } else if (projects.size() == 1) {
+                if (projects.size() == 1) {
                     if (!projectIds.isEmpty() && !projectIds
                             .contains(projects.get(0).getId().getValue())) {
                         meta.put("projectName", "Multiple");
+                        meta.putNull("projectId");
+                        meta.put("projectDescription", "");
                         break;
                     } else {
-                        projectIds.add(projects.get(0).getId().getValue());
+                        Project project = projects.get(0);
+                        projectIds.add(project.getId().getValue());
+                        // In case this is the only dataset with a project,
+                        // set the properties here
+                        meta.put("projectName", unwrap(project.getName()));
+                        meta.put("projectId", project.getId().getValue());
+                        meta.put("projectDescription", project.getDescription()
+                                == null ? "" : unwrap(project.getDescription()));
                     }
                 }
-            }
-            if (!meta.containsKey("projectName")) {
-                Project project = datasets.get(0).linkedProjectList().get(0);
-                meta.put("projectName", unwrap(project.getName()));
-                meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription",
-                        unwrap(project.getDescription()));
             }
         } else if (datasets.size() == 1) {
             Dataset ds = datasets.get(0);
             meta.put("datasetName", unwrap(ds.getName()));
             meta.put("datasetId", ds.getId().getValue());
-            meta.put("datasetDescription", unwrap(ds.getDescription()));
+            meta.put("datasetDescription", ds.getDescription() == null ? ""
+                    : unwrap(ds.getDescription()));
             List<Project> projects = ds.linkedProjectList();
-            if (projects.size() > 1) {
-                meta.put("projectName", "Multiple");
-            } else if (projects.size() == 1) {
+            if (projects.size() == 1) {
                 Project project = projects.get(0);
                 meta.put("projectName", unwrap(project.getName()));
                 meta.put("projectId", project.getId().getValue());
-                meta.put("projectDescription",
-                        unwrap(project.getDescription()));
+                meta.put("projectDescription", project.getDescription() == null
+                        ? "" : unwrap(project.getDescription()));
             }
-        } else if (datasets.size() == 0) {
-            //Dataset and Project names are Multiple to match omero-web
-            meta.put("datasetName", "Multiple");
-            meta.putNull("datasetId");
-            meta.put("datasetDescription", "");
-            meta.put("projectName", "Multiple");
-            meta.putNull("projectId");
-            meta.put("projectDescription", "");
         }
         if (image.sizeOfWellSamples() > 0) {
             WellSampleI wellSample = (WellSampleI) image.copyWellSamples().get(0);
