@@ -454,19 +454,25 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             int statusCode = 404;
             if (t instanceof ReplyException) {
                 statusCode = ((ReplyException) t).failureCode();
-                response.setStatusMessage(t.getMessage());
-                response.headers().set(
-                        "Content-Length",
-                        String.valueOf(t.getMessage().length()));
-                response.write(t.getMessage());
+                if (statusCode < 200 || statusCode > 599) {
+                    log.error(
+                        "Unexpected failureCode {} resetting to 500",
+                        statusCode, t);
+                    statusCode = 500;
+                }
+                response.setStatusCode(statusCode);
+                response.end(t.getMessage());
+                response.close();
+            } else {
+                if (statusCode < 200 || statusCode > 599) {
+                    log.error(
+                        "Unexpected failureCode {} resetting to 500",
+                        statusCode, t);
+                    response.setStatusCode(500);
+                    response.end();
+                    response.close();
+                }
             }
-            if (statusCode < 200 || statusCode > 599) {
-                log.error(
-                    "Unexpected failureCode {} resetting to 500",
-                    statusCode, t);
-                statusCode = 500;
-            }
-            response.setStatusCode(statusCode);
         }
         return resultFailed;
     }
