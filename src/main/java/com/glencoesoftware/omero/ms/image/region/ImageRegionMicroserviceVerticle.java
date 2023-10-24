@@ -451,18 +451,29 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         Boolean resultFailed = result.failed();
         if (resultFailed) {
             Throwable t = result.cause();
-            int statusCode = 404;
+            // t should always be a ReplyException, but we check anyway
             if (t instanceof ReplyException) {
-                statusCode = ((ReplyException) t).failureCode();
+                int statusCode = ((ReplyException) t).failureCode();
+                // When vertx supplies a ReplyException instead of our code
+                // (e.g. timeout), the failure code may not be an http status code
+                // (it's often -1). We reset these codes to 500.
                 if (statusCode < 200 || statusCode > 599) {
                     log.error(
                         "Unexpected failureCode {} resetting to 500",
                         statusCode, t);
                     statusCode = 500;
                 }
+                // We must set the status code before calling write or the status code
+                // will be fixed to 200 (the default)
                 response.setStatusCode(statusCode);
-                response.end(t.getMessage());
-                response.close();
+                response.headers().set(
+                        "Content-Length",
+                        String.valueOf(t.getMessage().length()));
+                response.write(t.getMessage());
+            } else {
+                // If it's not a ReplyException, return 500
+                log.error("Non-ReplyException received - this shouldn't happen");
+                response.setStatusCode(500);
             }
         }
         return resultFailed;
