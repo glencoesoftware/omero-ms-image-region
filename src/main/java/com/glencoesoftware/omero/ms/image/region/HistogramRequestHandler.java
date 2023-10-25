@@ -173,6 +173,7 @@ public class HistogramRequestHandler {
                     iQuery, Arrays.asList(histogramCtx.imageId));
             Pixels pixels = imagePixels.get(histogramCtx.imageId);
             if (pixels == null ||
+                   histogramCtx.c >= pixels.getSizeC() ||
                    histogramCtx.z >= pixels.getSizeZ() ||
                    histogramCtx.t >= pixels.getSizeT()) {
                 return null;
