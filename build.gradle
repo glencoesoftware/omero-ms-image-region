@@ -1,10 +1,11 @@
+
 plugins {
     id 'application'
     id 'eclipse'
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.8.3'
+version = '0.8.4-SNAPSHOT'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
