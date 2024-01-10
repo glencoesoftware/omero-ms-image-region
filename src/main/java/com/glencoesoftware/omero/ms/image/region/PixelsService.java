@@ -108,7 +108,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
                         uri.getScheme(), uri.getUserInfo(), uri.getHost(),
                         uri.getPort(), "", "", "");
                 // drop initial "/"
-                String uriPath = uri.getRawPath().substring(1);
+                String uriPath = uri.getPath().substring(1);
                 int first = uriPath.indexOf("/");
                 String bucket = "/" + uriPath.substring(0, first);
                 String rest = uriPath.substring(first + 1);
