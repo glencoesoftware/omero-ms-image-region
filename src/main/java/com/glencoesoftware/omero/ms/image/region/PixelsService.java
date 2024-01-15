@@ -269,8 +269,8 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 log.debug("No OME-NGFF root");
                 return null;
             }
+            log.info("OME-NGFF root is: " + uri);
             Path root = asPath(uri);
-            log.info("OME-NGFF root is: " + root);
             try {
                 PixelBuffer v = new ZarrPixelBuffer(
                         pixels, root, maxPlaneWidth, maxPlaneHeight);
