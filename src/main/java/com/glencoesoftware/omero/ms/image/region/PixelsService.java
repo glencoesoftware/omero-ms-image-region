@@ -108,7 +108,7 @@ public class PixelsService extends ome.io.nio.PixelsService {
                         uri.getScheme(), uri.getUserInfo(), uri.getHost(),
                         uri.getPort(), "", "", "");
                 // drop initial "/"
-                String uriPath = uri.getRawPath().substring(1);
+                String uriPath = uri.getPath().substring(1);
                 int first = uriPath.indexOf("/");
                 String bucket = "/" + uriPath.substring(0, first);
                 String rest = uriPath.substring(first + 1);
@@ -269,8 +269,8 @@ public class PixelsService extends ome.io.nio.PixelsService {
                 log.debug("No OME-NGFF root");
                 return null;
             }
+            log.info("OME-NGFF root is: " + uri);
             Path root = asPath(uri);
-            log.info("OME-NGFF root is: " + root);
             try {
                 PixelBuffer v = new ZarrPixelBuffer(
                         pixels, root, maxPlaneWidth, maxPlaneHeight);
