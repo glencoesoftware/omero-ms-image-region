@@ -167,7 +167,7 @@ public abstract class AbstractZarrPixelBufferTest {
                 "pixelType", pixelType,
                 "resolutions", Integer.toString(resolutions));
         Path output = tmpDir.getRoot().toPath().resolve("output.zarr");
-        assertBioFormats2Raw(input, output, "--pixel-type", pixelType);
+        assertBioFormats2Raw(input, output);
         List<Object> msArray = new ArrayList<>();
         Map<String, Object> msData = new HashMap<>();
         Map<String, Object> msMetadata = new HashMap<>();
