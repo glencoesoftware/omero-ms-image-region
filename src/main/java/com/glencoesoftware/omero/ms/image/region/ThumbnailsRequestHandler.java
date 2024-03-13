@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.ms.core.PixelsService;
+
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.HashMap;

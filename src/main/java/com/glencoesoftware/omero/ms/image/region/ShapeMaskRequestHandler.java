@@ -18,6 +18,9 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.ms.core.PixelsService;
+import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
+
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;

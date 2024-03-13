@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.ms.core.PixelsService;
+
 import java.io.IOException;
 import java.io.File;
 import java.nio.file.Files;
@@ -56,8 +58,10 @@ public class PixelsServiceTest {
   public void setUp() throws IOException {
       File pixelsDir = Files.createTempDirectory("pixels").toFile();
       pixelsDir.deleteOnExit();
+      File memoDir = Files.createTempDirectory("memoizer").toFile();
+      memoDir.deleteOnExit();
       pixelsService = new PixelsService(
-          pixelsDir.getAbsolutePath(), 0L, null, null, null, null, 0, 0);
+          pixelsDir.getAbsolutePath(), false, memoDir, 0L, null, null, null, null, 0, 0, 0);
       mask = new MaskI();
       image = new ImageI();
   }

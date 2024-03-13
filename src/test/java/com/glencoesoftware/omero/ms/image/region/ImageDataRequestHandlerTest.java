@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
