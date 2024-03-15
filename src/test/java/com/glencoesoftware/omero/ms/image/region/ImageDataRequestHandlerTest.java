@@ -19,7 +19,6 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
-import com.glencoesoftware.omero.ms.core.PixelsService;
 
 import java.io.File;
 import java.io.IOException;

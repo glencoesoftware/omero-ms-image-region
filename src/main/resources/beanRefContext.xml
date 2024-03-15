@@ -53,7 +53,7 @@
 
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
   
-  <bean name="imageRegionPixelsService" class="com.glencoesoftware.omero.ms.core.PixelsService"
+  <bean name="imageRegionPixelsService" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
         parent="filesystem">
     <!-- index=0 "path" comes from parent -->
     <constructor-arg index="2" value="${omero.pixeldata.memoizer.dir}"/>

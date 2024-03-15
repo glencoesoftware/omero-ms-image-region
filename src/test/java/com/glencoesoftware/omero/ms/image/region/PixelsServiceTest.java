@@ -18,8 +18,6 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import com.glencoesoftware.omero.ms.core.PixelsService;
-
 import java.io.IOException;
 import java.io.File;
 import java.nio.file.Files;

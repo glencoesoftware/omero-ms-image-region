@@ -28,8 +28,6 @@ import java.util.Set;
 
 import org.slf4j.LoggerFactory;
 
-import com.glencoesoftware.omero.ms.core.PixelsService;
-
 import brave.ScopedSpan;
 import brave.Tracer;
 import brave.Tracing;
