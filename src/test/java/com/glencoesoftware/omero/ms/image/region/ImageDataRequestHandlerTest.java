@@ -19,6 +19,7 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
+import com.glencoesoftware.omero.ms.core.PixelsService;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -78,6 +79,8 @@ import static omero.rtypes.rtime;
 
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
 
@@ -384,13 +387,19 @@ public class ImageDataRequestHandlerTest extends AbstractZarrPixelBufferTest {
         return rdef;
     }
 
-    private void createPixelBuffer() throws IOException, ApiUsageException {
+    public void createPixelBuffer() throws IOException, ApiUsageException {
         Path output = writeTestZarr(
                 PIXELS_SIZE_T, PIXELS_SIZE_C, PIXELS_SIZE_Z,
                 PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
         pixelBuffer = new ZarrPixelBuffer((ome.model.core.Pixels)
                 new IceMapper().reverse(image.getPrimaryPixels()),
-                output.resolve("0"), 1024, 1024);
+                output.resolve("0"), 1024, 1024,
+                Caffeine.newBuilder()
+                    .maximumSize(0)
+                    .buildAsync(PixelsService::getZarrMetadata),
+                Caffeine.newBuilder()
+                    .maximumSize(0)
+                    .buildAsync(PixelsService::getZarrArray));
     }
 
     @Before
