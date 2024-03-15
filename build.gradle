@@ -31,14 +31,7 @@ repositories {
         url 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
     }
     maven {
-        url 'https://repo.glencoesoftware.com/repository/jzarr-snapshots'
-    }
-    maven {
         url 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
-    }
-    maven {
-        name 'Brockmann-Consult Public Maven Repository'
-        url 'https://nexus.senbox.net/nexus/content/groups/public/'
     }
 }
 
@@ -84,7 +77,7 @@ dependencies {
     implementation 'com.zeroc:icegrid:3.6.4'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
-    implementation 'com.bc.zarr:jzarr:0.3.5'
+    implementation 'dev.zarr:jzarr:0.4.2'
     implementation 'org.lasersonlab:s3fs:2.2.3'
     implementation 'com.amazonaws:aws-java-sdk-s3:1.12.659'
 
