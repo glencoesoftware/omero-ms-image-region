@@ -418,8 +418,8 @@ public class ImageRegionCtxTest {
                 data, ImageRegionCtx.class);
         Assert.assertEquals(
                 imageCtxDecoded.projection, ProjectionType.MAXIMUMINTENSITY);
-        Assert.assertEquals(imageCtxDecoded.projectionStart, new Integer(0));
-        Assert.assertEquals(imageCtxDecoded.projectionEnd, new Integer(1));
+        Assert.assertEquals(imageCtxDecoded.projectionStart, Integer.valueOf(0));
+        Assert.assertEquals(imageCtxDecoded.projectionEnd, Integer.valueOf(1));
     }
 
     @Test
@@ -528,22 +528,22 @@ public class ImageRegionCtxTest {
         renderer.setRGBA(2, c3.getRed(), c3.getGreen(), c3.getBlue(), c3.getAlpha());
 
         ChannelBinding cb = renderer.getChannelBindings()[0];
-        Assert.assertEquals(cb.getRed(), new Integer(255));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
 
         cb = renderer.getChannelBindings()[1];
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(255));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
 
         cb = renderer.getChannelBindings()[2];
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(255));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
 
     }
 
@@ -586,7 +586,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -607,7 +607,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -628,7 +628,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -649,7 +649,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -670,7 +670,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "logarithmic");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -691,7 +691,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -712,7 +712,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -732,7 +732,7 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals(cb.getFamily().getValue(), "linear");
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -752,17 +752,17 @@ public class ImageRegionCtxTest {
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertEquals("linear", cb.getFamily().getValue());
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertEquals("exponential", cb.getFamily().getValue());
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertEquals("linear", cb.getFamily().getValue());
         Assert.assertEquals(cb.getCoefficient(), 1.0, 0);
-        Assert.assertEquals(cb.getNoiseReduction(), new Boolean(false));
+        Assert.assertEquals(cb.getNoiseReduction(), Boolean.valueOf(false));
     }
 
     @Test
@@ -787,26 +787,26 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertFalse(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(0));
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(255));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(255));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
     }
@@ -833,26 +833,26 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(255));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertFalse(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(0));
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(255));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
     }
@@ -879,28 +879,28 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(255));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "exponential");
         Assert.assertEquals(cb.getCoefficient(), 1.8, 0);
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(255));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
         Assert.assertEquals(cb.getFamily().getValue(), "polynomial");
         Assert.assertEquals(cb.getCoefficient(), 1.2, 0);
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertFalse(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(0));
     }
 
     @Test
@@ -920,24 +920,24 @@ public class ImageRegionCtxTest {
         Assert.assertEquals(3, renderer.getChannelBindings().length);
         ChannelBinding cb = renderer.getChannelBindings()[0];
         Assert.assertFalse(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(0));
 
         cb = renderer.getChannelBindings()[1];
         Assert.assertTrue(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(255));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(255));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(255));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(255));
 
         cb = renderer.getChannelBindings()[2];
         Assert.assertFalse(cb.getActive());
-        Assert.assertEquals(cb.getRed(), new Integer(0));
-        Assert.assertEquals(cb.getGreen(), new Integer(0));
-        Assert.assertEquals(cb.getBlue(), new Integer(0));
-        Assert.assertEquals(cb.getAlpha(), new Integer(0));
+        Assert.assertEquals(cb.getRed(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getGreen(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getBlue(), Integer.valueOf(0));
+        Assert.assertEquals(cb.getAlpha(), Integer.valueOf(0));
     }
 
     @Test(expected = IllegalArgumentException.class)
