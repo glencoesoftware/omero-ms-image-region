@@ -25,7 +25,6 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 
-
 import brave.ScopedSpan;
 import brave.Tracer;
 import brave.Tracing;

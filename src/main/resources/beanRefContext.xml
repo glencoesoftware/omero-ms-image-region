@@ -8,6 +8,7 @@
 
   <bean name="filesystem"  abstract="true">
     <constructor-arg index="0" value="${omero.data.dir}"/>
+    <constructor-arg index="1" type="boolean" value="false"/>
   </bean>
 
   <bean id="omeroFilePathResolver" class="ome.services.OmeroFilePathResolver">
@@ -52,16 +53,18 @@
 
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
   
-  <bean name="imageRegionPixelsService" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
+  <bean name="/OMERO/Pixels" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
         parent="filesystem">
     <!-- index=0 "path" comes from parent -->
-    <constructor-arg index="1" ref="MemoizerWait"/>
-    <constructor-arg ref="omeroFilePathResolver"/>
-    <constructor-arg ref="backOff"/>
-    <constructor-arg ref="tileSizes"/>
-    <constructor-arg><null /></constructor-arg>
-    <constructor-arg value="${omero.pixeldata.max_plane_width:3192}" />
-    <constructor-arg value="${omero.pixeldata.max_plane_height:3192}" />
+    <constructor-arg index="2" value="${omero.pixeldata.memoizer.dir}"/>
+    <constructor-arg index="3" ref="MemoizerWait"/>
+    <constructor-arg index="4" ref="omeroFilePathResolver"/>
+    <constructor-arg index="5" ref="backOff"/>
+    <constructor-arg index="6" ref="tileSizes"/>
+    <constructor-arg index="7" ><null /></constructor-arg>
+    <constructor-arg index="8" value="${omero.pixeldata.zarr_cache_size:500}" />
+    <constructor-arg index="9" value="${omero.pixeldata.max_plane_width:3192}" />
+    <constructor-arg index="10" value="${omero.pixeldata.max_plane_height:3192}" />
     <property name="metrics" ref="metrics"/>
   </bean>
 
@@ -73,14 +76,14 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-    <constructor-arg ref="imageRegionPixelsService"/>
+    <constructor-arg ref="/OMERO/Pixels"/>
     <constructor-arg ref="iscale" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
-    <constructor-arg ref="imageRegionPixelsService" />
+    <constructor-arg ref="/OMERO/Pixels" />
   </bean>
 
 </beans>

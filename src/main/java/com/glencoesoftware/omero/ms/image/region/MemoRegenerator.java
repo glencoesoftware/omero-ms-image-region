@@ -36,9 +36,11 @@ import com.univocity.parsers.csv.CsvParserSettings;
 
 import loci.formats.FormatTools;
 import ome.conditions.MissingPyramidException;
+import ome.conditions.LockTimeout;
 import ome.io.nio.PixelBuffer;
 import ome.io.nio.PixelsService;
 import ome.model.core.Image;
+import ome.model.enums.Format;
 import ome.model.core.Pixels;
 import ome.model.enums.PixelsType;
 import picocli.CommandLine;
@@ -158,8 +160,7 @@ public class MemoRegenerator implements Callable<Void> {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
-                "classpath*:beanRefContext.xml",
-                "classpath*:service-ms.core.PixelsService.xml");
+                "classpath*:beanRefContext.xml");
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
         if (mode.cacheDir != null) {
             pixelsService.setMemoizerDirectoryLocal(mode.cacheDir.toString());
@@ -197,7 +198,7 @@ public class MemoRegenerator implements Callable<Void> {
                 }
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - ok: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
-            } catch (MissingPyramidException e) {
+            } catch (MissingPyramidException | LockTimeout e) {
                 long elapsedTime = System.nanoTime() - startTime;
                 System.out.printf("%d/%d - skip: %d %.3f%n", i, total, imageId, (float) elapsedTime/1000000);
             } catch (Exception e) {
@@ -224,10 +225,11 @@ public class MemoRegenerator implements Callable<Void> {
         Integer sizeZ = (Integer) row[6];
         Integer sizeC = (Integer) row[7];
         Integer sizeT = (Integer) row[8];
+        String format = (String) row[9];
 
         Image image = new Image(imageId, true);
         image.setSeries(series);
-
+        image.setFormat(new Format(format));
         Pixels pixels = new Pixels(pixelsId, true);
         pixels.setImage(image);
         PixelsType pt = new PixelsType(pixelsType);
