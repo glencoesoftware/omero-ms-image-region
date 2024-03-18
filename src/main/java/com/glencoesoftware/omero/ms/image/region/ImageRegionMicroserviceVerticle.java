@@ -171,8 +171,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
-                "classpath*:beanRefContext.xml",
-                "classpath*:service-ms.core.PixelsService.xml");
+                "classpath*:beanRefContext.xml");
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
         JsonObject httpTracingConfig =

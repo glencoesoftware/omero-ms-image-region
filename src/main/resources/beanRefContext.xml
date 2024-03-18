@@ -53,7 +53,7 @@
 
   <bean id="metrics" class="ome.system.metrics.NullMetrics"/>
   
-  <bean name="imageRegionPixelsService" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
+  <bean name="/OMERO/Pixels" class="com.glencoesoftware.omero.ms.image.region.PixelsService"
         parent="filesystem">
     <!-- index=0 "path" comes from parent -->
     <constructor-arg index="2" value="${omero.pixeldata.memoizer.dir}"/>
@@ -76,14 +76,14 @@
     <constructor-arg ref="internal-ome.api.ICompress" />
     <constructor-arg ref="lutProvider" />
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
-    <constructor-arg ref="imageRegionPixelsService"/>
+    <constructor-arg ref="/OMERO/Pixels"/>
     <constructor-arg ref="iscale" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ShapeMaskVerticle"
         scope="prototype">
-    <constructor-arg ref="imageRegionPixelsService" />
+    <constructor-arg ref="/OMERO/Pixels" />
   </bean>
 
 </beans>
