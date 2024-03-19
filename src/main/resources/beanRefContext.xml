@@ -8,7 +8,7 @@
 
   <bean name="filesystem"  abstract="true">
     <constructor-arg index="0" value="${omero.data.dir}"/>
-    <constructor-arg index="1" type="boolean" value="false"/>
+    <constructor-arg index="1" type="boolean" value="true"/>
   </bean>
 
   <bean id="omeroFilePathResolver" class="ome.services.OmeroFilePathResolver">
