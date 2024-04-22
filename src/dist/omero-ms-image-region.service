@@ -13,6 +13,8 @@ ExecStart=/opt/omero/OMERO.ms/omero-ms-image-region/current/bin/omero-ms-image-r
 User=omero
 Group=omero
 Restart=no
+LimitNPROC=16384
+LimitNOFILE=16384
 
 [Install]
 WantedBy=multi-user.target
