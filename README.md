@@ -1,5 +1,3 @@
-[![AppVeyor status](https://ci.appveyor.com/api/projects/status/github/omero-ms-image-region)](https://ci.appveyor.com/project/gs-jenkins/omero-ms-image-region)
-
 OMERO Image Region Microservice
 ===============================
 
