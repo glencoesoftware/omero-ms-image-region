@@ -171,6 +171,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
+                "classpath*:blitz/*PixelBuffer.xml",
                 "classpath*:beanRefContext.xml");
         preferences =
                 (PreferenceContext) this.context.getBean("preferenceContext");
