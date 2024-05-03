@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
+
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -74,7 +76,7 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
             LutProvider lutProvider,
             LocalCompress compressionSrv,
             int maxTileLength,
-            PixelsService pixelsService,
+            ZarrPixelsService pixelsService,
             IScale iScale) {
         super(thumbnailCtx,
                 families,

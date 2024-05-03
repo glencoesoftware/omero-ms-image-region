@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -55,12 +56,12 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
     private int port;
 
     /** Configured Pixels service */
-    private final PixelsService pixelsService;
+    private final ZarrPixelsService pixelsService;
 
     /**
      * Default constructor.
      */
-    public ShapeMaskVerticle(PixelsService pixelsService)
+    public ShapeMaskVerticle(ZarrPixelsService pixelsService)
     {
         this.pixelsService = pixelsService;
     }

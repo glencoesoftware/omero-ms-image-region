@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.glencoesoftware.omero.ms.core.OmeroMsAbstractVerticle;
 import com.glencoesoftware.omero.ms.core.OmeroRequest;
 import com.glencoesoftware.omero.ms.core.RedisCacheVerticle;
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
 
 import Glacier2.CannotCreateSessionException;
 import Glacier2.PermissionDeniedException;
@@ -92,7 +93,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
 
-    private final PixelsService pixelsService;
+    private final ZarrPixelsService pixelsService;
 
     /** Scaling service for thumbnails */
     private final IScale iScale;
@@ -104,7 +105,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LocalCompress compressionService,
             LutProvider lutProvider,
             int maxTileLength,
-            PixelsService pixelsService,
+            ZarrPixelsService pixelsService,
             IScale iScale)
     {
         this.compressionService = compressionService;

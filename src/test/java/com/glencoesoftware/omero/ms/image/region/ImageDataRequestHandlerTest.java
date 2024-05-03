@@ -18,7 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
+import com.glencoesoftware.omero.zarr.ZarrPixelBuffer;
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
 
 import java.io.File;
 import java.io.IOException;
@@ -409,10 +410,10 @@ public class ImageDataRequestHandlerTest {
                 output.resolve("0"), 1024, 1024,
                 Caffeine.newBuilder()
                     .maximumSize(0)
-                    .buildAsync(PixelsService::getZarrMetadata),
+                    .buildAsync(ZarrPixelsService::getZarrMetadata),
                 Caffeine.newBuilder()
                     .maximumSize(0)
-                    .buildAsync(PixelsService::getZarrArray));
+                    .buildAsync(ZarrPixelsService::getZarrArray));
     }
 
     @Before

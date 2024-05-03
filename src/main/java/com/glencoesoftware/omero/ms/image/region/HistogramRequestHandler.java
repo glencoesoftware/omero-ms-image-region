@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +61,7 @@ public class HistogramRequestHandler {
     HistogramCtx histogramCtx;
 
     /** OMERO server pixels service. */
-    private PixelsService pixelsService;
+    private ZarrPixelsService pixelsService;
 
     /**
      * Constructor. Populates histogramCtx and pixelsService
@@ -67,7 +69,7 @@ public class HistogramRequestHandler {
      * @param pixelsService
      */
     public HistogramRequestHandler(HistogramCtx histogramCtx,
-            PixelsService pixelsService) {
+            ZarrPixelsService pixelsService) {
         this.histogramCtx = histogramCtx;
         this.pixelsService = pixelsService;
     }
