@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -76,7 +78,7 @@ public class ImageDataRequestHandler {
     private ImageDataCtx imageDataCtx;
 
     /** OMERO server pixels service. */
-    private PixelsService pixelsService;
+    private ZarrPixelsService pixelsService;
 
     /** Initial Zoom level from server settings **/
     private int initZoom;
@@ -92,7 +94,7 @@ public class ImageDataRequestHandler {
      * @param interpolate Interpolation server setting
      */
     public ImageDataRequestHandler(ImageDataCtx imageDataCtx,
-            PixelsService pixelsService,
+            ZarrPixelsService pixelsService,
             int initZoom, boolean interpolate) {
         this.imageDataCtx = imageDataCtx;
         this.pixelsService = pixelsService;

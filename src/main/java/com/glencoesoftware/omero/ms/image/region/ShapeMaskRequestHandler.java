@@ -18,7 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
-import com.glencoesoftware.omero.ms.core.ZarrPixelBuffer;
+import com.glencoesoftware.omero.zarr.ZarrPixelBuffer;
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
@@ -69,7 +70,7 @@ public class ShapeMaskRequestHandler {
     private final ShapeMaskCtx shapeMaskCtx;
 
     /** Configured Pixels service */
-    private final PixelsService pixelsService;
+    private final ZarrPixelsService pixelsService;
 
     /**
      * Default constructor.
@@ -77,7 +78,7 @@ public class ShapeMaskRequestHandler {
      * @param pixelsService configured pixels service
      */
     public ShapeMaskRequestHandler(
-            ShapeMaskCtx shapeMaskCtx, PixelsService pixelsService) {
+            ShapeMaskCtx shapeMaskCtx, ZarrPixelsService pixelsService) {
         log.info("Setting up handler");
         this.shapeMaskCtx = shapeMaskCtx;
         this.pixelsService = pixelsService;

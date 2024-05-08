@@ -18,6 +18,8 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import com.glencoesoftware.omero.zarr.ZarrPixelsService;
+
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -90,7 +92,7 @@ public class ImageRegionRequestHandler {
     protected final List<RenderingModel> renderingModels;
 
     /** OMERO server pixels service. */
-    protected final PixelsService pixelsService;
+    protected final ZarrPixelsService pixelsService;
 
     /** Reference to the projection service. */
     private final ProjectionService projectionService;
@@ -112,7 +114,7 @@ public class ImageRegionRequestHandler {
             LutProvider lutProvider,
             LocalCompress compressionSrv,
             int maxTileLength,
-            PixelsService pixelsService) {
+            ZarrPixelsService pixelsService) {
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
         this.families = families;
