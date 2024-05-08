@@ -160,6 +160,7 @@ public class MemoRegenerator implements Callable<Void> {
         context = new ClassPathXmlApplicationContext(
                 "classpath:ome/config.xml",
                 "classpath:ome/services/datalayer.xml",
+                "classpath*:blitz/*PixelBuffer.xml",
                 "classpath*:beanRefContext.xml");
         pixelsService = (PixelsService) context.getBean("/OMERO/Pixels");
         if (mode.cacheDir != null) {
