@@ -1,7 +1,6 @@
 [Unit]
 Description=OMERO image region microservice server
 Requires=multi-user.target
-Requires=redis.service
 After=multi-user.target
 After=network.service
 
