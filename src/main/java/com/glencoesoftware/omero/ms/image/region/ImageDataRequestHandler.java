@@ -629,7 +629,7 @@ public class ImageDataRequestHandler {
                     .findByQuery("select i from Image as i"
                             + " left outer join fetch i.details.externalInfo "
                             + " join fetch i.pixels as p"
-                            + " join fetch i.format"
+                            + " left outer join fetch i.format"
                             + " left outer JOIN FETCH i.datasetLinks as links "
                             + " left outer join fetch links.parent as dataset "
                             + " left outer join fetch dataset.projectLinks as plinks "
