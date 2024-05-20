@@ -152,7 +152,7 @@ public class ImageRegionRequestHandler {
                     iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
-                        + "join fetch i.format "
+                        + "left outer join fetch i.format "
                         + "left outer join fetch i.details.externalInfo "
                         + "left outer join fetch i.wellSamples as ws "
                         + "left outer join fetch ws.well as w "
