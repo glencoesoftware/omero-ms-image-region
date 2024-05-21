@@ -267,6 +267,7 @@ public class HistogramRequestHandler {
                     iQuery.findAllByQuery(
                         "select p from Pixels as p "
                         + "join fetch p.image as i "
+                        + "left outer join fetch i.format "
                         + "left outer join fetch i.details.externalInfo "
                         + "join fetch p.pixelsType "
                         + "join fetch p.channels as c "
