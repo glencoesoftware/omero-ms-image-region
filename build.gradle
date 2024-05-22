@@ -111,6 +111,10 @@ distributions {
     }
 }
 
+startScripts {
+  classpath  = files('$APP_HOME/lib/*')
+}
+
 task memoRegenStartScript(type: CreateStartScripts) {
     mainClass = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
     classpath = startScripts.classpath
