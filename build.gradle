@@ -51,7 +51,6 @@ configurations.all {
     exclude group: 'org.quartz-scheduler'
     exclude group: 'org.subethamail'
     exclude group: 'xerces'
-    exclude group: 'xalan'
 }
 
 dependencies {
