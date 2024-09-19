@@ -45,7 +45,10 @@ run_split_parallel_os_dep() {
 set -x
   export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
   cd rslt.${DATESTR}
-  split -a 3 -n r/$JOBS ${FULL_CSV} -d input.
+  # Split the CSV file into N * JOBS files of at most BATCH_SIZE entries using round-robin distribution
+  N=$(wc -l ${FULL_CSV} | awk '{print $1}')
+  NFILES=$(( (($N - 1) / ($BATCH_SIZE * $JOBS) + 1 ) * $JOBS ))
+  split -a 3 -n r/$NFILES ${FULL_CSV} -d input.
   PARALLEL_OPTS="--halt now,fail=1 --eta --jobs ${JOBS} --joblog parallel-${JOBS}cpus.log --files --use-cpus-instead-of-cores --results . ${DRYRUN}"
 set -x
   /usr/bin/time -p -o timed parallel ${PARALLEL_OPTS} \
