@@ -22,22 +22,28 @@
 usage() {
     echo "Usage:"
     echo "$0 [OPTIONS]"
-    echo "Regenerates bioformats memofiles"
+    echo "Regenerates Bio-Formats memo files in parallel"
+    echo
+    echo "This utility queries the OMERO database for a list of filesets, splits the output"
+    echo "into several input files and runs the memoregenerator utility using GNU parallel."
     echo
     echo "  OPTIONS:"
-    echo "    --help                display usage and exit"
-    echo "    --db                  database connection string"
-    echo "    --jobs                max number of jobs to parallelize"
-    echo "    --memoizer-home       Location of image-region-ms"
+    echo "    --batch-size          Maximum number of entries in each input file sent to parallel (default: 500)"
+    echo "    --cache-options       Memofile cache options [/path/to/dir | inplace] (required)"
+    echo "    --csv                 Bypass sql query and use this csv for image list"
+    echo "    --db                  Database connection string"
     echo "    --force-image-regen   Force regeneration of image list even if it exists already"
+    echo "    --help                Display usage and exit"
+    echo "    --jobs                Maximum number of jobs to parallelize (default: number of processing units available)"
+    echo "    --memoizer-home       Location of image-region micro-service (default: current directory)"
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
-    echo "    --cache-options       Memofile cache options [/path/to/dir | inplace]"
-    echo "    --batch-size          # of image files to split list into"
-    echo "    --csv                 Bypass sql query and use this csv for image list"
     echo
-    echo "Example:"
-    echo "  $0 --db postgresql://user:pass@host:port/db --jobs [12|max] --memoizer-home /opt/omero/OMERO.ms-image-region.current --cache-options /path/to/dir"
+    echo "Examples:"
+    echo "  Regenerate memo files using the current cache directory and all available CPUs"
+    echo "  $0 --cache-options inplace"
+    echo "  Regenerate memo files offline using a secondary cache directory and 4 CPUs"
+    echo "  $0 --jobs 4 --cache-options /OMERO/BioFormatsCache.$( date "+%Y%m%d" )"
     exit $1
 }
 
