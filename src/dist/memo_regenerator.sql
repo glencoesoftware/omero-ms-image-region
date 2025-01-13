@@ -9,10 +9,16 @@ COPY (SELECT * FROM (
            pixels.sizeC,
            pixels.sizeT,
            format.value,
+           e2.time - e1.time AS setId,
            rank() OVER (PARTITION BY fileset.id ORDER BY image.id) AS rank
         FROM fileset
             JOIN image ON fileset.id = image.fileset
             JOIN pixels ON image.id = pixels.image
             JOIN pixelstype ON pixels.pixelstype = pixelstype.id
             JOIN format ON image.format = format.id
-) AS rank WHERE rank.rank = 1) TO STDOUT CSV;
+            JOIN event e2 on image.creation_id=e2.id
+            JOIN filesetjoblink on  filesetjoblink.parent=fileset.id
+            JOIN job on filesetjoblink.child=job.id
+            JOIN uploadjob on job.id=uploadjob.job_id
+            JOIN event e1 on job.update_id=e1.id
+)  AS query WHERE query.rank = 1 ORDER BY query.setId desc) TO STDOUT CSV;
