@@ -44,6 +44,8 @@ usage() {
     echo "  $0 --cache-options inplace"
     echo "  Regenerate memo files offline using a secondary cache directory and 4 CPUs"
     echo "  $0 --jobs 4 --cache-options /OMERO/BioFormatsCache.$( date "+%Y%m%d" )"
+    echo "  Regenerate memo files offline using a secondary cache directory, all available CPUs and a database connection string"
+    echo "  $0 --db postgresql://user:pass@host:port/db --cache-options /OMERO/BioFormatsCache.$( date "+%Y%m%d" )"
     exit $1
 }
 
