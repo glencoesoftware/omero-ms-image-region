@@ -97,30 +97,8 @@ output similar to the following::
     Jun 01 14:40:55 demo.glencoesoftware.com omero-ms-image-region[9096]: Jun 01, 2017 2:40:55 PM io.vertx.core.Starter
     Jun 01 14:40:55 demo.glencoesoftware.com omero-ms-image-region[9096]: INFO: Succeeded in deploying verticle
 
-Regenerating memo files
------------------------
-
-Bio-Formats memo files often need to be regenerated between Bio-Formats
-upgrades.  The image region microservice ships with a command line tool,
-`memoregenerator`, to perform this regeneration out of band using a secondary
-Bio-Formats cache directory.
-
-1. Configure the application by editing `conf/config.yaml`
-
-1. Run the input CSV generator against your database::
-
-        psql -f memo_regenerator.sql omero > input.csv
-
-1. Split the input CSV into as many jobs as required::
-
-        split -l <images_per_job> --additional-suffix=.csv input.csv input
-
-1. Run memo file regeneration to a secondary directory, in parallel if desired::
-
-        memoregenerator --cache-dir /other/cache/dir input...csv
-
 Redirecting OMERO.web to the Server
-===================================
+-----------------------------------
 
 What follows is a snippet which can be placed in your nginx configuration,
 **before** your default OMERO.web location handler, to redirect both
@@ -145,6 +123,119 @@ image region microservice server endpoint::
         gzip_types application/octet-stream;
         proxy_pass http://image_region_backend;
     }
+
+Regenerating memo files
+=======================
+
+Bio-Formats memo files often need to be regenerated between OMERO upgrades.
+The image region microservice ships with 3 command-line utilities:
+
+-   `memoregenerator`: a script to perform this regeneration out of band using
+    a secondary Bio-Formats cache directory
+-   [regen-memo-files.sh](src/dist/regen-memo-files.sh): a wrapper around
+    `memoregenerator`  to schedule the regeneration of all memo files using
+    `parallel`
+-   [memofile-regen-status.sh](src/dist/memofile-regen-status.sh): a script to
+    check the status of memo file regeneration
+
+Requirements & caveats
+----------------------
+
+In addition the micro-service requirements, the `parallel`, `time` and `bc`
+packages are required to run the memo file regeneration. It is also strongly
+recommended to start the memo file regeneration in a `screen` or `tmux`
+session.
+
+The script is designed as follows:
+
+1.  run a SQL query to create a list of entries to regenerate ordered by their
+    import initialization time
+2.  split this list into input sets of 500 (by default) using round-robin
+    distribution
+3.  start a job processing all the sets created a set (2) in parallel
+
+By default, the number of concurrent jobs is set to the number of available
+CPUs. Each Java memo regeneration process is memory constrained to 2G. This
+means you can run your system out of memory by setting the number too high
+and/or have the memo regeneration process terminated by the OOM killer. For
+instance, in a system with 8 CPUs/16G RAM an no other processes running, the
+memo regeneration with 8 jobs can run the system out of memory.
+
+Before starting the memo file regeneration processes, check the available
+memory (`free` or `top`), and adjust the number of concurrent jobs using
+the `--jobs` option.
+
+Usage
+-----
+
+The help command will display all the available options:
+
+    ./regen-memo-files.sh --help
+
+The `--cache-options` option specifies which folder to use for regenerating the
+new memo file and the `--jobs` option defines how many concurrent processes
+will run:
+
+    ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --no-ask --no-wait --jobs 4
+
+    CSV (image-list-20200313.14374.csv) not found, generating from database...
+    running sql to generate images file
+    85545 image-list-20200313.14374.csv images to process using 2 threads...starting
+
+    Computers / CPU cores / Max jobs to run
+    1:local / 8 / 4
+
+    Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+    ETA: 0s Left: 8 AVG: 0.00s  local:2/0/100%/0.0s rslt.20200313.14374/1/rslt.20200313.14374\_inputaa.csv/stdout
+    ETA: 573s Left: 7 AVG: 89.00s  local:2/1/100%/201.0s rslt.20200313.14374/1/rslt.20200313.14374\_inputab.csv/stdout
+    ETA: 602s Left: 6 AVG: 102.00s  local:2/2/100%/158.0s rslt.20200313.14374/1/rslt.20200313.14374\_inputac.csv/stdout
+    ETA: 474s Left: 5 AVG: 95.33s  local:2/3/100%/132.7s rslt.20200313.14374/1/rslt.20200313.14374\_inputad.csv/stdout
+    ETA: 407s Left: 4 AVG: 102.25s  local:2/4/100%/130.2s rslt.20200313.14374/1/rslt.20200313.14374\_inputae.csv/stdout
+    ETA: 303s Left: 3 AVG: 101.20s  local:2/5/100%/123.6s rslt.20200313.14374/1/rslt.20200313.14374\_inputaf.csv/stdout
+    ETA: 208s Left: 2 AVG: 104.17s  local:2/6/100%/122.8s rslt.20200313.14374/1/rslt.20200313.14374\_inputag.csv/stdout
+    ETA: 100s Left: 1 AVG: 101.00s  local:1/7/100%/117.0s rslt.20200313.14374/1/rslt.20200313.14374\_inputah.csv/stdout
+    ETA: 0s Left: 0 AVG: 88.38s  local:0/8/100%/102.4s
+
+    real    13m38.679s
+    user    26m7.985s
+    sys     1m18.327s
+
+`--batch-size` allows to modify the number of entries in each input file. This
+can be useful in systems with very large number of entries to regenerate:
+
+    ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --no-ask --no-wait --jobs 4 --batch-size 1000
+
+`--db` allows to specify a custom database connection string instead of reading
+it from the configuration file:
+
+    ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --no-ask --no-wait --jobs 4 --db postgresql://user:password@host:port/db
+
+Checking the status
+-------------------
+
+To check the progress, use the `memofile-regen-status.sh` utility:
+
+    $ ./memofile-regen-status.sh rslt.20250120.288193/
+    Output Files / Total Images
+    	3797/3797	100.00 %
+    OK images / # of processed images
+    	3686/3797	97.00 %
+    OK images / # of total images
+    	3686/3797	97.00 %
+    Fail images / # of processed images
+    	1/3797	0 %
+    Fail images / # of total images
+    	1/3797	0 %
+    Skip images / # of processed images
+    	110/3797	2.00 %
+    Skip images / # of total images
+    	110/3797	2.00 %
+
+    Run Completion time: 0d 0h 32m 39s
+
+Parallel timings tend to be off since a given image processes in wildly varying
+amounts of time, but the whole process is parallelized based on the number of
+CPUS/jobs.
 
 
 Development Installation
