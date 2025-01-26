@@ -202,7 +202,11 @@ will run:
 
 `--batch-size` allows to modify the number of entries in each input file. This
 can be useful in systems with very large number of entries to regenerate:
-The CSV file is split into input files with suffixes of length 3, meaning it can only generate up to 999 input files with each file defaulting to 500 lines each.  This means that an OMERO system with more than 499,500 images will need a larger batch size than 500.
+The entries are split into files with suffixes of length 3 so there can
+be no more than 999 files with each input file including 500 lines dy default.
+This means that an OMERO system with more than 499,500 images will need a
+larger batch size than 500:
+
     ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --jobs 4 --batch-size 1000
 
 `--db` allows to specify a custom database connection string instead of reading
@@ -213,7 +217,10 @@ it from the configuration file:
 Checking the status
 -------------------
 
-To check the progress, use the `memofile-regen-status.sh` utility:
+Use the [memofile-regen-status.sh](src/dist/memofile-regen-status.sh)
+utility to check the status. The script must be run from above the rslt
+directory created by `regen-memo-files.sh` as it relies on relative locations
+to calculate its statistics:
 
     $ ./memofile-regen-status.sh rslt.20250120.288193/
     Output Files / Total Images
@@ -236,15 +243,30 @@ To check the progress, use the `memofile-regen-status.sh` utility:
 Parallel timings tend to be off since a given image processes in wildly varying
 amounts of time, but the whole process is parallelized based on the number of
 CPUS/jobs.
-`memofile-regen-status` must be run from above the rslt directory as it relies on relative locations to calculate it's statistics.
 
+`Output Files / Total Images` gives the overall progress of the regeneration.
+Processed images can be in three states:
 
-Output Files / Total Images is the overall progress.
-Processed Images have 3 states, OK (memofile was successfully generated), Skip (memofile did not need to be regenerated but otherwise was fine), and Fail (something failed with the memofile regenration).
+- OK: memofile was successfully generated
+- Skip: memofile did not need to be regenerated but otherwise was fine
+- Fail: something failed with the memofile regeneration
 
-Failures do not halt the total regeneration process, in general failures are usually due to data being removed from the filesystem but not from the OMERO database.  Large numbers of failures should be investigated but low percentages can generally be accepted.
+Failures do not halt the total regeneration process. They are usually due to
+data being removed from the filesystem but not from the OMERO database. Large
+numbers of failures should be investigated but low percentages can generally
+be accepted.
 
-Parallel creates 3 files for each job it starts, a `seq` file that is a sequence numbers, `stdout` and `stderr`.  The memoizer java program will output the status (OK, Skip, Fail) and timings (if appropriate) along with the image id to `stdout`.  Any errors will be outputted to `stderr`.  So to check the first jobs's error output you would look at `rslt.20250120.288193/1/input.000/stderr`.  Jobs are based on their input file so 000-999 depending on the number of images and the batch size.
+Parallel creates 3 files for each job it starts: 
+
+-  `seq` contains the sequence number
+-  `stdout` contains the output of the memoizer Java process including the
+    status (OK, Skip, Fail), timings (if appropriate) and image ID for each
+    line of the input file
+-  `stderr` contains any error of the memoizer Java process
+
+To check the first job's error output, you would look at
+`rslt.20250120.288193/1/input.000/stderr`. Jobs are based on their input file
+so 000-999 depending on the number of images and the batch size.
 
 Development Installation
 ========================
