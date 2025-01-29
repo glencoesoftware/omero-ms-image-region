@@ -149,6 +149,11 @@ else
 fi
 [ -z "${JOBS}" ] && JOBS=2
 
+echo "Setting ${JOBS} parallel memo regeneration jobs"
+echo "This operation can consume up to $((JOBS  * 2))GB of memory"
+echo "Current memory usage (in GB) is"
+echo ""
+echo "$(free --giga)"
 
 if [ -z "${FULL_CSV}" ]; then
   FULL_CSV="image-list-${DATESTR}.csv"
