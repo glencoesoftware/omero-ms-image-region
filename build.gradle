@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.10.1-SNAPSHOT'
+version = '0.10.1'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
