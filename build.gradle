@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.glencoesoftware.omero'
-version = '0.10.1'
+version = '0.10.2-SNAPSHOT'
 
 mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 
@@ -62,7 +62,7 @@ dependencies {
     implementation 'ch.qos.logback:logback-classic:1.3.15'
     implementation 'org.slf4j:log4j-over-slf4j:1.7.32'
     implementation 'com.glencoesoftware.omero:omero-zarr-pixel-buffer:0.4.1'
-    implementation 'com.glencoesoftware.omero:omero-ms-core:0.9.0'
+    implementation 'com.glencoesoftware.omero:omero-ms-core:0.9.1'
     implementation 'io.vertx:vertx-web:3.8.1'
     implementation 'io.vertx:vertx-config:3.8.1'
     implementation 'io.vertx:vertx-config-yaml:3.8.1'
