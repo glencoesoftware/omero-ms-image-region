@@ -70,7 +70,6 @@ import io.prometheus.jmx.BuildInfoCollector;
 import io.prometheus.jmx.JmxCollector;
 import io.prometheus.client.hotspot.DefaultExports;
 
-
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
  * @author Chris Allan <callan@glencoesoftware.com>
