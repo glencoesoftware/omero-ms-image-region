@@ -70,6 +70,7 @@ import io.prometheus.jmx.BuildInfoCollector;
 import io.prometheus.jmx.JmxCollector;
 import io.prometheus.client.hotspot.DefaultExports;
 
+
 /**
  * Main entry point for the OMERO image region Vert.x microservice server.
  * @author Chris Allan <callan@glencoesoftware.com>
@@ -347,6 +348,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webclient/render_image_rdef/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
+
+        // Annotation Download
+        router.get(
+                "/webclient/annotation/:annotationId")
+            .handler(this::getFileAnnotation);
 
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
@@ -937,5 +943,44 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 log.debug("Response ended");
             }
         });
+    }
+
+    private void getFileAnnotation(RoutingContext event) {
+        log.info("Get File Annotation");
+        HttpServerRequest request = event.request();
+        HttpServerResponse response = event.response();
+        final AnnotationCtx annotationCtx;
+        try {
+            annotationCtx = new AnnotationCtx(request.params(),
+                    event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        }
+        annotationCtx.injectCurrentTraceContext();
+        vertx.eventBus().<String>request(
+                ImageRegionVerticle.GET_FILE_ANNOTATION_EVENT,
+                Json.encode(annotationCtx), new Handler<AsyncResult<Message<String>>>() {
+                    @Override
+                    public void handle(AsyncResult<Message<String>> result) {
+                        if (result.failed()) {
+                            log.error(result.cause().getMessage());
+                            response.setStatusCode(404);
+                            response.end("Could not get annotation "
+                                        + request.getParam("annotationId"));
+                            return;
+                        }
+                        String filePath = result.result().body();
+                        String[] pathComponents = filePath.split("/");
+                        String fileName = pathComponents[pathComponents.length -1];
+                        response.headers().set("Content-Type", "application/octet-stream");
+                        response.headers().set("Content-Disposition",
+                                "attachment; filename=\"" + fileName + "\"");
+                        response.sendFile(filePath);
+                    }
+                });
+
     }
 }

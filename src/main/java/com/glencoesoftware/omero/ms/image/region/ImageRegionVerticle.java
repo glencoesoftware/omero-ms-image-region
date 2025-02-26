@@ -46,6 +46,7 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
+import ome.io.nio.OriginalFilesService;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
@@ -71,6 +72,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
 
     public static final String GET_HISTOGRAM_JSON =
             "omero.get_histogram_json";
+
+    public static final String GET_FILE_ANNOTATION_EVENT =
+            "omero.get_file_annotation";
 
     /** OMERO server host */
     private String host;
@@ -98,6 +102,12 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Scaling service for thumbnails */
     private final IScale iScale;
 
+    /** Needed for retrieving file annotations */
+    private final String omeroDataDir;
+
+    /** Original File Service for getting paths */
+    private OriginalFilesService ioService;
+
     /**
      * Default constructor.
      */
@@ -106,13 +116,16 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LutProvider lutProvider,
             int maxTileLength,
             ZarrPixelsService pixelsService,
-            IScale iScale)
+            IScale iScale,
+            String omeroDataDir)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.pixelsService = pixelsService;
         this.iScale = iScale;
+        this.omeroDataDir = omeroDataDir;
+        this.ioService = new OriginalFilesService(omeroDataDir, true);
     }
 
     /* (non-Javadoc)
@@ -140,6 +153,8 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                     GET_IMAGE_DATA, this::getImageData);
             vertx.eventBus().<String>consumer(
                     GET_HISTOGRAM_JSON, this::getHistogramJson);
+            vertx.eventBus().<String>consumer(
+                    GET_FILE_ANNOTATION_EVENT, this::getFileAnnotation);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -481,6 +496,45 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         message.fail(500, v);
                     }
                 });
+    }
+
+    private void getFileAnnotation(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        AnnotationCtx annotationCtx;
+        try {
+            annotationCtx = mapper.readValue(message.body(), AnnotationCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal annotation context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_annotation",
+                extractor().extract(annotationCtx.traceContext).context());
+        String omeroSessionKey = annotationCtx.omeroSessionKey;
+        log.debug("Get annotation request: {}", annotationCtx.toString());
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, omeroSessionKey)) {
+                String filePath = request.execute(
+                    new AnnotationRequestHandler(annotationCtx,
+                            ioService)::getFileAnnotationPath);
+                if (filePath == null) {
+                    message.fail(404, "Cannot find the file path");
+                }
+                message.reply(filePath);
+        } catch (PermissionDeniedException
+                 | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            log.debug(v);
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while getting annotation";
+            log.error(v, e);
+            message.fail(500, v);
+        } finally {
+            span.finish();
+        }
     }
 
     /**

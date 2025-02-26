@@ -67,6 +67,7 @@
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
     <constructor-arg ref="/OMERO/Pixels"/>
     <constructor-arg ref="iscale" />
+    <constructor-arg value="${omero.data.dir}"/>
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
