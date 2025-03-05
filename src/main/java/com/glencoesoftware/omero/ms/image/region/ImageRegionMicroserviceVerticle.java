@@ -348,6 +348,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 "/webclient/render_image_rdef/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
 
+        // Annotation Download
+        router.get(
+                "/webclient/annotation/:annotationId")
+            .handler(this::getFileAnnotation);
+
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
         router.get("/webgateway/imgData/:imageId*").handler(this::getImageData);
@@ -937,5 +942,44 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 log.debug("Response ended");
             }
         });
+    }
+
+    private void getFileAnnotation(RoutingContext event) {
+        log.info("Get File Annotation");
+        HttpServerRequest request = event.request();
+        HttpServerResponse response = event.response();
+        final AnnotationCtx annotationCtx;
+        try {
+            annotationCtx = new AnnotationCtx(request.params(),
+                    event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        }
+        annotationCtx.injectCurrentTraceContext();
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_FILE_ANNOTATION_EVENT,
+                Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
+                    @Override
+                    public void handle(AsyncResult<Message<JsonObject>> result) {
+                        if (result.failed()) {
+                            log.error(result.cause().getMessage());
+                            response.setStatusCode(404);
+                            response.end("Could not get annotation "
+                                        + request.getParam("annotationId"));
+                            return;
+                        }
+                        JsonObject fileInfo = result.result().body();
+                        String fileName = fileInfo.getString("originalFileName");
+                        String filePath = fileInfo.getString("originalFilePath");
+                        response.headers().set("Content-Type", "application/octet-stream");
+                        response.headers().set("Content-Disposition",
+                                "attachment; filename=\"" + fileName + "\"");
+                        response.sendFile(filePath);
+                    }
+                });
+
     }
 }
