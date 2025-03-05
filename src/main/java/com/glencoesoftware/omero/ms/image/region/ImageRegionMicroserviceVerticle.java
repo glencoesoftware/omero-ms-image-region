@@ -959,11 +959,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             return;
         }
         annotationCtx.injectCurrentTraceContext();
-        vertx.eventBus().<String>request(
+        vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_FILE_ANNOTATION_EVENT,
-                Json.encode(annotationCtx), new Handler<AsyncResult<Message<String>>>() {
+                Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
                     @Override
-                    public void handle(AsyncResult<Message<String>> result) {
+                    public void handle(AsyncResult<Message<JsonObject>> result) {
                         if (result.failed()) {
                             log.error(result.cause().getMessage());
                             response.setStatusCode(404);
@@ -971,9 +971,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                         + request.getParam("annotationId"));
                             return;
                         }
-                        String filePath = result.result().body();
-                        String[] pathComponents = filePath.split("/");
-                        String fileName = pathComponents[pathComponents.length -1];
+                        JsonObject fileInfo = result.result().body();
+                        String fileName = fileInfo.getString("originalFileName");
+                        String filePath = fileInfo.getString("originalFilePath");
                         response.headers().set("Content-Type", "application/octet-stream");
                         response.headers().set("Content-Disposition",
                                 "attachment; filename=\"" + fileName + "\"");

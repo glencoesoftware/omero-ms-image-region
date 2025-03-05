@@ -290,7 +290,27 @@ public class ShapeMaskRequestHandler {
      * @throws ServerError If there was any sort of error retrieving the image.
      */
     public boolean canRead(omero.client client) {
-        return RequestHandlerUtils.canRead(client, "Shape", shapeMaskCtx.shapeId);
+        Map<String, String> ctx = new HashMap<String, String>();
+        ctx.put("omero.group", "-1");
+        ParametersI params = new ParametersI();
+        params.addId(shapeMaskCtx.shapeId);
+        ScopedSpan span =
+                Tracing.currentTracer().startScopedSpan("can_read");
+        try {
+            List<List<RType>> rows = client.getSession()
+                    .getQueryService().projection(
+                            "SELECT s.id FROM Shape AS s " +
+                            "WHERE s.id = :id", params, ctx);
+            if (rows.size() > 0) {
+                return true;
+            }
+        } catch (Exception e) {
+            span.error(e);
+            log.error("Exception while checking shape mask readability", e);
+        } finally {
+            span.finish();
+        }
+        return false;
     }
 
     /**

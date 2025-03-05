@@ -512,13 +512,15 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         log.debug("Get annotation request: {}", annotationCtx.toString());
         try (OmeroRequest request = new OmeroRequest(
                 host, port, omeroSessionKey)) {
-                String filePath = request.execute(
-                    new AnnotationRequestHandler(annotationCtx,
-                            ioService)::getFileAnnotationPath);
-                if (filePath == null) {
+                JsonObject fileInfo = request.execute(
+                    new AnnotationRequestHandler(annotationCtx)
+                        ::getFileIdAndNameForAnnotation);
+                if (fileInfo == null) {
                     message.fail(404, "Cannot find the file path");
                 }
-                message.reply(filePath);
+                fileInfo.put("originalFilePath", ioService.getFilesPath(
+                        fileInfo.getLong("originalFileId")));
+                message.reply(fileInfo);
         } catch (PermissionDeniedException
                  | CannotCreateSessionException e) {
             String v = "Permission denied";
