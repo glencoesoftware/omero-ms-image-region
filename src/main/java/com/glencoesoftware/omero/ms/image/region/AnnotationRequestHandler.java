@@ -62,7 +62,8 @@ public class AnnotationRequestHandler {
         ScopedSpan span =
                 Tracing.currentTracer().startScopedSpan("get_annotation");
         try {
-            if (!canRead(client)) {
+            if (!RequestHandlerUtils.canRead(client, "Annotation",
+                    annotationCtx.annotationId)) {
                 return null;
             }
             ServiceFactoryPrx sf = client.getSession();

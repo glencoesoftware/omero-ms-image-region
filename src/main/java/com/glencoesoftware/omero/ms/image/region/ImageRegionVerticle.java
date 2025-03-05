@@ -102,9 +102,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Scaling service for thumbnails */
     private final IScale iScale;
 
-    /** Needed for retrieving file annotations */
-    private final String omeroDataDir;
-
     /** Original File Service for getting paths */
     private OriginalFilesService ioService;
 
@@ -117,15 +114,14 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             int maxTileLength,
             ZarrPixelsService pixelsService,
             IScale iScale,
-            String omeroDataDir)
+            OriginalFilesService ioService)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.pixelsService = pixelsService;
         this.iScale = iScale;
-        this.omeroDataDir = omeroDataDir;
-        this.ioService = new OriginalFilesService(omeroDataDir, true);
+        this.ioService = ioService;
     }
 
     /* (non-Javadoc)

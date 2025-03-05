@@ -11,6 +11,9 @@
     <constructor-arg index="1" type="boolean" value="true"/>
   </bean>
 
+  <bean name="/OMERO/Files"  class="ome.io.nio.OriginalFilesService"
+    parent="filesystem"/>
+
   <bean id="omeroFilePathResolver" class="ome.services.OmeroFilePathResolver">
     <constructor-arg value="${omero.data.dir}"/>
     <constructor-arg ref="simpleSqlAction"/>
@@ -67,7 +70,7 @@
     <constructor-arg value="${omero.pixeldata.max_tile_length:2048}" />
     <constructor-arg ref="/OMERO/Pixels"/>
     <constructor-arg ref="iscale" />
-    <constructor-arg value="${omero.data.dir}"/>
+    <constructor-arg ref="/OMERO/Files"/>
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"
