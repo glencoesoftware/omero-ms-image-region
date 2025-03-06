@@ -57,6 +57,13 @@ public class AnnotationRequestHandler {
         this.annotationCtx = annotationCtx;
     }
 
+    /**
+     * Queries the database for the file metadata assiciated with the
+     * {@link OriginalFile} associated with the given {@link FileAnnotation}
+     * @param client OMERO client
+     * @return JsonObject with the {@link OriginalFile} ID and file name if
+     * present, otherwise null
+     */
     public JsonObject getFileIdAndNameForAnnotation(omero.client client) {
         Map<String, String> ctx = new HashMap<String, String>();
         ctx.put("omero.group", "-1");
@@ -74,7 +81,6 @@ public class AnnotationRequestHandler {
             if (rows.isEmpty()) {
                 return null;
             }
-            log.info(rows.get(0).toString());
             JsonObject retObj = new JsonObject();
             retObj.put("originalFileId", ((RLong) rows.get(0).get(0)).getValue());
             retObj.put("originalFileName", ((RString) rows.get(0).get(1)).getValue());

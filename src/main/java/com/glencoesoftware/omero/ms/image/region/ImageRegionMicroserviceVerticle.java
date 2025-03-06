@@ -351,7 +351,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         // Annotation Download
         router.get(
                 "/webclient/annotation/:annotationId")
-            .handler(this::getFileAnnotation);
+            .handler(this::downloadFileAnnotation);
 
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
@@ -744,7 +744,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         imageDataCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_IMAGE_DATA,
+                ImageRegionVerticle.GET_IMAGE_DATA_EVENT,
                 Json.encode(imageDataCtx), result -> {
             String chunk = "";
             try {
@@ -827,7 +827,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         histogramCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_HISTOGRAM_JSON,
+                ImageRegionVerticle.GET_HISTOGRAM_JSON_EVENT,
                 Json.encode(histogramCtx), result -> {
             final HttpServerResponse response = event.response();
             try {
@@ -944,8 +944,12 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         });
     }
 
-    private void getFileAnnotation(RoutingContext event) {
-        log.info("Get File Annotation");
+    /**
+     * Downloads the {@link OriginalFile} associated with the given
+     * {@link FileAnnotation}
+     * @param event Current routing context
+     */
+    private void downloadFileAnnotation(RoutingContext event) {
         HttpServerRequest request = event.request();
         HttpServerResponse response = event.response();
         final AnnotationCtx annotationCtx;
@@ -960,7 +964,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         annotationCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_FILE_ANNOTATION_EVENT,
+                ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
                 Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
                     @Override
                     public void handle(AsyncResult<Message<JsonObject>> result) {

@@ -67,13 +67,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public static final String GET_THUMBNAILS_EVENT =
             "omero.get_thumbnails";
 
-    public static final String GET_IMAGE_DATA =
+    public static final String GET_IMAGE_DATA_EVENT =
             "omero.get_image_data";
 
-    public static final String GET_HISTOGRAM_JSON =
+    public static final String GET_HISTOGRAM_JSON_EVENT =
             "omero.get_histogram_json";
 
-    public static final String GET_FILE_ANNOTATION_EVENT =
+    public static final String GET_FILE_ANNOTATION_METADATA_EVENT =
             "omero.get_file_annotation";
 
     /** OMERO server host */
@@ -146,11 +146,11 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             vertx.eventBus().<String>consumer(
                     GET_THUMBNAILS_EVENT, this::getThumbnails);
             vertx.eventBus().<String>consumer(
-                    GET_IMAGE_DATA, this::getImageData);
+                    GET_IMAGE_DATA_EVENT, this::getImageData);
             vertx.eventBus().<String>consumer(
-                    GET_HISTOGRAM_JSON, this::getHistogramJson);
+                    GET_HISTOGRAM_JSON_EVENT, this::getHistogramJson);
             vertx.eventBus().<String>consumer(
-                    GET_FILE_ANNOTATION_EVENT, this::getFileAnnotation);
+                    GET_FILE_ANNOTATION_METADATA_EVENT, this::getFileAnnotationMetadata);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -494,7 +494,13 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                 });
     }
 
-    private void getFileAnnotation(Message<String> message) {
+    /**
+     * Gets the file name and path of the {@link OriginalFile} associated with
+     * A given {@link FileAnnotation} and returns them as JSON
+     * @param message JSON-encoded event data. Required keys are
+     * <code>omeroSessionKey</code> (String) and <code>annotationId</code>
+     */
+    private void getFileAnnotationMetadata(Message<String> message) {
         ObjectMapper mapper = new ObjectMapper();
         AnnotationCtx annotationCtx;
         try {
@@ -524,7 +530,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         } catch (PermissionDeniedException
                  | CannotCreateSessionException e) {
             String v = "Permission denied";
-            log.debug(v);
             message.fail(403, v);
         } catch (Exception e) {
             String v = "Exception while getting annotation";
