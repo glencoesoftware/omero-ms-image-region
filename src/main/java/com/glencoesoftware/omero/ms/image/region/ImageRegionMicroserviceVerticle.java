@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -978,10 +979,18 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         JsonObject fileInfo = result.result().body();
                         String fileName = fileInfo.getString("originalFileName");
                         String filePath = fileInfo.getString("originalFilePath");
-                        response.headers().set("Content-Type", "application/octet-stream");
-                        response.headers().set("Content-Disposition",
-                                "attachment; filename=\"" + fileName + "\"");
-                        response.sendFile(filePath);
+                        //If the path is a directory, send error response
+                        File file = new File(filePath);
+                        if (file.isDirectory()) {
+                            response.setStatusCode(501);
+                            response.end("File Annotation of Unsupported File Type");
+                        }
+                        else {
+                            response.headers().set("Content-Type", "application/octet-stream");
+                            response.headers().set("Content-Disposition",
+                                    "attachment; filename=\"" + fileName + "\"");
+                            response.sendFile(filePath);
+                        }
                     }
                 });
 

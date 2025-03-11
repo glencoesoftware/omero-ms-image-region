@@ -523,6 +523,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         ::getFileIdAndNameForAnnotation);
                 if (fileInfo == null) {
                     message.fail(404, "Cannot find the file path");
+                    return;
                 }
                 fileInfo.put("originalFilePath", ioService.getFilesPath(
                         fileInfo.getLong("originalFileId")));
