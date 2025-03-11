@@ -350,7 +350,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         // Annotation Download
         router.get(
-                "/webclient/annotation/:annotationId")
+                "/webclient/annotation/:annotationId*")
             .handler(this::downloadFileAnnotation);
 
         // ImageData request handlers
