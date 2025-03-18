@@ -981,9 +981,15 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         String filePath = fileInfo.getString("originalFilePath");
                         //If the path is a directory, send error response
                         File file = new File(filePath);
+                        if (!file.exists()) {
+                            response.setStatusCode(404);
+                            response.end("File for given Annotation does not exist");
+                            return;
+                        }
                         if (file.isDirectory()) {
                             response.setStatusCode(501);
                             response.end("File Annotation of Unsupported File Type");
+                            return;
                         }
                         else {
                             response.headers().set("Content-Type", "application/octet-stream");
