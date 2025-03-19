@@ -18,6 +18,7 @@
 
 package com.glencoesoftware.omero.ms.image.region;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -347,6 +348,11 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webclient/render_image_rdef/:imageId/:theZ/:theT*")
             .handler(this::renderImageRegion);
+
+        // Annotation Download
+        router.get(
+                "/webclient/annotation/:annotationId*")
+            .handler(this::downloadFileAnnotation);
 
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
@@ -739,7 +745,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         imageDataCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_IMAGE_DATA,
+                ImageRegionVerticle.GET_IMAGE_DATA_EVENT,
                 Json.encode(imageDataCtx), result -> {
             String chunk = "";
             try {
@@ -822,7 +828,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         histogramCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_HISTOGRAM_JSON,
+                ImageRegionVerticle.GET_HISTOGRAM_JSON_EVENT,
                 Json.encode(histogramCtx), result -> {
             final HttpServerResponse response = event.response();
             try {
@@ -937,5 +943,62 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 log.debug("Response ended");
             }
         });
+    }
+
+    /**
+     * Downloads the {@link OriginalFile} associated with the given
+     * {@link FileAnnotation}
+     * @param event Current routing context
+     */
+    private void downloadFileAnnotation(RoutingContext event) {
+        HttpServerRequest request = event.request();
+        HttpServerResponse response = event.response();
+        final AnnotationCtx annotationCtx;
+        try {
+            annotationCtx = new AnnotationCtx(request.params(),
+                    event.get("omero.session_key"));
+        } catch (IllegalArgumentException e) {
+            if (!response.closed()) {
+                response.setStatusCode(400).end(e.getMessage());
+            }
+            return;
+        }
+        annotationCtx.injectCurrentTraceContext();
+        vertx.eventBus().<JsonObject>request(
+                ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
+                Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
+                    @Override
+                    public void handle(AsyncResult<Message<JsonObject>> result) {
+                        if (result.failed()) {
+                            log.error(result.cause().getMessage());
+                            response.setStatusCode(404);
+                            response.end("Could not get annotation "
+                                        + request.getParam("annotationId"));
+                            return;
+                        }
+                        JsonObject fileInfo = result.result().body();
+                        String fileName = fileInfo.getString("originalFileName");
+                        String filePath = fileInfo.getString("originalFilePath");
+                        //If the path is a directory, send error response
+                        File file = new File(filePath);
+                        if (!file.exists()) {
+                            response.setStatusCode(404);
+                            response.end("File for given Annotation does not exist");
+                            return;
+                        }
+                        if (file.isDirectory()) {
+                            response.setStatusCode(501);
+                            response.end("File Annotation of Unsupported File Type");
+                            return;
+                        }
+                        else {
+                            response.headers().set("Content-Type", "application/octet-stream");
+                            response.headers().set("Content-Disposition",
+                                    "attachment; filename=\"" + fileName + "\"");
+                            response.sendFile(filePath);
+                        }
+                    }
+                });
+
     }
 }

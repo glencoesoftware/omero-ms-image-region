@@ -46,6 +46,7 @@ import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
 import ome.api.IScale;
 import ome.api.local.LocalCompress;
+import ome.io.nio.OriginalFilesService;
 import omeis.providers.re.lut.LutProvider;
 import omero.ApiUsageException;
 import omero.ServerError;
@@ -66,11 +67,14 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     public static final String GET_THUMBNAILS_EVENT =
             "omero.get_thumbnails";
 
-    public static final String GET_IMAGE_DATA =
+    public static final String GET_IMAGE_DATA_EVENT =
             "omero.get_image_data";
 
-    public static final String GET_HISTOGRAM_JSON =
+    public static final String GET_HISTOGRAM_JSON_EVENT =
             "omero.get_histogram_json";
+
+    public static final String GET_FILE_ANNOTATION_METADATA_EVENT =
+            "omero.get_file_annotation";
 
     /** OMERO server host */
     private String host;
@@ -98,6 +102,9 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Scaling service for thumbnails */
     private final IScale iScale;
 
+    /** Original File Service for getting paths */
+    private OriginalFilesService ioService;
+
     /**
      * Default constructor.
      */
@@ -106,13 +113,15 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             LutProvider lutProvider,
             int maxTileLength,
             ZarrPixelsService pixelsService,
-            IScale iScale)
+            IScale iScale,
+            OriginalFilesService ioService)
     {
         this.compressionService = compressionService;
         this.lutProvider = lutProvider;
         this.maxTileLength = maxTileLength;
         this.pixelsService = pixelsService;
         this.iScale = iScale;
+        this.ioService = ioService;
     }
 
     /* (non-Javadoc)
@@ -137,9 +146,11 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             vertx.eventBus().<String>consumer(
                     GET_THUMBNAILS_EVENT, this::getThumbnails);
             vertx.eventBus().<String>consumer(
-                    GET_IMAGE_DATA, this::getImageData);
+                    GET_IMAGE_DATA_EVENT, this::getImageData);
             vertx.eventBus().<String>consumer(
-                    GET_HISTOGRAM_JSON, this::getHistogramJson);
+                    GET_HISTOGRAM_JSON_EVENT, this::getHistogramJson);
+            vertx.eventBus().<String>consumer(
+                    GET_FILE_ANNOTATION_METADATA_EVENT, this::getFileAnnotationMetadata);
         } catch (Exception e) {
             startPromise.fail(e);
         }
@@ -481,6 +492,53 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         message.fail(500, v);
                     }
                 });
+    }
+
+    /**
+     * Gets the file name and path of the {@link OriginalFile} associated with
+     * A given {@link FileAnnotation} and returns them as JSON
+     * @param message JSON-encoded event data. Required keys are
+     * <code>omeroSessionKey</code> (String) and <code>annotationId</code>
+     */
+    private void getFileAnnotationMetadata(Message<String> message) {
+        ObjectMapper mapper = new ObjectMapper();
+        AnnotationCtx annotationCtx;
+        try {
+            annotationCtx = mapper.readValue(message.body(), AnnotationCtx.class);
+        } catch (Exception e) {
+            String v = "Illegal annotation context";
+            log.error(v + ": {}", message.body(), e);
+            message.fail(400, v);
+            return;
+        }
+        ScopedSpan span = Tracing.currentTracer().startScopedSpanWithParent(
+                "get_annotation",
+                extractor().extract(annotationCtx.traceContext).context());
+        String omeroSessionKey = annotationCtx.omeroSessionKey;
+        log.debug("Get annotation request: {}", annotationCtx.toString());
+        try (OmeroRequest request = new OmeroRequest(
+                host, port, omeroSessionKey)) {
+                JsonObject fileInfo = request.execute(
+                    new AnnotationRequestHandler(annotationCtx)
+                        ::getFileIdAndNameForAnnotation);
+                if (fileInfo == null) {
+                    message.fail(404, "Cannot find the file path");
+                    return;
+                }
+                fileInfo.put("originalFilePath", ioService.getFilesPath(
+                        fileInfo.getLong("originalFileId")));
+                message.reply(fileInfo);
+        } catch (PermissionDeniedException
+                 | CannotCreateSessionException e) {
+            String v = "Permission denied";
+            message.fail(403, v);
+        } catch (Exception e) {
+            String v = "Exception while getting annotation";
+            log.error(v, e);
+            message.fail(500, v);
+        } finally {
+            span.finish();
+        }
     }
 
     /**
