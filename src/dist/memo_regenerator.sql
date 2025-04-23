@@ -9,6 +9,7 @@ COPY (SELECT * FROM (
            pixels.sizeC,
            pixels.sizeT,
            format.value,
+           e2.time AS importTime,
            e2.time - e1.time AS setId,
            rank() OVER (PARTITION BY fileset.id ORDER BY image.id) AS rank
         FROM fileset
@@ -21,4 +22,4 @@ COPY (SELECT * FROM (
             JOIN job on filesetjoblink.child=job.id
             JOIN uploadjob on job.id=uploadjob.job_id
             JOIN event e1 on job.update_id=e1.id
-)  AS query WHERE query.rank = 1 ORDER BY query.setId desc) TO STDOUT CSV;
+)  AS query WHERE query.rank = 1 AND query.importTime > :'start_date' ORDER BY query.setId desc) TO STDOUT CSV;

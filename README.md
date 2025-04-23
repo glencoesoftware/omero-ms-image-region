@@ -214,6 +214,10 @@ it from the configuration file:
 
     ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --jobs 4 --db postgresql://user:password@host:port/db
 
+`--since` allows to only regenerate memo files for images imported after a specific date:
+
+    ./regen-memo-files.sh --cache-options /OMERO/BioFormatsCache.new --jobs 4 --since 2025-01-01
+
 Checking the status
 -------------------
 

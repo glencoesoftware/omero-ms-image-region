@@ -38,6 +38,7 @@ usage() {
     echo "    --memoizer-home       Location of image-region micro-service (default: current directory)"
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
+    echo "    --since               Only regenerate images imported since the specified date (default: 1970-01-01)"
     echo
     echo "Examples:"
     echo "  Regenerate memo files using the current cache directory and all available CPUs"
@@ -108,6 +109,11 @@ while true; do
                 "") echo "No parameter specified for --csv"; break;;
                 *)  FULL_CSV=$2; shift 2;;
             esac;;
+        --since)
+            case "$2" in
+                "") echo "No parameter specified for --since"; break;;
+                *)  SINCE=$2; shift 2;;
+            esac;;
         "") break;;
         *) echo "Unknown keywords $*"; usage 1;;
     esac
@@ -159,6 +165,10 @@ if [ -z "${FULL_CSV}" ]; then
   FULL_CSV="image-list-${DATESTR}.csv"
 fi
 
+if [ -z "${SINCE}" ]; then
+  SINCE="1970-01-01"
+fi
+
 if [ -f "${FULL_CSV}" ]; then
   echo "existing images file"
 else
@@ -175,7 +185,7 @@ else
   else
     PSQL_OPTIONS=${DB}
   fi
-  psql ${PSQL_OPTIONS} omero -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
+  psql ${PSQL_OPTIONS} omero -v start_date=$SINCE -f ${MEMOIZER_HOME}/memo_regenerator.sql > ${FULL_CSV}
 fi
 [ -n "${DRYRUN}" ] && set -x
 
