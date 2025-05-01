@@ -160,7 +160,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                         JsonObject setMessage = new JsonObject();
                         setMessage.put("key", key);
                         setMessage.put("value", shapeMask);
-                        vertx.eventBus().send(
+                        vertx.eventBus().request(
                                 RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                                 setMessage);
                     }
@@ -234,7 +234,7 @@ public class ShapeMaskVerticle extends OmeroMsAbstractVerticle {
                 JsonObject setMessage = new JsonObject();
                 setMessage.put("key", key);
                 setMessage.put("value", shapeMask);
-                vertx.eventBus().send(
+                vertx.eventBus().request(
                         RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                         setMessage);
             }
