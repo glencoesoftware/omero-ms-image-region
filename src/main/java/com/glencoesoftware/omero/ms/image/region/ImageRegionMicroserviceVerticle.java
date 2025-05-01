@@ -54,6 +54,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.spi.json.JsonCodec;
+import io.vertx.core.json.jackson.JacksonCodec;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -768,7 +769,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         toReturn = imgDataJson.getValue(keys[keys.length - 1]);
                     }
                 }
-                chunk = JsonCodec.INSTANCE.toString(toReturn, true);
+                JsonCodec codec = new JacksonCodec();
+                chunk = codec.toString(toReturn, true);
                 if (request.params().contains("callback")) {
                     String callback = request.params().get("callback");
                     chunk = String.format("%s(%s)", callback, chunk);
