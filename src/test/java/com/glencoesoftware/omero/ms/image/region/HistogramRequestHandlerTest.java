@@ -7,7 +7,6 @@ import org.junit.Test;
 import java.nio.ByteBuffer;
 
 import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -23,7 +22,7 @@ public class HistogramRequestHandlerTest {
 
     @Before
     public void setUp() {
-        MultiMap params = new CaseInsensitiveHeaders();
+        MultiMap params = MultiMap.caseInsensitiveMultiMap();
 
         params.add("imageId", "1");
         params.add("theC", "0");

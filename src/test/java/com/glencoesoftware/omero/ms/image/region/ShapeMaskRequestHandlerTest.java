@@ -23,7 +23,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 
 import javax.imageio.ImageIO;
 
@@ -49,7 +48,7 @@ public class ShapeMaskRequestHandlerTest {
 
     @Before
     public void setUp() {
-        MultiMap params = new CaseInsensitiveHeaders();
+        MultiMap params = MultiMap.caseInsensitiveMultiMap();
 
         params.add("shapeId", "1");
         params.add("color", "0");
