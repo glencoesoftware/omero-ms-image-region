@@ -21,11 +21,9 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import org.slf4j.LoggerFactory;
 
-import com.glencoesoftware.omero.ms.core.OmeroRequestCtx;
-
 import io.vertx.core.MultiMap;
 
-public class HistogramCtx extends OmeroRequestCtx {
+public class HistogramCtx extends MicroserviceRequestCtx {
 
     private static final org.slf4j.Logger log =
             LoggerFactory.getLogger(HistogramCtx.class);
