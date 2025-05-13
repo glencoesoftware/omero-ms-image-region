@@ -54,6 +54,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
@@ -362,7 +363,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             .handler(this::downloadFileAnnotation);
         router.head(
                 "/webclient/annotation/:annotationId*")
-            .handler(this::fileAnnotationMetadata);
+            .handler(this::downloadFileAnnotation);
 
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
@@ -1002,76 +1003,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         return;
                     }
                     else {
-                        response.headers().set("Content-Type", "application/octet-stream");
-                        response.headers().set("Content-Disposition",
-                                "attachment; filename=\"" + fileName + "\"");
-                        if (request.headers().contains("Range")) {
-                            String range = request.getHeader("Range");
-                            if (range.matches("^bytes=\\d+-\\d+$")) {
-	                            String[] startEndStr =
-	                            		range.substring("bytes=".length()).split("-");
-	                            response.sendFile(filePath, Long.valueOf(startEndStr[0]),
-	                            		Long.valueOf(startEndStr[1]));
-                            } else {
-                            	response.setStatusCode(400);
-                            	response.end("Malformed Range header - "
-                            			+ "must be of the form \"bytes=x-y\"");
-                            }
-                        } else {
-                        	response.sendFile(filePath);
-                        }
-                    }
-                }
-            });
-    }
-
-    /**
-     * Downloads the {@link OriginalFile} associated with the given
-     * {@link FileAnnotation}
-     * @param event Current routing context
-     */
-    private void fileAnnotationMetadata(RoutingContext event) {
-        HttpServerRequest request = event.request();
-        HttpServerResponse response = event.response();
-        final AnnotationCtx annotationCtx;
-        try {
-            annotationCtx = new AnnotationCtx(request.params(),
-                    event.get("omero.session_key"));
-        } catch (IllegalArgumentException e) {
-            if (!response.closed()) {
-                response.setStatusCode(400).end(e.getMessage());
-            }
-            return;
-        }
-        annotationCtx.injectCurrentTraceContext();
-        vertx.eventBus().<JsonObject>request(
-            ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
-            Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
-                @Override
-                public void handle(AsyncResult<Message<JsonObject>> result) {
-                    if (result.failed()) {
-                        log.error(result.cause().getMessage());
-                        response.setStatusCode(404);
-                        response.end("Could not get annotation "
-                                    + request.getParam("annotationId"));
-                        return;
-                    }
-                    JsonObject fileInfo = result.result().body();
-                    String fileName = fileInfo.getString("originalFileName");
-                    String filePath = fileInfo.getString("originalFilePath");
-                    //If the path is a directory, send error response
-                    File file = new File(filePath);
-                    if (!file.exists()) {
-                        response.setStatusCode(404);
-                        response.end("File for given Annotation does not exist");
-                        return;
-                    }
-                    if (file.isDirectory()) {
-                        response.setStatusCode(501);
-                        response.end("File Annotation of Unsupported File Type");
-                        return;
-                    }
-                    else {
                     	String contentType = "application/octet-stream";
                     	try {
 							contentType = new Tika().detect(file);
@@ -1081,7 +1012,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 									fileName));
 						}
                         response.headers().set("Content-Type", contentType);
-                        response.headers().set("Content-Length", Long.toString(file.length()));
+
                         response.headers().set("Accept-Ranges", "bytes");
                         ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(
                         		Instant.ofEpochMilli(file.lastModified()),
@@ -1089,23 +1020,53 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         DateTimeFormatter formatter =
                         		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                         response.headers().set("Last-Modified", zonedDateTime.format(formatter));
+                        response.headers().set("Content-Disposition",
+                                "attachment; filename=\"" + fileName + "\"");
+
+                        if (request.method() == HttpMethod.HEAD) {
+                        	response.headers().set("Content-Length", Long.toString(file.length()));
+                        	response.end();
+                        	return;
+                        }
                         if (request.headers().contains("Range")) {
                             String range = request.getHeader("Range");
+                            long start;
+                            long end;
                             if (range.matches("^bytes=\\d+-\\d+$")) {
-	                            String[] startEndStr = 
+	                            String[] startEndStr =
 	                            		range.substring("bytes=".length()).split("-");
-	                            response.sendFile(filePath, Long.valueOf(startEndStr[0]),
-	                            		Long.valueOf(startEndStr[1]));
+	                            start = Long.valueOf(startEndStr[0]);
+	                            end = Long.valueOf(startEndStr[1]);
+	                            end = Math.min(end, file.length());
+                            }
+                            else if (range.matches("^bytes=\\d+-$")) {
+                            	String[] startEndStr =
+	                            		range.substring("bytes=".length()).split("-");
+	                            start = Long.valueOf(startEndStr[0]);
+	                            end = file.length() - 1;
                             } else {
                             	response.setStatusCode(400);
                             	response.end("Malformed Range header - "
-                            			+ "must be of the form \"bytes=x-y\"");
+                            			+ "must be of the form \"bytes=x-y\" or \"bytes=x-\"");
+                            	return;
                             }
+                            if (start >= file.length()) {
+                            	response.setStatusCode(416);
+                            	response.end("Invalid range");
+                            	return;
+                            }
+                            response.setStatusCode(206);
+                            log.info("Setting content-range");
+                            response.headers().set("Content-Range",
+                            		String.format("%d-%d/%d", start, end,
+                            				file.length()));
+                            log.info("Sending file...");
+                            response.sendFile(filePath, start, end - start + 1);
                         } else {
                         	response.sendFile(filePath);
                         }
                     }
-                }
-            });
+            }
+        });
     }
 }
