@@ -32,7 +32,6 @@ import org.apache.tika.Tika;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.format.datetime.joda.DateTimeFormatterFactory;
 
 import com.glencoesoftware.omero.ms.core.OmeroVerticleFactory;
 import com.glencoesoftware.omero.ms.core.OmeroWebJDBCSessionStore;
@@ -1003,67 +1002,69 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         return;
                     }
                     else {
-                    	String contentType = "application/octet-stream";
-                    	try {
-							contentType = new Tika().detect(file);
-						} catch (IOException e) {
-							log.warn(String.format(
-									"Failed to detect content type of file %s",
-									fileName));
-						}
+                        String contentType = "application/octet-stream";
+                        try {
+                            contentType = new Tika().detect(file);
+                        } catch (IOException e) {
+                            log.warn(String.format(
+                                    "Failed to detect content type of file %s",
+                                    fileName));
+                        }
                         response.headers().set("Content-Type", contentType);
 
                         response.headers().set("Accept-Ranges", "bytes");
                         ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(
-                        		Instant.ofEpochMilli(file.lastModified()),
-                        		ZoneId.of("UTC"));
+                                Instant.ofEpochMilli(file.lastModified()),
+                                ZoneId.of("UTC"));
                         DateTimeFormatter formatter =
-                        		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                         response.headers().set("Last-Modified", zonedDateTime.format(formatter));
                         response.headers().set("Content-Disposition",
                                 "attachment; filename=\"" + fileName + "\"");
 
                         if (request.method() == HttpMethod.HEAD) {
-                        	response.headers().set("Content-Length", Long.toString(file.length()));
-                        	response.end();
-                        	return;
+                            response.headers().set("Content-Length", Long.toString(file.length()));
+                            response.end();
+                            return;
                         }
                         if (request.headers().contains("Range")) {
                             String range = request.getHeader("Range");
                             long start;
                             long end;
                             if (range.matches("^bytes=\\d+-\\d+$")) {
-	                            String[] startEndStr =
-	                            		range.substring("bytes=".length()).split("-");
-	                            start = Long.valueOf(startEndStr[0]);
-	                            end = Long.valueOf(startEndStr[1]);
-	                            end = Math.min(end, file.length());
+                                String[] startEndStr =
+                                        range.substring("bytes=".length()).split("-");
+                                start = Long.valueOf(startEndStr[0]);
+                                end = Long.valueOf(startEndStr[1]);
+                                end = Math.min(end, file.length());
                             }
                             else if (range.matches("^bytes=\\d+-$")) {
-                            	String[] startEndStr =
-	                            		range.substring("bytes=".length()).split("-");
-	                            start = Long.valueOf(startEndStr[0]);
-	                            end = file.length() - 1;
+                                String[] startEndStr =
+                                        range.substring("bytes=".length()).split("-");
+                                start = Long.valueOf(startEndStr[0]);
+                                end = file.length() - 1;
                             } else {
-                            	response.setStatusCode(400);
-                            	response.end("Malformed Range header - "
-                            			+ "must be of the form \"bytes=x-y\" or \"bytes=x-\"");
-                            	return;
+                                response.setStatusCode(400);
+                                response.end("Malformed Range header - "
+                                        + "must be of the form \"bytes=x-y\" or \"bytes=x-\"");
+                                return;
                             }
                             if (start >= file.length()) {
-                            	response.setStatusCode(416);
-                            	response.end("Invalid range");
-                            	return;
+                                response.setStatusCode(416);
+                                response.headers().set("Content-Range",
+                                        String.format("*/%d", file.length()));
+                                response.end("Invalid range");
+                                return;
                             }
                             response.setStatusCode(206);
                             log.info("Setting content-range");
                             response.headers().set("Content-Range",
-                            		String.format("%d-%d/%d", start, end,
-                            				file.length()));
+                                    String.format("%d-%d/%d", start, end,
+                                            file.length()));
                             log.info("Sending file...");
                             response.sendFile(filePath, start, end - start + 1);
                         } else {
-                        	response.sendFile(filePath);
+                            response.sendFile(filePath);
                         }
                     }
             }

@@ -79,6 +79,7 @@ dependencies {
     implementation 'dev.zarr:jzarr:0.4.2'
     implementation 'org.lasersonlab:s3fs:2.2.3'
     implementation 'com.amazonaws:aws-java-sdk-s3:1.12.659'
+    implementation 'org.apache.tika:tika-core:1.28.5'
 
     testImplementation("junit:junit:4.12")
     testImplementation 'org.mockito:mockito-core:2.28.2'
