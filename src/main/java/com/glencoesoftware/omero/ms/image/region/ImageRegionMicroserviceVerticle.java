@@ -1043,13 +1043,16 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                         range.substring("bytes=".length()).split("-");
                                 start = Long.valueOf(startEndStr[0]);
                                 end = file.length() - 1;
+                            } else if (range.matches("bytes=-\\d+$")) {
+                                start = 0;
+                                end = Long.valueOf(range.substring("bytes=-".length()));
                             } else {
                                 response.setStatusCode(400);
                                 response.end("Malformed Range header - "
                                         + "must be of the form \"bytes=x-y\" or \"bytes=x-\"");
                                 return;
                             }
-                            if (start >= file.length()) {
+                            if (start >= file.length() || start > end) {
                                 response.setStatusCode(416);
                                 response.headers().set("Content-Range",
                                         String.format("*/%d", file.length()));
