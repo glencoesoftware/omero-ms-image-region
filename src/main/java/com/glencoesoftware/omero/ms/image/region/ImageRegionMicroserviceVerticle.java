@@ -1036,7 +1036,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                         range.substring("bytes=".length()).split("-");
                                 start = Long.valueOf(startEndStr[0]);
                                 end = Long.valueOf(startEndStr[1]);
-                                end = Math.min(end, file.length());
+                                end = Math.min(end, file.length() - 1);
                             }
                             else if (range.matches("^bytes=\\d+-$")) {
                                 String[] startEndStr =
@@ -1044,8 +1044,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                 start = Long.valueOf(startEndStr[0]);
                                 end = file.length() - 1;
                             } else if (range.matches("bytes=-\\d+$")) {
-                                start = 0;
-                                end = Long.valueOf(range.substring("bytes=-".length()));
+                                start = file.length() - Long.valueOf(range.substring("bytes=-".length()));
+                                end = file.length() - 1;
                             } else {
                                 response.setStatusCode(400);
                                 response.end("Malformed Range header - "
