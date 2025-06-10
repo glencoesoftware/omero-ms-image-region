@@ -52,7 +52,8 @@ usage() {
 
 run_split_parallel_os_dep() {
 set -x
-  export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
+  [ -d "/opt/omero/OMERO.current/var/tmp" ] || mkdir -p /opt/omero/OMERO.current/var/tmp
+  export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer -Djava.io.tmpdir=/opt/omero/OMERO.current/var/tmp"
   cd rslt.${DATESTR}
   # Split the CSV file into N * JOBS files of at most BATCH_SIZE entries using round-robin distribution
   N=$(wc -l ${FULL_CSV} | awk '{print $1}')
