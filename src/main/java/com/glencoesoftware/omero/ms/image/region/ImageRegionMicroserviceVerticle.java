@@ -44,6 +44,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.ThreadingModel;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
@@ -235,14 +236,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 new DeploymentOptions().setConfig(config));
         vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
+                        .setThreadingModel(ThreadingModel.WORKER)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-image-region-pool")
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
         vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
+                .setThreadingModel(ThreadingModel.WORKER)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-shape-mask-pool")
                         .setWorkerPoolSize(workerPoolSize)
