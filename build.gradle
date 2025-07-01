@@ -74,7 +74,7 @@ dependencies {
     implementation 'io.prometheus:simpleclient_hotspot:0.8.0'
     implementation 'info.picocli:picocli:4.1.4'
     implementation 'com.univocity:univocity-parsers:2.8.3'
-    implementation 'com.zeroc:icegrid:3.6.4'
+    implementation 'com.zeroc:icegrid:3.6.5'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
     implementation 'dev.zarr:jzarr:0.4.2'
