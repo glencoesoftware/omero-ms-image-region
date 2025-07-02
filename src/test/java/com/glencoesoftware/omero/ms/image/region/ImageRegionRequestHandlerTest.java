@@ -30,7 +30,6 @@ import org.junit.Assert;
 import org.junit.Before;
 
 import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import ome.io.nio.PixelBuffer;
 import ome.model.enums.Family;
 import ome.model.enums.RenderingModel;
@@ -46,7 +45,7 @@ public class ImageRegionRequestHandlerTest {
 
     @Before
     public void setUp() {
-        MultiMap params = new CaseInsensitiveHeaders();
+        MultiMap params = MultiMap.caseInsensitiveMultiMap();
 
         params.add("imageId", "1");
         params.add("theZ", "0");
