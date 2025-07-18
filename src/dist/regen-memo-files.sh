@@ -38,6 +38,7 @@ usage() {
     echo "    --memoizer-home       Location of image-region micro-service (default: current directory)"
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
+    echo "    --java-tmpdir         Sets JavaIOTmpdir (default: /opt/omero/OMERO.current/var/tmp)"
     echo "    --since               Only regenerate images imported since the specified date (default: 1970-01-01)"
     echo
     echo "Examples:"
@@ -52,7 +53,8 @@ usage() {
 
 run_split_parallel_os_dep() {
 set -x
-  export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer"
+  [ -d "${JAVA_TMPDIR}" ] || mkdir -p ${JAVA_TMPDIR}
+  export JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=rslt.${DATESTR} -Xmx2g -Dlogback.configurationFile=${MEMOIZER_HOME}/logback-memoizer.xml -Dprocessname=memoizer -Djava.io.tmpdir=${JAVA_TMPDIR}"
   cd rslt.${DATESTR}
   # Split the CSV file into N * JOBS files of at most BATCH_SIZE entries using round-robin distribution
   N=$(wc -l ${FULL_CSV} | awk '{print $1}')
@@ -99,6 +101,11 @@ while true; do
                 "") echo "No parameter specified for --memoizer-home"; break;;
                 *)  MEMOIZER_HOME=$2; shift 2;;
             esac;;
+        --java-tmpdir)
+            case "$2" in
+                "") echo "No parameter specified for --java-tmpdir"; break;;
+                *)  JAVA_TMPDIR=$2; shift 2;;
+            esac;;
         --cache-options)
             case "$2" in
                 "") echo "No parameter specified for --cache-options"; break;;
@@ -120,6 +127,7 @@ while true; do
 done
 
 DATESTR="$( date "+%Y%m%d" ).$$"
+JAVA_TMPDIR="${JAVA_TMPDIR:=/opt/omero/OMERO.current/var/tmp}"
 
 if [ -z "${CACHE_OPTIONS}" ]; then
   echo "Missing --cache-options : must specify a directory or 'inplace'"

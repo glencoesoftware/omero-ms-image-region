@@ -50,6 +50,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.ThreadingModel;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
@@ -61,6 +62,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.spi.json.JsonCodec;
+import io.vertx.core.json.jackson.JacksonCodec;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -122,10 +124,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private AsyncReporter<Span> spanReporter;
 
     private Tracing tracing;
-
-    static {
-        com.glencoesoftware.omero.ms.core.SSLUtils.fixDisabledAlgorithms();
-    }
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -241,14 +239,14 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 new DeploymentOptions().setConfig(config));
         vertx.deployVerticle("omero:omero-ms-image-region-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
+                        .setThreadingModel(ThreadingModel.WORKER)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-image-region-pool")
                         .setWorkerPoolSize(workerPoolSize)
                         .setConfig(config));
         vertx.deployVerticle("omero:omero-ms-shape-mask-verticle",
                 new DeploymentOptions()
-                        .setWorker(true)
+                .setThreadingModel(ThreadingModel.WORKER)
                         .setInstances(workerPoolSize)
                         .setWorkerPoolName("render-shape-mask-pool")
                         .setWorkerPoolSize(workerPoolSize)
@@ -778,7 +776,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         toReturn = imgDataJson.getValue(keys[keys.length - 1]);
                     }
                 }
-                chunk = JsonCodec.INSTANCE.toString(toReturn, true);
+                JsonCodec codec = new JacksonCodec();
+                chunk = codec.toString(toReturn, true);
                 if (request.params().contains("callback")) {
                     String callback = request.params().get("callback");
                     chunk = String.format("%s(%s)", callback, chunk);

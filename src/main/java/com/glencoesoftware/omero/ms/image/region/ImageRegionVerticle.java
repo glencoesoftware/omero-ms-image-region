@@ -470,7 +470,7 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                         JsonObject setMessage = new JsonObject();
                         setMessage.put("key", cacheKey);
                         setMessage.put("value", histogramData.toString().getBytes());
-                        vertx.eventBus().send(
+                        vertx.eventBus().request(
                                 RedisCacheVerticle.REDIS_CACHE_SET_EVENT,
                                 setMessage);
                     } catch (PermissionDeniedException
