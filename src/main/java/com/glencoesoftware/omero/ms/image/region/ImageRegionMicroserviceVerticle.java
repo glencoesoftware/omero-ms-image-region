@@ -19,10 +19,16 @@
 package com.glencoesoftware.omero.ms.image.region;
 
 import java.io.File;
+import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.tika.Tika;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -48,6 +54,7 @@ import io.vertx.core.ThreadingModel;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
@@ -351,6 +358,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         router.get(
                 "/webclient/annotation/:annotationId*")
             .handler(this::downloadFileAnnotation);
+        router.head(
+                "/webclient/annotation/:annotationId*")
+            .handler(this::downloadFileAnnotation);
 
         // ImageData request handlers
         router.get("/webgateway/imgData/:imageId/:keys*").handler(this::getImageData);
@@ -516,7 +526,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                                  .add("mask-color")
                                  .add("png-tiles")
                                  .add("quantization")
-                                 .add("support-missing-channels"))
+                                 .add("support-missing-channels")
+                                 .add("annotation-range-request"))
                 .put("options",new JsonObject()
                                .put("maxTileLength", maxTileLength)
                                .put("maxPlaneWidth", maxPlaneWidth)
@@ -964,40 +975,102 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         annotationCtx.injectCurrentTraceContext();
         vertx.eventBus().<JsonObject>request(
-                ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
-                Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
-                    @Override
-                    public void handle(AsyncResult<Message<JsonObject>> result) {
-                        if (result.failed()) {
-                            log.error(result.cause().getMessage());
-                            response.setStatusCode(404);
-                            response.end("Could not get annotation "
-                                        + request.getParam("annotationId"));
+            ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
+            Json.encode(annotationCtx), new Handler<AsyncResult<Message<JsonObject>>>() {
+                @Override
+                public void handle(AsyncResult<Message<JsonObject>> result) {
+                    if (result.failed()) {
+                        log.error(result.cause().getMessage());
+                        response.setStatusCode(404);
+                        response.end("Could not get annotation "
+                                    + request.getParam("annotationId"));
+                        return;
+                    }
+                    JsonObject fileInfo = result.result().body();
+                    String fileName = fileInfo.getString("originalFileName");
+                    String filePath = fileInfo.getString("originalFilePath");
+                    //If the path is a directory, send error response
+                    File file = new File(filePath);
+                    if (!file.exists()) {
+                        response.setStatusCode(404);
+                        response.end("File for given Annotation does not exist");
+                        return;
+                    }
+                    if (file.isDirectory()) {
+                        response.setStatusCode(501);
+                        response.end("File Annotation of Unsupported File Type");
+                        return;
+                    }
+                    else {
+                        String contentType = "application/octet-stream";
+                        try {
+                            contentType = new Tika().detect(file);
+                        } catch (IOException e) {
+                            log.warn(String.format(
+                                    "Failed to detect content type of file %s",
+                                    fileName));
+                        }
+                        response.headers().set("Content-Type", contentType);
+
+                        response.headers().set("Accept-Ranges", "bytes");
+                        ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(
+                                Instant.ofEpochMilli(file.lastModified()),
+                                ZoneId.of("UTC"));
+                        DateTimeFormatter formatter =
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                        response.headers().set("Last-Modified", zonedDateTime.format(formatter));
+                        response.headers().set("Content-Disposition",
+                                "attachment; filename=\"" + fileName + "\"");
+
+                        if (request.method() == HttpMethod.HEAD) {
+                            response.headers().set("Content-Length", Long.toString(file.length()));
+                            response.end();
                             return;
                         }
-                        JsonObject fileInfo = result.result().body();
-                        String fileName = fileInfo.getString("originalFileName");
-                        String filePath = fileInfo.getString("originalFilePath");
-                        //If the path is a directory, send error response
-                        File file = new File(filePath);
-                        if (!file.exists()) {
-                            response.setStatusCode(404);
-                            response.end("File for given Annotation does not exist");
-                            return;
-                        }
-                        if (file.isDirectory()) {
-                            response.setStatusCode(501);
-                            response.end("File Annotation of Unsupported File Type");
-                            return;
-                        }
-                        else {
-                            response.headers().set("Content-Type", "application/octet-stream");
-                            response.headers().set("Content-Disposition",
-                                    "attachment; filename=\"" + fileName + "\"");
+                        if (request.headers().contains("Range")) {
+                            String range = request.getHeader("Range");
+                            long start;
+                            long end;
+                            if (range.matches("^bytes=\\d+-\\d+$")) {
+                                String[] startEndStr =
+                                        range.substring("bytes=".length()).split("-");
+                                start = Long.valueOf(startEndStr[0]);
+                                end = Long.valueOf(startEndStr[1]);
+                                end = Math.min(end, file.length() - 1);
+                            }
+                            else if (range.matches("^bytes=\\d+-$")) {
+                                String[] startEndStr =
+                                        range.substring("bytes=".length()).split("-");
+                                start = Long.valueOf(startEndStr[0]);
+                                end = file.length() - 1;
+                            } else if (range.matches("bytes=-\\d+$")) {
+                                start = file.length() - Long.valueOf(range.substring("bytes=-".length()));
+                                end = file.length() - 1;
+                            } else {
+                                response.setStatusCode(400);
+                                response.end("Malformed Range header - "
+                                        + "must be of the form \"bytes=x-y\" or \"bytes=x-\"");
+                                return;
+                            }
+                            if (start >= file.length() || start > end) {
+                                response.setStatusCode(416);
+                                response.headers().set("Content-Range",
+                                        String.format("*/%d", file.length()));
+                                response.end("Invalid range");
+                                return;
+                            }
+                            response.setStatusCode(206);
+                            log.info("Setting content-range");
+                            response.headers().set("Content-Range",
+                                    String.format("%d-%d/%d", start, end,
+                                            file.length()));
+                            log.info("Sending file...");
+                            response.sendFile(filePath, start, end - start + 1);
+                        } else {
                             response.sendFile(filePath);
                         }
                     }
-                });
-
+            }
+        });
     }
 }
