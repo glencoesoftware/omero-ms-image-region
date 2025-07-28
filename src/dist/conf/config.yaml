@@ -8,6 +8,8 @@ port: 8081
 # max-initial-line-length: 4096
 # max-header-size: 8192
 # max-chunk-size: 8192
+# EventBus Timeout in ms - default is 30000
+event_bus_timeout: 60000
 # Max number of channels to allow per request
 max-active-channels: 10
 # OMERO server that the microservice will communicate with (as a client)
