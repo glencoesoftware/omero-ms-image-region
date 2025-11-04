@@ -135,5 +135,5 @@ applicationDistribution.into("bin") {
 
 applicationDefaultJvmArgs = [
     "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory",
-    "-Djava.io.tmpdir=MY_APP_HOME/var/tmp"
+    "-Djava.io.tmpdir=MY_APP_HOME/tmp"
 ]
