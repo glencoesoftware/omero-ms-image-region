@@ -114,6 +114,9 @@ distributions {
 
 startScripts {
   classpath  = files('$APP_HOME/lib/*')
+  doLast {
+    unixScript.text = unixScript.text.replace("MY_APP_HOME", "'\$APP_HOME'")
+  }
 }
 
 task memoRegenStartScript(type: CreateStartScripts) {
@@ -131,5 +134,6 @@ applicationDistribution.into("bin") {
 
 
 applicationDefaultJvmArgs = [
-    "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory"
+    "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory",
+    "-Djava.io.tmpdir=MY_APP_HOME/tmp"
 ]
