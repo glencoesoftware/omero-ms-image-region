@@ -38,7 +38,7 @@ usage() {
     echo "    --memoizer-home       Location of image-region micro-service (default: current directory)"
     echo "    --no-ask              Do not ask for confirmation"
     echo "    --no-wait             Do not wait to start generating -- DO IT NOW"
-    echo "    --java-tmpdir         Sets JavaIOTmpdir (default: /opt/omero/OMERO.current/var/tmp)"
+    echo "    --java-tmpdir         Set Java temporary directory (default: tmp subfolder of current directory)"
     echo "    --since               Only regenerate images imported since the specified date (default: 1970-01-01)"
     echo
     echo "Examples:"
@@ -127,7 +127,6 @@ while true; do
 done
 
 DATESTR="$( date "+%Y%m%d" ).$$"
-JAVA_TMPDIR="${JAVA_TMPDIR:=/opt/omero/OMERO.current/var/tmp}"
 
 if [ -z "${CACHE_OPTIONS}" ]; then
   echo "Missing --cache-options : must specify a directory or 'inplace'"
@@ -148,6 +147,11 @@ fi
 if [ -z "${MEMOIZER_HOME}" ]; then
   echo "Setting memoizer-home to cwd (${PWD})"
   MEMOIZER_HOME=${PWD}
+fi
+
+if [ -z "${JAVA_TMPDIR}" ]; then
+  echo "Setting Java temporary directory to ${MEMOIZER_HOME}/tmp"
+  JAVA_TMPDIR=${MEMOIZER_HOME}/tmp
 fi
 
 set -e
