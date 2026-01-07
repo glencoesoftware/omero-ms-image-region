@@ -193,6 +193,7 @@ else
     DB_HOST=$( grep omero.db.host ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
     DB_NAME=$( grep omero.db.name ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
     DB_PASS=$( grep omero.db.pass ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
+    DB_PORT=$( grep omero.db.port ${MS_CONFIG} |awk -F: '{ print $2 }' | sed -re 's/\s+//g' -e 's/\"//g')
     PSQL_OPTIONS="postgresql://${DB_USER:-omero}:${DB_PASS:-omero}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-omero}"
   else
     PSQL_OPTIONS=${DB}
