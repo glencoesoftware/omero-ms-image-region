@@ -111,8 +111,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     /** VerticleFactory */
     private OmeroVerticleFactory verticleFactory;
 
-    /** Default timeout in ms for event bus messages to be processed */
-    private int eventBusTimeout = 30000;
+    /** DeliveryOptions (including event bus send timeout) */
+    private DeliveryOptions deliveryOptions;
 
     /** Default number of workers to be assigned to the worker verticle */
     private int DEFAULT_WORKER_POOL_SIZE;
@@ -169,9 +169,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     public void deploy(JsonObject config, Promise<Void> prom) {
         log.info("Deploying verticle");
 
-        eventBusTimeout = Optional.ofNullable(
-                config.getInteger("event_bus_timeout")
-                ).orElse(30000);
+        deliveryOptions = new DeliveryOptions()
+                                .setSendTimeout(Optional.ofNullable(
+                                        config.getInteger("event-bus-send-timeout")
+                                        ).orElse(30000));
 
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
@@ -587,13 +588,10 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         imageRegionCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                                        .setSendTimeout(eventBusTimeout);
-
         final HttpServerResponse response = event.response();
         vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_IMAGE_REGION_EVENT,
-                Json.encode(imageRegionCtx), options, result -> {
+                Json.encode(imageRegionCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -643,12 +641,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
 
-        DeliveryOptions options = new DeliveryOptions()
-                                        .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.RENDER_SHAPE_MASK_EVENT,
-                Json.encode(shapeMaskCtx), options, result -> {
+                Json.encode(shapeMaskCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -685,12 +680,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<byte[]>request(
                 ShapeMaskVerticle.GET_SHAPE_MASK_BYTES_EVENT,
-                Json.encode(shapeMaskCtx), options, result -> {
+                Json.encode(shapeMaskCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -728,12 +720,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         final HttpServerResponse response = event.response();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<JsonObject>request(
                 ShapeMaskVerticle.GET_LABEL_IMAGE_METADATA_EVENT,
-                Json.encode(shapeMaskCtx), options, result -> {
+                Json.encode(shapeMaskCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -778,12 +767,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         imageDataCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_IMAGE_DATA_EVENT,
-                Json.encode(imageDataCtx), options, result -> {
+                Json.encode(imageDataCtx), deliveryOptions, result -> {
             String chunk = "";
             try {
                 if (handleResultFailed(result, response)) {
@@ -866,12 +852,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         histogramCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<JsonObject>request(
                 ImageRegionVerticle.GET_HISTOGRAM_JSON_EVENT,
-                Json.encode(histogramCtx), options, result -> {
+                Json.encode(histogramCtx), deliveryOptions, result -> {
             final HttpServerResponse response = event.response();
             try {
                 if (handleResultFailed(result, response)) {
@@ -916,12 +899,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
 
         thumbnailCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<byte[]>request(
                 ImageRegionVerticle.RENDER_THUMBNAIL_EVENT,
-                Json.encode(thumbnailCtx), options, result -> {
+                Json.encode(thumbnailCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -965,12 +945,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         thumbnailCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<String>request(
                 ImageRegionVerticle.GET_THUMBNAILS_EVENT,
-                Json.encode(thumbnailCtx), options, result -> {
+                Json.encode(thumbnailCtx), deliveryOptions, result -> {
             try {
                 if (handleResultFailed(result, response)) {
                     return;
@@ -1014,12 +991,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         annotationCtx.injectCurrentTraceContext();
 
-        DeliveryOptions options = new DeliveryOptions()
-                .setSendTimeout(eventBusTimeout);
-
         vertx.eventBus().<JsonObject>request(
             ImageRegionVerticle.GET_FILE_ANNOTATION_METADATA_EVENT,
-            Json.encode(annotationCtx), options,
+            Json.encode(annotationCtx), deliveryOptions,
             new Handler<AsyncResult<Message<JsonObject>>>() {
                 @Override
                 public void handle(AsyncResult<Message<JsonObject>> result) {
