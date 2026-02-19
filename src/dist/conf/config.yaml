@@ -10,7 +10,7 @@ port: 8081
 # max-chunk-size: 8192
 # EventBus Send Timeout in ms - default is 30000
 # see http://vertx.io/docs/apidocs/constant-values.html#io.vertx.core.eventbus.DeliveryOptions.DEFAULT_TIMEOUT
-event-bus-send-timeout: 60000
+event-bus-send-timeout: 15000
 # Max number of channels to allow per request
 max-active-channels: 10
 # OMERO server that the microservice will communicate with (as a client)
