@@ -103,10 +103,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
     /** Scaling service for thumbnails */
     private final IScale iScale;
 
-    /** Rendering ThreadPool sizes */
-    private final int corePoolSize;
-    private final int maxPoolSize;
-
     /** Thread pool for rendering operations */
     private final ExecutorService processor;
 
@@ -123,8 +119,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
             ZarrPixelsService pixelsService,
             IScale iScale,
             OriginalFilesService ioService,
-            int corePoolSize,
-            int maxPoolSize,
             ExecutorService processor)
     {
         this.compressionService = compressionService;
@@ -133,8 +127,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
         this.pixelsService = pixelsService;
         this.iScale = iScale;
         this.ioService = ioService;
-        this.corePoolSize = corePoolSize;
-        this.maxPoolSize = maxPoolSize;
         this.processor = processor;
     }
 
@@ -217,8 +209,6 @@ public class ImageRegionVerticle extends OmeroMsAbstractVerticle {
                             compressionService,
                             maxTileLength,
                             pixelsService,
-                            corePoolSize,
-                            maxPoolSize,
                             processor)::renderImageRegion);
             span.finish();
             if (imageRegion == null) {

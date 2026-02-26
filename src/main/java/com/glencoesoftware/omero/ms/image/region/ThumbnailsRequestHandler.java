@@ -87,8 +87,6 @@ public class ThumbnailsRequestHandler extends ImageRegionRequestHandler {
                 compressionSrv,
                 maxTileLength,
                 pixelsService,
-                maxTileLength,
-                maxTileLength,
                 processor);
         this.thumbnailCtx = thumbnailCtx;
         this.iScale = iScale;

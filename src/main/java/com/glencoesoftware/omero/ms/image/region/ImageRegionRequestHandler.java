@@ -111,10 +111,6 @@ public class ImageRegionRequestHandler {
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
     
-    /** Rendering ThreadPool sizes */
-    private final int corePoolSize;
-    private final int maxPoolSize;
-
     /** Rendering ThreadPool ExecutorService*/
     ExecutorService processor;
 
@@ -130,8 +126,6 @@ public class ImageRegionRequestHandler {
             LocalCompress compressionSrv,
             int maxTileLength,
             ZarrPixelsService pixelsService,
-            int corePoolSize,
-            int maxPoolSize,
             ExecutorService processor) {
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
@@ -140,8 +134,6 @@ public class ImageRegionRequestHandler {
         this.pixelsService = pixelsService;
         this.imageRegionCtx = imageRegionCtx;
         this.maxTileLength = maxTileLength;
-        this.corePoolSize = corePoolSize;
-        this.maxPoolSize = maxPoolSize;
         this.processor = processor;
         projectionService = new ProjectionService();
     }

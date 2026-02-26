@@ -35,8 +35,8 @@ omero.server:
     omero.pixeldata.zarr_cache_size: "500"
     omero.client.viewer.initial_zoom_level: "0"
     omero.client.viewer.interpolate_pixels: "true"
-    omero.core_pool_size: 4
-    omero.max_pool_size: 4
+    omero.core_pool_size: "4"
+    omero.max_pool_size: "4"
 # OMERO.web configuration
 omero.web:
     session_cookie_name: "sessionid"
