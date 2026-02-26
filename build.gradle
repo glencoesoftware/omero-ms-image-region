@@ -69,7 +69,7 @@ dependencies {
     implementation 'io.vertx:vertx-micrometer-metrics:4.5.16'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
     implementation 'io.micrometer:micrometer-registry-prometheus:1.3.0'
-    implementation 'org.openmicroscopy:omero-blitz:5.8.3'
+    implementation 'org.openmicroscopy:omero-blitz:5.8.4'
     implementation 'io.prometheus.jmx:collector:0.12.0'
     implementation 'io.prometheus:simpleclient_hotspot:0.8.0'
     implementation 'info.picocli:picocli:4.1.4'
