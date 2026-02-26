@@ -34,23 +34,23 @@ repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        name 'Unidata'
-        url 'https://artifacts.glencoesoftware.com/artifactory/unidata-releases'
+        name = 'Unidata'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/unidata-releases'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/ome.external'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/ome.external'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
-        url 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
+        url = 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
     }
 }
 
