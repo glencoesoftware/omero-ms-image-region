@@ -172,7 +172,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         deliveryOptions = new DeliveryOptions()
                                 .setSendTimeout(Optional.ofNullable(
                                         config.getInteger("event-bus-send-timeout")
-                                        ).orElse(30000));
+                                        ).orElse(15000));
 
         // Set OMERO.server configuration options using system properties
         JsonObject omeroServer = config.getJsonObject("omero.server");
