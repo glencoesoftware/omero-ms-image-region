@@ -27,6 +27,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.tika.Tika;
 import org.slf4j.LoggerFactory;
@@ -129,6 +131,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
     private AsyncReporter<Span> spanReporter;
 
     private Tracing tracing;
+
+    private ExecutorService processor;
 
     /**
      * Entry point method which starts the server event loop and initializes
@@ -237,6 +241,9 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         else {
             log.info("JMX Metrics NOT Enabled");
         }
+
+        processor = (ExecutorService)
+                context.getBean("rendering-thread-pool");
 
         verticleFactory = (OmeroVerticleFactory)
                 context.getBean("omero-ms-verticlefactory");
@@ -460,6 +467,13 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         }
         if (sender != null) {
             sender.close();
+        }
+        //Terminate all rendering tasks and don't start any queued ones.
+        processor.shutdownNow();
+        if (!processor.awaitTermination(5, TimeUnit.SECONDS)) {
+            log.error("Failed to terminate all rendering threads.");
+        } else {
+            log.info("All rendering threads terminated successfully");
         }
     }
 
