@@ -27,7 +27,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import org.apache.tika.Tika;
 import org.slf4j.LoggerFactory;
@@ -199,7 +198,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
         if (tracingEnabled) {
             String zipkinUrl = httpTracingConfig.getString("zipkin-url");
             try {
-                log.info("Tracing enabled: {}", zipkinUrl);
                 if(zipkinUrl != null) {
                     log.info("Tracing enabled: {}", zipkinUrl);
                     sender = OkHttpSender.create(zipkinUrl);
