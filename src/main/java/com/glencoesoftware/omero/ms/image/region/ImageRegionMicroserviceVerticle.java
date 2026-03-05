@@ -200,7 +200,7 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
             String zipkinUrl = httpTracingConfig.getString("zipkin-url");
             try {
                 log.info("Tracing enabled: {}", zipkinUrl);
-                if(Pattern.matches("^http.*", zipkinUrl)) {
+                if(zipkinUrl != null) {
                     log.info("Tracing enabled: {}", zipkinUrl);
                     sender = OkHttpSender.create(zipkinUrl);
                     spanReporter = AsyncReporter.create(sender);
@@ -211,7 +211,8 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                         .addFinishedSpanHandler(prometheusSpanHandler)
                         .spanReporter(spanReporter)
                         .build();
-                } else if (Pattern.matches("^slf4j.*", zipkinUrl)) {
+                } else {
+                    log.info("Tracing enabled without zipkin URL - writing traces to logs");
                     PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
                     spanReporter = new LogSpanReporter();
                     tracing = Tracing.newBuilder()
@@ -220,8 +221,6 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                             .addFinishedSpanHandler(prometheusSpanHandler)
                             .spanReporter(spanReporter)
                             .build();
-                } else {
-                    throw new IllegalArgumentException("Invalid URL configured for tracing");
                 }
             } catch (Exception e) {
                 log.error("Tracing enabled but configured incorrectly");
