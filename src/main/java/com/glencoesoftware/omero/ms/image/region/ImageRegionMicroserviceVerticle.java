@@ -202,24 +202,17 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                     log.info("Tracing enabled: {}", zipkinUrl);
                     sender = OkHttpSender.create(zipkinUrl);
                     spanReporter = AsyncReporter.create(sender);
-                    PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-                    tracing = Tracing.newBuilder()
+                } else {
+                    log.info("Tracing enabled without zipkin URL - writing traces to logs");
+                    spanReporter = new LogSpanReporter();
+                }
+                PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+                tracing = Tracing.newBuilder()
                         .sampler(Sampler.ALWAYS_SAMPLE)
                         .localServiceName("omero-ms-image-region")
                         .addFinishedSpanHandler(prometheusSpanHandler)
                         .spanReporter(spanReporter)
                         .build();
-                } else {
-                    log.info("Tracing enabled without zipkin URL - writing traces to logs");
-                    PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-                    spanReporter = new LogSpanReporter();
-                    tracing = Tracing.newBuilder()
-                            .sampler(Sampler.ALWAYS_SAMPLE)
-                            .localServiceName("omero-ms-image-region")
-                            .addFinishedSpanHandler(prometheusSpanHandler)
-                            .spanReporter(spanReporter)
-                            .build();
-                }
             } catch (Exception e) {
                 log.error("Tracing enabled but configured incorrectly");
                 throw e;
