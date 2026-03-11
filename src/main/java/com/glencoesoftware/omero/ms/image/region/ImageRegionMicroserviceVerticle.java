@@ -197,26 +197,30 @@ public class ImageRegionMicroserviceVerticle extends AbstractVerticle {
                 httpTracingConfig.getBoolean("enabled", false);
         if (tracingEnabled) {
             String zipkinUrl = httpTracingConfig.getString("zipkin-url");
-            log.info("Tracing enabled: {}", zipkinUrl);
-            sender = OkHttpSender.create(zipkinUrl);
-            spanReporter = AsyncReporter.create(sender);
-            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-            tracing = Tracing.newBuilder()
-                .sampler(Sampler.ALWAYS_SAMPLE)
-                .localServiceName("omero-ms-image-region")
-                .addFinishedSpanHandler(prometheusSpanHandler)
-                .spanReporter(spanReporter)
-                .build();
+            try {
+                if(zipkinUrl != null) {
+                    log.info("Tracing enabled: {}", zipkinUrl);
+                    sender = OkHttpSender.create(zipkinUrl);
+                    spanReporter = AsyncReporter.create(sender);
+                } else {
+                    log.info("Tracing enabled without zipkin URL - writing traces to logs");
+                    spanReporter = new LogSpanReporter();
+                }
+                PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
+                tracing = Tracing.newBuilder()
+                        .sampler(Sampler.ALWAYS_SAMPLE)
+                        .localServiceName("omero-ms-image-region")
+                        .addFinishedSpanHandler(prometheusSpanHandler)
+                        .spanReporter(spanReporter)
+                        .build();
+            } catch (Exception e) {
+                log.error("Tracing enabled but configured incorrectly");
+                throw e;
+            }
         } else {
             log.info("Tracing disabled");
-            PrometheusSpanHandler prometheusSpanHandler = new PrometheusSpanHandler();
-            spanReporter = new LogSpanReporter();
-            tracing = Tracing.newBuilder()
-                    .sampler(Sampler.ALWAYS_SAMPLE)
-                    .localServiceName("omero-ms-image-region")
-                    .addFinishedSpanHandler(prometheusSpanHandler)
-                    .spanReporter(spanReporter)
-                    .build();
+            tracing = Tracing.newBuilder().build();
+            tracing.setNoop(true);
         }
         httpTracing = HttpTracing.newBuilder(tracing).build();
 

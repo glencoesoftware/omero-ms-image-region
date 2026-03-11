@@ -45,10 +45,11 @@ omero.web:
 # Size of the worker pool (defaults to CPUs x 2)
 #worker_pool_size: 8
 
-# Configuration for zipkin http tracing
+# Configuration for HTTP tracing
+# If enabled is true but no zipkin-url is provided, spans will be logged
 http-tracing:
     enabled: false
-    zipkin-url: "http://localhost:9411/api/v2/spans"
+    # zipkin-url: "http://localhost:9411/api/v2/spans"
 
 # Enable JMX Prometheus Metrics
 jmx-metrics:
