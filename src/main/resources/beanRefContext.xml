@@ -61,6 +61,17 @@
   <alias name="${omero.pixeldata.pixels_service:ZarrPixelsService}" alias="/OMERO/Pixels"/>
 
   <bean id="iscale" class="ome.logic.JavaImageScalingService"/>
+  
+  <bean id="rendering-queue" class="java.util.concurrent.LinkedBlockingQueue"/>
+  
+  <bean id="rendering-thread-pool"
+        class="java.util.concurrent.ThreadPoolExecutor">
+    <constructor-arg value="${omero.core_pool_size:16}"/>
+    <constructor-arg value="${omero.max_pool_size:16}"/>
+    <constructor-arg value="600"/> <!-- Keep alive time for threads created beyond core thread pool size -->
+    <constructor-arg type="java.util.concurrent.TimeUnit" value="SECONDS"/>
+    <constructor-arg ref="rendering-queue"/>
+  </bean>
 
   <bean id="omero-ms-image-region-verticle"
         class="com.glencoesoftware.omero.ms.image.region.ImageRegionVerticle"
@@ -71,6 +82,7 @@
     <constructor-arg ref="/OMERO/Pixels"/>
     <constructor-arg ref="iscale" />
     <constructor-arg ref="/OMERO/Files"/>
+    <constructor-arg ref="rendering-thread-pool" />
   </bean>
 
   <bean id="omero-ms-shape-mask-verticle"

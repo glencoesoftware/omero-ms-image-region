@@ -24,6 +24,11 @@ import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.junit.Assert;
@@ -53,6 +58,9 @@ public class ImageRegionRequestHandlerTest {
         params.add("m", "c");
         params.add("c", "1|0:255$FF0000,2|0:255$00FF00,3|0:255$FF0000");
 
+        BlockingQueue<Runnable> blockingQueue = new LinkedBlockingQueue<Runnable>();
+        ExecutorService processor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, blockingQueue);
+
         imageRegionCtx = new ImageRegionCtx(params, "");
         reqHandler = new ImageRegionRequestHandler(imageRegionCtx,
                 new ArrayList<Family>(),
@@ -60,7 +68,8 @@ public class ImageRegionRequestHandlerTest {
                 null, //LutProvider lutProvider,
                 null, //LocalCompress compSrv,
                 1024, //maxTileLength,
-                null  //PixelsService
+                null,  //PixelsService
+                processor
         );
     }
 

@@ -29,6 +29,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.lang.IllegalArgumentException;
 import java.lang.Math;
 
@@ -102,6 +110,9 @@ public class ImageRegionRequestHandler {
 
     /** Configured maximum size size in either dimension */
     private final int maxTileLength;
+    
+    /** Rendering ThreadPool ExecutorService*/
+    ExecutorService processor;
 
     /**
      * Default constructor.
@@ -114,7 +125,8 @@ public class ImageRegionRequestHandler {
             LutProvider lutProvider,
             LocalCompress compressionSrv,
             int maxTileLength,
-            ZarrPixelsService pixelsService) {
+            ZarrPixelsService pixelsService,
+            ExecutorService processor) {
         this.compressionSrv = compressionSrv;
         this.lutProvider = lutProvider;
         this.families = families;
@@ -122,6 +134,7 @@ public class ImageRegionRequestHandler {
         this.pixelsService = pixelsService;
         this.imageRegionCtx = imageRegionCtx;
         this.maxTileLength = maxTileLength;
+        this.processor = processor;
         projectionService = new ProjectionService();
     }
 
@@ -516,7 +529,7 @@ public class ImageRegionRequestHandler {
         try (PixelBuffer pixelBuffer = getPixelBuffer(pixels)) {
             renderer = new Renderer(
                 quantumFactory, renderingModels, pixels, renderingDef,
-                pixelBuffer, lutProvider
+                pixelBuffer, lutProvider, processor
             );
             int t = Optional.ofNullable(imageRegionCtx.t)
                     .orElse(renderingDef.getDefaultT());
