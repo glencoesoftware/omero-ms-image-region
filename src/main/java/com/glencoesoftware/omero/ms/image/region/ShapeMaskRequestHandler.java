@@ -21,6 +21,8 @@ package com.glencoesoftware.omero.ms.image.region;
 import com.glencoesoftware.omero.zarr.ZarrPixelBuffer;
 import com.glencoesoftware.omero.zarr.ZarrPixelsService;
 
+import dev.zarr.zarrjava.ZarrException;
+
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
@@ -36,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.net.URISyntaxException;
 
 import javax.imageio.ImageIO;
 
@@ -419,7 +422,8 @@ public class ShapeMaskRequestHandler {
      * @throws ApiUsageException
      */
     private byte[] getShapeMaskBytes(Mask mask)
-            throws ApiUsageException, IOException {
+            throws ApiUsageException, IOException, URISyntaxException,
+            ZarrException {
         String uri = getLabelUri(mask);
         if (uri == null) {
             return mask.getBytes();
