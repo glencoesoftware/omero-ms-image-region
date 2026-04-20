@@ -6,32 +6,51 @@ plugins {
 group = 'com.glencoesoftware.omero'
 version = '0.14.0-SNAPSHOT'
 
-mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
+task memoRegenStartScript(type: CreateStartScripts) {
+    mainClass = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
+    applicationName = "memoregenerator"
+}
 
-sourceCompatibility = 1.11
-targetCompatibility = 1.11
+application {
+  mainClass = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
+  applicationDistribution.into("bin") {
+      duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+      from(memoRegenStartScript)
+  }
+
+  applicationDefaultJvmArgs = [
+      "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory",
+      "-Djava.io.tmpdir=MY_APP_HOME/tmp"
+  ]
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+}
 
 repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        name 'Unidata'
-        url 'https://artifacts.glencoesoftware.com/artifactory/unidata-releases'
+        name = 'Unidata'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/unidata-releases'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/ome.releases'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/ome.external'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/ome.external'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/gs-omero-snapshots-local'
     }
     maven {
-        url 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
+        url = 'https://repo.glencoesoftware.com/repository/bioformats2raw2ometiff/'
     }
     maven {
-        url 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
+        url = 'https://artifacts.glencoesoftware.com/artifactory/scijava-thirdparty'
     }
 }
 
@@ -91,9 +110,16 @@ dependencies {
 jar {
     manifest {
         attributes(
-            "Main-Class": mainClassName,
+            "Main-Class": application.mainClass,
             "Main-Verticle": "com.glencoesoftware.omero.ms.image.region.ImageRegionMicroserviceVerticle",
-            "Implementation-Version": archiveVersion
+            "Created-By": "Gradle ${gradle.gradleVersion}",
+            "Build-Jdk": "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+            "Built-By": System.properties['user.name'],
+            "Built-On": new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date()),
+            "Implementation-Build": "git rev-parse --verify HEAD".execute().getText().trim(),
+            "Implementation-Title": "OMERO Image Region Microservice",
+            "Implementation-Version": archiveVersion,
+            "Implementation-Vendor": "Glencoe Software Inc.",
         )
     }
 }
@@ -118,22 +144,3 @@ startScripts {
     unixScript.text = unixScript.text.replace("MY_APP_HOME", "'\$APP_HOME'")
   }
 }
-
-task memoRegenStartScript(type: CreateStartScripts) {
-    mainClass = "com.glencoesoftware.omero.ms.image.region.MemoRegenerator"
-    classpath = startScripts.classpath
-    outputDir = startScripts.outputDir
-    applicationName = "memoregenerator"
-}
-
-applicationDistribution.into("bin") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(memoRegenStartScript)
-    fileMode = 0755
-}
-
-
-applicationDefaultJvmArgs = [
-    "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory",
-    "-Djava.io.tmpdir=MY_APP_HOME/tmp"
-]
