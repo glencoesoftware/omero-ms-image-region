@@ -20,9 +20,11 @@ package com.glencoesoftware.omero.ms.image.region;
 
 import com.glencoesoftware.omero.zarr.ZarrPixelBuffer;
 import com.glencoesoftware.omero.zarr.ZarrPixelsService;
+import com.glencoesoftware.omero.zarr.ZarrStore;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -87,7 +89,9 @@ import static omero.rtypes.rtime;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import com.bc.zarr.ZarrGroup;
+import dev.zarr.zarrjava.v2.Group;
+import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.ZarrException;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.glencoesoftware.bioformats2raw.Converter;
 
@@ -401,13 +405,14 @@ public class ImageDataRequestHandlerTest {
         return rdef;
     }
 
-    public void createPixelBuffer() throws IOException, ApiUsageException {
+    public void createPixelBuffer() throws IOException, ApiUsageException,
+            URISyntaxException, ZarrException {
         Path output = writeTestZarr(
                 PIXELS_SIZE_T, PIXELS_SIZE_C, PIXELS_SIZE_Z,
                 PIXELS_SIZE_Y, PIXELS_SIZE_X, PIX_TYPE_STR, RES_LVL_COUNT);
         pixelBuffer = new ZarrPixelBuffer((ome.model.core.Pixels)
                 new IceMapper().reverse(image.getPrimaryPixels()),
-                output.resolve("0"), 1024, 1024,
+                new ZarrStore(output.resolve("0").toString()), 1024, 1024,
                 Caffeine.newBuilder()
                     .maximumSize(0)
                     .buildAsync(ZarrPixelsService::getZarrMetadata),
@@ -417,7 +422,8 @@ public class ImageDataRequestHandlerTest {
     }
 
     @Before
-    public void setup() throws IOException, ApiUsageException {
+    public void setup() throws IOException, ApiUsageException,
+            URISyntaxException, ZarrException {
         setupStdJson();
 
         Event creationEvent = new EventI();
@@ -663,7 +669,7 @@ public class ImageDataRequestHandlerTest {
             int sizeY,
             int sizeX,
             String pixelType,
-            int resolutions) throws IOException {
+            int resolutions) throws IOException, ZarrException {
         Path input = fake(
                 "sizeT", Integer.toString(sizeT),
                 "sizeC", Integer.toString(sizeC),
@@ -674,19 +680,6 @@ public class ImageDataRequestHandlerTest {
                 "resolutions", Integer.toString(resolutions));
         Path output = tmpDir.getRoot().toPath().resolve("output.zarr");
         assertBioFormats2Raw(input, output);
-        List<Object> msArray = new ArrayList<>();
-        Map<String, Object> msData = new HashMap<>();
-        Map<String, Object> msMetadata = new HashMap<>();
-        msMetadata.put("method", "loci.common.image.SimpleImageScaler");
-        msMetadata.put("version", "Bio-Formats 6.5.1");
-        msData.put("metadata", msMetadata);
-        msData.put("datasets", getDatasets(resolutions));
-        msData.put("version", "0.1");
-        msArray.add(msData);
-        ZarrGroup z = ZarrGroup.open(output.resolve("0"));
-        Map<String,Object> attrs = new HashMap<String, Object>();
-        attrs.put("multiscales", msArray);
-        z.writeAttributes(attrs);
         return output;
     }
 
@@ -997,7 +990,7 @@ public class ImageDataRequestHandlerTest {
 
     @Test
     public void testImageDataPixelRange()
-            throws IOException, ApiUsageException {
+            throws IOException, ApiUsageException, URISyntaxException, ZarrException {
         ImageDataCtx ctx = new ImageDataCtx();
         ctx.imageId = IMAGE_ID;
         ImageDataRequestHandler reqHandler = new ImageDataRequestHandler(
