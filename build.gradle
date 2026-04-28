@@ -11,6 +11,11 @@ mainClassName = 'com.glencoesoftware.omero.ms.image.region.OmeroVertxLauncher'
 sourceCompatibility = 1.11
 targetCompatibility = 1.11
 
+ext {
+    jacksonVersion = '2.20.0'
+    zarrJavaVersion = '0.1.1'
+}
+
 repositories {
     mavenCentral()
     mavenLocal()
@@ -61,13 +66,14 @@ dependencies {
     implementation 'io.zipkin.reporter2:zipkin-sender-okhttp3:2.10.0'
     implementation 'ch.qos.logback:logback-classic:1.3.15'
     implementation 'org.slf4j:log4j-over-slf4j:1.7.32'
-    implementation 'com.glencoesoftware.omero:omero-zarr-pixel-buffer:0.6.1'
+    implementation "dev.zarr:zarr-java:${zarrJavaVersion}"
+    implementation 'com.glencoesoftware.omero:omero-zarr-pixel-buffer:0.6.2-SNAPSHOT'
     implementation 'com.glencoesoftware.omero:omero-ms-core:0.11.0'
     implementation 'io.vertx:vertx-web:4.5.16'
     implementation 'io.vertx:vertx-config:4.5.16'
     implementation 'io.vertx:vertx-config-yaml:4.5.16'
     implementation 'io.vertx:vertx-micrometer-metrics:4.5.16'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
     implementation 'io.micrometer:micrometer-registry-prometheus:1.3.0'
     implementation 'org.openmicroscopy:omero-blitz:5.8.4'
     implementation 'io.prometheus.jmx:collector:0.12.0'
@@ -77,9 +83,6 @@ dependencies {
     implementation 'com.zeroc:icegrid:3.6.5'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
-    implementation 'dev.zarr:jzarr:0.4.2'
-    implementation 'org.lasersonlab:s3fs:2.2.3'
-    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.659'
     implementation 'org.apache.tika:tika-core:1.28.5'
 
     testImplementation("junit:junit:4.12")
